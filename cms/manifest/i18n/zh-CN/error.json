@@ -1,0 +1,56 @@
+{
+  "error": {
+    "cms": {
+      "article": {
+        "not": {
+          "found": "CMS 内容不存在"
+        },
+        "slug": {
+          "exists": "CMS 内容访问别名已存在"
+        }
+      },
+      "category": {
+        "code": {
+          "exists": "CMS 栏目编码已存在"
+        },
+        "has": {
+          "articles": "栏目下存在内容，不能删除",
+          "children": "栏目下存在子栏目，不能删除"
+        },
+        "not": {
+          "found": "CMS 栏目不存在"
+        },
+        "parent": {
+          "invalid": "上级栏目不能选择当前栏目或其子栏目"
+        }
+      },
+      "link": {
+        "not": {
+          "found": "CMS 友情链接不存在"
+        }
+      },
+      "message": {
+        "not": {
+          "found": "CMS 留言不存在"
+        }
+      },
+      "public": {
+        "content": {
+          "not": {
+            "found": "公开内容不存在"
+          }
+        }
+      },
+      "site": {
+        "not": {
+          "found": "CMS 站点配置不存在"
+        }
+      },
+      "slide": {
+        "not": {
+          "found": "CMS 轮播图不存在"
+        }
+      }
+    }
+  }
+}

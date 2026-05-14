@@ -1,0 +1,31 @@
+{include file=comm/head.html}
+<link rel="stylesheet" href="{site:assets}/css/yx-page.css">
+<div class="container" data-testid="cms-public-site" data-template="detail">
+  <div class="breadcrumb">
+    {page:breadcrumb separator='<span class="sep">&gt;</span>'}
+  </div>
+  <div class="page-content">
+    {include file=comm/categorynav.html}
+    <div class="content-area">
+      <div class="article-detail" data-testid="cms-public-article-detail">
+        <div class="article-detail-header">
+          <h1>{article:title}</h1>
+          <div class="article-meta">
+            <span>发布时间：{article:date style=Y-m-d}</span>
+            <span>来源：{site:name}</span>
+            <span>浏览：{article:views}次</span>
+          </div>
+        </div>
+        <div class="article-body">
+          {article:content}
+        </div>
+        <div class="article-nav">
+          <div>上一篇：{article:previous}</div>
+          <div>下一篇：{article:next}</div>
+        </div>
+      </div>
+      <a href="{category:link}" class="back-to-list">返回列表</a>
+    </div>
+  </div>
+</div>
+{include file=comm/foot.html}

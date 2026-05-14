@@ -1,0 +1,64 @@
+{
+  "menu": {
+    "plugin:cms:article:add": {
+      "title": "Create Article"
+    },
+    "plugin:cms:article:edit": {
+      "title": "Update Article"
+    },
+    "plugin:cms:article:query": {
+      "title": "Query Articles"
+    },
+    "plugin:cms:article:remove": {
+      "title": "Delete Article"
+    },
+    "plugin:cms:category:add": {
+      "title": "Create Category"
+    },
+    "plugin:cms:category:edit": {
+      "title": "Update Category"
+    },
+    "plugin:cms:category:query": {
+      "title": "Query Categories"
+    },
+    "plugin:cms:category:remove": {
+      "title": "Delete Category"
+    },
+    "plugin:cms:link:add": {
+      "title": "Create Friendly Link"
+    },
+    "plugin:cms:link:edit": {
+      "title": "Update Friendly Link"
+    },
+    "plugin:cms:link:query": {
+      "title": "Query Friendly Links"
+    },
+    "plugin:cms:link:remove": {
+      "title": "Delete Friendly Link"
+    },
+    "plugin:cms:message:edit": {
+      "title": "Moderate Message"
+    },
+    "plugin:cms:message:query": {
+      "title": "Query Messages"
+    },
+    "plugin:cms:site:edit": {
+      "title": "Update Site"
+    },
+    "plugin:cms:slide:add": {
+      "title": "Create Slide"
+    },
+    "plugin:cms:slide:edit": {
+      "title": "Update Slide"
+    },
+    "plugin:cms:slide:query": {
+      "title": "Query Slides"
+    },
+    "plugin:cms:slide:remove": {
+      "title": "Delete Slide"
+    },
+    "plugin:cms:workspace": {
+      "title": "CMS"
+    }
+  }
+}

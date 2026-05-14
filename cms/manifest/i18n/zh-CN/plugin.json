@@ -1,0 +1,162 @@
+{
+  "plugin": {
+    "cms": {
+      "actions": {
+        "approve": "通过",
+        "newArticle": "新建内容",
+        "newCategory": "新建栏目",
+        "query": "查询",
+        "refresh": "刷新",
+        "reject": "拒绝",
+        "reset": "重置",
+        "review": "处理",
+        "save": "保存",
+        "newLink": "新建友情链接",
+        "newSlide": "新建轮播图"
+      },
+      "description": "提供站点配置、栏目、内容、留言和公开内容接口的官方源码 CMS 插件",
+      "dialogs": {
+        "createArticle": "新增内容",
+        "createCategory": "新增栏目",
+        "editArticle": "编辑内容",
+        "editCategory": "编辑栏目",
+        "reviewMessage": "处理留言",
+        "createLink": "新增友情链接",
+        "createSlide": "新增轮播图",
+        "editLink": "编辑友情链接",
+        "editSlide": "编辑轮播图"
+      },
+      "empty": {
+        "articles": "暂无内容",
+        "categories": "暂无栏目",
+        "messages": "暂无留言",
+        "links": "暂无友情链接",
+        "slides": "暂无轮播图"
+      },
+      "editor": {
+        "actions": {
+          "applySource": "应用 HTML"
+        },
+        "messages": {
+          "imageUploadFailed": "图片上传失败"
+        },
+        "modes": {
+          "source": "HTML 源码",
+          "visual": "可视化"
+        },
+        "placeholder": "请输入内容...",
+        "source": {
+          "placeholder": "在这里粘贴或编辑原始 HTML，右侧会按同一内容预览。"
+        }
+      },
+      "contentModels": {
+        "list": "新闻内容",
+        "single": "专题内容"
+      },
+      "fields": {
+        "address": "地址",
+        "articleTitle": "内容标题",
+        "author": "作者",
+        "categoryCode": "栏目编码",
+        "categoryName": "栏目",
+        "categoryType": "栏目类型",
+        "contentTemplate": "内容页模板",
+        "contact": "联系人",
+        "content": "正文",
+        "cover": "封面图",
+        "description": "描述",
+        "domain": "域名",
+        "icp": "备案号",
+        "keywords": "关键词",
+        "listTemplate": "列表页模板",
+        "logo": "站点标识",
+        "messageContent": "留言内容",
+        "outlink": "外链地址",
+        "parentCategory": "上级栏目",
+        "path": "访问路径",
+        "phone": "电话",
+        "recommend": "推荐",
+        "reply": "回复内容",
+        "siteName": "站点名称",
+        "slogan": "站点标语",
+        "slug": "访问别名",
+        "source": "来源",
+        "subtitle": "副标题",
+        "summary": "摘要",
+        "tags": "标签",
+        "top": "置顶",
+        "views": "浏览量",
+        "weixin": "微信二维码",
+        "visitorName": "访客",
+        "groupCode": "分组编码",
+        "linkLogo": "链接标识",
+        "linkName": "链接名称",
+        "linkUrl": "链接地址",
+        "slideImage": "轮播图片",
+        "slideLink": "跳转链接",
+        "slideTitle": "轮播标题"
+      },
+      "metrics": {
+        "articleGlyph": "文",
+        "articleSummary": "已发布 {published} 篇，草稿 {draft} 篇",
+        "articles": "内容总数",
+        "categories": "栏目总数",
+        "categoryGlyph": "栏",
+        "categorySummary": "启用 {enabled} 个，共 {total} 个栏目",
+        "draftArticles": "{count} 篇草稿",
+        "enabledCategories": "{count} 个启用栏目",
+        "messageGlyph": "留",
+        "messageSummary": "待处理 {pending} 条，共 {total} 条留言",
+        "pendingMessages": "待处理留言",
+        "published": "已发布内容",
+        "publishedGlyph": "发"
+      },
+      "messages": {
+        "moderateConfirm": "确认更新该留言的审核状态？"
+      },
+      "name": "内容管理-CMS",
+      "overview": {
+        "kicker": "内容运营"
+      },
+      "placeholders": {
+        "articleTitle": "搜索内容标题",
+        "category": "选择栏目",
+        "messageKeyword": "搜索访客或留言内容",
+        "rootCategory": "根栏目",
+        "status": "选择状态",
+        "groupCode": "输入分组编码",
+        "linkKeyword": "搜索链接名称或地址",
+        "slideKeyword": "搜索轮播标题或副标题"
+      },
+      "sections": {
+        "categoryTree": "栏目结构",
+        "contact": "联系与备案",
+        "contactSubtitle": "维护页脚、联系入口和备案展示信息",
+        "contentLibrary": "内容库",
+        "contentModules": "文章内容",
+        "contentModulesSubtitle": "按内容模型或栏目组切换。",
+        "messageInbox": "留言审核",
+        "siteProfile": "站点资料",
+        "siteProfileSubtitle": "维护站点在公开接口中展示的基础信息和搜索优化元数据",
+        "linkManager": "友情链接管理",
+        "linkManagerSubtitle": "维护页脚分组链接和公开友情链接数据。",
+        "slideManager": "轮播图管理",
+        "slideManagerSubtitle": "维护首页轮播图片、文案、跳转链接与显示顺序。"
+      },
+      "tabs": {
+        "articles": "内容",
+        "categories": "栏目",
+        "messages": "留言",
+        "site": "站点",
+        "links": "友情链接",
+        "slides": "轮播图"
+      },
+      "templates": {
+        "detail": "文章详情（detail.html）",
+        "list": "标准列表（list.html）",
+        "listCard": "卡片列表（list-card.html）",
+        "single": "单页内容（single.html）"
+      }
+    }
+  }
+}

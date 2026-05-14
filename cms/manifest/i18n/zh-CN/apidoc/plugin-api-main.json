@@ -1,0 +1,1207 @@
+{
+  "plugins": {
+    "cms": {
+      "api": {
+        "cms": {
+          "v1": {
+            "ArticleCreateReq": {
+              "fields": {
+                "author": {
+                  "dc": "作者名称"
+                },
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "content": {
+                  "dc": "内容正文 HTML"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "isRecommend": {
+                  "dc": "推荐标识：0=否，1=是"
+                },
+                "isTop": {
+                  "dc": "置顶标识：0=否，1=是"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "slug": {
+                  "dc": "公开访问别名"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "source": {
+                  "dc": "内容来源"
+                },
+                "status": {
+                  "dc": "状态：0=草稿，1=已发布"
+                },
+                "subtitle": {
+                  "dc": "内容副标题"
+                },
+                "summary": {
+                  "dc": "内容摘要"
+                },
+                "tags": {
+                  "dc": "逗号分隔的标签名称"
+                },
+                "title": {
+                  "dc": "内容标题"
+                }
+              },
+              "meta": {
+                "dc": "创建草稿或已发布的 CMS 内容。",
+                "summary": "创建 CMS 内容",
+                "tags": "CMS 内容"
+              },
+              "schema": {
+                "dc": "创建草稿或已发布的 CMS 内容。"
+              }
+            },
+            "ArticleCreateRes": {
+              "fields": {
+                "id": {
+                  "dc": "内容 ID"
+                }
+              }
+            },
+            "ArticleDeleteReq": {
+              "fields": {
+                "id": {
+                  "dc": "内容 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 删除一条 CMS 内容。",
+                "summary": "删除 CMS 内容",
+                "tags": "CMS 内容"
+              },
+              "schema": {
+                "dc": "根据 ID 删除一条 CMS 内容。"
+              }
+            },
+            "ArticleGetReq": {
+              "fields": {
+                "id": {
+                  "dc": "内容 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 获取 CMS 内容详情。",
+                "summary": "获取 CMS 内容详情",
+                "tags": "CMS 内容"
+              },
+              "schema": {
+                "dc": "根据 ID 获取 CMS 内容详情。"
+              }
+            },
+            "ArticleItem": {
+              "fields": {
+                "author": {
+                  "dc": "作者名称"
+                },
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "categoryName": {
+                  "dc": "栏目名称"
+                },
+                "content": {
+                  "dc": "内容正文 HTML"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "createdAt": {
+                  "dc": "创建时间"
+                },
+                "createdBy": {
+                  "dc": "创建者用户 ID"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "id": {
+                  "dc": "内容 ID"
+                },
+                "isRecommend": {
+                  "dc": "推荐标识：0=否，1=是"
+                },
+                "isTop": {
+                  "dc": "置顶标识：0=否，1=是"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "publishedAt": {
+                  "dc": "发布时间"
+                },
+                "slug": {
+                  "dc": "公开访问别名"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "source": {
+                  "dc": "内容来源"
+                },
+                "status": {
+                  "dc": "状态：0=草稿，1=已发布"
+                },
+                "subtitle": {
+                  "dc": "内容副标题"
+                },
+                "summary": {
+                  "dc": "内容摘要"
+                },
+                "tags": {
+                  "dc": "逗号分隔的标签名称"
+                },
+                "title": {
+                  "dc": "内容标题"
+                },
+                "updatedAt": {
+                  "dc": "更新时间"
+                },
+                "updatedBy": {
+                  "dc": "更新者用户 ID"
+                },
+                "views": {
+                  "dc": "浏览量"
+                }
+              }
+            },
+            "ArticleListReq": {
+              "fields": {
+                "categoryId": {
+                  "dc": "按栏目 ID 过滤"
+                },
+                "categoryType": {
+                  "dc": "按栏目类型过滤：1=列表栏目，2=单页栏目，3=外链栏目"
+                },
+                "includeChildren": {
+                  "dc": "按栏目过滤时包含子栏目"
+                },
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量"
+                },
+                "status": {
+                  "dc": "按状态过滤：0=草稿，1=已发布"
+                },
+                "title": {
+                  "dc": "按内容标题过滤"
+                }
+              },
+              "meta": {
+                "dc": "按分页与条件查询 CMS 内容。",
+                "summary": "获取 CMS 内容列表",
+                "tags": "CMS 内容"
+              },
+              "schema": {
+                "dc": "按分页与条件查询 CMS 内容。"
+              }
+            },
+            "ArticleListRes": {
+              "fields": {
+                "list": {
+                  "dc": "内容列表"
+                },
+                "total": {
+                  "dc": "内容总数"
+                }
+              }
+            },
+            "ArticleUpdateReq": {
+              "fields": {
+                "author": {
+                  "dc": "作者名称"
+                },
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "content": {
+                  "dc": "内容正文 HTML"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "id": {
+                  "dc": "内容 ID"
+                },
+                "isRecommend": {
+                  "dc": "推荐标识：0=否，1=是"
+                },
+                "isTop": {
+                  "dc": "置顶标识：0=否，1=是"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "slug": {
+                  "dc": "公开访问别名"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "source": {
+                  "dc": "内容来源"
+                },
+                "status": {
+                  "dc": "状态：0=草稿，1=已发布"
+                },
+                "subtitle": {
+                  "dc": "内容副标题"
+                },
+                "summary": {
+                  "dc": "内容摘要"
+                },
+                "tags": {
+                  "dc": "逗号分隔的标签名称"
+                },
+                "title": {
+                  "dc": "内容标题"
+                }
+              },
+              "meta": {
+                "dc": "更新一条 CMS 内容。",
+                "summary": "更新 CMS 内容",
+                "tags": "CMS 内容"
+              },
+              "schema": {
+                "dc": "更新一条 CMS 内容。"
+              }
+            },
+            "CategoryCreateReq": {
+              "fields": {
+                "code": {
+                  "dc": "稳定栏目编码"
+                },
+                "cover": {
+                  "dc": "栏目封面图片 URL"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "name": {
+                  "dc": "栏目名称"
+                },
+                "outlink": {
+                  "dc": "外链 URL"
+                },
+                "parentId": {
+                  "dc": "上级栏目 ID"
+                },
+                "path": {
+                  "dc": "公开栏目路径"
+                },
+                "listTemplate": {
+                  "dc": "公开列表模板文件"
+                },
+                "contentTemplate": {
+                  "dc": "公开内容/详情模板文件"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "title": {
+                  "dc": "搜索优化标题"
+                },
+                "type": {
+                  "dc": "栏目类型：1=列表，2=单页，3=外链"
+                }
+              },
+              "meta": {
+                "dc": "创建一个 CMS 栏目。",
+                "summary": "创建 CMS 栏目",
+                "tags": "CMS 栏目"
+              },
+              "schema": {
+                "dc": "创建一个 CMS 栏目。"
+              }
+            },
+            "CategoryCreateRes": {
+              "fields": {
+                "id": {
+                  "dc": "栏目 ID"
+                }
+              }
+            },
+            "CategoryDeleteReq": {
+              "fields": {
+                "id": {
+                  "dc": "栏目 ID"
+                }
+              },
+              "meta": {
+                "dc": "当栏目没有子栏目和内容时删除该栏目。",
+                "summary": "删除 CMS 栏目",
+                "tags": "CMS 栏目"
+              },
+              "schema": {
+                "dc": "当栏目没有子栏目和内容时删除该栏目。"
+              }
+            },
+            "CategoryItem": {
+              "fields": {
+                "children": {
+                  "dc": "子栏目节点"
+                },
+                "code": {
+                  "dc": "稳定栏目编码"
+                },
+                "cover": {
+                  "dc": "栏目封面图片 URL"
+                },
+                "createdAt": {
+                  "dc": "创建时间"
+                },
+                "createdBy": {
+                  "dc": "创建者用户 ID"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "id": {
+                  "dc": "栏目 ID"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "name": {
+                  "dc": "栏目名称"
+                },
+                "outlink": {
+                  "dc": "外链 URL"
+                },
+                "parentId": {
+                  "dc": "上级栏目 ID"
+                },
+                "path": {
+                  "dc": "公开栏目路径"
+                },
+                "listTemplate": {
+                  "dc": "公开列表模板文件"
+                },
+                "contentTemplate": {
+                  "dc": "公开内容/详情模板文件"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "title": {
+                  "dc": "搜索优化标题"
+                },
+                "type": {
+                  "dc": "栏目类型：1=列表，2=单页，3=外链"
+                },
+                "updatedAt": {
+                  "dc": "更新时间"
+                },
+                "updatedBy": {
+                  "dc": "更新者用户 ID"
+                }
+              }
+            },
+            "CategoryListReq": {
+              "fields": {
+                "status": {
+                  "dc": "按状态过滤：0=停用，1=启用"
+                }
+              },
+              "meta": {
+                "dc": "获取后台管理使用的 CMS 栏目树。",
+                "summary": "获取 CMS 栏目树",
+                "tags": "CMS 栏目"
+              },
+              "schema": {
+                "dc": "获取后台管理使用的 CMS 栏目树。"
+              }
+            },
+            "CategoryListRes": {
+              "fields": {
+                "list": {
+                  "dc": "栏目树"
+                }
+              }
+            },
+            "CategoryUpdateReq": {
+              "fields": {
+                "code": {
+                  "dc": "稳定栏目编码"
+                },
+                "cover": {
+                  "dc": "栏目封面图片 URL"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "id": {
+                  "dc": "栏目 ID"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "name": {
+                  "dc": "栏目名称"
+                },
+                "outlink": {
+                  "dc": "外链 URL"
+                },
+                "parentId": {
+                  "dc": "上级栏目 ID"
+                },
+                "path": {
+                  "dc": "公开栏目路径"
+                },
+                "listTemplate": {
+                  "dc": "公开列表模板文件"
+                },
+                "contentTemplate": {
+                  "dc": "公开内容/详情模板文件"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "title": {
+                  "dc": "搜索优化标题"
+                },
+                "type": {
+                  "dc": "栏目类型：1=列表，2=单页，3=外链"
+                }
+              },
+              "meta": {
+                "dc": "更新一个 CMS 栏目。",
+                "summary": "更新 CMS 栏目",
+                "tags": "CMS 栏目"
+              },
+              "schema": {
+                "dc": "更新一个 CMS 栏目。"
+              }
+            },
+            "LinkCreateReq": {
+              "fields": {
+                "groupCode": {
+                  "dc": "分组编码"
+                },
+                "logo": {
+                  "dc": "标识图片地址"
+                },
+                "name": {
+                  "dc": "友情链接名称"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "url": {
+                  "dc": "友情链接 URL"
+                }
+              },
+              "meta": {
+                "dc": "新增一条 CMS 友情链接。",
+                "summary": "新增 CMS 友情链接",
+                "tags": "CMS 友情链接"
+              },
+              "schema": {
+                "dc": "新增一条 CMS 友情链接。"
+              }
+            },
+            "LinkCreateRes": {
+              "fields": {
+                "id": {
+                  "dc": "友情链接 ID"
+                }
+              }
+            },
+            "LinkDeleteReq": {
+              "fields": {
+                "id": {
+                  "dc": "友情链接 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 删除一条 CMS 友情链接。",
+                "summary": "删除 CMS 友情链接",
+                "tags": "CMS 友情链接"
+              },
+              "schema": {
+                "dc": "根据 ID 删除一条 CMS 友情链接。"
+              }
+            },
+            "LinkItem": {
+              "fields": {
+                "id": {
+                  "dc": "链接 ID"
+                },
+                "logo": {
+                  "dc": "标识图片地址"
+                },
+                "name": {
+                  "dc": "链接名称"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "url": {
+                  "dc": "链接 URL"
+                },
+                "groupCode": {
+                  "dc": "分组编码"
+                },
+                "createdBy": {
+                  "dc": "创建者用户 ID"
+                },
+                "updatedBy": {
+                  "dc": "更新者用户 ID"
+                },
+                "createdAt": {
+                  "dc": "创建时间"
+                },
+                "updatedAt": {
+                  "dc": "更新时间"
+                }
+              }
+            },
+            "LinkListReq": {
+              "fields": {
+                "groupCode": {
+                  "dc": "按分组编码过滤"
+                },
+                "keyword": {
+                  "dc": "按友情链接名称或 URL 过滤"
+                },
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                }
+              },
+              "meta": {
+                "dc": "分页查询 CMS 友情链接。",
+                "summary": "获取 CMS 友情链接列表",
+                "tags": "CMS 友情链接"
+              },
+              "schema": {
+                "dc": "分页查询 CMS 友情链接。"
+              }
+            },
+            "LinkListRes": {
+              "fields": {
+                "list": {
+                  "dc": "友情链接列表"
+                },
+                "total": {
+                  "dc": "友情链接总数"
+                }
+              }
+            },
+            "LinkUpdateReq": {
+              "fields": {
+                "groupCode": {
+                  "dc": "分组编码"
+                },
+                "id": {
+                  "dc": "友情链接 ID"
+                },
+                "logo": {
+                  "dc": "标识图片地址"
+                },
+                "name": {
+                  "dc": "友情链接名称"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "url": {
+                  "dc": "友情链接 URL"
+                }
+              },
+              "meta": {
+                "dc": "更新一条 CMS 友情链接。",
+                "summary": "更新 CMS 友情链接",
+                "tags": "CMS 友情链接"
+              },
+              "schema": {
+                "dc": "更新一条 CMS 友情链接。"
+              }
+            },
+            "MessageDeleteReq": {
+              "fields": {
+                "id": {
+                  "dc": "留言 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 删除一条访客留言。",
+                "summary": "删除访客留言",
+                "tags": "CMS 留言"
+              },
+              "schema": {
+                "dc": "根据 ID 删除一条访客留言。"
+              }
+            },
+            "MessageItem": {
+              "fields": {
+                "content": {
+                  "dc": "留言内容"
+                },
+                "createdAt": {
+                  "dc": "创建时间"
+                },
+                "createdBy": {
+                  "dc": "创建者用户 ID"
+                },
+                "email": {
+                  "dc": "访客邮箱"
+                },
+                "id": {
+                  "dc": "留言 ID"
+                },
+                "mobile": {
+                  "dc": "访客手机号"
+                },
+                "name": {
+                  "dc": "访客名称"
+                },
+                "reply": {
+                  "dc": "回复内容"
+                },
+                "status": {
+                  "dc": "状态：0=待处理，1=已通过，2=已拒绝"
+                },
+                "updatedAt": {
+                  "dc": "更新时间"
+                },
+                "updatedBy": {
+                  "dc": "更新者用户 ID"
+                },
+                "userAgent": {
+                  "dc": "访客 User-Agent"
+                },
+                "userIp": {
+                  "dc": "访客 IP"
+                }
+              }
+            },
+            "MessageListReq": {
+              "fields": {
+                "keyword": {
+                  "dc": "按访客名称、邮箱、手机号或内容过滤"
+                },
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量"
+                },
+                "status": {
+                  "dc": "按状态过滤：0=待处理，1=已通过，2=已拒绝"
+                }
+              },
+              "meta": {
+                "dc": "分页查询 CMS 访客留言。",
+                "summary": "获取访客留言列表",
+                "tags": "CMS 留言"
+              },
+              "schema": {
+                "dc": "分页查询 CMS 访客留言。"
+              }
+            },
+            "MessageListRes": {
+              "fields": {
+                "list": {
+                  "dc": "访客留言列表"
+                },
+                "total": {
+                  "dc": "留言总数"
+                }
+              }
+            },
+            "MessageUpdateReq": {
+              "fields": {
+                "id": {
+                  "dc": "留言 ID"
+                },
+                "reply": {
+                  "dc": "回复内容"
+                },
+                "status": {
+                  "dc": "状态：0=待处理，1=已通过，2=已拒绝"
+                }
+              },
+              "meta": {
+                "dc": "更新访客留言状态和回复。",
+                "summary": "更新访客留言审核状态",
+                "tags": "CMS 留言"
+              },
+              "schema": {
+                "dc": "更新访客留言状态和回复。"
+              }
+            },
+            "PublicArticleGetReq": {
+              "fields": {
+                "slug": {
+                  "dc": "公开访问别名"
+                }
+              },
+              "meta": {
+                "dc": "无需后台认证，根据访问别名获取一条已发布 CMS 内容。",
+                "summary": "获取公开 CMS 内容详情",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "无需后台认证，根据访问别名获取一条已发布 CMS 内容。"
+              }
+            },
+            "PublicArticleListReq": {
+              "fields": {
+                "categoryId": {
+                  "dc": "按栏目 ID 过滤"
+                },
+                "keyword": {
+                  "dc": "按标题、副标题、摘要、正文、标签、SEO 关键词或 SEO 描述过滤"
+                },
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量"
+                }
+              },
+              "meta": {
+                "dc": "无需后台认证获取已发布的 CMS 内容。",
+                "summary": "获取公开 CMS 内容",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "无需后台认证获取已发布的 CMS 内容。"
+              }
+            },
+            "PublicArticleListRes": {
+              "fields": {
+                "list": {
+                  "dc": "已发布内容列表"
+                },
+                "total": {
+                  "dc": "已发布内容总数"
+                }
+              }
+            },
+            "PublicCategoryListReq": {
+              "meta": {
+                "dc": "无需后台认证获取已启用的 CMS 栏目树。",
+                "summary": "获取公开 CMS 栏目",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "无需后台认证获取已启用的 CMS 栏目树。"
+              }
+            },
+            "PublicCategoryListRes": {
+              "fields": {
+                "list": {
+                  "dc": "已启用栏目树"
+                }
+              }
+            },
+            "PublicLinkListReq": {
+              "meta": {
+                "dc": "无需后台认证获取已启用的友情链接。",
+                "summary": "获取公开 CMS 友情链接",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "无需后台认证获取已启用的友情链接。"
+              }
+            },
+            "PublicLinkListRes": {
+              "fields": {
+                "list": {
+                  "dc": "已启用友情链接"
+                }
+              }
+            },
+            "PublicMessageCreateReq": {
+              "fields": {
+                "content": {
+                  "dc": "留言内容"
+                },
+                "email": {
+                  "dc": "访客邮箱"
+                },
+                "mobile": {
+                  "dc": "访客手机号"
+                },
+                "name": {
+                  "dc": "访客名称"
+                }
+              },
+              "meta": {
+                "dc": "无需后台认证提交公开访客留言。",
+                "summary": "提交公开 CMS 访客留言",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "无需后台认证提交公开访客留言。"
+              }
+            },
+            "PublicMessageCreateRes": {
+              "fields": {
+                "id": {
+                  "dc": "留言 ID"
+                }
+              }
+            },
+            "PublicSiteReq": {
+              "meta": {
+                "dc": "无需后台认证获取公开 CMS 站点配置。",
+                "summary": "获取公开 CMS 站点配置",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "无需后台认证获取公开 CMS 站点配置。"
+              }
+            },
+            "PublicSlideListReq": {
+              "meta": {
+                "dc": "无需后台认证获取已启用的轮播图。",
+                "summary": "获取公开 CMS 轮播图",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "无需后台认证获取已启用的轮播图。"
+              }
+            },
+            "PublicSlideListRes": {
+              "fields": {
+                "list": {
+                  "dc": "已启用轮播图"
+                }
+              }
+            },
+            "SiteGetReq": {
+              "meta": {
+                "dc": "获取可编辑的 CMS 站点配置。",
+                "summary": "获取 CMS 站点配置",
+                "tags": "CMS 站点"
+              },
+              "schema": {
+                "dc": "获取可编辑的 CMS 站点配置。"
+              }
+            },
+            "SiteItem": {
+              "fields": {
+                "address": {
+                  "dc": "联系地址"
+                },
+                "contact": {
+                  "dc": "联系人"
+                },
+                "createdAt": {
+                  "dc": "创建时间"
+                },
+                "createdBy": {
+                  "dc": "创建者用户 ID"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "domain": {
+                  "dc": "主站域名"
+                },
+                "email": {
+                  "dc": "联系邮箱"
+                },
+                "icp": {
+                  "dc": "备案号"
+                },
+                "id": {
+                  "dc": "站点 ID"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "logo": {
+                  "dc": "站点标识地址"
+                },
+                "name": {
+                  "dc": "站点名称"
+                },
+                "phone": {
+                  "dc": "联系电话"
+                },
+                "siteKey": {
+                  "dc": "稳定站点键"
+                },
+                "slogan": {
+                  "dc": "站点标语"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "updatedAt": {
+                  "dc": "更新时间"
+                },
+                "updatedBy": {
+                  "dc": "更新者用户 ID"
+                }
+              }
+            },
+            "SiteUpdateReq": {
+              "fields": {
+                "address": {
+                  "dc": "联系地址"
+                },
+                "contact": {
+                  "dc": "联系人"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "domain": {
+                  "dc": "主站域名"
+                },
+                "email": {
+                  "dc": "联系邮箱"
+                },
+                "icp": {
+                  "dc": "备案号"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "logo": {
+                  "dc": "站点标识地址"
+                },
+                "name": {
+                  "dc": "站点名称"
+                },
+                "phone": {
+                  "dc": "联系电话"
+                },
+                "slogan": {
+                  "dc": "站点标语"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                }
+              },
+              "meta": {
+                "dc": "更新可编辑的 CMS 站点配置。",
+                "summary": "更新 CMS 站点配置",
+                "tags": "CMS 站点"
+              },
+              "schema": {
+                "dc": "更新可编辑的 CMS 站点配置。"
+              }
+            },
+            "SlideCreateReq": {
+              "fields": {
+                "groupCode": {
+                  "dc": "分组编码"
+                },
+                "image": {
+                  "dc": "轮播图图片 URL"
+                },
+                "link": {
+                  "dc": "点击目标 URL"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "subtitle": {
+                  "dc": "轮播图副标题"
+                },
+                "title": {
+                  "dc": "轮播图标题"
+                }
+              },
+              "meta": {
+                "dc": "新增一张 CMS 轮播图。",
+                "summary": "新增 CMS 轮播图",
+                "tags": "CMS 轮播图"
+              },
+              "schema": {
+                "dc": "新增一张 CMS 轮播图。"
+              }
+            },
+            "SlideCreateRes": {
+              "fields": {
+                "id": {
+                  "dc": "轮播图 ID"
+                }
+              }
+            },
+            "SlideDeleteReq": {
+              "fields": {
+                "id": {
+                  "dc": "轮播图 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 删除一张 CMS 轮播图。",
+                "summary": "删除 CMS 轮播图",
+                "tags": "CMS 轮播图"
+              },
+              "schema": {
+                "dc": "根据 ID 删除一张 CMS 轮播图。"
+              }
+            },
+            "SlideItem": {
+              "fields": {
+                "id": {
+                  "dc": "轮播图 ID"
+                },
+                "image": {
+                  "dc": "轮播图图片 URL"
+                },
+                "link": {
+                  "dc": "点击目标 URL"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "title": {
+                  "dc": "轮播图标题"
+                },
+                "groupCode": {
+                  "dc": "分组编码"
+                },
+                "subtitle": {
+                  "dc": "轮播图副标题"
+                },
+                "createdBy": {
+                  "dc": "创建者用户 ID"
+                },
+                "updatedBy": {
+                  "dc": "更新者用户 ID"
+                },
+                "createdAt": {
+                  "dc": "创建时间"
+                },
+                "updatedAt": {
+                  "dc": "更新时间"
+                }
+              }
+            },
+            "SlideListReq": {
+              "fields": {
+                "groupCode": {
+                  "dc": "按分组编码过滤"
+                },
+                "keyword": {
+                  "dc": "按轮播图标题或副标题过滤"
+                },
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                }
+              },
+              "meta": {
+                "dc": "分页查询 CMS 轮播图。",
+                "summary": "获取 CMS 轮播图列表",
+                "tags": "CMS 轮播图"
+              },
+              "schema": {
+                "dc": "分页查询 CMS 轮播图。"
+              }
+            },
+            "SlideListRes": {
+              "fields": {
+                "list": {
+                  "dc": "轮播图列表"
+                },
+                "total": {
+                  "dc": "轮播图总数"
+                }
+              }
+            },
+            "SlideUpdateReq": {
+              "fields": {
+                "groupCode": {
+                  "dc": "分组编码"
+                },
+                "id": {
+                  "dc": "轮播图 ID"
+                },
+                "image": {
+                  "dc": "轮播图图片 URL"
+                },
+                "link": {
+                  "dc": "点击目标 URL"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "subtitle": {
+                  "dc": "轮播图副标题"
+                },
+                "title": {
+                  "dc": "轮播图标题"
+                }
+              },
+              "meta": {
+                "dc": "更新一张 CMS 轮播图。",
+                "summary": "更新 CMS 轮播图",
+                "tags": "CMS 轮播图"
+              },
+              "schema": {
+                "dc": "更新一张 CMS 轮播图。"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

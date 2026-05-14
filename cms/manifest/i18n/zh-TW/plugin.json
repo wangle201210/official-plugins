@@ -1,0 +1,162 @@
+{
+  "plugin": {
+    "cms": {
+      "actions": {
+        "approve": "通過",
+        "newArticle": "新建內容",
+        "newCategory": "新建欄目",
+        "query": "查詢",
+        "refresh": "刷新",
+        "reject": "拒絕",
+        "reset": "重置",
+        "review": "處理",
+        "save": "保存",
+        "newLink": "新建友情連結",
+        "newSlide": "新建輪播圖"
+      },
+      "description": "提供站點配置、欄目、內容、留言和公開內容介面的官方源碼 CMS 插件",
+      "dialogs": {
+        "createArticle": "新增內容",
+        "createCategory": "新增欄目",
+        "editArticle": "編輯內容",
+        "editCategory": "編輯欄目",
+        "reviewMessage": "處理留言",
+        "createLink": "新增友情連結",
+        "createSlide": "新增輪播圖",
+        "editLink": "編輯友情連結",
+        "editSlide": "編輯輪播圖"
+      },
+      "empty": {
+        "articles": "暫無內容",
+        "categories": "暫無欄目",
+        "messages": "暫無留言",
+        "links": "暫無友情連結",
+        "slides": "暫無輪播圖"
+      },
+      "editor": {
+        "actions": {
+          "applySource": "應用 HTML"
+        },
+        "messages": {
+          "imageUploadFailed": "圖片上傳失敗"
+        },
+        "modes": {
+          "source": "HTML 源碼",
+          "visual": "可視化"
+        },
+        "placeholder": "請輸入內容...",
+        "source": {
+          "placeholder": "在這裡貼上或編輯原始 HTML，右側會按同一內容預覽。"
+        }
+      },
+      "contentModels": {
+        "list": "新聞內容",
+        "single": "專題內容"
+      },
+      "fields": {
+        "address": "地址",
+        "articleTitle": "內容標題",
+        "author": "作者",
+        "categoryCode": "欄目編碼",
+        "categoryName": "欄目",
+        "categoryType": "欄目類型",
+        "contentTemplate": "內容頁模板",
+        "contact": "聯絡人",
+        "content": "正文",
+        "cover": "封面圖",
+        "description": "描述",
+        "domain": "域名",
+        "icp": "備案號",
+        "keywords": "關鍵詞",
+        "listTemplate": "列表頁模板",
+        "logo": "站點標識",
+        "messageContent": "留言內容",
+        "outlink": "外鏈地址",
+        "parentCategory": "上級欄目",
+        "path": "訪問路徑",
+        "phone": "電話",
+        "recommend": "推薦",
+        "reply": "回覆內容",
+        "siteName": "站點名稱",
+        "slogan": "站點標語",
+        "slug": "訪問別名",
+        "source": "來源",
+        "subtitle": "副標題",
+        "summary": "摘要",
+        "tags": "標籤",
+        "top": "置頂",
+        "views": "瀏覽量",
+        "weixin": "微信二維碼",
+        "visitorName": "訪客",
+        "groupCode": "分組編碼",
+        "linkLogo": "連結標識",
+        "linkName": "連結名稱",
+        "linkUrl": "連結地址",
+        "slideImage": "輪播圖片",
+        "slideLink": "跳轉連結",
+        "slideTitle": "輪播標題"
+      },
+      "metrics": {
+        "articleGlyph": "文",
+        "articleSummary": "已發布 {published} 篇，草稿 {draft} 篇",
+        "articles": "內容總數",
+        "categories": "欄目總數",
+        "categoryGlyph": "欄",
+        "categorySummary": "啟用 {enabled} 個，共 {total} 個欄目",
+        "draftArticles": "{count} 篇草稿",
+        "enabledCategories": "{count} 個啟用欄目",
+        "messageGlyph": "留",
+        "messageSummary": "待處理 {pending} 條，共 {total} 條留言",
+        "pendingMessages": "待處理留言",
+        "published": "已發布內容",
+        "publishedGlyph": "發"
+      },
+      "messages": {
+        "moderateConfirm": "確認更新該留言的審核狀態？"
+      },
+      "name": "內容管理-CMS",
+      "overview": {
+        "kicker": "內容運營"
+      },
+      "placeholders": {
+        "articleTitle": "搜索內容標題",
+        "category": "選擇欄目",
+        "messageKeyword": "搜索訪客或留言內容",
+        "rootCategory": "根欄目",
+        "status": "選擇狀態",
+        "groupCode": "輸入分組編碼",
+        "linkKeyword": "搜索連結名稱或地址",
+        "slideKeyword": "搜索輪播標題或副標題"
+      },
+      "sections": {
+        "categoryTree": "欄目結構",
+        "contact": "聯絡與備案",
+        "contactSubtitle": "維護頁腳、聯絡入口和備案展示資訊",
+        "contentLibrary": "內容庫",
+        "contentModules": "文章內容",
+        "contentModulesSubtitle": "按內容模型或欄目組切換。",
+        "messageInbox": "留言審核",
+        "siteProfile": "站點資料",
+        "siteProfileSubtitle": "維護站點在公開介面中展示的基礎資訊和搜尋最佳化元資料",
+        "linkManager": "友情連結管理",
+        "linkManagerSubtitle": "維護頁腳分組連結和公開友情連結資料。",
+        "slideManager": "輪播圖管理",
+        "slideManagerSubtitle": "維護首頁輪播圖片、文案、跳轉連結與顯示順序。"
+      },
+      "tabs": {
+        "articles": "內容",
+        "categories": "欄目",
+        "messages": "留言",
+        "site": "站點",
+        "links": "友情連結",
+        "slides": "輪播圖"
+      },
+      "templates": {
+        "detail": "文章詳情（detail.html）",
+        "list": "標準列表（list.html）",
+        "listCard": "卡片列表（list-card.html）",
+        "single": "單頁內容（single.html）"
+      }
+    }
+  }
+}

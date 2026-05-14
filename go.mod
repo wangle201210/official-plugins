@@ -3,6 +3,7 @@ module lina-plugins
 go 1.25.0
 
 require (
+	lina-plugin-cms v0.0.0
 	lina-plugin-content-notice v0.0.0
 	lina-plugin-demo-control v0.0.0
 	lina-plugin-demo-source v0.0.0
@@ -69,6 +70,8 @@ require (
 replace lina-core => ../lina-core
 
 replace lina-plugin-content-notice => ./content-notice
+
+replace lina-plugin-cms => ./cms
 
 replace lina-plugin-demo-control => ./demo-control
 

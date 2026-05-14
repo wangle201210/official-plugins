@@ -1,0 +1,161 @@
+{{define "head"}}
+<!doctype html>
+<html lang="zh-CN" data-cms-template="html-css">
+<head>
+  <meta charset="utf-8">
+  <title>{page:title}</title>
+  <meta name="keywords" content="{page:keywords}">
+  <meta name="description" content="{page:description}">
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,shrink-to-fit=no">
+  <link rel="stylesheet" href="{site:assets}/css/yx.css">
+  <link rel="shortcut icon" href="{site:path}/favicon.ico" type="image/x-icon">
+  <script src="{site:assets}/js/jquery-1.12.4.min.js"></script>
+</head>
+<body>
+<div class="top-bar">
+  <div class="container">
+    <a href="{site:path}/">返回研究院网站</a>
+  </div>
+</div>
+<header class="header">
+  <div class="container">
+    <a href="{site:path}/" class="brand-link">
+      <img src="{site:logo}" alt="{site:name}" class="logo-img">
+    </a>
+    <div class="search-box">
+      <form action="{search:action}" method="get">
+        <input type="text" name="keyword" placeholder="输入关键字搜索..." value="{search:keyword}">
+        <button type="submit">搜索</button>
+      </form>
+    </div>
+  </div>
+</header>
+<nav class="main-nav" data-testid="cms-public-nav">
+  <button class="nav-toggle" id="navToggle">☰ 导航</button>
+  <ul class="container" id="navMenu">
+    <li><a href="{site:path}/" class="{cms:if(0=='{category:code}')}active{/cms:if}">首页</a></li>
+    {cms:nav limit=15 parent=0}
+    <li data-testid="cms-public-nav-item">
+      <a href="[nav:link]" class="{cms:if('[nav:code]'=='{category:topcode}')}active{/cms:if}" data-testid="cms-public-category-link">[nav:name]</a>
+      {cms:if([nav:childcount]>0)}
+      <ul class="sub-menu" data-testid="cms-public-category-submenu">
+        {cms:children parent=[nav:code]}
+        <li data-testid="cms-public-nav-item">
+          <a href="[child:link]" class="{cms:if('[child:code]'=='{category:code}')}active{/cms:if}" data-testid="cms-public-category-link">[child:name]</a>
+          {cms:if([child:childcount]>0)}
+          <ul class="sub-menu" data-testid="cms-public-category-submenu">
+            {cms:grandchildren parent=[child:code]}
+            <li data-testid="cms-public-nav-item"><a href="[grandchild:link]" class="{cms:if('[grandchild:code]'=='{category:code}')}active{/cms:if}" data-testid="cms-public-category-link">[grandchild:name]</a></li>
+            {/cms:grandchildren}
+          </ul>
+          {/cms:if}
+        </li>
+        {/cms:children}
+      </ul>
+      {/cms:if}
+    </li>
+    {/cms:nav}
+  </ul>
+  <script>
+  $(function(){
+    $('#navMenu li').each(function(){
+      var sub = $(this).children('.sub-menu');
+      if(sub.length && sub.children('li').length){
+        $(this).addClass('has-child');
+      }
+    });
+    $('#navToggle').click(function(){ $('#navMenu').toggleClass('open'); });
+    if($(window).width()<=768){
+      $('#navMenu li.has-child').children('a').on('click', function(e){
+        e.preventDefault();
+        $(this).parent().toggleClass('open').siblings('li.open').removeClass('open');
+      });
+    }
+  });
+  </script>
+</nav>
+{{end}}
+
+{{define "sidebar"}}
+<aside class="sidebar">
+  {cms:category code={category:topcode}}
+  <div class="sidebar-title">[category:name]</div>
+  {/cms:category}
+  <div class="sidebar-menu">
+    {cms:nav limit=20 parent={category:topcode}}
+    <a href="[nav:link]" class="{cms:if('[nav:code]'=='{category:code}')}active{/cms:if}" data-testid="cms-public-category-link">[nav:name]</a>
+    {cms:if([nav:childcount]>0)}
+    <div class="sidebar-sub">
+      {cms:children parent=[nav:code]}
+      <a href="[child:link]" class="{cms:if('[child:code]'=='{category:code}')}active{/cms:if}" data-testid="cms-public-category-link">[child:name]</a>
+      {/cms:children}
+    </div>
+    {/cms:if}
+    {/cms:nav}
+  </div>
+</aside>
+{{end}}
+
+{{define "foot"}}
+<aside class="floating-sidebar" aria-label="微信公众号">
+  <div class="float-box">
+    <img src="{site:wechat}" alt="微信公众号">
+    <p>微信公众号</p>
+  </div>
+</aside>
+<footer>
+  <div class="footer-links">
+    <div class="container">
+      <div class="link-title-row">
+        <span class="link-title">友情链接</span>
+        <span class="link-subtitle">Link Exchange</span>
+      </div>
+      <div class="link-select-row">
+        <div class="link-group">
+          <div class="link-group-title">政府机构</div>
+          <div class="link-group-items">
+            {cms:link limit=10 group=1}
+            <a href="[link:url]" target="_blank">[link:name]</a>
+            {/cms:link}
+          </div>
+        </div>
+        <div class="link-group">
+          <div class="link-group-title">新闻媒体</div>
+          <div class="link-group-items">
+            {cms:link limit=10 group=2}
+            <a href="[link:url]" target="_blank">[link:name]</a>
+            {/cms:link}
+          </div>
+        </div>
+        <div class="link-group">
+          <div class="link-group-title">合作高校与科研平台</div>
+          <div class="link-group-items">
+            {cms:link limit=10 group=3}
+            <a href="[link:url]" target="_blank">[link:name]</a>
+            {/cms:link}
+          </div>
+        </div>
+        <div class="link-group">
+          <div class="link-group-title">科技行业网站</div>
+          <div class="link-group-items">
+            {cms:link limit=10 group=4}
+            <a href="[link:url]" target="_blank">[link:name]</a>
+            {/cms:link}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="container">
+      <div class="footer-info">
+        <p><span class="info-item">地址：{site:address}</span><span class="sep">|</span><span class="info-item">联系电话：{site:phone}</span></p>
+        <p>版权所有 &copy; {site:name}</p>
+      </div>
+    </div>
+  </div>
+</footer>
+<script src="{site:assets}/js/yx.js"></script>
+</body>
+</html>
+{{end}}

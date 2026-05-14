@@ -1,0 +1,45 @@
+{include file=comm/head.html}
+<link rel="stylesheet" href="{site:assets}/css/yx-page.css">
+<div class="container" data-testid="cms-public-site" data-template="search">
+  <div class="breadcrumb">
+    {page:breadcrumb separator='<span class="sep">&gt;</span>'}
+    <span class="sep">&gt;</span><span>搜索</span>
+  </div>
+  <div class="page-content search-page">
+    <div class="content-area">
+      <div class="article-list">
+        <div class="article-list-header">搜索结果</div>
+        <div class="search-result-meta">
+          <span>关键词：{search:keyword}</span>
+          <span>共 {page:total} 条结果</span>
+        </div>
+        <div class="article-list-body" data-testid="cms-public-search-results">
+          {cms:search limit=10 order=date}
+          <a href="[search:link]" class="article-item search-result-item" data-testid="cms-public-search-card">
+            <span class="search-result-main">
+              <span class="article-item-title">[search:title length=48]</span>
+              <span class="search-result-preview">[search:preview]</span>
+            </span>
+            <span class="search-result-side">
+              <span class="search-result-category">[search:category]</span>
+              <span class="article-item-date">[search:date style=Y-m-d]</span>
+            </span>
+          </a>
+          {/cms:search}
+        </div>
+      </div>
+      {cms:if({page:total}>0)}
+      <div class="pagination" data-testid="cms-public-pagination">
+        <a href="{page:first}" class="page-item">首页</a>
+        <a href="{page:previous}" class="page-item">上一页</a>
+        {page:numbers}
+        <a href="{page:next}" class="page-item">下一页</a>
+        <a href="{page:last}" class="page-item">尾页</a>
+      </div>
+      {else}
+      <div class="empty-list">未搜索到相关内容</div>
+      {/cms:if}
+    </div>
+  </div>
+</div>
+{include file=comm/foot.html}

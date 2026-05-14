@@ -1,0 +1,60 @@
+{
+  "dict": {
+    "cms_article_status": {
+      "0": {
+        "label": "草稿"
+      },
+      "1": {
+        "label": "已发布"
+      },
+      "name": "CMS 内容状态",
+      "remark": "CMS 内容状态选项"
+    },
+    "cms_category_type": {
+      "1": {
+        "label": "列表栏目"
+      },
+      "2": {
+        "label": "单页栏目"
+      },
+      "3": {
+        "label": "外链栏目"
+      },
+      "name": "CMS 栏目类型",
+      "remark": "CMS 栏目类型选项"
+    },
+    "cms_message_status": {
+      "0": {
+        "label": "待处理"
+      },
+      "1": {
+        "label": "已通过"
+      },
+      "2": {
+        "label": "已拒绝"
+      },
+      "name": "CMS 留言状态",
+      "remark": "CMS 留言状态选项"
+    },
+    "cms_status": {
+      "0": {
+        "label": "停用"
+      },
+      "1": {
+        "label": "启用"
+      },
+      "name": "CMS 显示状态",
+      "remark": "CMS 启停状态选项"
+    },
+    "cms_yes_no": {
+      "0": {
+        "label": "否"
+      },
+      "1": {
+        "label": "是"
+      },
+      "name": "CMS 是否",
+      "remark": "CMS 是否标识选项"
+    }
+  }
+}

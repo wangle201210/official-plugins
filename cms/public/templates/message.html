@@ -1,0 +1,58 @@
+{include file=comm/head.html}
+<link rel="stylesheet" href="{site:assets}/css/yx-page.css">
+<div class="container" data-testid="cms-public-site" data-template="message">
+  <div class="breadcrumb">
+    <a href="{site:path}">首页</a>
+    <span class="sep">&gt;</span>
+    <span>提交留言</span>
+  </div>
+  <div class="page-content">
+    <div class="content-area">
+      {cms:if({message:submitted})}
+      <div class="notice success" data-testid="cms-public-message-success">留言已提交，等待审核。</div>
+      {/cms:if}
+      {cms:if({message:invalid})}
+      <div class="notice warning">请填写姓名和留言内容。</div>
+      {/cms:if}
+      {cms:if({message:error})}
+      <div class="notice warning">留言暂未提交成功，请稍后再试。</div>
+      {/cms:if}
+      <div class="article-detail">
+        <div class="article-detail-header">
+          <h1>提交留言</h1>
+          <div class="article-meta">
+            <span>需求咨询</span>
+            <span>合作沟通</span>
+            <span>专家答疑</span>
+          </div>
+        </div>
+        <div class="article-body msg-form-wrap">
+          <form data-testid="cms-public-message" method="post" action="{message:action}">
+            <div class="msg-form-grid">
+              <div class="msg-field">
+                <label>企业/单位名称+联系人<span class="req">*</span></label>
+                <input data-testid="cms-public-message-name" type="text" name="name" required placeholder="请输入企业/单位名称及联系人姓名">
+              </div>
+              <div class="msg-field">
+                <label>联系电话<span class="req">*</span></label>
+                <input data-testid="cms-public-message-mobile" type="text" name="mobile" required placeholder="请输入您的手机号">
+              </div>
+              <div class="msg-field full">
+                <label>留言内容</label>
+                <textarea data-testid="cms-public-message-content" name="content" rows="5" placeholder="请输入您想说的话..."></textarea>
+              </div>
+              <div class="msg-field full">
+                <p class="msg-privacy">隐私保护说明：您提交的留言及个人信息，仅您本人与后台管理人员可见，不对外公开，请放心填写。</p>
+              </div>
+            </div>
+            <input data-testid="cms-public-message-email" type="hidden" name="email" value="">
+            <div class="msg-submit-row">
+              <button data-testid="cms-public-message-submit" type="submit" class="msg-submit-btn">提交留言</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{include file=comm/foot.html}

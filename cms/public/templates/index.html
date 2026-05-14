@@ -1,0 +1,179 @@
+{include file=comm/head.html}
+<main class="container main-content cms-home" data-testid="cms-public-site" data-template="index">
+  <section class="home-hero">
+    <div class="carousel hero-slider" id="carousel" data-testid="cms-public-home-slider">
+      {cms:slide limit=5 group=1}
+      <div class="carousel-slide {cms:if([slide:index]==1)}active{/cms:if}">
+        <img src="[slide:image]" alt="[slide:title]">
+        <div class="carousel-text">
+          <span class="hero-kicker">Advanced Materials Research</span>
+          <h2>[slide:title]</h2>
+          <p>[slide:subtitle]</p>
+        </div>
+      </div>
+      {/cms:slide}
+      <div class="carousel-arrows">
+        <button type="button" onclick="changeSlide(-1)" aria-label="上一张">&#8249;</button>
+        <button type="button" onclick="changeSlide(1)" aria-label="下一张">&#8250;</button>
+      </div>
+      <div class="carousel-dots">
+        {cms:slide limit=5 group=1}
+        <span class="{cms:if([slide:index]==1)}active{/cms:if}" onclick="goToSlide([slide:index]-1)"></span>
+        {/cms:slide}
+      </div>
+    </div>
+
+    <div class="hero-news section-box">
+      <div class="tabs-header">
+        <div class="tab-btn active" onmouseenter="switchTab(0)">工作动态</div>
+        <div class="tab-btn" onmouseenter="switchTab(1)">政策资讯</div>
+      </div>
+      <div class="tab-content">
+        <div class="tab-pane active" id="tab-0">
+          <ul class="list-items hero-news-list" data-testid="cms-public-article-list">
+            {cms:list code=19 limit=6 order=date}
+            <li><a href="[list:link]" data-testid="cms-public-article-card">[list:title length=34]</a> <span class="date">[list:date style=Y-m-d]</span></li>
+            {/cms:list}
+          </ul>
+        </div>
+        <div class="tab-pane" id="tab-1">
+          <ul class="list-items hero-news-list">
+            {cms:list code=21 limit=6 order=date}
+            <li><a href="[list:link]">[list:title length=34]</a> <span class="date">[list:date style=Y-m-d]</span></li>
+            {/cms:list}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="home-service-strip" aria-label="核心能力">
+    {cms:category code=25}
+    <a href="[category:link]" class="service-card">
+      <span class="service-mark">01</span>
+      <strong>科学成果</strong>
+      <em>Research Output</em>
+    </a>
+    {/cms:category}
+    {cms:category code=36}
+    <a href="[category:link]" class="service-card">
+      <span class="service-mark">02</span>
+      <strong>设备共享</strong>
+      <em>Shared Platform</em>
+    </a>
+    {/cms:category}
+    {cms:category code=32}
+    <a href="[category:link]" class="service-card">
+      <span class="service-mark">03</span>
+      <strong>技术转移</strong>
+      <em>Technology Transfer</em>
+    </a>
+    {/cms:category}
+    {cms:category code=33}
+    <a href="[category:link]" class="service-card">
+      <span class="service-mark">04</span>
+      <strong>成果转化</strong>
+      <em>Industrialization</em>
+    </a>
+    {/cms:category}
+  </section>
+
+  <section class="home-section-grid" data-testid="cms-public-featured">
+    {cms:category code=25}
+    <div class="section-box feature-box">
+      <div class="section-header"><h3>科学成果</h3><a href="[category:link]" class="more">更多</a></div>
+      <ul class="list-items">
+        {cms:list code=25 limit=5 order=date}
+        <li><a href="[list:link]">[list:title length=24]</a></li>
+        {/cms:list}
+      </ul>
+    </div>
+    {/cms:category}
+    {cms:category code=43}
+    <div class="section-box feature-box">
+      <div class="section-header"><h3>合作伙伴</h3><a href="[category:link]" class="more">更多</a></div>
+      <ul class="list-items">
+        {cms:list code=43 limit=5 order=date}
+        <li><a href="[list:link]">[list:title length=24]</a></li>
+        {/cms:list}
+      </ul>
+    </div>
+    {/cms:category}
+    {cms:category code=36}
+    <div class="section-box feature-box">
+      <div class="section-header"><h3>设备共享</h3><a href="[category:link]" class="more">更多</a></div>
+      <ul class="list-items">
+        {cms:list code=36 limit=5 order=date}
+        <li><a href="[list:link]">[list:title length=24]</a></li>
+        {/cms:list}
+      </ul>
+    </div>
+    {/cms:category}
+    <div class="section-box interaction-box feature-box">
+      <div class="section-header"><h3>互动交流</h3></div>
+      <div class="interaction-icons">
+        <a href="{message:page}" class="icon-btn">
+          <div class="icon-circle">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+          </div>
+          <p>在线咨询</p>
+        </a>
+        <a href="{message:page}" class="icon-btn">
+          <div class="icon-circle">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          </div>
+          <p>意见建议</p>
+        </a>
+        {cms:category code=54}
+        <a href="[category:link]" class="icon-btn">
+          <div class="icon-circle">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
+          </div>
+          <p>专家答疑</p>
+        </a>
+        {/cms:category}
+      </div>
+    </div>
+  </section>
+
+  <section class="scroll-section expert-section" id="expertSection">
+    <div class="side-title">
+      <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a4.5 4.5 0 0 1 4.5-4.5h4a4.5 4.5 0 0 1 4.5 4.5v2"/><path d="M12 11v6"/><path d="M9 14h6"/></svg>
+      <span class="title-text">智库专家</span>
+    </div>
+    <div class="scroll-track">
+      <div class="scroll-inner" id="expertTrack">
+        {cms:list code=46 limit=20 order=manual}
+        <a href="[list:link]" class="expert-card">
+          {cms:if([list:image])}
+          <img src="[list:image]" alt="[list:title]">
+          {/cms:if}
+          <div class="expert-name">[list:title length=6]</div>
+          <div class="expert-field">[list:summary length=10]</div>
+        </a>
+        {/cms:list}
+      </div>
+    </div>
+  </section>
+
+  <section class="scroll-section honor-section" id="honorSection">
+    <div class="side-title">
+      <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/><path d="M8 12h8"/></svg>
+      <span class="title-text">荣誉资质</span>
+    </div>
+    <div class="scroll-track">
+      <div class="scroll-inner" id="honorTrack">
+        {cms:list code=17 limit=20 order=manual}
+        <a href="[list:link]" class="honor-item">
+          {cms:if([list:image])}
+          <img src="[list:image]" alt="[list:title]">
+          {else}
+          <span>[list:title]</span>
+          {/cms:if}
+        </a>
+        {/cms:list}
+      </div>
+    </div>
+  </section>
+</main>
+{include file=comm/foot.html}

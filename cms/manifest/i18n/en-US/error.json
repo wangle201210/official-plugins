@@ -1,0 +1,56 @@
+{
+  "error": {
+    "cms": {
+      "category": {
+        "code": {
+          "exists": "CMS category code already exists"
+        },
+        "has": {
+          "articles": "CMS category has articles",
+          "children": "CMS category has child categories"
+        },
+        "not": {
+          "found": "CMS category does not exist"
+        },
+        "parent": {
+          "invalid": "CMS category parent cannot be itself or its descendant"
+        }
+      },
+      "link": {
+        "not": {
+          "found": "CMS friendly link does not exist"
+        }
+      },
+      "article": {
+        "not": {
+          "found": "CMS article does not exist"
+        },
+        "slug": {
+          "exists": "CMS article slug already exists"
+        }
+      },
+      "message": {
+        "not": {
+          "found": "CMS visitor message does not exist"
+        }
+      },
+      "public": {
+        "content": {
+          "not": {
+            "found": "Public CMS content does not exist"
+          }
+        }
+      },
+      "site": {
+        "not": {
+          "found": "CMS site settings do not exist"
+        }
+      },
+      "slide": {
+        "not": {
+          "found": "CMS slide does not exist"
+        }
+      }
+    }
+  }
+}
