@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	cmsplugin "lina-plugin-cms"
 	entitymodel "lina-plugin-cms/backend/internal/model/entity"
 	cmssvc "lina-plugin-cms/backend/internal/service/cms"
 )
@@ -151,6 +152,66 @@ func TestPublicFrontendEmbeddedTemplatesParse(t *testing.T) {
 	}
 	if tpl.Lookup(publicFrontendSearchName) == nil {
 		t.Fatalf("expected embedded public frontend template %q to be registered", publicFrontendSearchName)
+	}
+}
+
+// TestPublicFrontendTemplatesUseOriginalAssets verifies public templates keep
+// the original CMS site asset contract.
+func TestPublicFrontendTemplatesUseOriginalAssets(t *testing.T) {
+	partials, err := cmsplugin.EmbeddedFiles.ReadFile("public/templates/partials.html")
+	if err != nil {
+		t.Fatalf("read embedded public partial template: %v", err)
+	}
+	partialSource := string(partials)
+	for _, expectedPath := range []string{
+		"{site:assets}/css/yx.css",
+		"{site:assets}/js/jquery-1.12.4.min.js",
+		"{site:assets}/js/yx.js",
+	} {
+		if !strings.Contains(partialSource, expectedPath) {
+			t.Fatalf("expected public partial template to reference %q", expectedPath)
+		}
+	}
+	if strings.Contains(partialSource, `{site:assets}/cms-site.css`) {
+		t.Fatalf("expected public partial template to avoid replacement stylesheet")
+	}
+
+	for _, file := range []string{
+		"public/templates/detail.html",
+		"public/templates/list-card.html",
+		"public/templates/list.html",
+		"public/templates/message.html",
+		"public/templates/search.html",
+		"public/templates/single.html",
+	} {
+		content, readErr := cmsplugin.EmbeddedFiles.ReadFile(file)
+		if readErr != nil {
+			t.Fatalf("read embedded public template %s: %v", file, readErr)
+		}
+		if !strings.Contains(string(content), `{site:assets}/css/yx-page.css`) {
+			t.Fatalf("expected public template %s to reference page stylesheet", file)
+		}
+	}
+}
+
+// TestPublicFrontendOriginalAssetsExist verifies the original CMS public assets
+// are embedded and available to the public asset handler.
+func TestPublicFrontendOriginalAssetsExist(t *testing.T) {
+	for _, file := range []string{
+		"public/assets/css/yx.css",
+		"public/assets/css/yx-page.css",
+		"public/assets/js/jquery-1.12.4.min.js",
+		"public/assets/js/yx.js",
+		"public/assets/static/logo.svg",
+		"public/assets/static/wechat.jpg",
+	} {
+		content, err := cmsplugin.EmbeddedFiles.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read embedded public asset %s: %v", file, err)
+		}
+		if len(content) == 0 {
+			t.Fatalf("expected embedded public asset %s to be non-empty", file)
+		}
 	}
 }
 
