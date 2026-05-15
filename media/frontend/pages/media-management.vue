@@ -83,11 +83,11 @@ const accessCodes = {
 
 const switchOptions = [
   { label: "开启", value: 1 },
-  { label: "关闭", value: 2 },
+  { label: "关闭", value: 0 },
 ];
 const globalOptions = [
   { label: "是", value: 1 },
-  { label: "否", value: 2 },
+  { label: "否", value: 0 },
 ];
 
 const mediaTabs = [
@@ -490,6 +490,16 @@ const [AliasGrid, aliasGridApi] = useVbenVxeGrid({
         title: "真实流路径",
       },
       {
+        field: "deviceId",
+        minWidth: 180,
+        title: "设备 ID",
+      },
+      {
+        field: "channelId",
+        minWidth: 180,
+        title: "设备通道 ID",
+      },
+      {
         field: "autoRemove",
         slots: { default: "autoRemove" },
         title: "自动移除",
@@ -730,6 +740,11 @@ const [DeviceNodeGrid, deviceNodeGridApi] = useVbenVxeGrid({
         title: "设备国标 ID",
       },
       {
+        field: "channelId",
+        minWidth: 220,
+        title: "设备通道 ID",
+      },
+      {
         field: "nodeNum",
         title: "节点编号",
         width: 100,
@@ -765,7 +780,7 @@ const [DeviceNodeGrid, deviceNodeGridApi] = useVbenVxeGrid({
       },
     },
     rowConfig: {
-      keyField: "deviceId",
+      keyField: "rowKey",
     },
     id: "media-device-node-grid",
   },
@@ -926,7 +941,7 @@ async function handleSetGlobalStrategy(row: MediaStrategy) {
 }
 
 async function handleToggleStrategy(row: MediaStrategy) {
-  await updateMediaStrategyEnable(row.id, row.enable === 1 ? 2 : 1);
+  await updateMediaStrategyEnable(row.id, row.enable === 1 ? 0 : 1);
   message.success("启用状态已更新");
   await strategyGridApi.query();
 }
@@ -1009,6 +1024,10 @@ function tenantWhiteRowKey(row: Pick<MediaTenantWhite, "ip" | "tenantId">) {
   return `${row.tenantId}:${row.ip}`;
 }
 
+function deviceNodeRowKey(row: Pick<MediaDeviceNode, "channelId" | "deviceId">) {
+  return `${row.deviceId}:${row.channelId}`;
+}
+
 function handleAddTenantWhite() {
   tenantWhiteModalApi.setData({ ip: undefined, tenantId: undefined });
   tenantWhiteModalApi.open();
@@ -1042,17 +1061,17 @@ async function handleDeleteNode(row: MediaNode) {
 }
 
 function handleAddDeviceNode() {
-  deviceNodeModalApi.setData({ deviceId: undefined });
+  deviceNodeModalApi.setData({ channelId: undefined, deviceId: undefined });
   deviceNodeModalApi.open();
 }
 
 function handleEditDeviceNode(row: MediaDeviceNode) {
-  deviceNodeModalApi.setData({ deviceId: row.deviceId });
+  deviceNodeModalApi.setData({ channelId: row.channelId, deviceId: row.deviceId });
   deviceNodeModalApi.open();
 }
 
 async function handleDeleteDeviceNode(row: MediaDeviceNode) {
-  await deleteMediaDeviceNode(row.deviceId);
+  await deleteMediaDeviceNode(row.deviceId, row.channelId);
   message.success("设备节点已删除");
   await deviceNodeGridApi.query();
 }
@@ -1574,7 +1593,7 @@ function reloadTenantStreamConfigs() {
               <Space>
                 <ghost-button
                   v-if="canEdit()"
-                  :data-testid="`media-device-node-edit-${row.deviceId}`"
+                  :data-testid="`media-device-node-edit-${deviceNodeRowKey(row)}`"
                   @click.stop="handleEditDeviceNode(row)"
                 >
                   编辑
@@ -1586,7 +1605,7 @@ function reloadTenantStreamConfigs() {
                 >
                   <ghost-button
                     danger
-                    :data-testid="`media-device-node-delete-${row.deviceId}`"
+                    :data-testid="`media-device-node-delete-${deviceNodeRowKey(row)}`"
                     @click.stop=""
                   >
                     删除

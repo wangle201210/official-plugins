@@ -10,7 +10,9 @@ type UpdateAliasReq struct {
 	Id         int64  `json:"id" v:"required|min:1" dc:"ID" eg:"1"`
 	Alias      string `json:"alias" v:"required|length:1,255#流别名不能为空|流别名长度不能超过255个字符" dc:"流别名" eg:"camera-01"`
 	AutoRemove int    `json:"autoRemove" d:"0" dc:"是否自动移除：1是，0否" eg:"0"`
-	StreamPath string `json:"streamPath" v:"required|length:1,255#真实流路径不能为空|真实流路径长度不能超过255个字符" dc:"真实流路径" eg:"live/camera-01"`
+	StreamPath string `json:"streamPath" v:"required|length:1,512#真实流路径不能为空|真实流路径长度不能超过512个字符" dc:"真实流路径" eg:"live/camera-01"`
+	DeviceId   string `json:"deviceId" v:"required|length:1,64#设备ID不能为空|设备ID长度不能超过64个字符" dc:"设备ID" eg:"34020000001320000001"`
+	ChannelId  string `json:"channelId" v:"required|length:1,64#设备通道ID不能为空|设备通道ID长度不能超过64个字符" dc:"设备通道ID" eg:"34020000001320000001"`
 }
 
 // UpdateAliasRes defines the response for updating one stream alias.

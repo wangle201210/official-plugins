@@ -76,6 +76,8 @@ export interface MediaAlias {
   alias: string;
   autoRemove: number;
   streamPath: string;
+  deviceId: string;
+  channelId: string;
   createTime: string;
 }
 
@@ -89,6 +91,8 @@ export interface MediaAliasInput {
   alias: string;
   autoRemove: number;
   streamPath: string;
+  deviceId: string;
+  channelId: string;
 }
 
 export interface MediaTenantWhite {
@@ -146,8 +150,10 @@ export interface MediaNodeInput {
 
 export interface MediaDeviceNode {
   deviceId: string;
+  channelId: string;
   nodeNum: number;
   nodeName: string;
+  rowKey?: string;
 }
 
 export interface MediaDeviceNodeListParams {
@@ -158,6 +164,7 @@ export interface MediaDeviceNodeListParams {
 
 export interface MediaDeviceNodeInput {
   deviceId: string;
+  channelId: string;
   nodeNum: number;
 }
 
@@ -420,17 +427,23 @@ export async function listMediaDeviceNodes(
     list: MediaDeviceNode[];
     total: number;
   }>("/media/device-nodes", { params });
-  return { items: res.list, total: res.total };
+  return {
+    items: res.list.map((item) => ({
+      ...item,
+      rowKey: `${item.deviceId}:${item.channelId}`,
+    })),
+    total: res.total,
+  };
 }
 
-export function getMediaDeviceNode(deviceId: string) {
+export function getMediaDeviceNode(deviceId: string, channelId: string) {
   return requestClient.get<MediaDeviceNode>(
-    `/media/device-nodes/${encodePathSegment(deviceId)}`,
+    `/media/device-nodes/${encodePathSegment(deviceId)}/channels/${encodePathSegment(channelId)}`,
   );
 }
 
 export function createMediaDeviceNode(data: MediaDeviceNodeInput) {
-  return requestClient.post<{ deviceId: string }>(
+  return requestClient.post<{ channelId: string; deviceId: string }>(
     "/media/device-nodes",
     data,
   );
@@ -438,17 +451,18 @@ export function createMediaDeviceNode(data: MediaDeviceNodeInput) {
 
 export function updateMediaDeviceNode(
   oldDeviceId: string,
+  oldChannelId: string,
   data: MediaDeviceNodeInput,
 ) {
-  return requestClient.put<{ deviceId: string }>(
-    `/media/device-nodes/${encodePathSegment(oldDeviceId)}`,
+  return requestClient.put<{ channelId: string; deviceId: string }>(
+    `/media/device-nodes/${encodePathSegment(oldDeviceId)}/channels/${encodePathSegment(oldChannelId)}`,
     data,
   );
 }
 
-export function deleteMediaDeviceNode(deviceId: string) {
+export function deleteMediaDeviceNode(deviceId: string, channelId: string) {
   return requestClient.delete(
-    `/media/device-nodes/${encodePathSegment(deviceId)}`,
+    `/media/device-nodes/${encodePathSegment(deviceId)}/channels/${encodePathSegment(channelId)}`,
   );
 }
 

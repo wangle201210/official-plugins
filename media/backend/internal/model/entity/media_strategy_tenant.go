@@ -6,6 +6,6 @@ package entity
 
 // MediaStrategyTenant is the golang structure for table media_strategy_tenant.
 type MediaStrategyTenant struct {
-	TenantId   string `json:"tenantId"   orm:"tenant_id"   description:"租户ID"`
+	TenantId   string `json:"tenantId"   orm:"tenant_id"   description:"租户id"`
 	StrategyId int64  `json:"strategyId" orm:"strategy_id" description:"策略ID"`
 }

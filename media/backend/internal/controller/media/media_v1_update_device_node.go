@@ -10,12 +10,13 @@ import (
 
 // UpdateDeviceNode updates one device-node mapping.
 func (c *ControllerV1) UpdateDeviceNode(ctx context.Context, req *v1.UpdateDeviceNodeReq) (res *v1.UpdateDeviceNodeRes, err error) {
-	out, err := c.mediaSvc.UpdateDeviceNode(ctx, req.OldDeviceId, mediasvc.DeviceNodeMutationInput{
-		DeviceId: req.DeviceId,
-		NodeNum:  req.NodeNum,
+	out, err := c.mediaSvc.UpdateDeviceNode(ctx, req.OldDeviceId, req.OldChannelId, mediasvc.DeviceNodeMutationInput{
+		DeviceId:  req.DeviceId,
+		ChannelId: req.ChannelId,
+		NodeNum:   req.NodeNum,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &v1.UpdateDeviceNodeRes{DeviceId: out.DeviceId}, nil
+	return &v1.UpdateDeviceNodeRes{DeviceId: out.DeviceId, ChannelId: out.ChannelId}, nil
 }

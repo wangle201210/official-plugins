@@ -16,7 +16,7 @@ import (
 type ListAliasesInput struct {
 	PageNum  int    // PageNum is the requested page number.
 	PageSize int    // PageSize is the requested page size.
-	Keyword  string // Keyword fuzzy-matches alias or stream path.
+	Keyword  string // Keyword fuzzy-matches alias, stream path, device ID, or channel ID.
 }
 
 // ListAliasesOutput defines paged stream aliases.
@@ -31,6 +31,8 @@ type AliasOutput struct {
 	Alias      string // Alias is the stream alias.
 	AutoRemove int    // AutoRemove marks whether the alias should be automatically removed.
 	StreamPath string // StreamPath is the real stream path.
+	DeviceId   string // DeviceId is the related device code.
+	ChannelId  string // ChannelId is the related channel code.
 	CreateTime string // CreateTime is the formatted creation time.
 }
 
@@ -39,6 +41,8 @@ type AliasMutationInput struct {
 	Alias      string // Alias is the stream alias.
 	AutoRemove int    // AutoRemove marks whether the alias should be automatically removed.
 	StreamPath string // StreamPath is the real stream path.
+	DeviceId   string // DeviceId is the related device code.
+	ChannelId  string // ChannelId is the related channel code.
 }
 
 // aliasEntity reuses the plugin-local generated stream alias entity.
@@ -58,7 +62,9 @@ func (s *serviceImpl) ListAliases(ctx context.Context, in ListAliasesInput) (*Li
 	if keyword != "" {
 		likeKeyword := "%" + keyword + "%"
 		model = model.Where(
-			"("+columns.Alias+" LIKE ? OR "+columns.StreamPath+" LIKE ?)",
+			"("+columns.Alias+" LIKE ? OR "+columns.StreamPath+" LIKE ? OR "+columns.DeviceId+" LIKE ? OR "+columns.ChannelId+" LIKE ?)",
+			likeKeyword,
+			likeKeyword,
 			likeKeyword,
 			likeKeyword,
 		)
@@ -109,6 +115,8 @@ func (s *serviceImpl) CreateAlias(ctx context.Context, in AliasMutationInput) (i
 		Alias:      normalized.Alias,
 		AutoRemove: normalized.AutoRemove,
 		StreamPath: normalized.StreamPath,
+		DeviceId:   normalized.DeviceId,
+		ChannelId:  normalized.ChannelId,
 	}).InsertAndGetId()
 	if err != nil {
 		return 0, bizerr.WrapCode(err, CodeMediaAliasCreateFailed)
@@ -132,6 +140,8 @@ func (s *serviceImpl) UpdateAlias(ctx context.Context, id int64, in AliasMutatio
 			Alias:      normalized.Alias,
 			AutoRemove: normalized.AutoRemove,
 			StreamPath: normalized.StreamPath,
+			DeviceId:   normalized.DeviceId,
+			ChannelId:  normalized.ChannelId,
 		}).
 		Update()
 	if err != nil {
@@ -182,6 +192,14 @@ func normalizeAliasMutationInput(in AliasMutationInput) (AliasMutationInput, err
 	if streamPath == "" {
 		return AliasMutationInput{}, bizerr.NewCode(CodeMediaStreamPathRequired)
 	}
+	deviceID, err := normalizeMediaDeviceID(in.DeviceId)
+	if err != nil {
+		return AliasMutationInput{}, err
+	}
+	channelID, err := normalizeMediaChannelID(in.ChannelId)
+	if err != nil {
+		return AliasMutationInput{}, err
+	}
 	autoRemove, err := normalizeBinaryValue(in.AutoRemove, BinaryNo)
 	if err != nil {
 		return AliasMutationInput{}, err
@@ -190,7 +208,33 @@ func normalizeAliasMutationInput(in AliasMutationInput) (AliasMutationInput, err
 		Alias:      alias,
 		AutoRemove: autoRemove,
 		StreamPath: streamPath,
+		DeviceId:   deviceID,
+		ChannelId:  channelID,
 	}, nil
+}
+
+// normalizeMediaDeviceID validates one media device identifier.
+func normalizeMediaDeviceID(deviceID string) (string, error) {
+	normalized := strings.TrimSpace(deviceID)
+	if normalized == "" {
+		return "", bizerr.NewCode(CodeMediaDeviceIDRequired)
+	}
+	if len(normalized) > 64 {
+		return "", bizerr.NewCode(CodeMediaDeviceIDTooLong)
+	}
+	return normalized, nil
+}
+
+// normalizeMediaChannelID validates one media channel identifier.
+func normalizeMediaChannelID(channelID string) (string, error) {
+	normalized := strings.TrimSpace(channelID)
+	if normalized == "" {
+		return "", bizerr.NewCode(CodeMediaChannelIDRequired)
+	}
+	if len(normalized) > 64 {
+		return "", bizerr.NewCode(CodeMediaChannelIDTooLong)
+	}
+	return normalized, nil
 }
 
 // buildAliasOutput converts one generated alias entity into service output.
@@ -203,6 +247,8 @@ func buildAliasOutput(item *aliasEntity) *AliasOutput {
 		Alias:      item.Alias,
 		AutoRemove: item.AutoRemove,
 		StreamPath: item.StreamPath,
+		DeviceId:   item.DeviceId,
+		ChannelId:  item.ChannelId,
 		CreateTime: formatTime(item.CreateTime),
 	}
 }

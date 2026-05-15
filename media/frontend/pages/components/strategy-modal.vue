@@ -21,7 +21,7 @@ interface StrategyFormData extends MediaStrategyInput {
 
 const defaultValues: StrategyFormData = {
   enable: 1,
-  global: 2,
+  global: 0,
   name: "",
   strategy: "",
 };
@@ -116,7 +116,7 @@ async function handleConfirm() {
             option-type="button"
             :options="[
               { label: '开启', value: 1 },
-              { label: '关闭', value: 2 },
+              { label: '关闭', value: 0 },
             ]"
           />
         </FormItem>
@@ -128,7 +128,7 @@ async function handleConfirm() {
             option-type="button"
             :options="[
               { label: '是', value: 1 },
-              { label: '否', value: 2 },
+              { label: '否', value: 0 },
             ]"
           />
         </FormItem>

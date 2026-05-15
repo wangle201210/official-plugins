@@ -21,13 +21,13 @@ type MediaTenantStreamConfigDao struct {
 
 // MediaTenantStreamConfigColumns defines and stores column names for the table media_tenant_stream_config.
 type MediaTenantStreamConfigColumns struct {
-	TenantId      string // 租户ID
-	MaxConcurrent string // 最大并发数
+	TenantId      string // 租户id
+	MaxConcurrent string // 最大并发数, 0 禁止访问 （1个会话算1个并发）
 	NodeNum       string // 节点编号
 	Enable        string // 1开启，0关闭
-	CreatorId     string // 创建人ID
+	CreatorId     string // 创建人Id
 	CreateTime    string // 创建时间
-	UpdaterId     string // 修改人ID
+	UpdaterId     string // 修改人Id
 	UpdateTime    string // 修改时间
 }
 

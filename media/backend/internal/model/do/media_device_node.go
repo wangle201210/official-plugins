@@ -10,7 +10,8 @@ import (
 
 // MediaDeviceNode is the golang structure of table media_device_node for DAO operations like Where/Data.
 type MediaDeviceNode struct {
-	g.Meta   `orm:"table:media_device_node, do:true"`
-	DeviceId any // 设备国标ID（对应device_code）
-	NodeNum  any // 节点编号
+	g.Meta    `orm:"table:media_device_node, do:true"`
+	DeviceId  any // 设备id（对应device_code）
+	ChannelId any // 设备通道id（对应channel_code）
+	NodeNum   any // 节点编号
 }

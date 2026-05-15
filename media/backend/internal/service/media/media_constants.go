@@ -10,7 +10,7 @@ const (
 	// SwitchOn means the option is enabled.
 	SwitchOn SwitchValue = 1
 	// SwitchOff means the option is disabled.
-	SwitchOff SwitchValue = 2
+	SwitchOff SwitchValue = 0
 )
 
 // BinaryValue is the numeric yes/no enum used by stream alias records.

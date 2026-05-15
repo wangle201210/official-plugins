@@ -21,13 +21,13 @@ type MediaTenantWhiteDao struct {
 
 // MediaTenantWhiteColumns defines and stores column names for the table media_tenant_white.
 type MediaTenantWhiteColumns struct {
-	TenantId    string // 租户ID
+	TenantId    string // 租户id
 	Ip          string // 白名单地址
 	Description string // 白名单描述
 	Enable      string // 1开启，0关闭
-	CreatorId   string // 创建人ID
+	CreatorId   string // 创建人Id
 	CreateTime  string // 创建时间
-	UpdaterId   string // 修改人ID
+	UpdaterId   string // 修改人Id
 	UpdateTime  string // 修改时间
 }
 

@@ -12,13 +12,13 @@ import (
 // MediaStrategy is the golang structure of table media_strategy for DAO operations like Where/Data.
 type MediaStrategy struct {
 	g.Meta     `orm:"table:media_strategy, do:true"`
-	Id         any         // 策略ID
+	Id         any         // 策略ID（自增，无符号）
 	Name       any         // 策略名称
-	Strategy   any         // YAML格式策略内容
-	Global     any         // 是否全局策略：1是，2否
-	Enable     any         // 启用状态：1开启，2关闭
-	CreatorId  any         // 创建人ID
-	UpdaterId  any         // 修改人ID
+	Strategy   any         // yaml格式策略内容
+	Global     any         // 为1则是全局策略，只能有一个是1，0关闭
+	Enable     any         // 1开启，0关闭
+	CreatorId  any         // 创建人Id
 	CreateTime *gtime.Time // 创建时间
+	UpdaterId  any         // 修改人Id
 	UpdateTime *gtime.Time // 修改时间
 }

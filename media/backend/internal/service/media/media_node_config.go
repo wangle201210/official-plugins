@@ -60,7 +60,7 @@ type NodeMutationOutput struct {
 type ListDeviceNodesInput struct {
 	PageNum  int    // PageNum is the requested page number.
 	PageSize int    // PageSize is the requested page size.
-	Keyword  string // Keyword fuzzy-matches device ID or node number.
+	Keyword  string // Keyword fuzzy-matches device ID, channel ID, or node number.
 }
 
 // ListDeviceNodesOutput defines paged device-node mappings.
@@ -71,20 +71,23 @@ type ListDeviceNodesOutput struct {
 
 // DeviceNodeOutput defines one device-node mapping response.
 type DeviceNodeOutput struct {
-	DeviceId string // DeviceId is the GB device ID.
-	NodeNum  int    // NodeNum is the linked node number.
-	NodeName string // NodeName is the linked node name.
+	DeviceId  string // DeviceId is the GB device ID.
+	ChannelId string // ChannelId is the GB channel ID.
+	NodeNum   int    // NodeNum is the linked node number.
+	NodeName  string // NodeName is the linked node name.
 }
 
 // DeviceNodeMutationInput defines device-node create/update input.
 type DeviceNodeMutationInput struct {
-	DeviceId string // DeviceId is the GB device ID.
-	NodeNum  int    // NodeNum is the linked node number.
+	DeviceId  string // DeviceId is the GB device ID.
+	ChannelId string // ChannelId is the GB channel ID.
+	NodeNum   int    // NodeNum is the linked node number.
 }
 
 // DeviceNodeMutationOutput defines device-node mutation result.
 type DeviceNodeMutationOutput struct {
-	DeviceId string // DeviceId is the GB device ID.
+	DeviceId  string // DeviceId is the GB device ID.
+	ChannelId string // ChannelId is the GB channel ID.
 }
 
 // ListTenantStreamConfigsInput defines tenant stream config list filters.
@@ -300,7 +303,8 @@ func (s *serviceImpl) ListDeviceNodes(ctx context.Context, in ListDeviceNodesInp
 	if keyword := strings.TrimSpace(in.Keyword); keyword != "" {
 		likeKeyword := "%" + keyword + "%"
 		model = model.Where(
-			"("+columns.DeviceId+" LIKE ? OR "+columns.NodeNum+"::text LIKE ?)",
+			"("+columns.DeviceId+" LIKE ? OR "+columns.ChannelId+" LIKE ? OR "+columns.NodeNum+"::text LIKE ?)",
+			likeKeyword,
 			likeKeyword,
 			likeKeyword,
 		)
@@ -314,6 +318,7 @@ func (s *serviceImpl) ListDeviceNodes(ctx context.Context, in ListDeviceNodesInp
 	items := make([]*deviceNodeEntity, 0)
 	err = model.
 		OrderAsc(columns.DeviceId).
+		OrderAsc(columns.ChannelId).
 		Page(pageNum, pageSize).
 		Scan(&items)
 	if err != nil {
@@ -331,9 +336,9 @@ func (s *serviceImpl) ListDeviceNodes(ctx context.Context, in ListDeviceNodesInp
 	return &ListDeviceNodesOutput{List: list, Total: total}, nil
 }
 
-// GetDeviceNode returns one device-node mapping by device ID.
-func (s *serviceImpl) GetDeviceNode(ctx context.Context, deviceID string) (*DeviceNodeOutput, error) {
-	record, err := s.getDeviceNodeEntity(ctx, deviceID)
+// GetDeviceNode returns one device-node mapping by device and channel ID.
+func (s *serviceImpl) GetDeviceNode(ctx context.Context, deviceID string, channelID string) (*DeviceNodeOutput, error) {
+	record, err := s.getDeviceNodeEntity(ctx, deviceID, channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +361,7 @@ func (s *serviceImpl) CreateDeviceNode(ctx context.Context, in DeviceNodeMutatio
 	if _, err = s.getNodeEntity(ctx, normalized.NodeNum); err != nil {
 		return nil, err
 	}
-	exists, err := s.deviceNodeExists(ctx, normalized.DeviceId)
+	exists, err := s.deviceNodeExists(ctx, normalized.DeviceId, normalized.ChannelId)
 	if err != nil {
 		return nil, err
 	}
@@ -365,22 +370,27 @@ func (s *serviceImpl) CreateDeviceNode(ctx context.Context, in DeviceNodeMutatio
 	}
 
 	_, err = dao.MediaDeviceNode.Ctx(ctx).Data(do.MediaDeviceNode{
-		DeviceId: normalized.DeviceId,
-		NodeNum:  normalized.NodeNum,
+		DeviceId:  normalized.DeviceId,
+		ChannelId: normalized.ChannelId,
+		NodeNum:   normalized.NodeNum,
 	}).Insert()
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaDeviceNodeCreateFailed)
 	}
-	return &DeviceNodeMutationOutput{DeviceId: normalized.DeviceId}, nil
+	return &DeviceNodeMutationOutput{DeviceId: normalized.DeviceId, ChannelId: normalized.ChannelId}, nil
 }
 
-// UpdateDeviceNode updates one device-node mapping by old device ID.
-func (s *serviceImpl) UpdateDeviceNode(ctx context.Context, oldDeviceID string, in DeviceNodeMutationInput) (*DeviceNodeMutationOutput, error) {
+// UpdateDeviceNode updates one device-node mapping by old device and channel ID.
+func (s *serviceImpl) UpdateDeviceNode(ctx context.Context, oldDeviceID string, oldChannelID string, in DeviceNodeMutationInput) (*DeviceNodeMutationOutput, error) {
 	normalizedOldDeviceID, err := normalizeDeviceNodeKey(oldDeviceID)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = s.getDeviceNodeEntity(ctx, normalizedOldDeviceID); err != nil {
+	normalizedOldChannelID, err := normalizeDeviceNodeChannelID(oldChannelID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.getDeviceNodeEntity(ctx, normalizedOldDeviceID, normalizedOldChannelID); err != nil {
 		return nil, err
 	}
 	normalized, err := normalizeDeviceNodeMutationInput(in)
@@ -390,8 +400,8 @@ func (s *serviceImpl) UpdateDeviceNode(ctx context.Context, oldDeviceID string, 
 	if _, err = s.getNodeEntity(ctx, normalized.NodeNum); err != nil {
 		return nil, err
 	}
-	if normalized.DeviceId != normalizedOldDeviceID {
-		exists, err := s.deviceNodeExists(ctx, normalized.DeviceId)
+	if normalized.DeviceId != normalizedOldDeviceID || normalized.ChannelId != normalizedOldChannelID {
+		exists, err := s.deviceNodeExists(ctx, normalized.DeviceId, normalized.ChannelId)
 		if err != nil {
 			return nil, err
 		}
@@ -401,35 +411,40 @@ func (s *serviceImpl) UpdateDeviceNode(ctx context.Context, oldDeviceID string, 
 	}
 
 	_, err = dao.MediaDeviceNode.Ctx(ctx).
-		Where(do.MediaDeviceNode{DeviceId: normalizedOldDeviceID}).
+		Where(do.MediaDeviceNode{DeviceId: normalizedOldDeviceID, ChannelId: normalizedOldChannelID}).
 		Data(do.MediaDeviceNode{
-			DeviceId: normalized.DeviceId,
-			NodeNum:  normalized.NodeNum,
+			DeviceId:  normalized.DeviceId,
+			ChannelId: normalized.ChannelId,
+			NodeNum:   normalized.NodeNum,
 		}).
 		Update()
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaDeviceNodeUpdateFailed)
 	}
-	return &DeviceNodeMutationOutput{DeviceId: normalized.DeviceId}, nil
+	return &DeviceNodeMutationOutput{DeviceId: normalized.DeviceId, ChannelId: normalized.ChannelId}, nil
 }
 
 // DeleteDeviceNode deletes one device-node mapping.
-func (s *serviceImpl) DeleteDeviceNode(ctx context.Context, deviceID string) (*DeviceNodeMutationOutput, error) {
+func (s *serviceImpl) DeleteDeviceNode(ctx context.Context, deviceID string, channelID string) (*DeviceNodeMutationOutput, error) {
 	normalizedDeviceID, err := normalizeDeviceNodeKey(deviceID)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = s.getDeviceNodeEntity(ctx, normalizedDeviceID); err != nil {
+	normalizedChannelID, err := normalizeDeviceNodeChannelID(channelID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.getDeviceNodeEntity(ctx, normalizedDeviceID, normalizedChannelID); err != nil {
 		return nil, err
 	}
 
 	_, err = dao.MediaDeviceNode.Ctx(ctx).
-		Where(do.MediaDeviceNode{DeviceId: normalizedDeviceID}).
+		Where(do.MediaDeviceNode{DeviceId: normalizedDeviceID, ChannelId: normalizedChannelID}).
 		Delete()
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaDeviceNodeDeleteFailed)
 	}
-	return &DeviceNodeMutationOutput{DeviceId: normalizedDeviceID}, nil
+	return &DeviceNodeMutationOutput{DeviceId: normalizedDeviceID, ChannelId: normalizedChannelID}, nil
 }
 
 // ListTenantStreamConfigs returns paged tenant stream configs.
@@ -651,9 +666,9 @@ func (s *serviceImpl) nodeReferenced(ctx context.Context, nodeNum int) (bool, er
 }
 
 // deviceNodeExists reports whether one device-node mapping exists.
-func (s *serviceImpl) deviceNodeExists(ctx context.Context, deviceID string) (bool, error) {
+func (s *serviceImpl) deviceNodeExists(ctx context.Context, deviceID string, channelID string) (bool, error) {
 	count, err := dao.MediaDeviceNode.Ctx(ctx).
-		Where(do.MediaDeviceNode{DeviceId: deviceID}).
+		Where(do.MediaDeviceNode{DeviceId: deviceID, ChannelId: channelID}).
 		Count()
 	if err != nil {
 		return false, bizerr.WrapCode(err, CodeMediaDeviceNodeDetailQueryFailed)
@@ -661,8 +676,8 @@ func (s *serviceImpl) deviceNodeExists(ctx context.Context, deviceID string) (bo
 	return count > 0, nil
 }
 
-// getDeviceNodeEntity returns one device-node entity by device ID.
-func (s *serviceImpl) getDeviceNodeEntity(ctx context.Context, deviceID string) (*deviceNodeEntity, error) {
+// getDeviceNodeEntity returns one device-node entity by device and channel ID.
+func (s *serviceImpl) getDeviceNodeEntity(ctx context.Context, deviceID string, channelID string) (*deviceNodeEntity, error) {
 	if err := validateMediaTablesReady(ctx); err != nil {
 		return nil, err
 	}
@@ -670,10 +685,14 @@ func (s *serviceImpl) getDeviceNodeEntity(ctx context.Context, deviceID string) 
 	if err != nil {
 		return nil, err
 	}
+	normalizedChannelID, err := normalizeDeviceNodeChannelID(channelID)
+	if err != nil {
+		return nil, err
+	}
 
 	var record *deviceNodeEntity
 	err = dao.MediaDeviceNode.Ctx(ctx).
-		Where(do.MediaDeviceNode{DeviceId: normalizedDeviceID}).
+		Where(do.MediaDeviceNode{DeviceId: normalizedDeviceID, ChannelId: normalizedChannelID}).
 		Scan(&record)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaDeviceNodeDetailQueryFailed)
@@ -804,11 +823,27 @@ func normalizeDeviceNodeMutationInput(in DeviceNodeMutationInput) (DeviceNodeMut
 	if err != nil {
 		return DeviceNodeMutationInput{}, err
 	}
+	channelID, err := normalizeDeviceNodeChannelID(in.ChannelId)
+	if err != nil {
+		return DeviceNodeMutationInput{}, err
+	}
 	nodeNum, err := normalizeNodeNum(in.NodeNum)
 	if err != nil {
 		return DeviceNodeMutationInput{}, err
 	}
-	return DeviceNodeMutationInput{DeviceId: deviceID, NodeNum: nodeNum}, nil
+	return DeviceNodeMutationInput{DeviceId: deviceID, ChannelId: channelID, NodeNum: nodeNum}, nil
+}
+
+// normalizeDeviceNodeChannelID validates one device-node channel identifier.
+func normalizeDeviceNodeChannelID(channelID string) (string, error) {
+	normalized := strings.TrimSpace(channelID)
+	if normalized == "" {
+		return "", bizerr.NewCode(CodeMediaChannelIDRequired)
+	}
+	if utf8.RuneCountInString(normalized) > 64 {
+		return "", bizerr.NewCode(CodeMediaChannelIDTooLong)
+	}
+	return normalized, nil
 }
 
 // normalizeDeviceNodeKey validates one device-node natural key.
@@ -898,9 +933,10 @@ func buildDeviceNodeOutput(item *deviceNodeEntity, nodeNames map[int]string) *De
 		return &DeviceNodeOutput{}
 	}
 	return &DeviceNodeOutput{
-		DeviceId: item.DeviceId,
-		NodeNum:  item.NodeNum,
-		NodeName: nodeNames[item.NodeNum],
+		DeviceId:  item.DeviceId,
+		ChannelId: item.ChannelId,
+		NodeNum:   item.NodeNum,
+		NodeName:  nodeNames[item.NodeNum],
 	}
 }
 

@@ -14,7 +14,7 @@ var (
 	// CodeMediaTableNotInstalled reports that plugin SQL has not been installed.
 	CodeMediaTableNotInstalled = bizerr.MustDefine("MEDIA_TABLE_NOT_INSTALLED", "媒体数据表不存在，请先安装插件", gcode.CodeNotFound)
 	// CodeMediaSwitchValueInvalid reports that a numeric switch value is invalid.
-	CodeMediaSwitchValueInvalid = bizerr.MustDefine("MEDIA_SWITCH_VALUE_INVALID", "开关值只能是1或2", gcode.CodeInvalidParameter)
+	CodeMediaSwitchValueInvalid = bizerr.MustDefine("MEDIA_SWITCH_VALUE_INVALID", "开关值只能是1或0", gcode.CodeInvalidParameter)
 	// CodeMediaBinaryValueInvalid reports that a numeric binary value is invalid.
 	CodeMediaBinaryValueInvalid = bizerr.MustDefine("MEDIA_BINARY_VALUE_INVALID", "是否标记只能是0或1", gcode.CodeInvalidParameter)
 	// CodeMediaStrategyNameRequired reports that strategy name is missing.
@@ -73,6 +73,14 @@ var (
 	CodeMediaAliasRequired = bizerr.MustDefine("MEDIA_ALIAS_REQUIRED", "流别名不能为空", gcode.CodeInvalidParameter)
 	// CodeMediaStreamPathRequired reports that stream path is missing.
 	CodeMediaStreamPathRequired = bizerr.MustDefine("MEDIA_STREAM_PATH_REQUIRED", "真实流路径不能为空", gcode.CodeInvalidParameter)
+	// CodeMediaDeviceIDRequired reports that media device ID is missing.
+	CodeMediaDeviceIDRequired = bizerr.MustDefine("MEDIA_DEVICE_ID_REQUIRED", "设备ID不能为空", gcode.CodeInvalidParameter)
+	// CodeMediaDeviceIDTooLong reports that media device ID is too long.
+	CodeMediaDeviceIDTooLong = bizerr.MustDefine("MEDIA_DEVICE_ID_TOO_LONG", "设备ID长度不能超过64个字符", gcode.CodeInvalidParameter)
+	// CodeMediaChannelIDRequired reports that media channel ID is missing.
+	CodeMediaChannelIDRequired = bizerr.MustDefine("MEDIA_CHANNEL_ID_REQUIRED", "设备通道ID不能为空", gcode.CodeInvalidParameter)
+	// CodeMediaChannelIDTooLong reports that media channel ID is too long.
+	CodeMediaChannelIDTooLong = bizerr.MustDefine("MEDIA_CHANNEL_ID_TOO_LONG", "设备通道ID长度不能超过64个字符", gcode.CodeInvalidParameter)
 	// CodeMediaAliasNotFound reports that a stream alias does not exist.
 	CodeMediaAliasNotFound = bizerr.MustDefine("MEDIA_ALIAS_NOT_FOUND", "流别名不存在", gcode.CodeNotFound)
 	// CodeMediaAliasCountQueryFailed reports that alias count query failed.

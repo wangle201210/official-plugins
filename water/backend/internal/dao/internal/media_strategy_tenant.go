@@ -21,7 +21,7 @@ type MediaStrategyTenantDao struct {
 
 // MediaStrategyTenantColumns defines and stores column names for the table media_strategy_tenant.
 type MediaStrategyTenantColumns struct {
-	TenantId   string // 租户ID
+	TenantId   string // 租户id
 	StrategyId string // 策略ID
 }
 

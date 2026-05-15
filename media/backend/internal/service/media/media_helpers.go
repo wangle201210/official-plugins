@@ -27,6 +27,9 @@ func normalizePagination(pageNum int, pageSize int) (int, int) {
 
 // normalizeSwitchValue validates and normalizes a numeric switch value.
 func normalizeSwitchValue(value int, defaultValue SwitchValue) (int, error) {
+	if value == 0 && defaultValue == SwitchOn {
+		return int(SwitchOff), nil
+	}
 	if value == 0 {
 		return int(defaultValue), nil
 	}

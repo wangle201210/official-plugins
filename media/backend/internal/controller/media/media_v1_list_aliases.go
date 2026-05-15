@@ -26,6 +26,8 @@ func (c *ControllerV1) ListAliases(ctx context.Context, req *v1.ListAliasesReq) 
 			Alias:      item.Alias,
 			AutoRemove: item.AutoRemove,
 			StreamPath: item.StreamPath,
+			DeviceId:   item.DeviceId,
+			ChannelId:  item.ChannelId,
 			CreateTime: item.CreateTime,
 		})
 	}

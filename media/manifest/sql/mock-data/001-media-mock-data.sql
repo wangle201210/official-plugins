@@ -77,7 +77,7 @@ watermark:
   color: "#ffffff"
   align: bottomRight
   opacity: 0.65',
-    2,
+    0,
     1,
     admin."id",
     admin."id",
@@ -117,7 +117,7 @@ watermark:
   color: "#ffffff"
   align: bottomRight
   opacity: 0.7',
-    2,
+    0,
     1,
     admin."id",
     admin."id",
@@ -183,12 +183,16 @@ INSERT INTO media_stream_alias (
     "alias",
     "auto_remove",
     "stream_path",
+    "device_id",
+    "channel_id",
     "create_time"
 )
 SELECT
     'retail-east-entrance',
     0,
     'live/tenant-retail-east/entrance',
+    '34020000001320000001',
+    '34020000001320000001',
     '2026-05-13 10:00:00'
 WHERE NOT EXISTS (
     SELECT 1
@@ -200,12 +204,16 @@ INSERT INTO media_stream_alias (
     "alias",
     "auto_remove",
     "stream_path",
+    "device_id",
+    "channel_id",
     "create_time"
 )
 SELECT
     'park-gate-north',
     0,
     'live/tenant-park-security/gate-north',
+    '34020000001320000002',
+    '34020000001320000002',
     '2026-05-13 10:05:00'
 WHERE NOT EXISTS (
     SELECT 1
@@ -217,12 +225,16 @@ INSERT INTO media_stream_alias (
     "alias",
     "auto_remove",
     "stream_path",
+    "device_id",
+    "channel_id",
     "create_time"
 )
 SELECT
     'temporary-event-room',
     1,
     'live/events/temporary-room',
+    '34020000001320000003',
+    '34020000001320000003',
     '2026-05-13 10:10:00'
 WHERE NOT EXISTS (
     SELECT 1
@@ -290,9 +302,11 @@ WHERE admin."username" = 'admin'
 
 INSERT INTO media_device_node (
     "device_id",
+    "channel_id",
     "node_num"
 )
 SELECT
+    '34020000001320000001',
     '34020000001320000001',
     1
 WHERE EXISTS (
@@ -304,13 +318,16 @@ WHERE EXISTS (
       SELECT 1
       FROM media_device_node existing
       WHERE existing."device_id" = '34020000001320000001'
+        AND existing."channel_id" = '34020000001320000001'
   );
 
 INSERT INTO media_device_node (
     "device_id",
+    "channel_id",
     "node_num"
 )
 SELECT
+    '34020000001320000002',
     '34020000001320000002',
     2
 WHERE EXISTS (
@@ -322,6 +339,7 @@ WHERE EXISTS (
       SELECT 1
       FROM media_device_node existing
       WHERE existing."device_id" = '34020000001320000002'
+        AND existing."channel_id" = '34020000001320000002'
   );
 
 INSERT INTO media_tenant_stream_config (

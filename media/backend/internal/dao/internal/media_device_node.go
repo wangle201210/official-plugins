@@ -21,14 +21,16 @@ type MediaDeviceNodeDao struct {
 
 // MediaDeviceNodeColumns defines and stores column names for the table media_device_node.
 type MediaDeviceNodeColumns struct {
-	DeviceId string // 设备国标ID（对应device_code）
-	NodeNum  string // 节点编号
+	DeviceId  string // 设备id（对应device_code）
+	ChannelId string // 设备通道id（对应channel_code）
+	NodeNum   string // 节点编号
 }
 
 // mediaDeviceNodeColumns holds the columns for the table media_device_node.
 var mediaDeviceNodeColumns = MediaDeviceNodeColumns{
-	DeviceId: "device_id",
-	NodeNum:  "node_num",
+	DeviceId:  "device_id",
+	ChannelId: "channel_id",
+	NodeNum:   "node_num",
 }
 
 // NewMediaDeviceNodeDao creates and returns a new DAO object for table data access.

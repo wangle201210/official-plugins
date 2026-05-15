@@ -55,6 +55,8 @@ type AliasDetail = {
   alias: string;
   autoRemove: number;
   streamPath: string;
+  deviceId: string;
+  channelId: string;
 };
 
 type TenantWhiteDetail = {
@@ -75,6 +77,7 @@ type NodeDetail = {
 
 type DeviceNodeDetail = {
   deviceId: string;
+  channelId: string;
   nodeNum: number;
   nodeName: string;
 };
@@ -192,7 +195,7 @@ async function createStrategy(
     await api.post("media/strategies", {
       data: {
         enable: 1,
-        global: 2,
+        global: 0,
         name,
         strategy: body,
       },
@@ -336,10 +339,20 @@ async function deleteNode(api: AdminApiContext, nodeNum: number) {
   await expectSuccess(await api.delete(`media/nodes/${nodeNum}`));
 }
 
-async function deleteDeviceNode(api: AdminApiContext, deviceId: string) {
+async function deleteDeviceNode(
+  api: AdminApiContext,
+  deviceId: string,
+  channelId: string,
+) {
   await expectSuccess(
-    await api.delete(`media/device-nodes/${pathSegment(deviceId)}`),
+    await api.delete(
+      `media/device-nodes/${pathSegment(deviceId)}/channels/${pathSegment(channelId)}`,
+    ),
   );
+}
+
+function rowKeyDeviceNode(deviceId: string, channelId: string) {
+  return `${deviceId}:${channelId}`;
 }
 
 async function deleteTenantStreamConfig(
@@ -351,12 +364,12 @@ async function deleteTenantStreamConfig(
   );
 }
 
-test.describe("TC-234 media plugin owned E2E discovery", () => {
+test.describe("TC-236 media plugin owned E2E discovery", () => {
   test.beforeEach(async ({ adminPage }) => {
     await ensureSourcePluginEnabled(adminPage, "media");
   });
 
-  test("TC-234a: 媒体管理页面加载、切换页签且高度稳定", async ({
+  test("TC-236a: 媒体管理页面加载、切换页签且高度稳定", async ({
     adminPage,
   }) => {
     const pageErrors: Error[] = [];
@@ -496,11 +509,12 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     await expectNoPageErrors(pageErrors, /ResizeObserver loop/i);
   });
 
-  test("TC-234b: 媒体策略绑定优先级和流别名接口可用", async () => {
+  test("TC-236b: 媒体策略绑定优先级和流别名接口可用", async () => {
     const api = await createAdminApiContext();
     const suffix = Date.now().toString();
     const tenantId = `tenant-e2e-${suffix}`;
     const deviceId = `3402000000132${suffix.slice(-7).padStart(7, "0")}`;
+    const channelId = `3402000000133${suffix.slice(-7).padStart(7, "0")}`;
     const alias = `e2e-alias-${suffix}`;
 
     const strategyIds: number[] = [];
@@ -566,6 +580,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
           data: {
             alias,
             autoRemove: 0,
+            channelId,
+            deviceId,
             streamPath: `live/${alias}`,
           },
         }),
@@ -577,6 +593,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
           data: {
             alias,
             autoRemove: 1,
+            channelId,
+            deviceId,
             streamPath: `live/${alias}-updated`,
           },
         }),
@@ -588,6 +606,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       expect(aliasDetail).toMatchObject({
         alias,
         autoRemove: 1,
+        channelId,
+        deviceId,
         streamPath: `live/${alias}-updated`,
       });
 
@@ -613,7 +633,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     }
   });
 
-  test("TC-234c: 媒体管理全部 REST 接口语义正确", async () => {
+  test("TC-236c: 媒体管理全部 REST 接口语义正确", async () => {
     const api = await createAdminApiContext();
     const suffix = Date.now().toString();
     const strategyName = `E2E接口策略-${suffix}`;
@@ -621,6 +641,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     const strategyBody = `record: api-${suffix}`;
     const updatedStrategyBody = `record: api-updated-${suffix}`;
     const deviceId = `3402000000139${suffix.slice(-7).padStart(7, "0")}`;
+    const channelId = `3402000000138${suffix.slice(-7).padStart(7, "0")}`;
     const tenantId = `tenant-api-${suffix}`;
     const alias = `e2e-api-alias-${suffix}`;
     const whiteIp = `10.9.${ipv4OctetFromSuffix(
@@ -639,7 +660,10 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     const nodeName = `E2E接口节点-${suffix}`;
     const updatedNodeName = `E2E接口节点更新-${suffix}`;
     const deviceNodeId = `3402000000140${suffix.slice(-7).padStart(7, "0")}`;
+    const deviceNodeChannelId = `3402000000142${suffix.slice(-7).padStart(7, "0")}`;
+    const sameDeviceDifferentChannelId = `3402000000144${suffix.slice(-7).padStart(7, "0")}`;
     const updatedDeviceNodeId = `3402000000141${suffix.slice(-7).padStart(7, "0")}`;
+    const updatedDeviceNodeChannelId = `3402000000143${suffix.slice(-7).padStart(7, "0")}`;
     const tenantStreamId = `tenant-stream-api-${suffix}`;
     const updatedTenantStreamId = `${tenantStreamId}-updated`;
 
@@ -651,6 +675,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     let ipv6TenantWhiteCreated = false;
     let currentNodeNum = 0;
     let currentDeviceNodeId = "";
+    let currentDeviceNodeChannelId = "";
+    let sameDeviceDifferentChannelCreated = false;
     let currentTenantStreamId = "";
 
     try {
@@ -707,6 +733,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         await api.post("media/device-nodes", {
           data: {
             deviceId: `${deviceNodeId}-missing`,
+            channelId: deviceNodeChannelId,
             nodeNum,
           },
         }),
@@ -716,30 +743,63 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         await api.post("media/device-nodes", {
           data: {
             deviceId: deviceNodeId,
+            channelId: deviceNodeChannelId,
             nodeNum: updatedNodeNum,
           },
         }),
       );
       currentDeviceNodeId = deviceNodeId;
+      currentDeviceNodeChannelId = deviceNodeChannelId;
       await expect(
         expectSuccess<DeviceNodeDetail>(
-          await api.get(`media/device-nodes/${pathSegment(deviceNodeId)}`),
+          await api.get(
+            `media/device-nodes/${pathSegment(deviceNodeId)}/channels/${pathSegment(deviceNodeChannelId)}`,
+          ),
         ),
       ).resolves.toMatchObject({
         deviceId: deviceNodeId,
+        channelId: deviceNodeChannelId,
         nodeNum: updatedNodeNum,
         nodeName: updatedNodeName,
       });
 
       await expectSuccess(
-        await api.put(`media/device-nodes/${pathSegment(deviceNodeId)}`, {
+        await api.post("media/device-nodes", {
           data: {
-            deviceId: updatedDeviceNodeId,
+            deviceId: deviceNodeId,
+            channelId: sameDeviceDifferentChannelId,
             nodeNum: updatedNodeNum,
           },
         }),
       );
+      sameDeviceDifferentChannelCreated = true;
+      await expect(
+        expectSuccess<DeviceNodeDetail>(
+          await api.get(
+            `media/device-nodes/${pathSegment(deviceNodeId)}/channels/${pathSegment(sameDeviceDifferentChannelId)}`,
+          ),
+        ),
+      ).resolves.toMatchObject({
+        deviceId: deviceNodeId,
+        channelId: sameDeviceDifferentChannelId,
+      });
+      await deleteDeviceNode(api, deviceNodeId, sameDeviceDifferentChannelId);
+      sameDeviceDifferentChannelCreated = false;
+
+      await expectSuccess(
+        await api.put(
+          `media/device-nodes/${pathSegment(deviceNodeId)}/channels/${pathSegment(deviceNodeChannelId)}`,
+          {
+            data: {
+              deviceId: updatedDeviceNodeId,
+              channelId: updatedDeviceNodeChannelId,
+              nodeNum: updatedNodeNum,
+            },
+          },
+        ),
+      );
       currentDeviceNodeId = updatedDeviceNodeId;
+      currentDeviceNodeChannelId = updatedDeviceNodeChannelId;
       const listedDeviceNodes = await expectSuccess<
         ListResult<DeviceNodeDetail>
       >(
@@ -750,6 +810,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       expect(listedDeviceNodes.list).toEqual([
         expect.objectContaining({
           deviceId: updatedDeviceNodeId,
+          channelId: updatedDeviceNodeChannelId,
           nodeNum: updatedNodeNum,
           nodeName: updatedNodeName,
         }),
@@ -810,8 +871,9 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       ]);
 
       await expectBusinessError(await api.delete(`media/nodes/${updatedNodeNum}`));
-      await deleteDeviceNode(api, updatedDeviceNodeId);
+      await deleteDeviceNode(api, updatedDeviceNodeId, updatedDeviceNodeChannelId);
       currentDeviceNodeId = "";
+      currentDeviceNodeChannelId = "";
       await deleteTenantStreamConfig(api, updatedTenantStreamId);
       currentTenantStreamId = "";
       await deleteNode(api, updatedNodeNum);
@@ -824,7 +886,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       );
       expect(strategyDetail).toMatchObject({
         enable: 1,
-        global: 2,
+        global: 0,
         id: strategyId,
         name: strategyName,
         strategy: strategyBody,
@@ -843,7 +905,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         await api.put(`media/strategies/${strategyId}`, {
           data: {
             enable: 1,
-            global: 2,
+            global: 0,
             name: updatedStrategyName,
             strategy: updatedStrategyBody,
           },
@@ -860,14 +922,14 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
 
       await expectSuccess(
         await api.put(`media/strategies/${strategyId}/enable`, {
-          data: { enable: 2 },
+          data: { enable: 0 },
         }),
       );
       await expect(
         expectSuccess<StrategyDetail>(
           await api.get(`media/strategies/${strategyId}`),
         ),
-      ).resolves.toMatchObject({ enable: 2 });
+      ).resolves.toMatchObject({ enable: 0 });
 
       await expectSuccess(await api.put(`media/strategies/${strategyId}/global`));
       await expect(
@@ -949,6 +1011,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
           data: {
             alias,
             autoRemove: 0,
+            channelId,
+            deviceId,
             streamPath: `live/${alias}`,
           },
         }),
@@ -961,7 +1025,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         ),
       );
       expect(listedAliases.list).toEqual([
-        expect.objectContaining({ alias, id: aliasId }),
+        expect.objectContaining({ alias, channelId, deviceId, id: aliasId }),
       ]);
 
       await expect(
@@ -971,6 +1035,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       ).resolves.toMatchObject({
         alias,
         autoRemove: 0,
+        channelId,
+        deviceId,
         streamPath: `live/${alias}`,
       });
 
@@ -979,6 +1045,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
           data: {
             alias,
             autoRemove: 1,
+            channelId,
+            deviceId,
             streamPath: `live/${alias}-updated`,
           },
         }),
@@ -989,6 +1057,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         ),
       ).resolves.toMatchObject({
         autoRemove: 1,
+        channelId,
+        deviceId,
         streamPath: `live/${alias}-updated`,
       });
 
@@ -1168,9 +1238,18 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
           )
           .catch(() => undefined);
       }
+      if (sameDeviceDifferentChannelCreated) {
+        await api
+          .delete(
+            `media/device-nodes/${pathSegment(deviceNodeId)}/channels/${pathSegment(sameDeviceDifferentChannelId)}`,
+          )
+          .catch(() => undefined);
+      }
       if (currentDeviceNodeId) {
         await api
-          .delete(`media/device-nodes/${pathSegment(currentDeviceNodeId)}`)
+          .delete(
+            `media/device-nodes/${pathSegment(currentDeviceNodeId)}/channels/${pathSegment(currentDeviceNodeChannelId)}`,
+          )
           .catch(() => undefined);
       }
       if (currentNodeNum > 0) {
@@ -1190,7 +1269,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     }
   });
 
-  test("TC-234d: 宿主静态入口可加载媒体管理页面", async ({ browser }) => {
+  test("TC-236d: 宿主静态入口可加载媒体管理页面", async ({ browser }) => {
     const context = await browser.newContext({
       baseURL: hostStaticBaseURL(),
       locale: "zh-CN",
@@ -1226,7 +1305,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     }
   });
 
-  test("TC-234e: 媒体管理界面编辑回显和接口执行正确", async ({
+  test("TC-236e: 媒体管理界面编辑回显和接口执行正确", async ({
     adminPage,
   }) => {
     const api = await createAdminApiContext();
@@ -1237,12 +1316,14 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     const updatedStrategyBody = `record: ui-updated-${suffix}`;
     const replacementStrategyName = `E2E界面备用策略-${suffix}`;
     const deviceId = `000-e2e-device-${suffix}`;
+    const channelId = `000-e2e-channel-${suffix}`;
     const tenantId = `000-e2e-tenant-${suffix}`;
     const tenantDeviceId = `000-e2e-tenant-device-${suffix}`;
     const alias = `e2e-ui-alias-${suffix}`;
     const createdAfterEditStrategyName = `E2E界面新增策略-${suffix}`;
     const createdAfterEditStrategyBody = `record: ui-created-after-edit-${suffix}`;
     const createdAfterEditAlias = `e2e-ui-alias-new-${suffix}`;
+    const createdAfterEditAliasChannelId = `000-e2e-channel-new-${suffix}`;
     const createdAfterEditDeviceId = `000-e2e-device-new-${suffix}`;
     const createdAfterEditTenantId = `000-e2e-tenant-new-${suffix}`;
     const createdAfterEditTenantDeviceTenantId = `000-e2e-td-tenant-new-${suffix}`;
@@ -1269,8 +1350,11 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     const updatedNodeName = `E2E界面节点更新-${suffix}`;
     const createdAfterEditNodeName = `E2E界面新增节点-${suffix}`;
     const deviceNodeId = `000-e2e-device-node-${suffix}`;
+    const deviceNodeChannelId = `000-e2e-channel-node-${suffix}`;
     const updatedDeviceNodeId = `000-e2e-device-node-updated-${suffix}`;
+    const updatedDeviceNodeChannelId = `000-e2e-channel-node-updated-${suffix}`;
     const createdAfterEditDeviceNodeId = `000-e2e-device-node-new-${suffix}`;
+    const createdAfterEditDeviceNodeChannelId = `000-e2e-channel-node-new-${suffix}`;
     const tenantStreamId = `000-e2e-stream-tenant-${suffix}`;
     const updatedTenantStreamId = `000-e2e-stream-updated-${suffix}`;
     const createdAfterEditTenantStreamId = `000-e2e-stream-new-${suffix}`;
@@ -1287,6 +1371,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
     let currentNodeNum = 0;
     let createdAfterEditNodeCreated = false;
     let currentDeviceNodeId = "";
+    let currentDeviceNodeChannelId = "";
     let createdAfterEditDeviceNodeCreated = false;
     let currentTenantStreamId = "";
     let createdAfterEditTenantStreamCreated = false;
@@ -1315,6 +1400,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
           data: {
             alias,
             autoRemove: 0,
+            channelId,
+            deviceId,
             streamPath: `live/${alias}`,
           },
         }),
@@ -1348,11 +1435,13 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         await api.post("media/device-nodes", {
           data: {
             deviceId: deviceNodeId,
+            channelId: deviceNodeChannelId,
             nodeNum,
           },
         }),
       );
       currentDeviceNodeId = deviceNodeId;
+      currentDeviceNodeChannelId = deviceNodeChannelId;
       await expectSuccess(
         await api.post("media/tenant-stream-configs", {
           data: {
@@ -1483,7 +1572,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         expectSuccess<StrategyDetail>(
           await api.get(`media/strategies/${createdAfterEditStrategyId}`),
         ),
-      ).resolves.toMatchObject({ enable: 2 });
+      ).resolves.toMatchObject({ enable: 0 });
 
       const strategyGlobalResponse = adminPage.waitForResponse(
         (res) =>
@@ -1856,6 +1945,12 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       await expect(
         aliasModal.getByTestId("media-alias-stream-path"),
       ).toHaveValue(`live/${alias}`);
+      await expect(aliasModal.getByTestId("media-alias-device-id")).toHaveValue(
+        deviceId,
+      );
+      await expect(
+        aliasModal.getByTestId("media-alias-channel-id"),
+      ).toHaveValue(channelId);
       await expectCheckedRadioLabel(
         aliasModal.getByTestId("media-alias-auto-remove"),
         "否",
@@ -1863,6 +1958,9 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       await aliasModal
         .getByTestId("media-alias-stream-path")
         .fill(`live/${alias}-ui-updated`);
+      await aliasModal
+        .getByTestId("media-alias-channel-id")
+        .fill(`${channelId}-updated`);
       const aliasUpdateResponse = adminPage.waitForResponse(
         (res) =>
           res.url().includes(`/api/v1/media/stream-aliases/${aliasId}`) &&
@@ -1880,6 +1978,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         ),
       ).resolves.toMatchObject({
         alias,
+        channelId: `${channelId}-updated`,
+        deviceId,
         streamPath: `live/${alias}-ui-updated`,
       });
 
@@ -1889,12 +1989,22 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       await expect(
         aliasModal.getByTestId("media-alias-stream-path"),
       ).toHaveValue("");
+      await expect(aliasModal.getByTestId("media-alias-device-id")).toHaveValue(
+        "",
+      );
+      await expect(
+        aliasModal.getByTestId("media-alias-channel-id"),
+      ).toHaveValue("");
       await aliasModal
         .getByTestId("media-alias-name")
         .fill(createdAfterEditAlias);
       await aliasModal
         .getByTestId("media-alias-stream-path")
         .fill(`live/${createdAfterEditAlias}`);
+      await aliasModal.getByTestId("media-alias-device-id").fill(deviceId);
+      await aliasModal
+        .getByTestId("media-alias-channel-id")
+        .fill(createdAfterEditAliasChannelId);
       const aliasCreateResponse = adminPage.waitForResponse(
         (res) =>
           res.url().endsWith("/api/v1/media/stream-aliases") &&
@@ -1916,6 +2026,8 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         ),
       ).resolves.toMatchObject({
         alias: createdAfterEditAlias,
+        channelId: createdAfterEditAliasChannelId,
+        deviceId,
         streamPath: `live/${createdAfterEditAlias}`,
       });
 
@@ -2037,7 +2149,9 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         (res) =>
           res
             .url()
-            .includes(`/api/v1/media/device-nodes/${pathSegment(deviceNodeId)}`) &&
+            .includes(
+              `/api/v1/media/device-nodes/${pathSegment(deviceNodeId)}/channels/${pathSegment(deviceNodeChannelId)}`,
+            ) &&
           res.request().method() === "GET",
         { timeout: 15000 },
       );
@@ -2048,7 +2162,9 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         { timeout: 15000 },
       );
       await adminPage
-        .getByTestId(`media-device-node-edit-${deviceNodeId}`)
+        .getByTestId(
+          `media-device-node-edit-${rowKeyDeviceNode(deviceNodeId, deviceNodeChannelId)}`,
+        )
         .click();
       await expectApiResponseSuccess(await deviceNodeOptionsResponse);
       await expectApiResponseSuccess(await deviceNodeDetailResponse);
@@ -2058,6 +2174,9 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
         deviceNodeModal.getByTestId("media-device-node-device-id"),
       ).toHaveValue(deviceNodeId);
       await expect(
+        deviceNodeModal.getByTestId("media-device-node-channel-id"),
+      ).toHaveValue(deviceNodeChannelId);
+      await expect(
         deviceNodeModal
           .getByTestId("media-device-node-node")
           .locator(".ant-select-selection-item"),
@@ -2065,17 +2184,23 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       await deviceNodeModal
         .getByTestId("media-device-node-device-id")
         .fill(updatedDeviceNodeId);
+      await deviceNodeModal
+        .getByTestId("media-device-node-channel-id")
+        .fill(updatedDeviceNodeChannelId);
       const deviceNodeUpdateResponse = adminPage.waitForResponse(
         (res) =>
           res
             .url()
-            .includes(`/api/v1/media/device-nodes/${pathSegment(deviceNodeId)}`) &&
+            .includes(
+              `/api/v1/media/device-nodes/${pathSegment(deviceNodeId)}/channels/${pathSegment(deviceNodeChannelId)}`,
+            ) &&
           res.request().method() === "PUT",
         { timeout: 15000 },
       );
       await confirmModal(deviceNodeModal);
       await expectApiResponseSuccess(await deviceNodeUpdateResponse);
       currentDeviceNodeId = updatedDeviceNodeId;
+      currentDeviceNodeChannelId = updatedDeviceNodeChannelId;
       await expect(
         modalHeading(adminPage, "编辑设备节点"),
       ).toBeHidden({ timeout: 15000 });
@@ -2092,9 +2217,15 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       await expect(
         deviceNodeModal.getByTestId("media-device-node-device-id"),
       ).toHaveValue("");
+      await expect(
+        deviceNodeModal.getByTestId("media-device-node-channel-id"),
+      ).toHaveValue("");
       await deviceNodeModal
         .getByTestId("media-device-node-device-id")
         .fill(createdAfterEditDeviceNodeId);
+      await deviceNodeModal
+        .getByTestId("media-device-node-channel-id")
+        .fill(createdAfterEditDeviceNodeChannelId);
       const deviceNodeCreateResponse = adminPage.waitForResponse(
         (res) =>
           res.url().endsWith("/api/v1/media/device-nodes") &&
@@ -2105,6 +2236,7 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       await expect(
         await expectApiResponseSuccess(await deviceNodeCreateResponse),
       ).toMatchObject({
+        channelId: createdAfterEditDeviceNodeChannelId,
         deviceId: createdAfterEditDeviceNodeId,
       });
       createdAfterEditDeviceNodeCreated = true;
@@ -2527,12 +2659,14 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
             .includes(
               `/api/v1/media/device-nodes/${pathSegment(
                 createdAfterEditDeviceNodeId,
-              )}`,
+              )}/channels/${pathSegment(createdAfterEditDeviceNodeChannelId)}`,
             ) && res.request().method() === "DELETE",
         { timeout: 15000 },
       );
       await adminPage
-        .getByTestId(`media-device-node-delete-${createdAfterEditDeviceNodeId}`)
+        .getByTestId(
+          `media-device-node-delete-${rowKeyDeviceNode(createdAfterEditDeviceNodeId, createdAfterEditDeviceNodeChannelId)}`,
+        )
         .click();
       await confirmPopconfirm(adminPage);
       await expectApiResponseSuccess(await deviceNodeCreatedDeleteResponse);
@@ -2543,16 +2677,19 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
           res
             .url()
             .includes(
-              `/api/v1/media/device-nodes/${pathSegment(updatedDeviceNodeId)}`,
+              `/api/v1/media/device-nodes/${pathSegment(updatedDeviceNodeId)}/channels/${pathSegment(updatedDeviceNodeChannelId)}`,
             ) && res.request().method() === "DELETE",
         { timeout: 15000 },
       );
       await adminPage
-        .getByTestId(`media-device-node-delete-${updatedDeviceNodeId}`)
+        .getByTestId(
+          `media-device-node-delete-${rowKeyDeviceNode(updatedDeviceNodeId, updatedDeviceNodeChannelId)}`,
+        )
         .click();
       await confirmPopconfirm(adminPage);
       await expectApiResponseSuccess(await deviceNodeDeleteResponse);
       currentDeviceNodeId = "";
+      currentDeviceNodeChannelId = "";
 
       await adminPage.getByRole("tab", { exact: true, name: "节点管理" }).click();
       const nodeCreatedDeleteResponse = adminPage.waitForResponse(
@@ -2691,13 +2828,15 @@ test.describe("TC-234 media plugin owned E2E discovery", () => {
       if (createdAfterEditDeviceNodeCreated) {
         await api
           .delete(
-            `media/device-nodes/${pathSegment(createdAfterEditDeviceNodeId)}`,
+            `media/device-nodes/${pathSegment(createdAfterEditDeviceNodeId)}/channels/${pathSegment(createdAfterEditDeviceNodeChannelId)}`,
           )
           .catch(() => undefined);
       }
       if (currentDeviceNodeId) {
         await api
-          .delete(`media/device-nodes/${pathSegment(currentDeviceNodeId)}`)
+          .delete(
+            `media/device-nodes/${pathSegment(currentDeviceNodeId)}/channels/${pathSegment(currentDeviceNodeChannelId)}`,
+          )
           .catch(() => undefined);
       }
       if (createdAfterEditNodeCreated) {

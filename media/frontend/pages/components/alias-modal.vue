@@ -22,6 +22,8 @@ interface AliasFormData extends MediaAliasInput {
 const defaultValues: AliasFormData = {
   alias: "",
   autoRemove: 0,
+  channelId: "",
+  deviceId: "",
   streamPath: "",
 };
 
@@ -31,6 +33,8 @@ const modalTitle = computed(() => (isEdit.value ? "编辑流别名" : "新增流
 
 const formRules = reactive({
   alias: [{ message: "请输入流别名", required: true }],
+  channelId: [{ message: "请输入设备通道 ID", required: true }],
+  deviceId: [{ message: "请输入设备 ID", required: true }],
   streamPath: [{ message: "请输入真实流路径", required: true }],
 });
 
@@ -62,6 +66,8 @@ const [Modal, modalApi] = useVbenModal({
           id: record.id,
           alias: record.alias,
           autoRemove: record.autoRemove,
+          channelId: record.channelId,
+          deviceId: record.deviceId,
           streamPath: record.streamPath,
         });
       } finally {
@@ -75,7 +81,13 @@ async function handleConfirm() {
   try {
     modalApi.lock(true);
     await validate();
-    const { id, ...values } = { ...formData };
+    const { id, ...values } = {
+      ...formData,
+      alias: formData.alias.trim(),
+      channelId: formData.channelId.trim(),
+      deviceId: formData.deviceId.trim(),
+      streamPath: formData.streamPath.trim(),
+    };
     if (isEdit.value && id) {
       await updateMediaAlias(id, values);
       message.success("流别名已更新");
@@ -110,6 +122,26 @@ async function handleConfirm() {
           placeholder="例如：live/camera-01"
         />
       </FormItem>
+      <div class="grid gap-4 md:grid-cols-2">
+        <FormItem label="设备 ID" v-bind="validateInfos.deviceId">
+          <Input
+            data-testid="media-alias-device-id"
+            v-model:value="formData.deviceId"
+            allow-clear
+            :maxlength="64"
+            placeholder="例如：34020000001320000001"
+          />
+        </FormItem>
+        <FormItem label="设备通道 ID" v-bind="validateInfos.channelId">
+          <Input
+            data-testid="media-alias-channel-id"
+            v-model:value="formData.channelId"
+            allow-clear
+            :maxlength="64"
+            placeholder="例如：34020000001320000001"
+          />
+        </FormItem>
+      </div>
       <FormItem label="自动移除">
         <RadioGroup
           data-testid="media-alias-auto-remove"

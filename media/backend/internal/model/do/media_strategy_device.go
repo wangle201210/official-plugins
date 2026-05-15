@@ -11,6 +11,6 @@ import (
 // MediaStrategyDevice is the golang structure of table media_strategy_device for DAO operations like Where/Data.
 type MediaStrategyDevice struct {
 	g.Meta     `orm:"table:media_strategy_device, do:true"`
-	DeviceId   any // 设备国标ID
-	StrategyId any // 策略ID
+	DeviceId   any // 设备id（对应device_code）
+	StrategyId any // 策略id
 }

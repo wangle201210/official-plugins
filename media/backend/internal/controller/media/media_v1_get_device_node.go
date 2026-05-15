@@ -7,9 +7,9 @@ import (
 	"lina-plugin-media/backend/api/media/v1"
 )
 
-// GetDeviceNode returns one device-node mapping by device ID.
+// GetDeviceNode returns one device-node mapping by device and channel ID.
 func (c *ControllerV1) GetDeviceNode(ctx context.Context, req *v1.GetDeviceNodeReq) (res *v1.GetDeviceNodeRes, err error) {
-	out, err := c.mediaSvc.GetDeviceNode(ctx, req.DeviceId)
+	out, err := c.mediaSvc.GetDeviceNode(ctx, req.DeviceId, req.ChannelId)
 	if err != nil {
 		return nil, err
 	}

@@ -21,8 +21,8 @@ type MediaStrategyDeviceDao struct {
 
 // MediaStrategyDeviceColumns defines and stores column names for the table media_strategy_device.
 type MediaStrategyDeviceColumns struct {
-	DeviceId   string // 设备国标ID
-	StrategyId string // 策略ID
+	DeviceId   string // 设备id（对应device_code）
+	StrategyId string // 策略id
 }
 
 // mediaStrategyDeviceColumns holds the columns for the table media_strategy_device.

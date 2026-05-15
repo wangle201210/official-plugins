@@ -11,6 +11,6 @@ import (
 // MediaStrategyTenant is the golang structure of table media_strategy_tenant for DAO operations like Where/Data.
 type MediaStrategyTenant struct {
 	g.Meta     `orm:"table:media_strategy_tenant, do:true"`
-	TenantId   any // 租户ID
+	TenantId   any // 租户id
 	StrategyId any // 策略ID
 }

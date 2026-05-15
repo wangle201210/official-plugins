@@ -19,8 +19,8 @@ type ListStrategiesInput struct {
 	PageNum  int    // PageNum is the requested page number.
 	PageSize int    // PageSize is the requested page size.
 	Keyword  string // Keyword fuzzy-matches strategy name.
-	Enable   int    // Enable filters enable status when non-zero.
-	Global   int    // Global filters global status when non-zero.
+	Enable   *int   // Enable filters enable status when set.
+	Global   *int   // Global filters global status when set.
 }
 
 // ListStrategiesOutput defines paged media strategies.
@@ -36,8 +36,8 @@ type StrategyOutput struct {
 	Strategy   string // Strategy is the YAML strategy body.
 	Global     int    // Global marks whether the strategy is global.
 	Enable     int    // Enable marks whether the strategy is enabled.
-	CreatorId  int64  // CreatorId is the creator user ID.
-	UpdaterId  int64  // UpdaterId is the last updater user ID.
+	CreatorId  int    // CreatorId is the creator user ID.
+	UpdaterId  int    // UpdaterId is the last updater user ID.
 	CreateTime string // CreateTime is the formatted creation time.
 	UpdateTime string // UpdateTime is the formatted update time.
 }
@@ -67,15 +67,15 @@ func (s *serviceImpl) ListStrategies(ctx context.Context, in ListStrategiesInput
 	if keyword != "" {
 		model = model.WhereLike(columns.Name, "%"+keyword+"%")
 	}
-	if in.Enable > 0 {
-		enable, err := normalizeSwitchValue(in.Enable, SwitchOn)
+	if in.Enable != nil {
+		enable, err := normalizeSwitchValue(*in.Enable, SwitchOn)
 		if err != nil {
 			return nil, err
 		}
 		model = model.Where(columns.Enable, enable)
 	}
-	if in.Global > 0 {
-		global, err := normalizeSwitchValue(in.Global, SwitchOff)
+	if in.Global != nil {
+		global, err := normalizeSwitchValue(*in.Global, SwitchOff)
 		if err != nil {
 			return nil, err
 		}
@@ -135,8 +135,8 @@ func (s *serviceImpl) CreateStrategy(ctx context.Context, in StrategyMutationInp
 			Strategy:  normalized.Strategy,
 			Global:    normalized.Global,
 			Enable:    normalized.Enable,
-			CreatorId: s.currentActorID(ctx),
-			UpdaterId: s.currentActorID(ctx),
+			CreatorId: int(s.currentActorID(ctx)),
+			UpdaterId: int(s.currentActorID(ctx)),
 		}).InsertAndGetId()
 		if insertErr != nil {
 			return bizerr.WrapCode(insertErr, CodeMediaStrategyCreateFailed)
@@ -176,7 +176,7 @@ func (s *serviceImpl) UpdateStrategy(ctx context.Context, id int64, in StrategyM
 				Strategy:  normalized.Strategy,
 				Global:    normalized.Global,
 				Enable:    normalized.Enable,
-				UpdaterId: s.currentActorID(ctx),
+				UpdaterId: int(s.currentActorID(ctx)),
 			}).
 			Update()
 		if updateErr != nil {
@@ -203,7 +203,7 @@ func (s *serviceImpl) UpdateStrategyEnable(ctx context.Context, id int64, enable
 		Where(do.MediaStrategy{Id: id}).
 		Data(do.MediaStrategy{
 			Enable:    normalizedEnable,
-			UpdaterId: s.currentActorID(ctx),
+			UpdaterId: int(s.currentActorID(ctx)),
 		}).
 		Update()
 	if err != nil {
@@ -230,7 +230,7 @@ func (s *serviceImpl) SetGlobalStrategy(ctx context.Context, id int64) error {
 			Data(do.MediaStrategy{
 				Global:    int(SwitchOn),
 				Enable:    int(SwitchOn),
-				UpdaterId: s.currentActorID(ctx),
+				UpdaterId: int(s.currentActorID(ctx)),
 			}).
 			Update()
 		if err != nil {
@@ -286,7 +286,7 @@ func (s *serviceImpl) clearGlobalStrategies(ctx context.Context) error {
 		Where(dao.MediaStrategy.Columns().Global, int(SwitchOn)).
 		Data(do.MediaStrategy{
 			Global:    int(SwitchOff),
-			UpdaterId: s.currentActorID(ctx),
+			UpdaterId: int(s.currentActorID(ctx)),
 		}).
 		Update()
 	if err != nil {

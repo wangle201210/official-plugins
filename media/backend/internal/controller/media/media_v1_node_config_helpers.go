@@ -32,9 +32,10 @@ func deviceNodeOutputToItem(out *mediasvc.DeviceNodeOutput) *v1.DeviceNodeListIt
 		return &v1.DeviceNodeListItem{}
 	}
 	return &v1.DeviceNodeListItem{
-		DeviceId: out.DeviceId,
-		NodeNum:  out.NodeNum,
-		NodeName: out.NodeName,
+		DeviceId:  out.DeviceId,
+		ChannelId: out.ChannelId,
+		NodeNum:   out.NodeNum,
+		NodeName:  out.NodeName,
 	}
 }
 

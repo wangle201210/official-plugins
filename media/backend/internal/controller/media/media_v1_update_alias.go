@@ -15,6 +15,8 @@ func (c *ControllerV1) UpdateAlias(ctx context.Context, req *v1.UpdateAliasReq) 
 		Alias:      req.Alias,
 		AutoRemove: req.AutoRemove,
 		StreamPath: req.StreamPath,
+		DeviceId:   req.DeviceId,
+		ChannelId:  req.ChannelId,
 	}); err != nil {
 		return nil, err
 	}

@@ -21,10 +21,12 @@ type MediaStreamAliasDao struct {
 
 // MediaStreamAliasColumns defines and stores column names for the table media_stream_alias.
 type MediaStreamAliasColumns struct {
-	Id         string // ID
+	Id         string // ID（自增，无符号）
 	Alias      string // 流别名
-	AutoRemove string // 是否自动移除：1是，0否
+	AutoRemove string // 是否自动移除（0否1是）
 	StreamPath string // 真实流路径
+	DeviceId   string // 设备id（对应device_code）
+	ChannelId  string // 设备通道id（对应channel_code）
 	CreateTime string // 创建时间
 }
 
@@ -34,6 +36,8 @@ var mediaStreamAliasColumns = MediaStreamAliasColumns{
 	Alias:      "alias",
 	AutoRemove: "auto_remove",
 	StreamPath: "stream_path",
+	DeviceId:   "device_id",
+	ChannelId:  "channel_id",
 	CreateTime: "create_time",
 }
 

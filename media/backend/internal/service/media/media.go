@@ -78,14 +78,14 @@ type Service interface {
 	DeleteNode(ctx context.Context, nodeNum int) (*NodeMutationOutput, error)
 	// ListDeviceNodes returns paged device-node mappings.
 	ListDeviceNodes(ctx context.Context, in ListDeviceNodesInput) (*ListDeviceNodesOutput, error)
-	// GetDeviceNode returns one device-node mapping by device ID.
-	GetDeviceNode(ctx context.Context, deviceID string) (*DeviceNodeOutput, error)
+	// GetDeviceNode returns one device-node mapping by device and channel ID.
+	GetDeviceNode(ctx context.Context, deviceID string, channelID string) (*DeviceNodeOutput, error)
 	// CreateDeviceNode creates one device-node mapping.
 	CreateDeviceNode(ctx context.Context, in DeviceNodeMutationInput) (*DeviceNodeMutationOutput, error)
-	// UpdateDeviceNode updates one device-node mapping by old device ID.
-	UpdateDeviceNode(ctx context.Context, oldDeviceID string, in DeviceNodeMutationInput) (*DeviceNodeMutationOutput, error)
+	// UpdateDeviceNode updates one device-node mapping by old device and channel ID.
+	UpdateDeviceNode(ctx context.Context, oldDeviceID string, oldChannelID string, in DeviceNodeMutationInput) (*DeviceNodeMutationOutput, error)
 	// DeleteDeviceNode deletes one device-node mapping.
-	DeleteDeviceNode(ctx context.Context, deviceID string) (*DeviceNodeMutationOutput, error)
+	DeleteDeviceNode(ctx context.Context, deviceID string, channelID string) (*DeviceNodeMutationOutput, error)
 	// ListTenantStreamConfigs returns paged tenant stream configs.
 	ListTenantStreamConfigs(ctx context.Context, in ListTenantStreamConfigsInput) (*ListTenantStreamConfigsOutput, error)
 	// GetTenantStreamConfig returns one tenant stream config by tenant ID.

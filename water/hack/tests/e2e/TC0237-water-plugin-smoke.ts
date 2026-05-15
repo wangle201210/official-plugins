@@ -46,7 +46,7 @@ async function createWatermarkStrategy(api: Awaited<ReturnType<typeof createAdmi
       data: {
         name: `水印E2E策略-${Date.now()}`,
         enable: 1,
-        global: 2,
+        global: 0,
         strategy: `watermark:
   enabled: true
   text: LinaPro Water
@@ -68,8 +68,8 @@ async function currentGlobalStrategyIds(api: Awaited<ReturnType<typeof createAdm
   return result.list.map((item) => item.id);
 }
 
-test.describe("TC-235 water source plugin", () => {
-  test("TC-235a: water APIs render watermark from media_* strategy tables", async ({
+test.describe("TC-237 water source plugin", () => {
+  test("TC-237a: water APIs render watermark from media_* strategy tables", async ({
     adminPage,
   }) => {
     await ensureSourcePluginEnabled(adminPage, "media");
@@ -154,7 +154,7 @@ test.describe("TC-235 water source plugin", () => {
     }
   });
 
-  test("TC-235b: water page opens without frontend exceptions", async ({
+  test("TC-237b: water page opens without frontend exceptions", async ({
     adminPage,
   }) => {
     await ensureSourcePluginEnabled(adminPage, "water");

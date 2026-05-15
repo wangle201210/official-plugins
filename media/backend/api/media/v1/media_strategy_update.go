@@ -10,8 +10,8 @@ type UpdateStrategyReq struct {
 	Id       int64  `json:"id" v:"required|min:1" dc:"策略ID" eg:"1"`
 	Name     string `json:"name" v:"required|length:1,255#策略名称不能为空|策略名称长度不能超过255个字符" dc:"策略名称" eg:"默认直播策略"`
 	Strategy string `json:"strategy" v:"required#策略内容不能为空" dc:"YAML格式策略内容" eg:"record: true"`
-	Enable   int    `json:"enable" d:"1" dc:"启用状态：1开启，2关闭" eg:"1"`
-	Global   int    `json:"global" d:"2" dc:"是否全局策略：1是，2否" eg:"2"`
+	Enable   int    `json:"enable" d:"1" dc:"启用状态：1开启，0关闭" eg:"1"`
+	Global   int    `json:"global" d:"0" dc:"是否全局策略：1是，0否" eg:"0"`
 }
 
 // UpdateStrategyRes defines the response for updating one media strategy.

@@ -12,12 +12,12 @@ import (
 // MediaTenantWhite is the golang structure of table media_tenant_white for DAO operations like Where/Data.
 type MediaTenantWhite struct {
 	g.Meta      `orm:"table:media_tenant_white, do:true"`
-	TenantId    any         // 租户ID
+	TenantId    any         // 租户id
 	Ip          any         // 白名单地址
 	Description any         // 白名单描述
 	Enable      any         // 1开启，0关闭
-	CreatorId   any         // 创建人ID
+	CreatorId   any         // 创建人Id
 	CreateTime  *gtime.Time // 创建时间
-	UpdaterId   any         // 修改人ID
+	UpdaterId   any         // 修改人Id
 	UpdateTime  *gtime.Time // 修改时间
 }

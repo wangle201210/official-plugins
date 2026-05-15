@@ -21,14 +21,14 @@ type MediaStrategyDao struct {
 
 // MediaStrategyColumns defines and stores column names for the table media_strategy.
 type MediaStrategyColumns struct {
-	Id         string // 策略ID
+	Id         string // 策略ID（自增，无符号）
 	Name       string // 策略名称
-	Strategy   string // YAML格式策略内容
-	Global     string // 是否全局策略：1是，2否
-	Enable     string // 启用状态：1开启，2关闭
-	CreatorId  string // 创建人ID
-	UpdaterId  string // 修改人ID
+	Strategy   string // yaml格式策略内容
+	Global     string // 为1则是全局策略，只能有一个是1，0关闭
+	Enable     string // 1开启，0关闭
+	CreatorId  string // 创建人Id
 	CreateTime string // 创建时间
+	UpdaterId  string // 修改人Id
 	UpdateTime string // 修改时间
 }
 
@@ -40,8 +40,8 @@ var mediaStrategyColumns = MediaStrategyColumns{
 	Global:     "global",
 	Enable:     "enable",
 	CreatorId:  "creator_id",
-	UpdaterId:  "updater_id",
 	CreateTime: "create_time",
+	UpdaterId:  "updater_id",
 	UpdateTime: "update_time",
 }
 

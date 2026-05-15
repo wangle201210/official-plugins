@@ -11,11 +11,12 @@ import (
 // CreateDeviceNode creates one device-node mapping.
 func (c *ControllerV1) CreateDeviceNode(ctx context.Context, req *v1.CreateDeviceNodeReq) (res *v1.CreateDeviceNodeRes, err error) {
 	out, err := c.mediaSvc.CreateDeviceNode(ctx, mediasvc.DeviceNodeMutationInput{
-		DeviceId: req.DeviceId,
-		NodeNum:  req.NodeNum,
+		DeviceId:  req.DeviceId,
+		ChannelId: req.ChannelId,
+		NodeNum:   req.NodeNum,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &v1.CreateDeviceNodeRes{DeviceId: out.DeviceId}, nil
+	return &v1.CreateDeviceNodeRes{DeviceId: out.DeviceId, ChannelId: out.ChannelId}, nil
 }

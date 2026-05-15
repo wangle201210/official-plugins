@@ -15,6 +15,8 @@ func (c *ControllerV1) CreateAlias(ctx context.Context, req *v1.CreateAliasReq) 
 		Alias:      req.Alias,
 		AutoRemove: req.AutoRemove,
 		StreamPath: req.StreamPath,
+		DeviceId:   req.DeviceId,
+		ChannelId:  req.ChannelId,
 	})
 	if err != nil {
 		return nil, err

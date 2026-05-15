@@ -16,8 +16,8 @@ type MediaNode struct {
 	QnUrl      string      `json:"qnUrl"      orm:"qn_url"      description:"节点网关地址"`
 	BasicUrl   string      `json:"basicUrl"   orm:"basic_url"   description:"基础平台网关地址"`
 	DnUrl      string      `json:"dnUrl"      orm:"dn_url"      description:"属地网关地址"`
-	CreatorId  int         `json:"creatorId"  orm:"creator_id"  description:"创建人ID"`
+	CreatorId  int         `json:"creatorId"  orm:"creator_id"  description:"创建人Id"`
 	CreateTime *gtime.Time `json:"createTime" orm:"create_time" description:"创建时间"`
-	UpdaterId  int         `json:"updaterId"  orm:"updater_id"  description:"修改人ID"`
+	UpdaterId  int         `json:"updaterId"  orm:"updater_id"  description:"修改人Id"`
 	UpdateTime *gtime.Time `json:"updateTime" orm:"update_time" description:"修改时间"`
 }

@@ -168,11 +168,11 @@ func setupMediaStrategySQLite(t *testing.T, ctx context.Context) {
 			strategy_id INTEGER NOT NULL,
 			PRIMARY KEY (tenant_id, device_id)
 		)`,
-		`CREATE TABLE media_device_node (device_id TEXT NOT NULL, node_num INTEGER NOT NULL)`,
+		`CREATE TABLE media_device_node (device_id TEXT NOT NULL, channel_id TEXT NOT NULL, node_num INTEGER NOT NULL)`,
 		`CREATE TABLE media_node (id INTEGER PRIMARY KEY AUTOINCREMENT, node_num INTEGER NOT NULL, name TEXT NOT NULL, qn_url TEXT NOT NULL, basic_url TEXT NOT NULL, dn_url TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 		`CREATE TABLE media_tenant_stream_config (tenant_id TEXT PRIMARY KEY, max_concurrent INTEGER NOT NULL, node_num INTEGER NOT NULL, enable INTEGER NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 		`CREATE TABLE media_tenant_white (tenant_id TEXT NOT NULL, ip TEXT NOT NULL, enable INTEGER NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (tenant_id, ip))`,
-		`CREATE TABLE media_stream_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, alias TEXT NOT NULL, auto_remove INTEGER NOT NULL, stream_path TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+		`CREATE TABLE media_stream_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, alias TEXT NOT NULL, auto_remove INTEGER NOT NULL, stream_path TEXT NOT NULL, device_id TEXT NOT NULL, channel_id TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 	}
 	for _, statement := range statements {
 		if _, err := dao.MediaStrategy.DB().Exec(ctx, statement); err != nil {

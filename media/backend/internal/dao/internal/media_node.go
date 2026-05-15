@@ -27,9 +27,9 @@ type MediaNodeColumns struct {
 	QnUrl      string // 节点网关地址
 	BasicUrl   string // 基础平台网关地址
 	DnUrl      string // 属地网关地址
-	CreatorId  string // 创建人ID
+	CreatorId  string // 创建人Id
 	CreateTime string // 创建时间
-	UpdaterId  string // 修改人ID
+	UpdaterId  string // 修改人Id
 	UpdateTime string // 修改时间
 }
 

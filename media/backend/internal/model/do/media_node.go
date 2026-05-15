@@ -18,8 +18,8 @@ type MediaNode struct {
 	QnUrl      any         // 节点网关地址
 	BasicUrl   any         // 基础平台网关地址
 	DnUrl      any         // 属地网关地址
-	CreatorId  any         // 创建人ID
+	CreatorId  any         // 创建人Id
 	CreateTime *gtime.Time // 创建时间
-	UpdaterId  any         // 修改人ID
+	UpdaterId  any         // 修改人Id
 	UpdateTime *gtime.Time // 修改时间
 }
