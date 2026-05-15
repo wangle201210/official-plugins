@@ -5,10 +5,14 @@ package water
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"image"
-	"image/jpeg"
 	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/gogf/gf/v2/crypto/gmd5"
 
 	"lina-core/pkg/bizerr"
 )
@@ -36,7 +40,7 @@ func decodeImageDataURL(value string) ([]byte, error) {
 	return decoded, nil
 }
 
-// encodePNGDataURL encodes PNG bytes as a data URL.
+// encodePNGDataURL encodes image bytes with HotGo's data URL prefix.
 func encodePNGDataURL(img []byte) string {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(img)
 }
@@ -54,17 +58,39 @@ func ensurePNGDataURL(input []byte) (string, error) {
 	return encodePNGDataURL(buf.Bytes()), nil
 }
 
-// decodeSupportedImage decodes PNG or JPEG image bytes.
-func decodeSupportedImage(input []byte) (image.Image, error) {
-	img, _, err := image.Decode(bytes.NewReader(input))
-	if err == nil {
-		return img, nil
+// base64ToMD5Pic stores a base64 image in the same MD5 path layout used by HotGo.
+func base64ToMD5Pic(base64Image string, targetDir string) (string, error) {
+	cleanBase64 := strings.TrimSpace(base64Image)
+	if cleanBase64 == "" {
+		return "", bizerr.NewCode(CodeWaterImageRequired)
 	}
-	if img, jpegErr := jpeg.Decode(bytes.NewReader(input)); jpegErr == nil {
-		return img, nil
+	if strings.HasPrefix(cleanBase64, "data:image/") {
+		commaIndex := strings.Index(cleanBase64, ",")
+		if commaIndex != -1 {
+			cleanBase64 = cleanBase64[commaIndex+1:]
+		}
 	}
-	if img, pngErr := png.Decode(bytes.NewReader(input)); pngErr == nil {
-		return img, nil
+	hash, err := gmd5.EncryptString(cleanBase64)
+	if err != nil {
+		return "", bizerr.WrapCode(err, CodeWaterImageBase64Invalid)
 	}
-	return nil, bizerr.WrapCode(err, CodeWaterImageDecodeFailed)
+	dirPath := "/tmp/media/pic/md5"
+	if strings.TrimSpace(targetDir) != "" {
+		dirPath = targetDir
+	}
+	path := filepath.Join(dirPath, fmt.Sprintf("%s.png", hash))
+	if _, err = os.Stat(path); err == nil {
+		return path, nil
+	}
+	if err = os.MkdirAll(dirPath, 0755); err != nil {
+		return "", bizerr.WrapCode(err, CodeWaterImageEncodeFailed)
+	}
+	imgData, err := base64.StdEncoding.DecodeString(cleanBase64)
+	if err != nil {
+		return "", bizerr.WrapCode(err, CodeWaterImageBase64Invalid)
+	}
+	if err = os.WriteFile(path, imgData, 0644); err != nil {
+		return "", bizerr.WrapCode(err, CodeWaterImageEncodeFailed)
+	}
+	return path, nil
 }

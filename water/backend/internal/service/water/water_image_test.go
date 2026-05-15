@@ -1,4 +1,4 @@
-// This file tests watermark image helpers and rendering.
+// This file tests watermark image helpers.
 
 package water
 
@@ -8,32 +8,10 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"os"
 	"strings"
 	"testing"
 )
-
-// TestDrawWatermarkProducesPNGDataURL verifies pure-Go watermark rendering returns PNG bytes.
-func TestDrawWatermarkProducesPNGDataURL(t *testing.T) {
-	input := testPNGBytes(t)
-	output, err := drawWatermark(input, watermarkConfig{
-		Enabled:  true,
-		Text:     "LinaPro",
-		FontSize: 16,
-		Color:    "#ff0000",
-		Opacity:  0.8,
-		Align:    "bottomRight",
-	})
-	if err != nil {
-		t.Fatalf("draw watermark failed: %v", err)
-	}
-	dataURL := encodePNGDataURL(output)
-	if !strings.HasPrefix(dataURL, "data:image/png;base64,") {
-		t.Fatalf("expected png data url, got %q", dataURL[:24])
-	}
-	if _, err := png.Decode(bytes.NewReader(output)); err != nil {
-		t.Fatalf("expected output png to decode: %v", err)
-	}
-}
 
 // TestDecodeImageDataURLRejectsInvalidBase64 verifies invalid input is rejected.
 func TestDecodeImageDataURLRejectsInvalidBase64(t *testing.T) {
@@ -54,6 +32,22 @@ func TestEnsurePNGDataURL(t *testing.T) {
 	}
 	if _, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(dataURL, prefix)); err != nil {
 		t.Fatalf("expected valid base64 output: %v", err)
+	}
+}
+
+// TestBase64ToMD5PicStoresWatermarkImage verifies HotGo-compatible base64
+// watermark images are materialized as files for FFmpeg's movie filter.
+func TestBase64ToMD5PicStoresWatermarkImage(t *testing.T) {
+	path, err := base64ToMD5Pic(encodePNGDataURL(testPNGBytes(t)), t.TempDir())
+	if err != nil {
+		t.Fatalf("store base64 watermark image failed: %v", err)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read stored watermark image failed: %v", err)
+	}
+	if _, err := png.Decode(bytes.NewReader(content)); err != nil {
+		t.Fatalf("expected stored watermark image to decode: %v", err)
 	}
 }
 

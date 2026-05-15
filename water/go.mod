@@ -4,7 +4,6 @@ go 1.25.0
 
 require (
 	github.com/gogf/gf/v2 v2.10.1
-	golang.org/x/image v0.25.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

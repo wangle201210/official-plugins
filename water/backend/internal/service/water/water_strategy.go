@@ -10,6 +10,7 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-plugin-water/backend/internal/dao"
+	"lina-plugin-water/backend/internal/library/watermark"
 	"lina-plugin-water/backend/internal/model/do"
 	entitymodel "lina-plugin-water/backend/internal/model/entity"
 )
@@ -86,7 +87,10 @@ func parseWatermarkStrategy(strategyBody string) (*watermarkConfig, error) {
 	if cfg == nil {
 		return nil, nil
 	}
-	normalized := normalizeWatermarkConfig(*cfg)
+	normalized, err := normalizeWatermarkConfig(*cfg)
+	if err != nil {
+		return nil, err
+	}
 	return &normalized, nil
 }
 
@@ -227,13 +231,20 @@ func hasRootWatermarkConfig(cfg watermarkConfig) bool {
 }
 
 // normalizeWatermarkConfig fills defaults and normalizes bounded fields.
-func normalizeWatermarkConfig(cfg watermarkConfig) watermarkConfig {
+func normalizeWatermarkConfig(cfg watermarkConfig) (watermarkConfig, error) {
 	cfg.Text = strings.TrimSpace(cfg.Text)
 	cfg.Font = strings.TrimSpace(cfg.Font)
 	cfg.Color = strings.TrimSpace(cfg.Color)
 	cfg.Image = strings.TrimSpace(cfg.Image)
 	cfg.Base64 = strings.TrimSpace(cfg.Base64)
 	cfg.Align = watermarkAlignment(strings.TrimSpace(string(cfg.Align)))
+	if cfg.Base64 != "" && cfg.Image == "" {
+		imagePath, err := base64ToMD5Pic(cfg.Base64, "")
+		if err != nil {
+			return cfg, err
+		}
+		cfg.Image = imagePath
+	}
 	if cfg.FontSize <= 0 {
 		cfg.FontSize = defaultFontSize
 	}
@@ -246,7 +257,7 @@ func normalizeWatermarkConfig(cfg watermarkConfig) watermarkConfig {
 	if cfg.Opacity > 1 {
 		cfg.Opacity = 1
 	}
-	return cfg
+	return cfg, nil
 }
 
 // watermarkAlignment accepts both hotgo numeric and Lina named alignment values.
@@ -261,5 +272,59 @@ func (a *watermarkAlignment) UnmarshalYAML(value *yaml.Node) error {
 	default:
 		*a = ""
 		return nil
+	}
+}
+
+// normalizedAlignment converts named or HotGo numeric alignment values.
+func normalizedAlignment(align watermarkAlignment) string {
+	value := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(string(align)), "_", ""))
+	value = strings.ReplaceAll(value, "-", "")
+	switch value {
+	case "1", "left":
+		return "left"
+	case "2", "center", "centre":
+		return "center"
+	case "3", "right":
+		return "right"
+	case "4", "top":
+		return "top"
+	case "5", "bottom":
+		return "bottom"
+	case "6", "topleft":
+		return "topleft"
+	case "7", "topright":
+		return "topright"
+	case "8", "bottomleft":
+		return "bottomleft"
+	case "9", "bottomright":
+		return "bottomright"
+	default:
+		return "topleft"
+	}
+}
+
+// ToHotGoAlignment converts named or numeric Lina strategy values to the migrated HotGo enum.
+func (a watermarkAlignment) ToHotGoAlignment() watermark.Alignment {
+	switch normalizedAlignment(a) {
+	case "left":
+		return watermark.AlignmentLeft
+	case "center":
+		return watermark.AlignmentCenter
+	case "right":
+		return watermark.AlignmentRight
+	case "top":
+		return watermark.AlignmentTop
+	case "bottom":
+		return watermark.AlignmentBottom
+	case "topleft":
+		return watermark.AlignmentTopLeft
+	case "topright":
+		return watermark.AlignmentTopRight
+	case "bottomleft":
+		return watermark.AlignmentBottomLeft
+	case "bottomright":
+		return watermark.AlignmentBottomRight
+	default:
+		return watermark.AlignmentNothing
 	}
 }

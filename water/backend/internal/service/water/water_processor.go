@@ -13,6 +13,7 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
+	"lina-plugin-water/backend/internal/library/watermark"
 )
 
 // processSnapshot resolves strategy and returns one processed image result.
@@ -43,9 +44,9 @@ func processSnapshot(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, e
 		return skippedProcessOutputWithStrategy(inputImage, strategy, start)
 	}
 
-	output, err := drawWatermark(inputImage, *cfg)
+	output, err := watermark.DrawWatermarkJpeg(ctx, inputImage, cfg.ToWatermarkConfig())
 	if err != nil {
-		return nil, err
+		return nil, bizerr.WrapCode(err, CodeWaterImageDrawFailed)
 	}
 	return &ProcessOutput{
 		Success:      true,

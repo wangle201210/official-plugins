@@ -2,6 +2,8 @@
 
 package water
 
+import "lina-plugin-water/backend/internal/library/watermark"
+
 // SubmitSnapInput defines one asynchronous snapshot request.
 type SubmitSnapInput struct {
 	DeviceType  string // DeviceType is the route-level device type.
@@ -108,4 +110,27 @@ type watermarkConfig struct {
 	Image    string             `json:"image" yaml:"image"`       // Image is an optional watermark image path.
 	Opacity  float64            `json:"opacity" yaml:"opacity"`   // Opacity controls text and image alpha.
 	Base64   string             `json:"base64" yaml:"base64"`     // Base64 is an optional watermark image data URL.
+}
+
+// ToWatermarkConfig converts parsed strategy YAML into the migrated HotGo watermark library config.
+func (c *watermarkConfig) ToWatermarkConfig() watermark.WatermarkConfig {
+	if c == nil {
+		return watermark.WatermarkConfig{}
+	}
+	return watermark.WatermarkConfig{
+		TextSetting: watermark.TextSetting{
+			Text:     c.Text,
+			Font:     c.Font,
+			FontSize: c.FontSize,
+			Color:    c.Color,
+			PosX:     c.PosX,
+			PosY:     c.PosY,
+			Align:    c.Align.ToHotGoAlignment(),
+		},
+		ImageSetting: watermark.ImageSetting{
+			Image:   c.Image,
+			Opacity: c.Opacity,
+			Base64:  c.Base64,
+		},
+	}
 }
