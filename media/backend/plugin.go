@@ -8,6 +8,7 @@ import (
 	mediaplugin "lina-plugin-media"
 	mediacontroller "lina-plugin-media/backend/internal/controller/media"
 	mediaopencontroller "lina-plugin-media/backend/internal/controller/mediaopen"
+	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
 // media plugin constants.
@@ -30,10 +31,15 @@ func init() {
 
 // registerRoutes binds media management routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
+	hostServices := registrar.HostServices()
+	if hostServices == nil || hostServices.BizCtx() == nil {
+		panic("media routes require host bizctx service")
+	}
+	mediaSvc := mediasvc.New(hostServices.BizCtx())
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
-	publicController := mediaopencontroller.NewV1()
-	protectedController := mediacontroller.NewV1()
+	publicController := mediaopencontroller.NewV1(mediaSvc)
+	protectedController := mediacontroller.NewV1(mediaSvc)
 	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
 		group.Middleware(
 			middlewares.NeverDoneCtx(),

@@ -2,9 +2,9 @@ id: cms
 name: 内容管理-CMS
 version: v0.1.0
 type: source
-scope_nature: tenant_aware
-supports_multi_tenant: true
-default_install_mode: tenant_scoped
+scope_nature: platform_only
+supports_multi_tenant: false
+default_install_mode: global
 description: 提供站点配置、栏目、内容、留言和公开内容 API 的官方源码 CMS 插件
 author: linapro
 license: Apache-2.0

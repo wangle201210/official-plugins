@@ -24,7 +24,7 @@ func init() {
 		if !input.PurgeStorageData() {
 			return nil
 		}
-		return cmssvc.New().PurgeStorageData(ctx)
+		return cmssvc.PurgeStorageData(ctx)
 	})
 	plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,
@@ -43,7 +43,7 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 	if hostServices == nil || hostServices.BizCtx() == nil {
 		panic("cms routes require host bizctx service")
 	}
-	controller := cmscontroller.NewControllerV1WithService(cmssvc.NewWithBizCtx(hostServices.BizCtx()))
+	controller := cmscontroller.NewV1(cmssvc.New(hostServices.BizCtx()))
 
 	routes.Group("/", func(group pluginhost.RouteGroup) {
 		group.Middleware(
@@ -83,6 +83,7 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 		group.Group("/", func(group pluginhost.RouteGroup) {
 			group.Middleware(
 				middlewares.Auth(),
+				middlewares.Tenancy(),
 				middlewares.Permission(),
 			)
 			group.Bind(

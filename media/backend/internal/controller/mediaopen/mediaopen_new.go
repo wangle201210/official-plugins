@@ -13,6 +13,9 @@ type ControllerV1 struct {
 }
 
 // NewV1 creates and returns a new public media controller instance.
-func NewV1() mediaopen.IMediaopenV1 {
-	return &ControllerV1{mediaSvc: mediasvc.New()}
+func NewV1(mediaSvc mediasvc.Service) mediaopen.IMediaopenV1 {
+	if mediaSvc == nil {
+		panic("mediaopen controller requires media service")
+	}
+	return &ControllerV1{mediaSvc: mediaSvc}
 }

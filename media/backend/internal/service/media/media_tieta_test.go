@@ -10,9 +10,15 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 
 	"lina-core/pkg/bizerr"
+	"lina-core/pkg/pluginservice/bizctx"
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )
+
+// newTestMediaService creates a media service with an explicit test bizctx adapter.
+func newTestMediaService() Service {
+	return New(bizctx.New(nil))
+}
 
 // fakeTietaClient provides deterministic token and device-permission responses for unit tests.
 type fakeTietaClient struct {
@@ -54,7 +60,7 @@ func TestResolveStrategyByTokenUsesTietaTenantDevicePermission(t *testing.T) {
 		t.Fatalf("insert tenant-device binding: %v", err)
 	}
 
-	out, err := New().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
+	out, err := newTestMediaService().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
 		Token:    "Bearer token-value",
 		TenantId: "tenant-a",
 		DeviceId: "34020000001320000001",
@@ -83,7 +89,7 @@ func TestResolveStrategyByTokenRejectsTenantMismatch(t *testing.T) {
 	})
 	defer restoreTietaClient()
 
-	_, err := New().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
+	_, err := newTestMediaService().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
 		Token:    "token-value",
 		TenantId: "tenant-b",
 		DeviceId: "34020000001320000001",
@@ -111,7 +117,7 @@ func TestResolveStrategyByTokenDeniesWithoutDevicePermission(t *testing.T) {
 	defer restoreTietaClient()
 
 	insertTestStrategy(t, ctx, "全局策略", int(SwitchOn), int(SwitchOn))
-	out, err := New().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
+	out, err := newTestMediaService().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
 		Authorization: "Bearer token-value",
 		DeviceId:      "34020000001320000001",
 	})

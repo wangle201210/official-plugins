@@ -4,7 +4,6 @@ package media
 import (
 	"context"
 
-	"lina-core/pkg/pluginservice/bizctx"
 	"lina-core/pkg/pluginservice/contract"
 )
 
@@ -106,7 +105,10 @@ type serviceImpl struct {
 	bizCtxSvc contract.BizCtxService // bizCtxSvc reads current user and tenant metadata.
 }
 
-// New creates and returns a new media service instance.
-func New() Service {
-	return &serviceImpl{bizCtxSvc: bizctx.New(nil)}
+// New creates and returns a new media service instance with host context.
+func New(bizCtxSvc contract.BizCtxService) Service {
+	if bizCtxSvc == nil {
+		panic("media service requires host bizctx service")
+	}
+	return &serviceImpl{bizCtxSvc: bizCtxSvc}
 }

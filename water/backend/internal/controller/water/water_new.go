@@ -15,6 +15,9 @@ type ControllerV1 struct {
 }
 
 // NewV1 creates and returns a new water controller instance.
-func NewV1() water.IWaterV1 {
-	return &ControllerV1{waterSvc: watersvc.New()}
+func NewV1(waterSvc watersvc.Service) water.IWaterV1 {
+	if waterSvc == nil {
+		panic("water controller requires water service")
+	}
+	return &ControllerV1{waterSvc: waterSvc}
 }

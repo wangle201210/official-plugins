@@ -13,7 +13,6 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/pluginservice/bizctx"
 	plugincontract "lina-core/pkg/pluginservice/contract"
 	"lina-plugin-cms/backend/internal/dao"
 	"lina-plugin-cms/backend/internal/model/do"
@@ -123,15 +122,10 @@ type serviceImpl struct {
 	bizCtxSvc plugincontract.BizCtxService // bizCtxSvc reads the current authenticated user.
 }
 
-// New creates and returns a new CMS service instance.
-func New() Service {
-	return NewWithBizCtx(bizctx.New(nil))
-}
-
-// NewWithBizCtx creates and returns a new CMS service instance with host context.
-func NewWithBizCtx(bizCtxSvc plugincontract.BizCtxService) Service {
+// New creates and returns a new CMS service instance with host context.
+func New(bizCtxSvc plugincontract.BizCtxService) Service {
 	if bizCtxSvc == nil {
-		bizCtxSvc = bizctx.New(nil)
+		panic("cms service requires host bizctx service")
 	}
 	return &serviceImpl{bizCtxSvc: bizCtxSvc}
 }
@@ -950,7 +944,7 @@ func (s *serviceImpl) CreatePublicMessage(ctx context.Context, in PublicMessageC
 }
 
 // PurgeStorageData clears plugin-owned tables during purge uninstall.
-func (s *serviceImpl) PurgeStorageData(ctx context.Context) error {
+func PurgeStorageData(ctx context.Context) error {
 	tables := []string{
 		dao.CmsMessage.Table(),
 		dao.CmsSlide.Table(),
@@ -966,6 +960,11 @@ func (s *serviceImpl) PurgeStorageData(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// PurgeStorageData delegates service cleanup to the dependency-free purge entry.
+func (s *serviceImpl) PurgeStorageData(ctx context.Context) error {
+	return PurgeStorageData(ctx)
 }
 
 // applyArticleManagementFilters applies management article list filters.

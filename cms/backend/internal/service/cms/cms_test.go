@@ -16,9 +16,15 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/dialect"
+	"lina-core/pkg/pluginservice/bizctx"
 	"lina-plugin-cms/backend/internal/dao"
 	"lina-plugin-cms/backend/internal/model/do"
 )
+
+// newTestCMSService creates a CMS service with an explicit test bizctx adapter.
+func newTestCMSService() Service {
+	return New(bizctx.New(nil))
+}
 
 // TestPublicArticlesFilterDraftsAndDisabledCategories verifies public article
 // lists expose only published content under enabled categories.
@@ -32,7 +38,7 @@ func TestPublicArticlesFilterDraftsAndDisabledCategories(t *testing.T) {
 	insertCMSArticle(t, ctx, enabledCategoryID, "draft-article", ArticleStatusDraft)
 	insertCMSArticle(t, ctx, disabledCategoryID, "hidden-category-article", ArticleStatusPublished)
 
-	out, err := New().ListPublicArticles(ctx, PublicArticleListInput{PageNum: 1, PageSize: 20})
+	out, err := newTestCMSService().ListPublicArticles(ctx, PublicArticleListInput{PageNum: 1, PageSize: 20})
 	if err != nil {
 		t.Fatalf("list public CMS articles: %v", err)
 	}
@@ -53,7 +59,7 @@ func TestPublicArticleDetailRejectsDrafts(t *testing.T) {
 	categoryID := insertCMSCategory(t, ctx, "drafts", StatusEnabled)
 	insertCMSArticle(t, ctx, categoryID, "draft-only", ArticleStatusDraft)
 
-	_, err := New().GetPublicArticleBySlug(ctx, "draft-only")
+	_, err := newTestCMSService().GetPublicArticleBySlug(ctx, "draft-only")
 	if !bizerr.Is(err, CodePublicContentNotFound) {
 		t.Fatalf("expected public content not found error, got %v", err)
 	}
@@ -68,7 +74,7 @@ func TestCreateArticleRejectsDuplicateSlug(t *testing.T) {
 	categoryID := insertCMSCategory(t, ctx, "news", StatusEnabled)
 	insertCMSArticle(t, ctx, categoryID, "duplicate-slug", ArticleStatusPublished)
 
-	_, err := New().CreateArticle(ctx, ArticleSaveInput{
+	_, err := newTestCMSService().CreateArticle(ctx, ArticleSaveInput{
 		CategoryId: categoryID,
 		Title:      "Duplicate",
 		Slug:       "duplicate-slug",
@@ -96,7 +102,7 @@ func TestGetArticleDecodesImportedEntityHTML(t *testing.T) {
 		`&lt;p&gt;&lt;span style=&quot;font-family: SimSun;&quot;&gt;公司简介&lt;/span&gt;&lt;/p&gt;`,
 	)
 
-	article, err := New().GetArticle(ctx, articleID)
+	article, err := newTestCMSService().GetArticle(ctx, articleID)
 	if err != nil {
 		t.Fatalf("get CMS article detail: %v", err)
 	}
@@ -122,7 +128,7 @@ func TestListArticlesDecodesImportedEntityHTML(t *testing.T) {
 		`&lt;p&gt;公司简介&lt;/p&gt;`,
 	)
 
-	out, err := New().ListArticles(ctx, ArticleListInput{PageNum: 1, PageSize: 20})
+	out, err := newTestCMSService().ListArticles(ctx, ArticleListInput{PageNum: 1, PageSize: 20})
 	if err != nil {
 		t.Fatalf("list CMS articles: %v", err)
 	}
@@ -153,7 +159,7 @@ func TestListArticlesFiltersByCategoryType(t *testing.T) {
 	insertCMSArticle(t, ctx, singleID, "single-content", ArticleStatusPublished)
 	insertCMSArticle(t, ctx, listID, "list-content", ArticleStatusPublished)
 
-	out, err := New().ListArticles(ctx, ArticleListInput{
+	out, err := newTestCMSService().ListArticles(ctx, ArticleListInput{
 		CategoryType: CategoryTypeSingle,
 		PageNum:      1,
 		PageSize:     20,
@@ -185,7 +191,7 @@ func TestListArticlesIncludesChildCategories(t *testing.T) {
 	})
 	insertCMSArticle(t, ctx, childID, "child-news", ArticleStatusPublished)
 
-	out, err := New().ListArticles(ctx, ArticleListInput{
+	out, err := newTestCMSService().ListArticles(ctx, ArticleListInput{
 		CategoryId:      parentID,
 		IncludeChildren: true,
 		PageNum:         1,
@@ -217,7 +223,7 @@ func TestUpdateCategoryRejectsParentCycle(t *testing.T) {
 		typeID:   CategoryTypeList,
 	})
 
-	err := New().UpdateCategory(ctx, CategorySaveInput{
+	err := newTestCMSService().UpdateCategory(ctx, CategorySaveInput{
 		Id:       parentID,
 		ParentId: childID,
 		Code:     "cycle-parent",
@@ -257,7 +263,7 @@ func TestListArticlesIncludeChildrenSkipsCategoryCycles(t *testing.T) {
 		t.Fatalf("create corrupt CMS category cycle: %v", err)
 	}
 
-	out, err := New().ListArticles(ctx, ArticleListInput{
+	out, err := newTestCMSService().ListArticles(ctx, ArticleListInput{
 		CategoryId:      parentID,
 		IncludeChildren: true,
 		PageNum:         1,
@@ -300,7 +306,7 @@ func TestListPublicArticlesOrderManual(t *testing.T) {
 		publishedAt: gtime.NewFromTime(time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)),
 	})
 
-	out, err := New().ListPublicArticles(ctx, PublicArticleListInput{
+	out, err := newTestCMSService().ListPublicArticles(ctx, PublicArticleListInput{
 		PageNum:    1,
 		PageSize:   2,
 		CategoryId: categoryID,
@@ -350,7 +356,7 @@ func TestListPublicArticlesSearchesBodyContent(t *testing.T) {
 		title:      "产业动态",
 	})
 
-	out, err := New().ListPublicArticles(ctx, PublicArticleListInput{
+	out, err := newTestCMSService().ListPublicArticles(ctx, PublicArticleListInput{
 		PageNum:    1,
 		PageSize:   10,
 		Keyword:    "算力网络",

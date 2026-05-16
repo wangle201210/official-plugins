@@ -7,6 +7,7 @@ import (
 	"lina-core/pkg/pluginhost"
 	waterplugin "lina-plugin-water"
 	watercontroller "lina-plugin-water/backend/internal/controller/water"
+	watersvc "lina-plugin-water/backend/internal/service/water"
 )
 
 // water plugin constants.
@@ -31,6 +32,7 @@ func init() {
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
+	waterSvc := watersvc.New()
 	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
 		group.Middleware(
 			middlewares.NeverDoneCtx(),
@@ -45,7 +47,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 				middlewares.Tenancy(),
 				middlewares.Permission(),
 			)
-			group.Bind(watercontroller.NewV1())
+			group.Bind(watercontroller.NewV1(waterSvc))
 		})
 	})
 	return nil

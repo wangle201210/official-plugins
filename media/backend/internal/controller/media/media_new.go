@@ -13,6 +13,9 @@ type ControllerV1 struct {
 }
 
 // NewV1 creates and returns a new media controller instance.
-func NewV1() media.IMediaV1 {
-	return &ControllerV1{mediaSvc: mediasvc.New()}
+func NewV1(mediaSvc mediasvc.Service) media.IMediaV1 {
+	if mediaSvc == nil {
+		panic("media controller requires media service")
+	}
+	return &ControllerV1{mediaSvc: mediaSvc}
 }
