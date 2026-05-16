@@ -1,9 +1,10 @@
-// This file verifies tenant deletion guard behavior.
+// This file verifies tenant deletion precondition behavior.
 
 package tenant
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -11,12 +12,42 @@ import (
 
 	"lina-core/pkg/bizerr"
 	_ "lina-core/pkg/dbdriver"
-	"lina-core/pkg/pluginhost"
 	pluginbizctx "lina-core/pkg/pluginservice/bizctx"
 	"lina-plugin-multi-tenant/backend/internal/service/resolverconfig"
 	"lina-plugin-multi-tenant/backend/internal/service/shared"
 	"lina-plugin-multi-tenant/backend/internal/service/tenantplugin"
 )
+
+// fakePluginLifecycleService records host lifecycle calls made by tenant delete tests.
+type fakePluginLifecycleService struct {
+	deleteErr             error
+	ensureDeleteTenantID  int
+	notifyDeleteTenantID  int
+	ensureDeleteCallCount int
+	notifyDeleteCallCount int
+}
+
+// EnsureTenantPluginDisableAllowed is unused by tenant delete tests.
+func (s *fakePluginLifecycleService) EnsureTenantPluginDisableAllowed(ctx context.Context, pluginID string, tenantID int) error {
+	return nil
+}
+
+// NotifyTenantPluginDisabled is unused by tenant delete tests.
+func (s *fakePluginLifecycleService) NotifyTenantPluginDisabled(ctx context.Context, pluginID string, tenantID int) {
+}
+
+// EnsureTenantDeleteAllowed records tenant delete preconditions.
+func (s *fakePluginLifecycleService) EnsureTenantDeleteAllowed(ctx context.Context, tenantID int) error {
+	s.ensureDeleteCallCount++
+	s.ensureDeleteTenantID = tenantID
+	return s.deleteErr
+}
+
+// NotifyTenantDeleted records tenant delete notifications.
+func (s *fakePluginLifecycleService) NotifyTenantDeleted(ctx context.Context, tenantID int) {
+	s.notifyDeleteCallCount++
+	s.notifyDeleteTenantID = tenantID
+}
 
 // tenantDeleteTestInsertData is the typed insert payload for tenant deletion tests.
 type tenantDeleteTestInsertData struct {
@@ -25,28 +56,15 @@ type tenantDeleteTestInsertData struct {
 	Status string `orm:"status"`
 }
 
-// tenantDeleteVetoGuard rejects tenant deletion in tests.
-type tenantDeleteVetoGuard struct{}
-
-// CanTenantDelete returns a deterministic guard veto.
-func (tenantDeleteVetoGuard) CanTenantDelete(_ context.Context, _ int) (bool, string, error) {
-	return false, "plugin.test.tenant.delete.vetoed", nil
-}
-
-// TestDeleteRunsLifecycleGuardBeforeSoftDelete verifies guard vetoes stop tenant deletion.
-func TestDeleteRunsLifecycleGuardBeforeSoftDelete(t *testing.T) {
+// TestDeleteRunsLifecyclePreconditionBeforeSoftDelete verifies precondition
+// vetoes stop tenant deletion.
+func TestDeleteRunsLifecyclePreconditionBeforeSoftDelete(t *testing.T) {
 	ctx := context.Background()
 	configureTenantDeleteTestDB(t, ctx)
 
-	const guardPluginID = "tenant-delete-test-guard"
-	pluginhost.RegisterLifecycleGuard(guardPluginID, tenantDeleteVetoGuard{})
-	t.Cleanup(func() {
-		pluginhost.UnregisterLifecycleGuard(guardPluginID)
-	})
-
 	tenantID, err := shared.Model(ctx, shared.TableTenant).Data(tenantDeleteTestInsertData{
-		Code:   "tenant-delete-guard-test",
-		Name:   "Tenant Delete Guard Test",
+		Code:   "tenant-delete-precondition-test",
+		Name:   "Tenant Delete Precondition Test",
 		Status: string(shared.TenantStatusActive),
 	}).InsertAndGetId()
 	if err != nil {
@@ -58,9 +76,20 @@ func TestDeleteRunsLifecycleGuardBeforeSoftDelete(t *testing.T) {
 		}
 	})
 
-	err = New(pluginbizctx.New(nil), resolverconfig.New(), tenantplugin.New(pluginbizctx.New(nil))).Delete(ctx, tenantID)
-	if !bizerr.Is(err, CodeTenantDeleteGuardVetoed) {
-		t.Fatalf("expected guard veto error, got %v", err)
+	lifecycleSvc := &fakePluginLifecycleService{deleteErr: errors.New("tenant delete vetoed")}
+	err = New(
+		pluginbizctx.New(nil),
+		resolverconfig.New(),
+		tenantplugin.New(pluginbizctx.New(nil), nil),
+		lifecycleSvc,
+	).Delete(ctx, tenantID)
+	if !bizerr.Is(err, CodeTenantDeletePreconditionVetoed) {
+		t.Fatalf("expected lifecycle precondition veto error, got %v", err)
+	}
+	if lifecycleSvc.ensureDeleteCallCount != 1 ||
+		lifecycleSvc.ensureDeleteTenantID != int(tenantID) ||
+		lifecycleSvc.notifyDeleteCallCount != 0 {
+		t.Fatalf("expected veto to run delete precondition only, got %#v", lifecycleSvc)
 	}
 
 	count, err := shared.Model(ctx, shared.TableTenant).Where("id", tenantID).Count()
@@ -68,7 +97,53 @@ func TestDeleteRunsLifecycleGuardBeforeSoftDelete(t *testing.T) {
 		t.Fatalf("count tenant after veto failed: %v", err)
 	}
 	if count != 1 {
-		t.Fatalf("expected tenant to remain after guard veto, got count=%d", count)
+		t.Fatalf("expected tenant to remain after precondition veto, got count=%d", count)
+	}
+}
+
+// TestDeleteNotifiesLifecycleAfterSoftDelete verifies successful tenant
+// deletion notifies the host lifecycle service after the row is deleted.
+func TestDeleteNotifiesLifecycleAfterSoftDelete(t *testing.T) {
+	ctx := context.Background()
+	configureTenantDeleteTestDB(t, ctx)
+
+	tenantID, err := shared.Model(ctx, shared.TableTenant).Data(tenantDeleteTestInsertData{
+		Code:   "tenant-delete-notify-test",
+		Name:   "Tenant Delete Notify Test",
+		Status: string(shared.TenantStatusActive),
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert tenant failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := shared.Model(ctx, shared.TableTenant).Unscoped().Where("id", tenantID).Delete(); err != nil {
+			t.Errorf("cleanup tenant failed: %v", err)
+		}
+	})
+
+	lifecycleSvc := &fakePluginLifecycleService{}
+	err = New(
+		pluginbizctx.New(nil),
+		resolverconfig.New(),
+		tenantplugin.New(pluginbizctx.New(nil), nil),
+		lifecycleSvc,
+	).Delete(ctx, tenantID)
+	if err != nil {
+		t.Fatalf("expected tenant delete to succeed, got %v", err)
+	}
+	if lifecycleSvc.ensureDeleteCallCount != 1 ||
+		lifecycleSvc.ensureDeleteTenantID != int(tenantID) ||
+		lifecycleSvc.notifyDeleteCallCount != 1 ||
+		lifecycleSvc.notifyDeleteTenantID != int(tenantID) {
+		t.Fatalf("expected lifecycle precondition and notification around tenant delete, got %#v", lifecycleSvc)
+	}
+
+	count, err := shared.Model(ctx, shared.TableTenant).Where("id", tenantID).Count()
+	if err != nil {
+		t.Fatalf("count tenant after delete failed: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected tenant to be soft-deleted, got count=%d", count)
 	}
 }
 
