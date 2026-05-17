@@ -38,6 +38,16 @@ author: linapro
 # 插件许可证标识。
 license: Apache-2.0
 
+# Plugin dependency declaration. Water reads media-owned strategy tables, so the
+# host must install media before water.
+# 插件依赖声明。water 读取 media 插件拥有的策略表，因此宿主必须先安装 media。
+dependencies:
+  plugins:
+    - id: media
+      version: ">=0.1.0"
+      required: true
+      install: auto
+
 # Plugin menu declaration list; the host syncs menus, permissions, and route entries from it.
 # 插件菜单声明列表，宿主按该列表同步菜单、权限和路由入口。
 menus:
