@@ -364,12 +364,12 @@ async function deleteTenantStreamConfig(
   );
 }
 
-test.describe("TC-236 media plugin owned E2E discovery", () => {
+test.describe("TC-238 media plugin owned E2E discovery", () => {
   test.beforeEach(async ({ adminPage }) => {
     await ensureSourcePluginEnabled(adminPage, "media");
   });
 
-  test("TC-236a: 媒体管理页面加载、切换页签且高度稳定", async ({
+  test("TC-238a: 媒体管理页面加载、切换页签且高度稳定", async ({
     adminPage,
   }) => {
     const pageErrors: Error[] = [];
@@ -509,7 +509,7 @@ test.describe("TC-236 media plugin owned E2E discovery", () => {
     await expectNoPageErrors(pageErrors, /ResizeObserver loop/i);
   });
 
-  test("TC-236b: 媒体策略绑定优先级和流别名接口可用", async () => {
+  test("TC-238b: 媒体策略绑定优先级和流别名接口可用", async () => {
     const api = await createAdminApiContext();
     const suffix = Date.now().toString();
     const tenantId = `tenant-e2e-${suffix}`;
@@ -633,7 +633,7 @@ test.describe("TC-236 media plugin owned E2E discovery", () => {
     }
   });
 
-  test("TC-236c: 媒体管理全部 REST 接口语义正确", async () => {
+  test("TC-238c: 媒体管理全部 REST 接口语义正确", async () => {
     const api = await createAdminApiContext();
     const suffix = Date.now().toString();
     const strategyName = `E2E接口策略-${suffix}`;
@@ -1269,7 +1269,7 @@ test.describe("TC-236 media plugin owned E2E discovery", () => {
     }
   });
 
-  test("TC-236d: 宿主静态入口可加载媒体管理页面", async ({ browser }) => {
+  test("TC-238d: 宿主静态入口可加载媒体管理页面", async ({ browser }) => {
     const context = await browser.newContext({
       baseURL: hostStaticBaseURL(),
       locale: "zh-CN",
@@ -1305,7 +1305,7 @@ test.describe("TC-236 media plugin owned E2E discovery", () => {
     }
   });
 
-  test("TC-236e: 媒体管理界面编辑回显和接口执行正确", async ({
+  test("TC-238e: 媒体管理界面编辑回显和接口执行正确", async ({
     adminPage,
   }) => {
     const api = await createAdminApiContext();
