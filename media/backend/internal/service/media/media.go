@@ -45,6 +45,8 @@ type Service interface {
 	ResolveStrategy(ctx context.Context, in ResolveStrategyInput) (*ResolveStrategyOutput, error)
 	// ResolveStrategyByToken validates a Tieta token and resolves the effective strategy for one device.
 	ResolveStrategyByToken(ctx context.Context, in ResolveStrategyByTokenInput) (*ResolveStrategyByTokenOutput, error)
+	// UserDeviceStrategyByToken returns the HotGo-compatible token and device strategy response.
+	UserDeviceStrategyByToken(ctx context.Context, in UserDeviceStrategyByTokenInput) (*UserDeviceStrategyByTokenOutput, error)
 	// ListAliases returns paged stream aliases.
 	ListAliases(ctx context.Context, in ListAliasesInput) (*ListAliasesOutput, error)
 	// GetAlias returns one stream alias by ID.

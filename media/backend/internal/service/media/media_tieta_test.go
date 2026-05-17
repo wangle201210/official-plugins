@@ -77,6 +77,46 @@ func TestResolveStrategyByTokenUsesTietaTenantDevicePermission(t *testing.T) {
 	if out.UserId != 13 || out.TenantId != "tenant-a" || out.StrategyId != strategyID {
 		t.Fatalf("unexpected output: %+v", out)
 	}
+	if out.UserInfo == nil || out.UserInfo.Username != "wj530" {
+		t.Fatalf("expected full Tieta user info, got %+v", out.UserInfo)
+	}
+}
+
+// TestUserDeviceStrategyByTokenReturnsStrategyContent verifies the HotGo-compatible endpoint returns one strategy content field.
+func TestUserDeviceStrategyByTokenReturnsStrategyContent(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
+		user:      &TietaUser{Id: 13, Username: "wj530", RealName: "王杰", Mobile: "18213268117", TenantId: "tenant-a"},
+		hasAccess: true,
+	})
+	defer restoreTietaClient()
+
+	strategyID := insertTestStrategy(t, ctx, "兼容策略", int(SwitchOff), int(SwitchOn))
+	if _, err := dao.MediaStrategyDeviceTenant.Ctx(ctx).Data(do.MediaStrategyDeviceTenant{
+		TenantId:   "tenant-a",
+		DeviceId:   "34020000001320000001",
+		StrategyId: strategyID,
+	}).Insert(); err != nil {
+		t.Fatalf("insert tenant-device binding: %v", err)
+	}
+
+	out, err := newTestMediaService().UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
+		Token:    "token-value",
+		DeviceId: "34020000001320000001",
+	})
+	if err != nil {
+		t.Fatalf("resolve HotGo-compatible strategy by token: %v", err)
+	}
+	if !out.HasAccess || out.StrategyId != uint64(strategyID) {
+		t.Fatalf("unexpected compatibility output: %+v", out)
+	}
+	if out.UserInfo == nil || out.UserInfo.TenantId != "tenant-a" {
+		t.Fatalf("expected Tieta user info, got %+v", out.UserInfo)
+	}
+	if out.Strategy == nil || out.Strategy.StrategyContent != "record:\n  enabled: true\n" {
+		t.Fatalf("expected strategy content field, got %+v", out.Strategy)
+	}
 }
 
 // TestResolveStrategyByTokenRejectsTenantMismatch verifies callers cannot override the token tenant.

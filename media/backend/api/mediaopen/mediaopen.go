@@ -12,4 +12,5 @@ import (
 
 type IMediaopenV1 interface {
 	ResolveStrategyByToken(ctx context.Context, req *v1.ResolveStrategyByTokenReq) (res *v1.ResolveStrategyByTokenRes, err error)
+	UserDeviceStrategyByToken(ctx context.Context, req *v1.UserDeviceStrategyByTokenReq) (res *v1.UserDeviceStrategyByTokenRes, err error)
 }

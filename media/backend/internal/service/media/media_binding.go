@@ -88,6 +88,12 @@ type ResolveStrategyByTokenInput struct {
 	DeviceId      string // DeviceId is the GB device ID.
 }
 
+// UserDeviceStrategyByTokenInput defines HotGo-compatible token and device strategy input.
+type UserDeviceStrategyByTokenInput struct {
+	Token    string // Token is the Tieta token body field.
+	DeviceId string // DeviceId is the GB device ID.
+}
+
 // ResolveStrategyOutput defines effective strategy resolution output.
 type ResolveStrategyOutput struct {
 	Matched      bool   // Matched reports whether a strategy matched.
@@ -100,19 +106,35 @@ type ResolveStrategyOutput struct {
 
 // ResolveStrategyByTokenOutput defines token-authenticated strategy resolution output.
 type ResolveStrategyByTokenOutput struct {
-	UserId       int64  // UserId is the Tieta user ID.
-	Username     string // Username is the Tieta login name.
-	RealName     string // RealName is the Tieta display name.
-	Mobile       string // Mobile is the Tieta mobile number.
-	TenantId     string // TenantId is the Tieta tenant ID.
-	DeviceId     string // DeviceId is the normalized GB device ID.
-	HasAccess    bool   // HasAccess reports Tieta tenant-device authorization result.
-	Matched      bool   // Matched reports whether a strategy matched.
-	Source       string // Source is the matching strategy source.
-	SourceLabel  string // SourceLabel is the Chinese source label.
-	StrategyId   int64  // StrategyId is the matched strategy ID.
-	StrategyName string // StrategyName is the matched strategy name.
-	Strategy     string // Strategy is the matched YAML strategy body.
+	UserId       int64      // UserId is the Tieta user ID.
+	Username     string     // Username is the Tieta login name.
+	RealName     string     // RealName is the Tieta display name.
+	Mobile       string     // Mobile is the Tieta mobile number.
+	UserInfo     *TietaUser // UserInfo is the full Tieta identity projection.
+	TenantId     string     // TenantId is the Tieta tenant ID.
+	DeviceId     string     // DeviceId is the normalized GB device ID.
+	HasAccess    bool       // HasAccess reports Tieta tenant-device authorization result.
+	Matched      bool       // Matched reports whether a strategy matched.
+	Source       string     // Source is the matching strategy source.
+	SourceLabel  string     // SourceLabel is the Chinese source label.
+	StrategyId   int64      // StrategyId is the matched strategy ID.
+	StrategyName string     // StrategyName is the matched strategy name.
+	Strategy     string     // Strategy is the matched YAML strategy body.
+}
+
+// UserDeviceStrategyByTokenOutput defines the HotGo-compatible token and device strategy response.
+type UserDeviceStrategyByTokenOutput struct {
+	UserInfo   *TietaUser          // UserInfo is the Tieta user returned by token validation.
+	HasAccess  bool                // HasAccess reports Tieta tenant-device authorization result.
+	StrategyId uint64              // StrategyId is the matched strategy ID.
+	Strategy   *StrategyInfoOutput // Strategy is the matched compatibility strategy payload.
+}
+
+// StrategyInfoOutput defines the compatibility strategy payload with one content field.
+type StrategyInfoOutput struct {
+	Id              uint64 // Id is the matched strategy ID.
+	Name            string // Name is the matched strategy name.
+	StrategyContent string // StrategyContent is the YAML strategy body.
 }
 
 // Row-key prefixes used by frontend tables.
@@ -388,6 +410,33 @@ func (s *serviceImpl) ResolveStrategyByToken(
 		return nil, err
 	}
 	return buildTokenResolveOutput(user, tenantID, deviceID, true, resolved), nil
+}
+
+// UserDeviceStrategyByToken returns the HotGo-compatible token and device strategy response.
+func (s *serviceImpl) UserDeviceStrategyByToken(
+	ctx context.Context,
+	in UserDeviceStrategyByTokenInput,
+) (*UserDeviceStrategyByTokenOutput, error) {
+	resolved, err := s.ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
+		Token:    in.Token,
+		DeviceId: in.DeviceId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := &UserDeviceStrategyByTokenOutput{
+		UserInfo:  resolved.UserInfo,
+		HasAccess: resolved.HasAccess,
+	}
+	if resolved.HasAccess && resolved.StrategyId > 0 {
+		out.StrategyId = uint64(resolved.StrategyId)
+		out.Strategy = &StrategyInfoOutput{
+			Id:              uint64(resolved.StrategyId),
+			Name:            resolved.StrategyName,
+			StrategyContent: resolved.Strategy,
+		}
+	}
+	return out, nil
 }
 
 // listDeviceBindings returns paged device bindings.
@@ -710,6 +759,7 @@ func buildTokenResolveOutput(
 		out.Username = user.Username
 		out.RealName = user.RealName
 		out.Mobile = user.Mobile
+		out.UserInfo = user
 	}
 	if resolved != nil {
 		out.Matched = resolved.Matched
