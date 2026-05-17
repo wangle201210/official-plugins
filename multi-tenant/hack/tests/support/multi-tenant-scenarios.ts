@@ -44,6 +44,16 @@ type TenantRecord = {
   name: string;
 };
 
+type MonitorAutoEnableSnapshot = {
+  autoEnableForNewTenants: string;
+  currentState: string;
+  desiredState: string;
+  installMode: string;
+  installed: string;
+  pluginId: string;
+  status: string;
+};
+
 type ScenarioContext = {
   api: APIRequestContext;
   suffix: string;
@@ -83,7 +93,11 @@ async function createNamedTenant(
     code,
     name: `${prefix.toUpperCase()} Tenant ${suffix}`,
   });
-  return { id: result.id, code, name: `${prefix.toUpperCase()} Tenant ${suffix}` };
+  return {
+    id: result.id,
+    code,
+    name: `${prefix.toUpperCase()} Tenant ${suffix}`,
+  };
 }
 
 async function createTenantUser(
@@ -121,7 +135,9 @@ async function cleanupTenantUser(
   userId: number,
   memberId = 0,
 ) {
-  execPgSQL(`DELETE FROM plugin_multi_tenant_user_membership WHERE user_id = ${userId};`);
+  execPgSQL(
+    `DELETE FROM plugin_multi_tenant_user_membership WHERE user_id = ${userId};`,
+  );
   if (memberId > 0) {
     await removeTenantMember(api, memberId).catch(() => {});
   }
@@ -141,8 +157,13 @@ function pluginRow(pluginId: string) {
     LIMIT 1;
   `);
   expect(rows.length, `missing sys_plugin row for ${pluginId}`).toBe(1);
-  const [scopeNature, installMode, autoEnableForNewTenants, installed, enabled] =
-    rows[0].split("|");
+  const [
+    scopeNature,
+    installMode,
+    autoEnableForNewTenants,
+    installed,
+    enabled,
+  ] = rows[0].split("|");
   return {
     scopeNature,
     installMode,
@@ -153,12 +174,14 @@ function pluginRow(pluginId: string) {
 }
 
 function tableExists(table: string) {
-  return scalarNumber(`
+  return (
+    scalarNumber(`
     SELECT COUNT(1)
     FROM information_schema.tables
     WHERE table_schema = 'public'
       AND table_name = '${pgEscapeLiteral(table)}';
-  `) === 1;
+  `) === 1
+  );
 }
 
 function cleanupRowsByPrefix(prefix: string) {
@@ -200,6 +223,95 @@ function flattenAccessibleMenus(list: Array<any>): Array<any> {
     item,
     ...flattenAccessibleMenus(item?.children ?? []),
   ]);
+}
+
+function monitorPluginSnapshot(pluginId: string): MonitorAutoEnableSnapshot {
+  const rows = queryPgRows(`
+    SELECT plugin_id || '|' || installed::text || '|' || status::text || '|' || install_mode || '|' || auto_enable_for_new_tenants::text || '|' || desired_state || '|' || current_state
+    FROM sys_plugin
+    WHERE plugin_id = '${pgEscapeLiteral(pluginId)}'
+    LIMIT 1;
+  `);
+  expect(rows.length, `missing sys_plugin row for ${pluginId}`).toBe(1);
+  const [
+    snapshotPluginId,
+    installed,
+    status,
+    installMode,
+    autoEnableForNewTenants,
+    desiredState,
+    currentState,
+  ] = rows[0].split("|");
+  return {
+    pluginId: snapshotPluginId,
+    installed,
+    status,
+    installMode,
+    autoEnableForNewTenants,
+    desiredState,
+    currentState,
+  };
+}
+
+function restoreMonitorPluginSnapshot(snapshot: MonitorAutoEnableSnapshot) {
+  execPgSQL(`
+    UPDATE sys_plugin
+    SET installed = ${Number(snapshot.installed) || 0},
+        status = ${Number(snapshot.status) || 0},
+        install_mode = '${pgEscapeLiteral(snapshot.installMode)}',
+        auto_enable_for_new_tenants = ${snapshot.autoEnableForNewTenants === "true" ? "TRUE" : "FALSE"},
+        desired_state = '${pgEscapeLiteral(snapshot.desiredState)}',
+        current_state = '${pgEscapeLiteral(snapshot.currentState)}',
+        updated_at = NOW()
+    WHERE plugin_id = '${pgEscapeLiteral(snapshot.pluginId)}';
+  `);
+}
+
+function enableMonitorTenantStateForTenant(pluginId: string, tenantId: number) {
+  execPgSQL(`
+    INSERT INTO sys_plugin_state (plugin_id, tenant_id, state_key, state_value, enabled, created_at, updated_at)
+    VALUES ('${pgEscapeLiteral(pluginId)}', ${tenantId}, '${tenantEnablementKey}', 'enabled', TRUE, NOW(), NOW())
+    ON CONFLICT (plugin_id, tenant_id, state_key) DO NOTHING;
+  `);
+}
+
+function setMonitorPluginsAutoEnabledForTenant(
+  pluginIds: string[],
+  tenantId: number,
+) {
+  for (const pluginId of pluginIds) {
+    execPgSQL(`
+      UPDATE sys_plugin
+      SET installed = 1,
+          status = 1,
+          install_mode = 'tenant_scoped',
+          auto_enable_for_new_tenants = TRUE,
+          updated_at = NOW()
+      WHERE plugin_id = '${pgEscapeLiteral(pluginId)}';
+    `);
+    enableMonitorTenantStateForTenant(pluginId, tenantId);
+  }
+}
+
+function removeTenantMonitorStates(tenantId: number, pluginIds: string[]) {
+  execPgSQL(`
+    DELETE FROM sys_plugin_state
+    WHERE tenant_id = ${tenantId}
+      AND state_key = '${tenantEnablementKey}'
+      AND plugin_id IN (${pluginIds.map((pluginId) => `'${pgEscapeLiteral(pluginId)}'`).join(", ")});
+  `);
+}
+
+function assertAccessibleMenuPaths(list: Array<any>, paths: string[]) {
+  const pathsByMenu = new Set(
+    flattenAccessibleMenus(list).map((item) => item?.path),
+  );
+  for (const path of paths) {
+    expect(
+      pathsByMenu.has(path),
+      `missing tenant monitor menu path ${path}`,
+    ).toBe(true);
+  }
 }
 
 function flattenMenuNodes(list: MenuNode[]): MenuNode[] {
@@ -255,8 +367,12 @@ async function expectUserListContains(
   tenantId: number,
   username: string,
 ) {
-  const users = await expectSuccess<{ list: Array<{ username: string; tenantIds?: number[] }> }>(
-    await api.get(`user?pageNum=1&pageSize=100&tenantId=${tenantId}&username=${encodeURIComponent(username)}`),
+  const users = await expectSuccess<{
+    list: Array<{ username: string; tenantIds?: number[] }>;
+  }>(
+    await api.get(
+      `user?pageNum=1&pageSize=100&tenantId=${tenantId}&username=${encodeURIComponent(username)}`,
+    ),
   );
   expect(users.list.map((item) => item.username)).toContain(username);
 }
@@ -291,9 +407,7 @@ async function expectResolverConfigEndpointRemoved(api: APIRequestContext) {
     (
       await api.get("platform/tenant/resolver-config", { maxRedirects: 0 })
     ).ok(),
-  ).toBe(
-    false,
-  );
+  ).toBe(false);
   expect(
     (
       await api.put("platform/tenant/resolver-config", {
@@ -304,11 +418,7 @@ async function expectResolverConfigEndpointRemoved(api: APIRequestContext) {
   ).toBe(false);
 }
 
-function insertTenantRole(
-  tenantId: number,
-  suffix: string,
-  keyPrefix: string,
-) {
+function insertTenantRole(tenantId: number, suffix: string, keyPrefix: string) {
   const dataScope = tenantId === 0 ? 1 : 2;
   return scalarNumber(`
     INSERT INTO sys_role (name, key, sort, data_scope, status, remark, tenant_id, created_at, updated_at)
@@ -334,11 +444,15 @@ function assertTenantScopedRowCounts(
   label: string,
 ) {
   expect(
-    scalarNumber(`SELECT COUNT(1) FROM ${table} WHERE tenant_id = ${tenantAId};`),
+    scalarNumber(
+      `SELECT COUNT(1) FROM ${table} WHERE tenant_id = ${tenantAId};`,
+    ),
     `${label} tenant A row`,
   ).toBeGreaterThan(0);
   expect(
-    scalarNumber(`SELECT COUNT(1) FROM ${table} WHERE tenant_id = ${tenantBId};`),
+    scalarNumber(
+      `SELECT COUNT(1) FROM ${table} WHERE tenant_id = ${tenantBId};`,
+    ),
     `${label} tenant B row`,
   ).toBeGreaterThan(0);
 }
@@ -351,7 +465,10 @@ async function ensurePluginInstalled(api: APIRequestContext, pluginId: string) {
   }
 }
 
-async function ensurePluginInstalledAndEnabled(api: APIRequestContext, pluginId: string) {
+async function ensurePluginInstalledAndEnabled(
+  api: APIRequestContext,
+  pluginId: string,
+) {
   await syncPlugins(api);
   const plugin = await getPlugin(api, pluginId);
   if (plugin.installed !== 1) {
@@ -401,7 +518,12 @@ async function createTenantPluginApi(
   tenantId: number,
   suffix: string,
 ) {
-  const user = await addTenantUser(adminApi, suffix, `tenant_plugin_${tenantId}`, tenantId);
+  const user = await addTenantUser(
+    adminApi,
+    suffix,
+    `tenant_plugin_${tenantId}`,
+    tenantId,
+  );
   const grants = [
     await grantTenantPermissions(adminApi, {
       roleKey: `tenant_plugin_${tenantId}_${suffix}`,
@@ -435,7 +557,10 @@ export async function scenarioTC0178() {
     await expectSuccess(await api.get("platform/tenants?pageNum=1&pageSize=1"));
     const accessibleMenus = await getAccessibleMenus(api);
     const routesByPath = new Map(
-      flattenAccessibleMenus(accessibleMenus.list).map((item) => [item.path, item]),
+      flattenAccessibleMenus(accessibleMenus.list).map((item) => [
+        item.path,
+        item,
+      ]),
     );
     expect(routesByPath.get("/platform/tenants")?.component).toBe(
       "#/views/system/plugin/dynamic-page",
@@ -541,7 +666,11 @@ export async function scenarioTC0183() {
     const plugin = pluginRow("multi-tenant");
     expect(plugin.scopeNature).toBe("platform_only");
     expect(plugin.installMode).toBe("global");
-    await expectMultiTenantUninstallBlockedWithExistingTenant(api, suffix, "tc183");
+    await expectMultiTenantUninstallBlockedWithExistingTenant(
+      api,
+      suffix,
+      "tc183",
+    );
   });
 }
 
@@ -554,8 +683,12 @@ export async function scenarioTC0184() {
     let memberB = 0;
     const grants: TenantUserGrant[] = [];
     try {
-      memberA = (await addTenantMember(api, { tenantId: tenantA.id, userId: user.id })).id;
-      memberB = (await addTenantMember(api, { tenantId: tenantB.id, userId: user.id })).id;
+      memberA = (
+        await addTenantMember(api, { tenantId: tenantA.id, userId: user.id })
+      ).id;
+      memberB = (
+        await addTenantMember(api, { tenantId: tenantB.id, userId: user.id })
+      ).id;
       grants.push(
         await grantTenantPermissions(api, {
           roleKey: `tc184-user-query-a-${suffix}`,
@@ -656,9 +789,21 @@ export async function scenarioTC0188() {
       expect(roleA).toBeGreaterThan(0);
       expect(roleB).toBeGreaterThan(0);
       expect(platformRole).toBeGreaterThan(0);
-      expect(scalarNumber(`SELECT COUNT(1) FROM sys_role WHERE tenant_id = ${tenantA.id} AND data_scope = 2 AND key LIKE '${pgEscapeLiteral(prefix)}%';`)).toBe(1);
-      expect(scalarNumber(`SELECT COUNT(1) FROM sys_role WHERE tenant_id = ${tenantB.id} AND data_scope = 2 AND key LIKE '${pgEscapeLiteral(prefix)}%';`)).toBe(1);
-      expect(scalarNumber(`SELECT COUNT(1) FROM sys_role WHERE tenant_id = 0 AND data_scope = 1 AND key LIKE '${pgEscapeLiteral(prefix)}%';`)).toBe(1);
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM sys_role WHERE tenant_id = ${tenantA.id} AND data_scope = 2 AND key LIKE '${pgEscapeLiteral(prefix)}%';`,
+        ),
+      ).toBe(1);
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM sys_role WHERE tenant_id = ${tenantB.id} AND data_scope = 2 AND key LIKE '${pgEscapeLiteral(prefix)}%';`,
+        ),
+      ).toBe(1);
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM sys_role WHERE tenant_id = 0 AND data_scope = 1 AND key LIKE '${pgEscapeLiteral(prefix)}%';`,
+        ),
+      ).toBe(1);
     } finally {
       cleanupRowsByPrefix(prefix);
       await deleteTenant(api, tenantA.id).catch(() => {});
@@ -683,8 +828,16 @@ export async function scenarioTC0189() {
           INSERT INTO sys_dict_data (tenant_id, dict_type, label, value, sort, status, is_builtin, created_at, updated_at)
           VALUES (${tenant.id}, '${pgEscapeLiteral(prefix)}', 'tenant', 't', 1, 1, 0, NOW(), NOW());
         `);
-        expect(queryPgRows(`SELECT label FROM sys_dict_data WHERE tenant_id = ${tenant.id} AND dict_type = '${pgEscapeLiteral(prefix)}';`)).toEqual(["tenant"]);
-        expect(queryPgRows(`SELECT label FROM sys_dict_data WHERE tenant_id = 0 AND dict_type = '${pgEscapeLiteral(prefix)}';`)).toEqual(["platform"]);
+        expect(
+          queryPgRows(
+            `SELECT label FROM sys_dict_data WHERE tenant_id = ${tenant.id} AND dict_type = '${pgEscapeLiteral(prefix)}';`,
+          ),
+        ).toEqual(["tenant"]);
+        expect(
+          queryPgRows(
+            `SELECT label FROM sys_dict_data WHERE tenant_id = 0 AND dict_type = '${pgEscapeLiteral(prefix)}';`,
+          ),
+        ).toEqual(["platform"]);
       } finally {
         cleanupRowsByPrefix(prefix);
       }
@@ -704,8 +857,16 @@ export async function scenarioTC0190() {
           INSERT INTO sys_config (tenant_id, name, key, value, is_builtin, remark, created_at, updated_at)
           VALUES (${tenant.id}, 'TC190 Tenant', '${pgEscapeLiteral(key)}', 'tenant', 0, '', NOW(), NOW());
         `);
-        expect(queryPgScalar(`SELECT value FROM sys_config WHERE tenant_id = ${tenant.id} AND key = '${pgEscapeLiteral(key)}';`)).toBe("tenant");
-        expect(queryPgScalar(`SELECT value FROM sys_config WHERE tenant_id = 0 AND key = '${pgEscapeLiteral(key)}';`)).toBe("platform");
+        expect(
+          queryPgScalar(
+            `SELECT value FROM sys_config WHERE tenant_id = ${tenant.id} AND key = '${pgEscapeLiteral(key)}';`,
+          ),
+        ).toBe("tenant");
+        expect(
+          queryPgScalar(
+            `SELECT value FROM sys_config WHERE tenant_id = 0 AND key = '${pgEscapeLiteral(key)}';`,
+          ),
+        ).toBe("platform");
       } finally {
         cleanupRowsByPrefix("tc190.");
       }
@@ -727,8 +888,16 @@ export async function scenarioTC0191() {
           (${tenantB.id}, '${pgEscapeLiteral(prefix)}_b', 'b.txt', '.txt', 'other', 1, '${pgEscapeLiteral(prefix)}b', '/storage/t/${tenantB.id}/b.txt', '/storage/t/${tenantB.id}/b.txt', 'local', NOW(), NOW()),
           (0, '${pgEscapeLiteral(prefix)}_p', 'p.txt', '.txt', 'other', 1, '${pgEscapeLiteral(prefix)}p', '/storage/platform/p.txt', '/storage/platform/p.txt', 'local', NOW(), NOW());
       `);
-      expect(queryPgScalar(`SELECT path FROM sys_file WHERE tenant_id = ${tenantA.id} AND name = '${pgEscapeLiteral(prefix)}_a';`)).toContain(`/t/${tenantA.id}/`);
-      expect(queryPgScalar(`SELECT path FROM sys_file WHERE tenant_id = 0 AND name = '${pgEscapeLiteral(prefix)}_p';`)).toContain("/platform/");
+      expect(
+        queryPgScalar(
+          `SELECT path FROM sys_file WHERE tenant_id = ${tenantA.id} AND name = '${pgEscapeLiteral(prefix)}_a';`,
+        ),
+      ).toContain(`/t/${tenantA.id}/`);
+      expect(
+        queryPgScalar(
+          `SELECT path FROM sys_file WHERE tenant_id = 0 AND name = '${pgEscapeLiteral(prefix)}_p';`,
+        ),
+      ).toContain("/platform/");
     } finally {
       cleanupRowsByPrefix(prefix);
       await deleteTenant(api, tenantA.id).catch(() => {});
@@ -751,8 +920,17 @@ export async function scenarioTC0192() {
           (${tenantB.id}, '', 'system', '${pgEscapeLiteral(prefix)}_b', 'notice', 'B', 'B', '{}', 0, NOW()),
           (0, '', 'system', '${pgEscapeLiteral(prefix)}_platform', 'notice', 'P', 'P', '{}', 0, NOW());
       `);
-      assertTenantScopedRowCounts("sys_notify_message", tenantA.id, tenantB.id, "notify");
-      expect(scalarNumber(`SELECT COUNT(1) FROM sys_notify_message WHERE tenant_id = 0 AND source_id = '${pgEscapeLiteral(prefix)}_platform';`)).toBe(1);
+      assertTenantScopedRowCounts(
+        "sys_notify_message",
+        tenantA.id,
+        tenantB.id,
+        "notify",
+      );
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM sys_notify_message WHERE tenant_id = 0 AND source_id = '${pgEscapeLiteral(prefix)}_platform';`,
+        ),
+      ).toBe(1);
     } finally {
       cleanupRowsByPrefix(prefix);
       await deleteTenant(api, tenantA.id).catch(() => {});
@@ -776,8 +954,16 @@ export async function scenarioTC0193() {
           INSERT INTO sys_job (tenant_id, group_id, name, description, task_type, handler_ref, params, timeout_seconds, cron_expr, timezone, scope, concurrency, status, is_builtin, created_at, updated_at)
           VALUES (0, 0, '${pgEscapeLiteral(prefix)}_platform_job', '', 'handler', 'host:cleanup-job-logs', '{}', 300, '0 0 1 1 *', 'Asia/Shanghai', 'master_only', 'singleton', 'disabled', 1, NOW(), NOW());
         `);
-        expect(scalarNumber(`SELECT COUNT(1) FROM sys_job WHERE tenant_id = ${tenant.id} AND is_builtin = 0 AND name = '${pgEscapeLiteral(prefix)}_job';`)).toBe(1);
-        expect(scalarNumber(`SELECT COUNT(1) FROM sys_job WHERE tenant_id = 0 AND is_builtin = 1 AND name = '${pgEscapeLiteral(prefix)}_platform_job';`)).toBe(1);
+        expect(
+          scalarNumber(
+            `SELECT COUNT(1) FROM sys_job WHERE tenant_id = ${tenant.id} AND is_builtin = 0 AND name = '${pgEscapeLiteral(prefix)}_job';`,
+          ),
+        ).toBe(1);
+        expect(
+          scalarNumber(
+            `SELECT COUNT(1) FROM sys_job WHERE tenant_id = 0 AND is_builtin = 1 AND name = '${pgEscapeLiteral(prefix)}_platform_job';`,
+          ),
+        ).toBe(1);
       } finally {
         cleanupRowsByPrefix(prefix);
       }
@@ -798,10 +984,25 @@ export async function scenarioTC0194() {
           (${tenantA.id}, '${pgEscapeLiteral(prefix)}_a', 1, 'admin', NOW(), NOW()),
           (${tenantB.id}, '${pgEscapeLiteral(prefix)}_b', 1, 'admin', NOW(), NOW());
       `);
-      assertTenantScopedRowCounts("sys_online_session", tenantA.id, tenantB.id, "online session");
-      execPgSQL(`DELETE FROM sys_online_session WHERE tenant_id = ${tenantA.id} AND token_id = '${pgEscapeLiteral(prefix)}_a';`);
-      expect(scalarNumber(`SELECT COUNT(1) FROM sys_online_session WHERE tenant_id = ${tenantA.id} AND token_id = '${pgEscapeLiteral(prefix)}_a';`)).toBe(0);
-      expect(scalarNumber(`SELECT COUNT(1) FROM sys_online_session WHERE tenant_id = ${tenantB.id} AND token_id = '${pgEscapeLiteral(prefix)}_b';`)).toBe(1);
+      assertTenantScopedRowCounts(
+        "sys_online_session",
+        tenantA.id,
+        tenantB.id,
+        "online session",
+      );
+      execPgSQL(
+        `DELETE FROM sys_online_session WHERE tenant_id = ${tenantA.id} AND token_id = '${pgEscapeLiteral(prefix)}_a';`,
+      );
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM sys_online_session WHERE tenant_id = ${tenantA.id} AND token_id = '${pgEscapeLiteral(prefix)}_a';`,
+        ),
+      ).toBe(0);
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM sys_online_session WHERE tenant_id = ${tenantB.id} AND token_id = '${pgEscapeLiteral(prefix)}_b';`,
+        ),
+      ).toBe(1);
     } finally {
       cleanupRowsByPrefix(prefix);
       await deleteTenant(api, tenantA.id).catch(() => {});
@@ -822,8 +1023,16 @@ export async function scenarioTC0195() {
           INSERT INTO plugin_monitor_operlog (tenant_id, acting_user_id, on_behalf_of_tenant_id, is_impersonation, title, oper_summary, route_owner, route_method, route_path, route_doc_key, oper_type, method, request_method, oper_name, oper_url, oper_ip, oper_param, json_result, status, error_msg, cost_time, oper_time)
           VALUES (${tenant.id}, 1, ${tenant.id}, TRUE, 'TC195', 'impersonation', 'core', 'POST', '/platform/tenants/${tenant.id}/impersonate', '', 'other', '', 'POST', '${pgEscapeLiteral(prefix)}_oper', '', '127.0.0.1', '{}', '{}', 0, '', 1, NOW());
         `);
-        expect(scalarNumber(`SELECT COUNT(1) FROM plugin_monitor_loginlog WHERE tenant_id = ${tenant.id} AND is_impersonation = TRUE AND on_behalf_of_tenant_id = ${tenant.id};`)).toBeGreaterThan(0);
-        expect(scalarNumber(`SELECT COUNT(1) FROM plugin_monitor_operlog WHERE tenant_id = ${tenant.id} AND is_impersonation = TRUE AND acting_user_id = 1;`)).toBeGreaterThan(0);
+        expect(
+          scalarNumber(
+            `SELECT COUNT(1) FROM plugin_monitor_loginlog WHERE tenant_id = ${tenant.id} AND is_impersonation = TRUE AND on_behalf_of_tenant_id = ${tenant.id};`,
+          ),
+        ).toBeGreaterThan(0);
+        expect(
+          scalarNumber(
+            `SELECT COUNT(1) FROM plugin_monitor_operlog WHERE tenant_id = ${tenant.id} AND is_impersonation = TRUE AND acting_user_id = 1;`,
+          ),
+        ).toBeGreaterThan(0);
       } finally {
         cleanupRowsByPrefix(prefix);
       }
@@ -842,7 +1051,11 @@ export async function scenarioTC0196() {
           INSERT INTO plugin_org_center_dept (tenant_id, parent_id, ancestors, name, code, order_num, status, created_at, updated_at)
           VALUES (${tenant.id}, 0, '', 'TC196 Root', '${pgEscapeLiteral(prefix)}', 1, 1, NOW(), NOW());
         `);
-        expect(scalarNumber(`SELECT COUNT(1) FROM plugin_org_center_dept WHERE tenant_id = ${tenant.id} AND code = '${pgEscapeLiteral(prefix)}';`)).toBe(1);
+        expect(
+          scalarNumber(
+            `SELECT COUNT(1) FROM plugin_org_center_dept WHERE tenant_id = ${tenant.id} AND code = '${pgEscapeLiteral(prefix)}';`,
+          ),
+        ).toBe(1);
         expect(tableExists("plugin_multi_tenant_event_outbox")).toBeFalsy();
       } finally {
         cleanupRowsByPrefix(prefix);
@@ -865,9 +1078,21 @@ export async function scenarioTC0197() {
           (${tenantA.id}, '${pgEscapeLiteral(prefix)}', 'TC197 A', 1, 1, NOW(), NOW()),
           (${tenantB.id}, '${pgEscapeLiteral(prefix)}', 'TC197 B', 1, 1, NOW(), NOW());
       `);
-      expect(scalarNumber(`SELECT COUNT(1) FROM plugin_org_center_post WHERE code = '${pgEscapeLiteral(prefix)}';`)).toBe(2);
-      expect(scalarNumber(`SELECT COUNT(1) FROM plugin_org_center_post WHERE tenant_id = ${tenantA.id} AND code = '${pgEscapeLiteral(prefix)}';`)).toBe(1);
-      expect(scalarNumber(`SELECT COUNT(1) FROM plugin_org_center_post WHERE tenant_id = ${tenantB.id} AND code = '${pgEscapeLiteral(prefix)}';`)).toBe(1);
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM plugin_org_center_post WHERE code = '${pgEscapeLiteral(prefix)}';`,
+        ),
+      ).toBe(2);
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM plugin_org_center_post WHERE tenant_id = ${tenantA.id} AND code = '${pgEscapeLiteral(prefix)}';`,
+        ),
+      ).toBe(1);
+      expect(
+        scalarNumber(
+          `SELECT COUNT(1) FROM plugin_org_center_post WHERE tenant_id = ${tenantB.id} AND code = '${pgEscapeLiteral(prefix)}';`,
+        ),
+      ).toBe(1);
     } finally {
       cleanupRowsByPrefix(prefix);
       await deleteTenant(api, tenantA.id).catch(() => {});
@@ -962,11 +1187,18 @@ export async function scenarioTC0202() {
     let memberA = 0;
     let memberB = 0;
     try {
-      memberA = (await addTenantMember(api, { tenantId: tenantA.id, userId: user.id })).id;
-      memberB = (await addTenantMember(api, { tenantId: tenantB.id, userId: user.id })).id;
+      memberA = (
+        await addTenantMember(api, { tenantId: tenantA.id, userId: user.id })
+      ).id;
+      memberB = (
+        await addTenantMember(api, { tenantId: tenantB.id, userId: user.id })
+      ).id;
       const login = await loginRaw(user.username, password);
       expect(login.preToken).toBeTruthy();
-      expect(login.tenants?.map((tenant) => tenant.id)).toEqual([tenantA.id, tenantB.id]);
+      expect(login.tenants?.map((tenant) => tenant.id)).toEqual([
+        tenantA.id,
+        tenantB.id,
+      ]);
     } finally {
       await cleanupTenantUser(api, user.id, memberA);
       if (memberB > 0) {
@@ -992,7 +1224,10 @@ export async function scenarioTC0203() {
 export async function scenarioTC0204() {
   await withAdmin(async ({ api, suffix }) => {
     await withTenant(api, suffix, "tc204", async (tenant) => {
-      const out = await expectSuccess<{ tenantId: number; isImpersonated: boolean }>(
+      const out = await expectSuccess<{
+        tenantId: number;
+        isImpersonated: boolean;
+      }>(
         await api.post(`platform/tenants/${tenant.id}/impersonate`, {
           data: { reason: "TC0204 override" },
         }),
@@ -1060,30 +1295,126 @@ export async function scenarioTC0208() {
   await withAdmin(async ({ api, suffix }) => {
     await ensurePluginInstalled(api, "monitor-loginlog");
     await withTenant(api, suffix, "tc208", async (tenant) => {
-      execPgSQL(`UPDATE sys_plugin SET install_mode = 'tenant_scoped', status = 1 WHERE plugin_id = 'monitor-loginlog';`);
+      execPgSQL(
+        `UPDATE sys_plugin SET install_mode = 'tenant_scoped', status = 1 WHERE plugin_id = 'monitor-loginlog';`,
+      );
       const tenantPlugin = await createTenantPluginApi(api, tenant.id, suffix);
       try {
-        const list = await expectSuccess<{ list: Array<{ id: string; tenantEnabled: number }> }>(
-          await tenantPlugin.api.get("tenant/plugins"),
-        );
+        const list = await expectSuccess<{
+          list: Array<{ id: string; tenantEnabled: number }>;
+        }>(await tenantPlugin.api.get("tenant/plugins"));
         expect(list.list.map((item) => item.id)).toContain("monitor-loginlog");
-        await expectSuccess(await tenantPlugin.api.post("tenant/plugins/monitor-loginlog/enable"));
-        expect(scalarNumber(`SELECT COUNT(1) FROM sys_plugin_state WHERE plugin_id = 'monitor-loginlog' AND tenant_id = ${tenant.id} AND state_key = '${tenantEnablementKey}' AND enabled = TRUE;`)).toBe(1);
-        await expectSuccess(await tenantPlugin.api.post("tenant/plugins/monitor-loginlog/disable"));
-        expect(scalarNumber(`SELECT COUNT(1) FROM sys_plugin_state WHERE plugin_id = 'monitor-loginlog' AND tenant_id = ${tenant.id} AND state_key = '${tenantEnablementKey}' AND enabled = FALSE;`)).toBe(1);
+        await expectSuccess(
+          await tenantPlugin.api.post("tenant/plugins/monitor-loginlog/enable"),
+        );
+        expect(
+          scalarNumber(
+            `SELECT COUNT(1) FROM sys_plugin_state WHERE plugin_id = 'monitor-loginlog' AND tenant_id = ${tenant.id} AND state_key = '${tenantEnablementKey}' AND enabled = TRUE;`,
+          ),
+        ).toBe(1);
+        await expectSuccess(
+          await tenantPlugin.api.post(
+            "tenant/plugins/monitor-loginlog/disable",
+          ),
+        );
+        expect(
+          scalarNumber(
+            `SELECT COUNT(1) FROM sys_plugin_state WHERE plugin_id = 'monitor-loginlog' AND tenant_id = ${tenant.id} AND state_key = '${tenantEnablementKey}' AND enabled = FALSE;`,
+          ),
+        ).toBe(1);
       } finally {
         await tenantPlugin.api.dispose();
         revokeTenantPermissionGrants(tenantPlugin.grants);
-        await cleanupTenantUser(api, tenantPlugin.user.id, tenantPlugin.user.memberId);
-        execPgSQL(`DELETE FROM sys_plugin_state WHERE plugin_id = 'monitor-loginlog' AND tenant_id = ${tenant.id};`);
+        await cleanupTenantUser(
+          api,
+          tenantPlugin.user.id,
+          tenantPlugin.user.memberId,
+        );
+        execPgSQL(
+          `DELETE FROM sys_plugin_state WHERE plugin_id = 'monitor-loginlog' AND tenant_id = ${tenant.id};`,
+        );
       }
     });
   });
 }
 
+export async function scenarioTC0237() {
+  const tenantScopedMonitorPluginIds = [
+    "monitor-loginlog",
+    "monitor-online",
+    "monitor-operlog",
+  ];
+  const monitorPluginIds = [...tenantScopedMonitorPluginIds, "monitor-server"];
+  const monitorMenuPaths = [
+    "/monitor/loginlog",
+    "/monitor/online",
+    "/monitor/operlog",
+    "/monitor/server",
+  ];
+  await withAdmin(async ({ api, suffix }) => {
+    await syncPlugins(api);
+    const snapshots = monitorPluginIds.map((pluginId) =>
+      monitorPluginSnapshot(pluginId),
+    );
+    try {
+      for (const pluginId of monitorPluginIds) {
+        await ensurePluginInstalledAndEnabled(api, pluginId);
+      }
+      await withTenant(api, suffix, "tc237", async (tenant) => {
+        removeTenantMonitorStates(tenant.id, tenantScopedMonitorPluginIds);
+        setMonitorPluginsAutoEnabledForTenant(
+          tenantScopedMonitorPluginIds,
+          tenant.id,
+        );
+        const user = await addTenantUser(
+          api,
+          suffix,
+          `monitor_menu_${tenant.id}`,
+          tenant.id,
+        );
+        let grant: TenantUserGrant | undefined;
+        try {
+          grant = await grantTenantPermissions(api, {
+            roleKey: `monitor_menu_${tenant.id}_${suffix}`,
+            roleName: `Monitor menu ${tenant.id} ${suffix}`,
+            tenantId: tenant.id,
+            userId: user.id,
+            permissions: [
+              "monitor:loginlog:list",
+              "monitor:online:list",
+              "monitor:operlog:list",
+              "monitor:server:list",
+            ],
+          });
+          const token = await loginAndSelect(user.username, tenant.id);
+          const tenantApi = await createTenantApiContext(token);
+          try {
+            const routes = await getAccessibleMenus(tenantApi);
+            assertAccessibleMenuPaths(routes.list, monitorMenuPaths);
+          } finally {
+            await tenantApi.dispose();
+          }
+        } finally {
+          revokeTenantPermissionGrants(grant ? [grant] : []);
+          await cleanupTenantUser(api, user.id, user.memberId);
+          removeTenantMonitorStates(tenant.id, tenantScopedMonitorPluginIds);
+        }
+      });
+    } finally {
+      for (const snapshot of snapshots) {
+        restoreMonitorPluginSnapshot(snapshot);
+      }
+    }
+  });
+}
+
 export async function scenarioTC0210() {
   await withAdmin(async ({ api, suffix }) => {
-    await expectMultiTenantUninstallBlockedWithExistingTenant(api, suffix, "tc210");
+    await expectMultiTenantUninstallBlockedWithExistingTenant(
+      api,
+      suffix,
+      "tc210",
+    );
   });
 }
 
@@ -1140,7 +1471,9 @@ export async function scenarioTC0213() {
             updated_at = NOW()
         WHERE plugin_id = 'org-center';
       `);
-      execPgSQL(`DELETE FROM sys_plugin_state WHERE plugin_id = 'org-center' AND state_key = '${tenantEnablementKey}' AND tenant_id > 0;`);
+      execPgSQL(
+        `DELETE FROM sys_plugin_state WHERE plugin_id = 'org-center' AND state_key = '${tenantEnablementKey}' AND tenant_id > 0;`,
+      );
     }
   });
 }
@@ -1207,7 +1540,11 @@ export async function scenarioTC0217() {
       } finally {
         await tenantPlugin.api.dispose();
         revokeTenantPermissionGrants(tenantPlugin.grants);
-        await cleanupTenantUser(api, tenantPlugin.user.id, tenantPlugin.user.memberId);
+        await cleanupTenantUser(
+          api,
+          tenantPlugin.user.id,
+          tenantPlugin.user.memberId,
+        );
       }
     });
   });
@@ -1232,15 +1569,31 @@ export async function scenarioTC0219() {
           (${tenantB.id}, 'permission-access', 'tenant:${tenantB.id}', 1, 'tc219', NOW(), NOW())
         ON CONFLICT (tenant_id, domain, scope) DO UPDATE SET revision = sys_cache_revision.revision + 1, updated_at = NOW();
       `);
-      const revA = scalarNumber(`SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantA.id} AND scope = 'tenant:${tenantA.id}';`);
-      const revB = scalarNumber(`SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantB.id} AND scope = 'tenant:${tenantB.id}';`);
+      const revA = scalarNumber(
+        `SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantA.id} AND scope = 'tenant:${tenantA.id}';`,
+      );
+      const revB = scalarNumber(
+        `SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantB.id} AND scope = 'tenant:${tenantB.id}';`,
+      );
       expect(revA).toBeGreaterThan(0);
       expect(revB).toBeGreaterThan(0);
-      execPgSQL(`UPDATE sys_cache_revision SET revision = revision + 1 WHERE tenant_id = ${tenantA.id} AND scope = 'tenant:${tenantA.id}';`);
-      expect(scalarNumber(`SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantA.id} AND scope = 'tenant:${tenantA.id}';`)).toBe(revA + 1);
-      expect(scalarNumber(`SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantB.id} AND scope = 'tenant:${tenantB.id}';`)).toBe(revB);
+      execPgSQL(
+        `UPDATE sys_cache_revision SET revision = revision + 1 WHERE tenant_id = ${tenantA.id} AND scope = 'tenant:${tenantA.id}';`,
+      );
+      expect(
+        scalarNumber(
+          `SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantA.id} AND scope = 'tenant:${tenantA.id}';`,
+        ),
+      ).toBe(revA + 1);
+      expect(
+        scalarNumber(
+          `SELECT revision FROM sys_cache_revision WHERE tenant_id = ${tenantB.id} AND scope = 'tenant:${tenantB.id}';`,
+        ),
+      ).toBe(revB);
     } finally {
-      execPgSQL(`DELETE FROM sys_cache_revision WHERE tenant_id IN (${tenantA.id}, ${tenantB.id}) AND domain = 'permission-access';`);
+      execPgSQL(
+        `DELETE FROM sys_cache_revision WHERE tenant_id IN (${tenantA.id}, ${tenantB.id}) AND domain = 'permission-access';`,
+      );
       await deleteTenant(api, tenantA.id).catch(() => {});
       await deleteTenant(api, tenantB.id).catch(() => {});
     }
@@ -1255,13 +1608,22 @@ async function scenarioSwitchToken(prefix: string) {
   await withAdmin(async ({ api, suffix }) => {
     const tenantA = await createNamedTenant(api, suffix, `${prefix}-a`);
     const tenantB = await createNamedTenant(api, suffix, `${prefix}-b`);
-    const user = await createTenantUser(api, suffix, `${prefix}_user`, tenantA.id);
+    const user = await createTenantUser(
+      api,
+      suffix,
+      `${prefix}_user`,
+      tenantA.id,
+    );
     let memberA = 0;
     let memberB = 0;
     const grants: TenantUserGrant[] = [];
     try {
-      memberA = (await addTenantMember(api, { tenantId: tenantA.id, userId: user.id })).id;
-      memberB = (await addTenantMember(api, { tenantId: tenantB.id, userId: user.id })).id;
+      memberA = (
+        await addTenantMember(api, { tenantId: tenantA.id, userId: user.id })
+      ).id;
+      memberB = (
+        await addTenantMember(api, { tenantId: tenantB.id, userId: user.id })
+      ).id;
       grants.push(
         await grantTenantPermissions(api, {
           roleKey: `${prefix}-user-query-b-${suffix}`,

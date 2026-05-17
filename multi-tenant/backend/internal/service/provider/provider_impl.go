@@ -12,7 +12,11 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	pkgtenantcap "lina-core/pkg/tenantcap"
+	"lina-plugin-multi-tenant/backend/internal/dao"
+	"lina-plugin-multi-tenant/backend/internal/model/do"
+	"lina-plugin-multi-tenant/backend/internal/model/entity"
 	"lina-plugin-multi-tenant/backend/internal/service/resolverconfig"
+	"lina-plugin-multi-tenant/backend/internal/service/shared"
 )
 
 // ResolveTenant resolves a tenant from request metadata.
@@ -118,4 +122,31 @@ func (p *Provider) EnsureUsersInTenant(ctx context.Context, userIDs []int, tenan
 // ValidateStartupConsistency returns user-membership startup consistency failures.
 func (p *Provider) ValidateStartupConsistency(ctx context.Context) ([]string, error) {
 	return p.membershipSvc.ValidateStartupConsistency(ctx)
+}
+
+// ProvisionAutoEnabledTenantPlugins provisions platform-approved tenant
+// plugins for every existing active tenant. The host calls this during startup
+// after plugin.autoEnable has enabled tenant-scoped plugins and after the
+// multi-tenant provider has registered through source-plugin route callbacks.
+func (p *Provider) ProvisionAutoEnabledTenantPlugins(ctx context.Context) error {
+	if p == nil || p.tenantPluginSvc == nil {
+		return nil
+	}
+	var rows []*entity.Tenant
+	err := dao.Tenant.Ctx(ctx).
+		Where(do.Tenant{Status: string(shared.TenantStatusActive)}).
+		OrderAsc(dao.Tenant.Columns().Id).
+		Scan(&rows)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if row == nil || row.Id <= shared.PlatformTenantID {
+			continue
+		}
+		if err = p.tenantPluginSvc.ProvisionForTenant(ctx, row.Id); err != nil {
+			return err
+		}
+	}
+	return nil
 }

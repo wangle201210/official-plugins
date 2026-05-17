@@ -1,4 +1,7 @@
 // This file verifies the multi-tenant plugin mock-data and manifest assets.
+// The assertions focus on demo account readability, tenant membership wiring,
+// menu-permission boundaries, and manifest/menu alignment so optional mock SQL
+// changes keep the intended multi-tenant demonstration scenarios intact.
 
 package multitenant
 
@@ -13,9 +16,16 @@ import (
 )
 
 const (
-	multiTenantPluginID               = "multi-tenant"
-	multiTenantMockDemoPassword       = "admin123"
+	// multiTenantPluginID is the stable plugin identifier declared in plugin.yaml.
+	multiTenantPluginID = "multi-tenant"
+	// multiTenantMockDemoPassword is the documented login password for demo
+	// users shipped in the optional multi-tenant mock-data asset.
+	multiTenantMockDemoPassword = "admin123"
+	// multiTenantMockMinSharedUserCount guards the switching demo against
+	// losing the minimum number of users with multiple tenant memberships.
 	multiTenantMockMinSharedUserCount = 4
+	// multiTenantMockMinMenuPermissions keeps shared roles useful for menu and
+	// permission-management demos.
 	multiTenantMockMinMenuPermissions = 8
 )
 
@@ -58,6 +68,7 @@ var multiTenantMockExpectedNicknames = map[string]string{
 	"platform_auditor":                        "平台 跨租户审计员",
 	"tenant_alpha_admin":                      "摸鱼科技 租户管理员",
 	"tenant_alpha_ops":                        "摸鱼科技 运营用户",
+	"tenant-user":                             "摸鱼科技 本租户演示用户",
 	"tenant_beta_admin":                       "精神股东 租户管理员",
 	"tenant_beta_auditor":                     "精神股东 审计用户",
 	"tenant_gamma_admin":                      "打工人 暂停租户管理员",
@@ -101,6 +112,7 @@ var multiTenantMockExpectedActiveTenantUsers = map[string]string{
 // multiTenantMockSharedTenantCodesByUsername lists users intentionally bound to
 // multiple tenants for switching, cross-tenant list, and permission demos.
 var multiTenantMockSharedTenantCodesByUsername = map[string][]string{
+	"tenant-user":                        {"alpha-retail", "beta-manufacturing", "one-click-triple-media", "cyber-wellness-health", "clock-in-on-time-hr"},
 	"tenant_alpha_ops":                   {"alpha-retail", "beta-manufacturing", "one-click-triple-media"},
 	"tenant_beta_auditor":                {"beta-manufacturing", "alpha-retail"},
 	"tenant_one_click_triple_media_user": {"one-click-triple-media", "alpha-retail", "cyber-wellness-health"},
@@ -110,6 +122,13 @@ var multiTenantMockSharedTenantCodesByUsername = map[string][]string{
 // multiTenantMockSharedRoleKeysByUsername lists the tenant-local roles that each
 // shared mock user needs in each tenant it can switch to.
 var multiTenantMockSharedRoleKeysByUsername = map[string]map[string]string{
+	"tenant-user": {
+		"alpha-retail":           "tenant-user",
+		"beta-manufacturing":     "tenant-user",
+		"one-click-triple-media": "tenant-user",
+		"cyber-wellness-health":  "tenant-user",
+		"clock-in-on-time-hr":    "tenant-user",
+	},
 	"tenant_alpha_ops": {
 		"alpha-retail":           "tenant-alpha-ops",
 		"beta-manufacturing":     "tenant-beta-auditor",
@@ -242,6 +261,17 @@ func TestMultiTenantMockDataDocumentsBlocksAndNicknames(t *testing.T) {
 			t.Fatalf("multi-tenant mock SQL still contains stale nickname %q", staleNickname)
 		}
 	}
+}
+
+// TestMultiTenantMockDataContainsTenantUserIsolationAccount keeps the dedicated
+// tenant-user demo account wired for tenant-local data-scope demonstrations.
+func TestMultiTenantMockDataContainsTenantUserIsolationAccount(t *testing.T) {
+	pluginSQL := readMultiTenantMockSQLAsset(t)
+
+	assertMockSQLUserNickname(t, pluginSQL, "tenant-user", "摸鱼科技 本租户演示用户")
+	assertTenantUserLoginTenantChoices(t, pluginSQL)
+	assertMockSQLLineContainsFragments(t, pluginSQL, "('tenant-user', 'tenant-user')")
+	assertTenantUserPermissionBlockExcludesPlatformManagement(t, pluginSQL)
 }
 
 // readMultiTenantMockSQLAsset reads the plugin-owned mock SQL asset.
@@ -428,6 +458,53 @@ func assertMultiTenantMockSharedRolePermissions(t *testing.T, sql string, permis
 	}
 }
 
+// assertTenantUserLoginTenantChoices verifies tenant-user has exactly the five
+// active tenant memberships and matching tenant-local roles needed to show the
+// login tenant chooser while keeping data scope tenant-local in each tenant.
+func assertTenantUserLoginTenantChoices(t *testing.T, sql string) {
+	t.Helper()
+
+	tenantRoleFragments := map[string]string{
+		"alpha-retail":           "('alpha-retail', '摸鱼科技本租户演示用户', 'tenant-user', 22, 2, 1",
+		"beta-manufacturing":     "('beta-manufacturing', '精神股东本租户演示用户', 'tenant-user', 23, 2, 1",
+		"one-click-triple-media": "('one-click-triple-media', '一键三连本租户演示用户', 'tenant-user', 51, 2, 1",
+		"cyber-wellness-health":  "('cyber-wellness-health', '赛博养生本租户演示用户', 'tenant-user', 51, 2, 1",
+		"clock-in-on-time-hr":    "('clock-in-on-time-hr', '踩点到岗本租户演示用户', 'tenant-user', 51, 2, 1",
+	}
+	for tenantCode, roleFragment := range tenantRoleFragments {
+		assertMockSQLLineContainsValues(t, sql, "tenant-user", tenantCode)
+		assertMockSQLLineContainsFragments(t, sql, roleFragment)
+	}
+	if got := strings.Count(sql, "('tenant-user', '"); got != len(tenantRoleFragments)+1 {
+		t.Fatalf("expected tenant-user to have %d membership rows plus one role-binding row, got %d", len(tenantRoleFragments), got)
+	}
+}
+
+// assertTenantUserPermissionBlockExcludesPlatformManagement verifies the
+// tenant-user role grants the full non-platform menu set dynamically while
+// excluding the platform-management menu subtree.
+func assertTenantUserPermissionBlockExcludesPlatformManagement(t *testing.T, sql string) {
+	t.Helper()
+
+	block := extractMockSQLBlock(t, sql, "-- Mock data: grant tenant-user every enabled menu")
+	for _, fragment := range []string{
+		`WITH RECURSIVE platform_menu("id") AS (`,
+		`WHERE parent."menu_key" = 'platform'`,
+		`JOIN platform_menu parent ON child."parent_id" = parent."id"`,
+		`JOIN sys_menu m ON m."status" = 1`,
+		`LEFT JOIN platform_menu pm ON pm."id" = m."id"`,
+		`WHERE r."key" = 'tenant-user'`,
+		`AND pm."id" IS NULL`,
+	} {
+		if !strings.Contains(block, fragment) {
+			t.Fatalf("expected tenant-user permission block to contain %q", fragment)
+		}
+	}
+	if strings.Contains(block, `m."perms" IN (`) {
+		t.Fatalf("tenant-user permission block should not hard-code a limited permission list:\n%s", block)
+	}
+}
+
 // extractMockSQLBlock returns one mock-data DML block starting at a stable
 // comment marker.
 func extractMockSQLBlock(t *testing.T, sql string, marker string) string {
@@ -465,13 +542,33 @@ func assertMockSQLLineContainsValues(t *testing.T, sql string, values ...string)
 	t.Fatalf("expected one mock SQL row to contain values %v", values)
 }
 
+// assertMockSQLLineContainsFragments verifies one SQL line contains all
+// expected raw fragments, including numeric values that are not string quoted.
+func assertMockSQLLineContainsFragments(t *testing.T, sql string, fragments ...string) {
+	t.Helper()
+
+	for _, line := range strings.Split(sql, "\n") {
+		matches := true
+		for _, fragment := range fragments {
+			if !strings.Contains(line, fragment) {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			return
+		}
+	}
+	t.Fatalf("expected one mock SQL row to contain fragments %v", fragments)
+}
+
 // assertAllMockSQLUserNicknamesAreChinese verifies every mock user row uses a
 // Chinese nickname, including future demo accounts added to the same asset.
 func assertAllMockSQLUserNicknamesAreChinese(t *testing.T, sql string) {
 	t.Helper()
 
 	for _, line := range strings.Split(sql, "\n") {
-		if !strings.Contains(line, "'tenant_") && !strings.Contains(line, "'platform_") {
+		if !strings.Contains(line, "'tenant_") && !strings.Contains(line, "'tenant-") && !strings.Contains(line, "'platform_") {
 			continue
 		}
 		if !strings.Contains(line, "$2a$10$") {
@@ -498,7 +595,7 @@ func assertAllMockSQLUserNicknamesAreChinese(t *testing.T, sql string) {
 // on one of the mock user rows.
 func mockSQLContainsUserNickname(sql string, nickname string) bool {
 	for _, line := range strings.Split(sql, "\n") {
-		if (strings.Contains(line, "'tenant_") || strings.Contains(line, "'platform_")) &&
+		if (strings.Contains(line, "'tenant_") || strings.Contains(line, "'tenant-") || strings.Contains(line, "'platform_")) &&
 			strings.Contains(line, "'"+nickname+"'") {
 			return true
 		}
