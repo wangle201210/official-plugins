@@ -104,8 +104,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		tenantPluginSvc   = tenantplugin.New(hostServices.BizCtx(), hostServices.PluginLifecycle())
 		tenantSvc         = tenantsvc.New(hostServices.BizCtx(), resolverConfigSvc, tenantPluginSvc, hostServices.PluginLifecycle())
 		resolverSvc       = resolver.New(hostServices.BizCtx(), membershipSvc)
-		providerSvc       = provider.New(membershipSvc, resolverSvc, resolverConfigSvc)
 	)
+	providerSvc, err := provider.New(membershipSvc, resolverSvc, resolverConfigSvc, tenantPluginSvc)
+	if err != nil {
+		return err
+	}
 	pkgtenantcap.RegisterProvider(providerSvc)
 	var (
 		impersonateSvc = impersonate.New(hostServices.BizCtx(), hostServices.Config(), tenantSvc)

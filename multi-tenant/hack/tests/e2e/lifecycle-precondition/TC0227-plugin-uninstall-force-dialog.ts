@@ -38,12 +38,20 @@ test.describe('TC-227 多租户插件卸载前置条件弹窗', () => {
       await pluginPage.gotoManage();
       await pluginPage.searchByPluginId(pluginId);
 
+      await pluginPage.openUninstallDialog(pluginId);
+      await expect(pluginPage.uninstallPurgeCheckboxWrapper()).toBeVisible();
+      await expect(pluginPage.uninstallPurgeWarning()).toBeVisible();
+      if (await pluginPage.uninstallPurgeCheckbox().isChecked()) {
+        await pluginPage.uninstallPurgeCheckbox().click();
+      }
+      await expect(pluginPage.uninstallPurgeCheckbox()).not.toBeChecked();
+
       const vetoResponsePromise = adminPage.waitForResponse(
         (response) =>
           response.url().includes(`/plugins/${pluginId}`) &&
           response.request().method() === 'DELETE',
       );
-      await pluginPage.openUninstallDialogAndConfirm(pluginId);
+      await pluginPage.uninstallConfirmButton().click();
 
       const vetoResponse = await vetoResponsePromise;
       expect(vetoResponse.url()).not.toContain('force=true');
@@ -90,7 +98,6 @@ test.describe('TC-227 多租户插件卸载前置条件弹窗', () => {
       const pluginAfterForce = await getPlugin(api, pluginId);
       expect(pluginAfterForce.installed).toBe(0);
     } finally {
-      await deleteTenant(api, tenant.id).catch(() => {});
       const plugin = await getPlugin(api, pluginId).catch(() => null);
       if (plugin?.installed !== 1) {
         await installPlugin(api, pluginId).catch(() => {});
@@ -99,6 +106,7 @@ test.describe('TC-227 多租户插件卸载前置条件弹窗', () => {
       if (refreshed?.enabled !== 1) {
         await enablePlugin(api, pluginId).catch(() => {});
       }
+      await deleteTenant(api, tenant.id).catch(() => {});
       await api.dispose();
     }
   });

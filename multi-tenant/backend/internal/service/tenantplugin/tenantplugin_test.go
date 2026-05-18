@@ -266,6 +266,37 @@ func TestProvisionForTenantAutoEnablesPolicyEnabledTenantPlugins(t *testing.T) {
 	}
 }
 
+// TestProvisionForTenantPreservesExistingTenantChoice verifies startup
+// reconciliation does not overwrite tenant-owned enablement decisions.
+func TestProvisionForTenantPreservesExistingTenantChoice(t *testing.T) {
+	ctx := context.Background()
+	configureTenantPluginTestDB(t, ctx)
+
+	const (
+		tenantID = 424267
+		pluginID = "tc-default-existing-tenant-choice"
+	)
+	insertTenantPluginRegistryWithDefault(t, ctx, pluginID, pluginScopeNatureTenantAware, pluginInstallModeTenantScoped, true)
+	t.Cleanup(func() {
+		cleanupTenantPluginRows(t, ctx, pluginID)
+	})
+
+	service := newTenantPluginTestService(tenantID)
+	if err := service.SetEnabled(ctx, pluginID, false); err != nil {
+		t.Fatalf("prepare tenant plugin explicit disable failed: %v", err)
+	}
+	if err := New(testBizContextService{}, nil).ProvisionForTenant(ctx, tenantID); err != nil {
+		t.Fatalf("provision default tenant plugins failed: %v", err)
+	}
+
+	if enabled := tenantPluginEnabledForTest(t, ctx, pluginID, tenantID); enabled {
+		t.Fatalf("expected explicit disabled plugin %s to remain disabled for tenant %d", pluginID, tenantID)
+	}
+	if count := tenantPluginStateCountForTest(t, ctx, pluginID, tenantID); count != 1 {
+		t.Fatalf("expected one preserved tenant state row, got %d", count)
+	}
+}
+
 // TestProvisionForTenantSkipsAutoEnablePolicyWhenPluginDisabled verifies the policy
 // does not install or enable host-disabled plugins for new tenants.
 func TestProvisionForTenantSkipsAutoEnablePolicyWhenPluginDisabled(t *testing.T) {
@@ -336,7 +367,7 @@ func insertTenantPluginRegistryWithDefault(t *testing.T, ctx context.Context, pl
 	if _, err := dao.SysPlugin.Ctx(ctx).Unscoped().Where(do.SysPlugin{PluginId: pluginID}).Delete(); err != nil {
 		t.Fatalf("cleanup stale plugin registry %s failed: %v", pluginID, err)
 	}
-	_, err := dao.SysPlugin.Ctx(ctx).Data(do.SysPlugin{
+	_, err := dao.SysPlugin.Ctx(ctx).OmitEmptyData().Data(do.SysPlugin{
 		PluginId:                pluginID,
 		Name:                    pluginID,
 		Version:                 "v0.1.0",
@@ -368,6 +399,22 @@ func tenantPluginEnabledForTest(t *testing.T, ctx context.Context, pluginID stri
 		t.Fatalf("read tenant plugin state failed: %v", err)
 	}
 	return value != nil && !value.IsNil() && value.Bool()
+}
+
+// tenantPluginStateCountForTest counts tenant enablement rows.
+func tenantPluginStateCountForTest(t *testing.T, ctx context.Context, pluginID string, tenantID int64) int {
+	t.Helper()
+	count, err := dao.SysPluginState.Ctx(ctx).
+		Where(do.SysPluginState{
+			PluginId: pluginID,
+			TenantId: tenantID,
+			StateKey: tenantEnablementStateKey,
+		}).
+		Count()
+	if err != nil {
+		t.Fatalf("count tenant plugin state failed: %v", err)
+	}
+	return count
 }
 
 // pluginRuntimeRevisionForTest reads the shared plugin-runtime revision row.

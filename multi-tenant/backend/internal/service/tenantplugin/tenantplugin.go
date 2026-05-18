@@ -48,10 +48,12 @@ type Service interface {
 	// ctx's tenant. It is read-only and returns database errors.
 	List(ctx context.Context) (*ListOutput, error)
 	// SetEnabled updates one tenant plugin enablement row for ctx's tenant, runs
-	// lifecycle guards, and bumps the shared plugin-runtime cache revision.
+	// lifecycle preconditions, and bumps the shared plugin-runtime cache revision.
 	SetEnabled(ctx context.Context, pluginID string, enabled bool) error
-	// ProvisionForTenant provisions default tenant plugin enablement for a new
-	// tenant and bumps runtime cache revision through the shared revision table.
+	// ProvisionForTenant provisions missing default tenant plugin enablement for
+	// one tenant and bumps runtime cache revision through the shared revision
+	// table when it writes new rows. Existing tenant-owned enablement rows are
+	// preserved so startup reconciliation cannot override explicit choices.
 	ProvisionForTenant(ctx context.Context, tenantID int64) error
 }
 

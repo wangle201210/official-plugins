@@ -13,6 +13,7 @@ export const pluginSlotMeta = {
 import { computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
+import { IconifyIcon } from '@vben/icons';
 import { useUserStore } from '@vben/stores';
 
 import { Select, Spin } from 'ant-design-vue';
@@ -62,10 +63,10 @@ watch(
 </script>
 
 <template>
-  <div class="hidden items-center md:flex">
+  <div class="tenant-switcher-shell">
     <div
       v-if="tenantStore.isImpersonation"
-      class="mr-2 flex h-8 max-w-[220px] shrink-0 items-center justify-center gap-1.5 rounded border border-red-300 bg-red-50 px-2.5 text-xs font-medium text-red-700 xl:max-w-[240px] dark:border-red-500/60 dark:bg-red-500/15 dark:text-red-200"
+      class="tenant-impersonation-banner"
       data-testid="impersonation-banner"
     >
       <span
@@ -74,7 +75,7 @@ watch(
             tenant: tenantStore.currentTenant?.name || '',
           })
         "
-        class="min-w-0 flex-1 truncate"
+        class="tenant-impersonation-banner__text"
         data-testid="impersonation-banner-text"
       >
         {{
@@ -87,7 +88,7 @@ watch(
         danger
         ghost
         size="small"
-        class="shrink-0 whitespace-nowrap"
+        class="tenant-impersonation-banner__exit"
         data-testid="impersonation-exit"
         @click="handleExitImpersonation"
       >
@@ -111,7 +112,7 @@ watch(
         :not-found-content="$t('pages.multiTenant.empty.tenants')"
         :options="tenantStore.tenants"
         :placeholder="$t('pages.multiTenant.switcher.placeholder')"
-        class="w-60"
+        class="tenant-switcher__select"
         data-testid="tenant-switcher-select"
         show-search
         @select="handleTenantSwitch"
@@ -122,17 +123,104 @@ watch(
             size="small"
             spinning
           />
-          <span v-else class="icon-[lucide--building-2] size-4"></span>
+          <IconifyIcon
+            v-else
+            class="tenant-switcher__icon"
+            icon="lucide:building-2"
+          />
         </template>
         <template #option="{ name, code }">
-          <div class="flex min-w-0 flex-col">
-            <span class="truncate">{{ name }}</span>
-            <span class="truncate text-xs text-muted-foreground">
-              {{ code }}
-            </span>
+          <div class="tenant-switcher-option">
+            <span class="tenant-switcher-option__name">{{ name }}</span>
+            <span class="tenant-switcher-option__code">{{ code }}</span>
           </div>
         </template>
       </Select>
     </div>
   </div>
 </template>
+
+<style scoped>
+.tenant-switcher-shell {
+  display: none;
+  align-items: center;
+  margin-right: 8px;
+}
+
+@media (min-width: 768px) {
+  .tenant-switcher-shell {
+    display: flex;
+  }
+}
+
+.tenant-impersonation-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 6px;
+  height: 32px;
+  max-width: 220px;
+  padding: 0 10px;
+  margin-right: 8px;
+  color: rgb(185 28 28);
+  font-size: 12px;
+  font-weight: 500;
+  background: rgb(254 242 242);
+  border: 1px solid rgb(252 165 165);
+  border-radius: 4px;
+}
+
+@media (min-width: 1280px) {
+  .tenant-impersonation-banner {
+    max-width: 240px;
+  }
+}
+
+:global(.dark) .tenant-impersonation-banner {
+  color: rgb(254 202 202);
+  background: rgb(239 68 68 / 15%);
+  border-color: rgb(239 68 68 / 60%);
+}
+
+.tenant-impersonation-banner__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tenant-impersonation-banner__exit {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tenant-switcher__select {
+  width: 240px;
+  min-width: 240px;
+}
+
+.tenant-switcher__icon {
+  width: 16px;
+  height: 16px;
+}
+
+.tenant-switcher-option {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tenant-switcher-option__name,
+.tenant-switcher-option__code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tenant-switcher-option__code {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+</style>

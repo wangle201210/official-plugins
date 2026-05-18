@@ -78,10 +78,12 @@ func (s *serviceImpl) SetEnabled(ctx context.Context, pluginID string, enabled b
 	return nil
 }
 
-// ProvisionForTenant provisions default tenant-scoped plugin enablement for a
-// newly created tenant. This is explicit domain orchestration rather than a
-// lifecycle event subscription: the project does not keep an outbox table or an
-// unfinished cross-plugin event bus for tenant creation.
+// ProvisionForTenant provisions missing default tenant-scoped plugin enablement
+// for a tenant. This is explicit domain orchestration rather than a lifecycle
+// event subscription: the project does not keep an outbox table or an
+// unfinished cross-plugin event bus for tenant creation. Startup callers may
+// also run it for existing tenants; existing rows are not overwritten so
+// tenant administrators' explicit disable choices remain authoritative.
 func (s *serviceImpl) ProvisionForTenant(ctx context.Context, tenantID int64) error {
 	if tenantID <= shared.PlatformTenantID {
 		return nil
@@ -103,11 +105,49 @@ func (s *serviceImpl) ProvisionForTenant(ctx context.Context, tenantID int64) er
 		if row == nil || strings.TrimSpace(row.PluginId) == "" {
 			continue
 		}
-		if err = s.setTenantPluginEnabled(ctx, tenantID, row.PluginId, true); err != nil {
+		if err = s.setMissingTenantPluginEnabled(ctx, tenantID, row.PluginId, true); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// setMissingTenantPluginEnabled inserts one tenant plugin enablement row only
+// when the tenant has not already chosen an explicit state.
+func (s *serviceImpl) setMissingTenantPluginEnabled(ctx context.Context, tenantID int64, pluginID string, enabled bool) error {
+	identity := do.SysPluginState{
+		PluginId: pluginID,
+		TenantId: tenantID,
+		StateKey: tenantEnablementStateKey,
+	}
+	count, err := dao.SysPluginState.Ctx(ctx).Where(identity).Count()
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	return dao.SysPluginState.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		result, insertErr := tx.Model(dao.SysPluginState.Table()).Safe().Ctx(ctx).Data(do.SysPluginState{
+			PluginId:   identity.PluginId,
+			TenantId:   identity.TenantId,
+			StateKey:   identity.StateKey,
+			StateValue: enablementStateValue(enabled),
+			Enabled:    enabled,
+		}).InsertIgnore()
+		if insertErr != nil {
+			return insertErr
+		}
+		affected, affectedErr := result.RowsAffected()
+		if affectedErr != nil {
+			return affectedErr
+		}
+		if affected == 0 {
+			return nil
+		}
+		_, revisionErr := s.bumpPluginRuntimeCacheRevision(ctx, tx)
+		return revisionErr
+	})
 }
 
 // setTenantPluginEnabled upserts one tenant plugin enablement row.
