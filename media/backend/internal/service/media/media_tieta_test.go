@@ -17,7 +17,7 @@ import (
 
 // newTestMediaService creates a media service with an explicit test bizctx adapter.
 func newTestMediaService() Service {
-	return New(bizctx.New(nil))
+	return newWithRouteMemoryStore(bizctx.New(nil), newMemoryRouteMemoryStore())
 }
 
 // fakeTietaClient provides deterministic token and device-permission responses for unit tests.

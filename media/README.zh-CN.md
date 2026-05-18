@@ -12,6 +12,13 @@
 - 流别名增删查改
 - 节点、设备节点与租户流配置增删查改
 - 租户白名单增删查改
+- HotGo 兼容路由记忆接口：`POST /api/v1/route/set`、`POST /api/v1/route/get` 和 `POST /api/v1/route/del`
+
+## 配置说明
+
+路由记忆使用 Redis 存储，默认保留 12 小时，键格式与 HotGo 保持一致：`route_data:<deviceCode>:<channelCode>`。
+
+默认情况下插件复用宿主 `cluster.redis.*` 配置。若部署环境需要独立 Redis，可在运行时配置中设置 `media.routeMemory.redis.*`，支持 `address`、`db`、`password`、`connectTimeout`、`readTimeout` 和 `writeTimeout`。
 
 ## 开发入口
 

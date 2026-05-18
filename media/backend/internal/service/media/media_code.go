@@ -69,6 +69,14 @@ var (
 	CodeMediaTietaDevicePermissionInvalid = bizerr.MustDefine("MEDIA_TIETA_DEVICE_PERMISSION_INVALID", "解析铁塔设备权限失败", gcode.CodeInternalError)
 	// CodeMediaTietaDevicePermissionDenied reports that Tieta explicitly denied device access.
 	CodeMediaTietaDevicePermissionDenied = bizerr.MustDefine("MEDIA_TIETA_DEVICE_PERMISSION_DENIED", "铁塔设备权限校验失败：{message}", gcode.CodeNotAuthorized)
+	// CodeMediaRouteDataRequired reports that route memory data is missing.
+	CodeMediaRouteDataRequired = bizerr.MustDefine("MEDIA_ROUTE_DATA_REQUIRED", "路由数据不能为空", gcode.CodeInvalidParameter)
+	// CodeMediaRouteSetFailed reports that route memory storage failed.
+	CodeMediaRouteSetFailed = bizerr.MustDefine("MEDIA_ROUTE_SET_FAILED", "写入路由数据失败", gcode.CodeInternalError)
+	// CodeMediaRouteGetFailed reports that route memory lookup failed.
+	CodeMediaRouteGetFailed = bizerr.MustDefine("MEDIA_ROUTE_GET_FAILED", "读取路由数据失败", gcode.CodeInternalError)
+	// CodeMediaRouteDeleteFailed reports that route memory deletion failed.
+	CodeMediaRouteDeleteFailed = bizerr.MustDefine("MEDIA_ROUTE_DELETE_FAILED", "删除路由数据失败", gcode.CodeInternalError)
 	// CodeMediaAliasRequired reports that stream alias is missing.
 	CodeMediaAliasRequired = bizerr.MustDefine("MEDIA_ALIAS_REQUIRED", "流别名不能为空", gcode.CodeInvalidParameter)
 	// CodeMediaStreamPathRequired reports that stream path is missing.

@@ -47,6 +47,12 @@ type Service interface {
 	ResolveStrategyByToken(ctx context.Context, in ResolveStrategyByTokenInput) (*ResolveStrategyByTokenOutput, error)
 	// UserDeviceStrategyByToken returns the HotGo-compatible token and device strategy response.
 	UserDeviceStrategyByToken(ctx context.Context, in UserDeviceStrategyByTokenInput) (*UserDeviceStrategyByTokenOutput, error)
+	// SetRouteMemory stores HotGo-compatible route memory for one device channel.
+	SetRouteMemory(ctx context.Context, in RouteMemoryInput) error
+	// GetRouteMemory reads HotGo-compatible route memory for one device channel.
+	GetRouteMemory(ctx context.Context, in RouteMemoryKeyInput) (*RouteMemoryOutput, error)
+	// DeleteRouteMemory removes HotGo-compatible route memory for one device channel.
+	DeleteRouteMemory(ctx context.Context, in RouteMemoryKeyInput) error
 	// ListAliases returns paged stream aliases.
 	ListAliases(ctx context.Context, in ListAliasesInput) (*ListAliasesOutput, error)
 	// GetAlias returns one stream alias by ID.
@@ -104,7 +110,8 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	bizCtxSvc contract.BizCtxService // bizCtxSvc reads current user and tenant metadata.
+	bizCtxSvc        contract.BizCtxService // bizCtxSvc reads current user and tenant metadata.
+	routeMemoryStore routeMemoryStore       // routeMemoryStore persists HotGo-compatible route memory.
 }
 
 // New creates and returns a new media service instance with host context.
@@ -112,5 +119,13 @@ func New(bizCtxSvc contract.BizCtxService) Service {
 	if bizCtxSvc == nil {
 		panic("media service requires host bizctx service")
 	}
-	return &serviceImpl{bizCtxSvc: bizCtxSvc}
+	return newWithRouteMemoryStore(bizCtxSvc, defaultRouteMemoryStore{})
+}
+
+// newWithRouteMemoryStore creates a media service with an explicit route memory store for tests.
+func newWithRouteMemoryStore(bizCtxSvc contract.BizCtxService, store routeMemoryStore) Service {
+	if bizCtxSvc == nil || store == nil {
+		panic("media service requires host bizctx service and route memory store")
+	}
+	return &serviceImpl{bizCtxSvc: bizCtxSvc, routeMemoryStore: store}
 }

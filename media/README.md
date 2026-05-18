@@ -12,6 +12,13 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 - Stream alias CRUD
 - Node, device-node, and tenant stream config CRUD
 - Tenant whitelist CRUD
+- HotGo-compatible route memory APIs: `POST /api/v1/route/set`, `POST /api/v1/route/get`, and `POST /api/v1/route/del`
+
+## Configuration
+
+Route memory uses Redis and keeps entries for 12 hours with HotGo-compatible keys in the form `route_data:<deviceCode>:<channelCode>`.
+
+By default, the plugin reuses host `cluster.redis.*` settings. Deployments that need a dedicated Redis endpoint can set `media.routeMemory.redis.*` in the runtime config with `address`, `db`, `password`, `connectTimeout`, `readTimeout`, and `writeTimeout`.
 
 ## Development
 
