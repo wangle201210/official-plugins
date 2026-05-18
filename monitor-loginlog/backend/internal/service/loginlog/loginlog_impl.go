@@ -10,9 +10,9 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
-	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/xuri/excelize/v2"
 
 	"lina-core/pkg/bizerr"
@@ -46,9 +46,15 @@ func (s *serviceImpl) Create(ctx context.Context, in CreateInput) error {
 		Browser:            in.Browser,
 		Os:                 in.Os,
 		Msg:                in.Msg,
-		LoginTime:          gtime.Now(),
+		LoginTime:          timePtr(time.Now()),
 	}).Insert()
 	return err
+}
+
+// timePtr returns a pointer to value for generated DO time fields that preserve
+// database NULL semantics with *time.Time.
+func timePtr(value time.Time) *time.Time {
+	return &value
 }
 
 // List queries the paginated login-log list.

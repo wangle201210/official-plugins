@@ -22,6 +22,7 @@ type SysUserDao struct {
 // SysUserColumns defines and stores column names for the table sys_user.
 type SysUserColumns struct {
 	Id        string // User ID
+	TenantId  string // Primary/default tenant ID, 0 means PLATFORM
 	Username  string // Username
 	Password  string // Password
 	Nickname  string // User nickname
@@ -40,6 +41,7 @@ type SysUserColumns struct {
 // sysUserColumns holds the columns for the table sys_user.
 var sysUserColumns = SysUserColumns{
 	Id:        "id",
+	TenantId:  "tenant_id",
 	Username:  "username",
 	Password:  "password",
 	Nickname:  "nickname",

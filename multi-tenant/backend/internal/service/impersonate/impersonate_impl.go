@@ -12,7 +12,6 @@ import (
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
-	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/gogf/gf/v2/util/guid"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mssola/useragent"
@@ -63,6 +62,7 @@ func (s *serviceImpl) Start(ctx context.Context, in StartInput) (*StartOutput, e
 		return nil, err
 	}
 	client := clientInfoFromCtx(ctx)
+	now := time.Now()
 	if err = s.createOnlineSession(ctx, onlineSessionData{
 		TokenID:        tokenID,
 		UserID:         actingUserID,
@@ -70,8 +70,8 @@ func (s *serviceImpl) Start(ctx context.Context, in StartInput) (*StartOutput, e
 		IP:             client.IP,
 		Browser:        client.Browser,
 		OS:             client.OS,
-		LoginTime:      gtime.Now(),
-		LastActiveTime: gtime.Now(),
+		LoginTime:      &now,
+		LastActiveTime: &now,
 		TenantID:       in.TenantID,
 	}); err != nil {
 		return nil, err

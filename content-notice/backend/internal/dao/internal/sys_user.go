@@ -22,6 +22,7 @@ type SysUserDao struct {
 // SysUserColumns defines and stores column names for the table sys_user.
 type SysUserColumns struct {
 	Id        string // User ID
+	TenantId  string // Primary/default tenant ID, 0 means PLATFORM
 	Username  string // Username
 	Password  string // Password
 	Nickname  string // User nickname
@@ -35,12 +36,12 @@ type SysUserColumns struct {
 	CreatedAt string // Creation time
 	UpdatedAt string // Update time
 	DeletedAt string // Deletion time
-	TenantId  string // Primary/default tenant ID, 0 means PLATFORM
 }
 
 // sysUserColumns holds the columns for the table sys_user.
 var sysUserColumns = SysUserColumns{
 	Id:        "id",
+	TenantId:  "tenant_id",
 	Username:  "username",
 	Password:  "password",
 	Nickname:  "nickname",
@@ -54,7 +55,6 @@ var sysUserColumns = SysUserColumns{
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
 	DeletedAt: "deleted_at",
-	TenantId:  "tenant_id",
 }
 
 // NewSysUserDao creates and returns a new DAO object for table data access.

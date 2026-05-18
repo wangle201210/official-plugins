@@ -5,7 +5,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/golang-jwt/jwt/v5"
 
 	plugincontract "lina-core/pkg/pluginservice/contract"
@@ -106,16 +105,16 @@ type jwtTokenSigner struct{}
 
 // onlineSessionData is a typed insert payload for sys_online_session.
 type onlineSessionData struct {
-	TokenID        string      `orm:"token_id"`
-	UserID         int64       `orm:"user_id"`
-	Username       string      `orm:"username"`
-	DeptName       string      `orm:"dept_name"`
-	IP             string      `orm:"ip"`
-	Browser        string      `orm:"browser"`
-	OS             string      `orm:"os"`
-	LoginTime      *gtime.Time `orm:"login_time"`
-	LastActiveTime *gtime.Time `orm:"last_active_time"`
-	TenantID       int64       `orm:"tenant_id"`
+	TokenID        string     `orm:"token_id"`
+	UserID         int64      `orm:"user_id"`
+	Username       string     `orm:"username"`
+	DeptName       string     `orm:"dept_name"`
+	IP             string     `orm:"ip"`
+	Browser        string     `orm:"browser"`
+	OS             string     `orm:"os"`
+	LoginTime      *time.Time `orm:"login_time"`
+	LastActiveTime *time.Time `orm:"last_active_time"`
+	TenantID       int64      `orm:"tenant_id"`
 }
 
 // loginLogData is a typed insert payload for plugin_monitor_loginlog.
