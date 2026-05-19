@@ -185,6 +185,7 @@ async function readWidth(locator: Locator) {
 test.describe("TC006 英文布局回归", () => {
   test.beforeEach(async ({ adminPage, mainLayout }) => {
     await adminPage.setViewportSize({ width: 1366, height: 900 });
+    await ensureSourcePluginEnabled(adminPage, "linapro-org-core");
     await mainLayout.switchLanguage("English");
   });
 

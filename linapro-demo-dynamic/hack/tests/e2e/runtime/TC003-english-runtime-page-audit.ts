@@ -16,9 +16,20 @@ import {
   syncPlugins,
   uninstallPlugin,
 } from '@host-tests/support/api/job';
+import {
+  execPgSQLStatements,
+  pgEscapeLiteral,
+  pgIdentifier,
+} from '@host-tests/support/postgres';
 import { waitForRouteReady } from '@host-tests/support/ui';
 
 const pluginID = "linapro-demo-dynamic";
+const recordTable = "plugin_linapro_demo_dynamic_record";
+const publicBaseURL =
+  process.env.E2E_PUBLIC_BASE_URL ??
+  (
+    process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:8080/api/v1/"
+  ).replace(/\/api\/v1\/?$/, "");
 const repoRoot = path.resolve(process.cwd(), "../..");
 const legacyRuntimeArtifactPath = path.join(
   repoRoot,
@@ -33,12 +44,31 @@ let adminApi: APIRequestContext;
 let originalInstalled = 0;
 let originalEnabled = 0;
 
+type DemoRecordListPayload = {
+  list?: Array<{ title?: string }>;
+  total?: number;
+};
+
+function unwrapApiData(payload: any) {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return payload.data;
+  }
+  return payload;
+}
+
 function ensureRuntimePluginArtifact() {
   execFileSync("make", ["wasm", `p=${pluginID}`, "out=../../temp/output"], {
     cwd: repoRoot,
     stdio: "inherit",
   });
   rmSync(legacyRuntimeArtifactPath, { force: true });
+}
+
+function cleanupRuntimePluginData() {
+  execPgSQLStatements([
+    `DROP TABLE IF EXISTS ${pgIdentifier(recordTable)};`,
+    `DELETE FROM sys_plugin_migration WHERE plugin_id = '${pgEscapeLiteral(pluginID)}';`,
+  ]);
 }
 
 async function ensurePluginInstalledAndEnabled() {
@@ -51,6 +81,61 @@ async function ensurePluginInstalledAndEnabled() {
   if (refreshedPlugin.enabled !== 1) {
     await enablePlugin(adminApi, pluginID);
   }
+}
+
+async function demoRecordListSnapshot(pageSize = 20) {
+  try {
+    const response = await adminApi.get(
+      `${publicBaseURL}/x/${pluginID}/demo-records`,
+      {
+        params: {
+          pageNum: 1,
+          pageSize,
+        },
+      },
+    );
+    if (!response.ok()) {
+      return {
+        ok: false,
+        status: response.status(),
+        titles: [] as string[],
+      };
+    }
+
+    const payload = unwrapApiData(
+      (await response.json()) as DemoRecordListPayload,
+    ) as DemoRecordListPayload;
+    const records = Array.isArray(payload?.list) ? payload.list : [];
+    return {
+      ok: true,
+      status: response.status(),
+      titles: records
+        .map((item) => item.title ?? "")
+        .filter((title) => title.length > 0),
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : String(error),
+      ok: false,
+      status: 0,
+      titles: [] as string[],
+    };
+  }
+}
+
+async function waitForDemoRecord(title: string) {
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await demoRecordListSnapshot();
+        return snapshot.ok && snapshot.titles.includes(title);
+      },
+      {
+        message: `等待 ${pluginID} 动态路由返回记录: ${title}`,
+        timeout: 20_000,
+      },
+    )
+    .toBe(true);
 }
 
 async function restorePluginState() {
@@ -82,10 +167,25 @@ test.describe("TC003 英文运行时页面巡检", () => {
     originalEnabled = plugin.enabled;
   });
 
+  test.beforeEach(async () => {
+    cleanupRuntimePluginData();
+    let plugin = await getPlugin(adminApi, pluginID);
+    if (plugin.enabled === 1) {
+      await disablePlugin(adminApi, pluginID);
+      plugin = await getPlugin(adminApi, pluginID);
+    }
+    if (plugin.installed === 1) {
+      await uninstallPlugin(adminApi, pluginID);
+    }
+  });
+
   test.afterAll(async () => {
     try {
       await restorePluginState();
     } finally {
+      if (originalInstalled !== 1) {
+        cleanupRuntimePluginData();
+      }
       await adminApi.dispose();
     }
   });
@@ -158,6 +258,7 @@ test.describe("TC003 英文运行时页面巡检", () => {
     mainLayout,
   }) => {
     await ensurePluginInstalledAndEnabled();
+    await waitForDemoRecord("Dynamic Plugin SQL Demo Record");
     await adminPage.reload({ waitUntil: "domcontentloaded" });
     await waitForRouteReady(adminPage);
 

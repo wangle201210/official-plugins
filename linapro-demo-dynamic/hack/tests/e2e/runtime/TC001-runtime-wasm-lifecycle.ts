@@ -90,6 +90,11 @@ type UserRouteNode = {
   };
 };
 
+type BundledRuntimeDemoRecordListPayload = {
+  list?: Array<{ title?: string }>;
+  total?: number;
+};
+
 function unwrapApiData(payload: any) {
   if (payload && typeof payload === "object" && "data" in payload) {
     return payload.data;
@@ -238,6 +243,7 @@ function cleanupRuntimePluginRows() {
 function cleanupBundledRuntimeDemoData() {
   execPgSQLStatements([
     `DROP TABLE IF EXISTS ${pgIdentifier(bundledRuntimeRecordTable)};`,
+    `DELETE FROM sys_plugin_migration WHERE plugin_id = '${pgEscapeLiteral(bundledRuntimePluginID)}';`,
     `DELETE FROM sys_plugin_state WHERE plugin_id = '${pgEscapeLiteral(bundledRuntimePluginID)}' AND state_key = '${pgEscapeLiteral(bundledRuntimeCronStateKey)}';`,
   ]);
   rmSync(bundledRuntimeStorageRootDir(), { force: true, recursive: true });
@@ -302,6 +308,10 @@ function bundledRuntimeCronStateCount() {
 }
 
 function seedBundledRuntimePaginationRecords(recordKey: string, count: number) {
+  if (!bundledRuntimeRecordTableExists()) {
+    throw new Error(`${bundledRuntimeRecordTable} is missing before seeding`);
+  }
+
   const titles = Array.from({ length: count }, (_value, index) => {
     return `动态插件分页记录-${recordKey}-${String(index + 1).padStart(2, "0")}`;
   });
@@ -317,9 +327,10 @@ function seedBundledRuntimePaginationRecords(recordKey: string, count: number) {
     statements.push(
       [
         `INSERT INTO ${tableName} (`,
-        "id, title, content, attachment_name, attachment_path, created_at, updated_at",
+        "id, tenant_id, title, content, attachment_name, attachment_path, created_at, updated_at",
         ") VALUES (",
         `'${escapedID}',`,
+        "0,",
         `'${escapedTitle}',`,
         `'${escapedContent}',`,
         "'', '',",
@@ -331,6 +342,96 @@ function seedBundledRuntimePaginationRecords(recordKey: string, count: number) {
   }
   execPgSQLStatements(statements);
   return titles;
+}
+
+async function bundledRuntimeDemoRecordListSnapshot(
+  adminApi: APIRequestContext,
+  pageSize = 20,
+) {
+  try {
+    const response = await adminApi.get(
+      `${publicBaseURL}/x/${bundledRuntimePluginID}/demo-records`,
+      {
+        params: {
+          pageNum: 1,
+          pageSize,
+        },
+      },
+    );
+    if (!response.ok()) {
+      return {
+        ok: false,
+        status: response.status(),
+        titles: [] as string[],
+        total: 0,
+      };
+    }
+
+    const payload = unwrapApiData(
+      (await response.json()) as BundledRuntimeDemoRecordListPayload,
+    ) as BundledRuntimeDemoRecordListPayload;
+    const records = Array.isArray(payload?.list) ? payload.list : [];
+    return {
+      ok: true,
+      status: response.status(),
+      titles: records
+        .map((item) => item.title ?? "")
+        .filter((title) => title.length > 0),
+      total: Number(payload?.total ?? records.length),
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : String(error),
+      ok: false,
+      status: 0,
+      titles: [] as string[],
+      total: 0,
+    };
+  }
+}
+
+async function waitForBundledRuntimeDemoRecord(
+  adminApi: APIRequestContext,
+  title: string,
+  pageSize = 20,
+) {
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await bundledRuntimeDemoRecordListSnapshot(
+          adminApi,
+          pageSize,
+        );
+        return snapshot.ok && snapshot.titles.includes(title);
+      },
+      {
+        message: `等待 ${bundledRuntimePluginID} 动态路由返回记录: ${title}`,
+        timeout: 20_000,
+      },
+    )
+    .toBe(true);
+}
+
+async function waitForBundledRuntimeDemoRecordTotal(
+  adminApi: APIRequestContext,
+  total: number,
+  pageSize = total,
+) {
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await bundledRuntimeDemoRecordListSnapshot(
+          adminApi,
+          pageSize,
+        );
+        return snapshot.ok ? snapshot.total : -1;
+      },
+      {
+        message: `等待 ${bundledRuntimePluginID} 动态路由返回 ${total} 条记录`,
+        timeout: 20_000,
+      },
+    )
+    .toBe(total);
 }
 
 function countFilesRecursive(targetPath: string): number {
@@ -1164,6 +1265,10 @@ test.describe("TC-1 运行时 wasm 插件生命周期", () => {
     await page.reload();
     await pluginPage.setPluginEnabled(bundledRuntimePluginID, true);
     await page.reload();
+    await waitForBundledRuntimeDemoRecord(
+      adminApi!,
+      "Dynamic Plugin SQL Demo Record",
+    );
 
     await pluginPage.clickSidebarMenuItem(bundledRuntimeMenuName);
     await expect(pluginPage.pluginDemoDynamicTitle()).toBeVisible();
@@ -1214,6 +1319,7 @@ test.describe("TC-1 运行时 wasm 插件生命周期", () => {
     await page.reload();
     await pluginPage.setPluginEnabled(bundledRuntimePluginID, true);
     await page.reload();
+    await waitForBundledRuntimeDemoRecord(adminApi!, updatedRecordTitle);
     await pluginPage.clickSidebarMenuItem(bundledRuntimeMenuName);
     await expect(
       pluginPage.pluginDemoDynamicRecordRow(updatedRecordTitle),
@@ -1246,6 +1352,10 @@ test.describe("TC-1 运行时 wasm 插件生命周期", () => {
     await page.reload();
     await pluginPage.setPluginEnabled(bundledRuntimePluginID, true);
     await page.reload();
+    await waitForBundledRuntimeDemoRecord(
+      adminApi!,
+      "Dynamic Plugin SQL Demo Record",
+    );
     await pluginPage.clickSidebarMenuItem(bundledRuntimeMenuName);
     await expect(
       pluginPage.pluginDemoDynamicRecordRow("Dynamic Plugin SQL Demo Record"),
@@ -1279,6 +1389,7 @@ test.describe("TC-1 运行时 wasm 插件生命周期", () => {
     await page.reload();
 
     seededTitles = seedBundledRuntimePaginationRecords(paginationRecordKey, 12);
+    await waitForBundledRuntimeDemoRecordTotal(adminApi!, seededTitles.length);
     const newestTitle = seededTitles[seededTitles.length - 1];
     const oldestTitle = seededTitles[0];
 
