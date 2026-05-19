@@ -14,6 +14,7 @@ import (
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/os/gcfg"
 
 	"lina-core/pkg/pluginhost"
 	"lina-core/pkg/pluginservice/bizctx"
@@ -114,51 +115,214 @@ type mediaRouteHTTPResponse struct {
 	body   string
 }
 
-// TestMediaPluginRoutesKeepTietaAuthInsideMedia verifies public compatibility routes do not use host Auth.
-func TestMediaPluginRoutesKeepTietaAuthInsideMedia(t *testing.T) {
-	var authCalls atomic.Int32
-	noOp := func(r *ghttp.Request) {
-		r.Middleware.Next()
-	}
+// TestMediaPluginRoutesPreferHostAuth verifies media routes try the LinaPro host chain first.
+func TestMediaPluginRoutesPreferHostAuth(t *testing.T) {
+	setMediaRouteTietaMock(t, true)
+
+	var (
+		authCalls       atomic.Int32
+		tenancyCalls    atomic.Int32
+		permissionCalls atomic.Int32
+	)
 	middlewares := pluginhost.NewRouteMiddlewares(
-		noOp,
+		mediaRouteNoOpMiddleware,
 		mediaRouteTestResponse,
-		noOp,
-		noOp,
-		noOp,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
 		func(r *ghttp.Request) {
 			authCalls.Add(1)
-			r.Response.Status = http.StatusUnauthorized
-			r.Response.Write("unauthorized")
-			r.ExitAll()
+			r.Middleware.Next()
 		},
-		noOp,
-		noOp,
+		func(r *ghttp.Request) {
+			tenancyCalls.Add(1)
+			r.Middleware.Next()
+		},
+		func(r *ghttp.Request) {
+			permissionCalls.Add(1)
+			r.Middleware.Next()
+		},
 	)
 
 	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
 	defer shutdown()
 
-	publicResponse := doMediaRouteRequest(
+	response := doMediaRouteRequest(
 		t,
 		http.MethodPost,
 		baseURL+"/api/v1/route/get",
 		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
 	)
-	if publicResponse.status != http.StatusOK {
-		t.Fatalf("expected public route memory endpoint to pass without host Auth, got status=%d body=%s", publicResponse.status, publicResponse.body)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected host-authenticated media route to pass, got status=%d body=%s", response.status, response.body)
 	}
-	if authCalls.Load() != 0 {
-		t.Fatalf("expected public compatibility route to skip host Auth, got %d calls", authCalls.Load())
+	if authCalls.Load() != 1 || tenancyCalls.Load() != 1 || permissionCalls.Load() != 1 {
+		t.Fatalf(
+			"expected host chain once, got auth=%d tenancy=%d permission=%d",
+			authCalls.Load(),
+			tenancyCalls.Load(),
+			permissionCalls.Load(),
+		)
 	}
+}
 
-	protectedResponse := doMediaRouteRequest(t, http.MethodGet, baseURL+"/api/v1/media/strategies", "")
-	if protectedResponse.status != http.StatusUnauthorized {
-		t.Fatalf("expected management route to use host Auth, got status=%d body=%s", protectedResponse.status, protectedResponse.body)
+// TestMediaPluginRoutesFallbackToTietaWhenHostAuthFails verifies Tieta fallback stays inside media routes.
+func TestMediaPluginRoutesFallbackToTietaWhenHostAuthFails(t *testing.T) {
+	setMediaRouteTietaMock(t, true)
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+			r.Response.Status = http.StatusUnauthorized
+			r.Response.Write("unauthorized")
+		},
+		func(r *ghttp.Request) {
+			t.Fatalf("tenancy middleware should be skipped after Tieta fallback")
+		},
+		func(r *ghttp.Request) {
+			t.Fatalf("permission middleware should be skipped after Tieta fallback")
+		},
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/media/strategies?pageNum=1&pageSize=1",
+		"",
+		map[string]string{"Authorization": "Bearer anything"},
+	)
+	if response.status == http.StatusUnauthorized {
+		t.Fatalf("expected Tieta fallback to pass media management auth, got status=%d body=%s", response.status, response.body)
 	}
 	if authCalls.Load() != 1 {
-		t.Fatalf("expected management route to call host Auth once, got %d calls", authCalls.Load())
+		t.Fatalf("expected host Auth to be tried once before Tieta fallback, got %d calls", authCalls.Load())
 	}
+}
+
+// TestMediaPluginRoutesFallbackToTietaAfterHostPermissionFailure verifies fallback after LinaPro permission denial.
+func TestMediaPluginRoutesFallbackToTietaAfterHostPermissionFailure(t *testing.T) {
+	setMediaRouteTietaMock(t, true)
+
+	var (
+		authCalls       atomic.Int32
+		tenancyCalls    atomic.Int32
+		permissionCalls atomic.Int32
+	)
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+			r.Middleware.Next()
+		},
+		func(r *ghttp.Request) {
+			tenancyCalls.Add(1)
+			r.Middleware.Next()
+		},
+		func(r *ghttp.Request) {
+			permissionCalls.Add(1)
+			r.Response.Status = http.StatusForbidden
+			r.Response.Write("forbidden")
+		},
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/route/get",
+		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		map[string]string{"Authorization": "Bearer fallback-token"},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected Tieta fallback after permission failure, got status=%d body=%s", response.status, response.body)
+	}
+	if authCalls.Load() != 1 || tenancyCalls.Load() != 1 || permissionCalls.Load() != 1 {
+		t.Fatalf(
+			"expected host chain to fail once before fallback, got auth=%d tenancy=%d permission=%d",
+			authCalls.Load(),
+			tenancyCalls.Load(),
+			permissionCalls.Load(),
+		)
+	}
+}
+
+// TestMediaPluginRoutesRejectWhenBothAuthPathsFail verifies media routes fail only after both auth paths fail.
+func TestMediaPluginRoutesRejectWhenBothAuthPathsFail(t *testing.T) {
+	setMediaRouteTietaMock(t, true)
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+			r.Response.Status = http.StatusUnauthorized
+			r.Response.Write("unauthorized")
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/route/get",
+		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+	)
+	if response.status != http.StatusUnauthorized {
+		t.Fatalf("expected media route auth failure, got status=%d body=%s", response.status, response.body)
+	}
+	if authCalls.Load() != 1 {
+		t.Fatalf("expected host Auth to be tried once, got %d calls", authCalls.Load())
+	}
+}
+
+// setMediaRouteTietaMock installs a test config adapter with deterministic Tieta mock mode.
+func setMediaRouteTietaMock(t *testing.T, enabled bool) {
+	t.Helper()
+
+	content := fmt.Sprintf(`
+tieta:
+  mock: %t
+  baseUrl: "http://tieta.invalid"
+  timeout: "3s"
+`, enabled)
+	adapter, err := gcfg.NewAdapterContent(content)
+	if err != nil {
+		t.Fatalf("create config adapter: %v", err)
+	}
+	cfg := g.Cfg()
+	previous := cfg.GetAdapter()
+	cfg.SetAdapter(adapter)
+	t.Cleanup(func() {
+		cfg.SetAdapter(previous)
+	})
+}
+
+// mediaRouteNoOpMiddleware continues the route middleware chain in tests.
+func mediaRouteNoOpMiddleware(r *ghttp.Request) {
+	r.Middleware.Next()
 }
 
 // startMediaRouteTestServer starts an ephemeral GoFrame server with media plugin routes.
@@ -219,7 +383,13 @@ func mediaRouteTestResponse(r *ghttp.Request) {
 }
 
 // doMediaRouteRequest sends one JSON request to the media route test server.
-func doMediaRouteRequest(t *testing.T, method string, targetURL string, body string) mediaRouteHTTPResponse {
+func doMediaRouteRequest(
+	t *testing.T,
+	method string,
+	targetURL string,
+	body string,
+	headers ...map[string]string,
+) mediaRouteHTTPResponse {
 	t.Helper()
 
 	requestBody := strings.NewReader(body)
@@ -229,6 +399,11 @@ func doMediaRouteRequest(t *testing.T, method string, targetURL string, body str
 	}
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
+	}
+	for _, headerSet := range headers {
+		for key, value := range headerSet {
+			request.Header.Set(key, value)
+		}
 	}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {

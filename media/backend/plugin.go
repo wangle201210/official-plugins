@@ -31,7 +31,7 @@ func init() {
 	pluginhost.RegisterSourcePlugin(plugin)
 }
 
-// registerRoutes binds media management routes through the published host middleware set.
+// registerRoutes binds media routes through the media-scoped dual-auth chain.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	hostServices := registrar.HostServices()
 	if hostServices == nil || hostServices.BizCtx() == nil {
@@ -41,7 +41,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if cacheSvc == nil {
 		return gerror.New("media routes require host cache service")
 	}
-	mediaSvc, err := mediasvc.New(hostServices.BizCtx(), cacheSvc)
+	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(hostServices.BizCtx()), cacheSvc)
 	if err != nil {
 		return err
 	}
@@ -62,18 +62,13 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 			middlewares.CORS(),
 			middlewares.RequestBodyLimit(),
 			middlewares.Ctx(),
+			mediaDualAuthMiddleware(middlewares.Auth(), mediaSvc),
+			mediaSkipWhenTietaAuthenticated(middlewares.Tenancy()),
+			mediaSkipWhenTietaAuthenticated(middlewares.Permission()),
+			mediaSkipWhenTietaAuthenticated(mediaMarkHostGatePassed),
 		)
-		group.Group("/", func(group pluginhost.RouteGroup) {
-			group.Bind(publicController)
-		})
-		group.Group("/", func(group pluginhost.RouteGroup) {
-			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
-			)
-			group.Bind(protectedController)
-		})
+		group.Bind(publicController)
+		group.Bind(protectedController)
 	})
 	return nil
 }
