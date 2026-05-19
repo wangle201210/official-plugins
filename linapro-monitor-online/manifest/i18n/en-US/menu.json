@@ -1,0 +1,13 @@
+{
+  "menu": {
+    "plugin:linapro-monitor-online:online": {
+      "title": "Sessions"
+    },
+    "plugin:linapro-monitor-online:online:force-logout": {
+      "title": "Force Logout"
+    },
+    "plugin:linapro-monitor-online:online:query": {
+      "title": "Search"
+    }
+  }
+}

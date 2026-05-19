@@ -10,8 +10,8 @@
 
 当前目录下包含以下参考内容：
 
-- `plugin-demo-source`：源码插件目录结构与开发方式样例
-- `plugin-demo-dynamic`：动态 WASM 插件结构与生命周期样例
+- `linapro-demo-source`：源码插件目录结构与开发方式样例
+- `linapro-demo-dynamic`：动态 WASM 插件结构与生命周期样例
 - 官方源码插件：通过显式接线编译进宿主的一方业务插件
 
 ## 作为 Submodule 使用
@@ -32,13 +32,13 @@ git@github.com:linaproai/official-plugins.git
 
 当前仓库内置以下一方源码插件：
 
-- `demo-control`：演示环境只读保护
-- `org-center`：部门管理、岗位管理
-- `content-notice`：通知公告管理
-- `monitor-online`：在线用户查询与强制下线治理
-- `monitor-server`：服务监控采集、清理与查询
-- `monitor-operlog`：操作日志落库与治理
-- `monitor-loginlog`：登录日志落库与治理
+- `linapro-ops-demo-guard`：演示环境只读保护
+- `linapro-org-core`：部门管理、岗位管理
+- `linapro-content-notice`：通知公告管理
+- `linapro-monitor-online`：在线用户查询与强制下线治理
+- `linapro-monitor-server`：服务监控采集、清理与查询
+- `linapro-monitor-operlog`：操作日志落库与治理
+- `linapro-monitor-loginlog`：登录日志落库与治理
 
 每个官方插件都使用统一的基础结构：
 
@@ -74,15 +74,15 @@ apps/lina-plugins/<plugin-id>/
 当前源码插件方案强调通过稳定接缝解耦，而不是在宿主里散落大量 `if pluginEnabled` 判断。
 
 - 宿主拥有稳定的一级目录骨架，例如 `dashboard`、`iam`、`setting`、`scheduler`、`extension`、`developer`。
-- 插件菜单只能挂载到宿主已发布的稳定目录，或者插件自身声明的内部菜单节点。
-- 官方插件挂载点固定：`org-center -> org`、`content-notice -> content`、全部监控插件 -> `monitor`。
+- 插件通过自身 `plugin.yaml` 的 `parent_key` 自主选择菜单挂载点；宿主只在同步时解析该父级菜单记录，并拒绝缺失父级以避免产生孤儿菜单树。
+- 官方插件的预期菜单位置由各插件自己的 `plugin.yaml` 维护；宿主不硬编码官方插件 ID，也不强制绑定特定父级目录。
 - 宿主对插件发布稳定能力接缝，例如认证事件、审计事件、组织能力接口和插件生命周期 Hook。
 - 插件自有的数据表、菜单、页面、Hook 和定时任务都保留在插件目录内，并通过插件生命周期完成安装与卸载。
 
 ## 源码插件开发流程
 
 1. 创建 `apps/lina-plugins/<plugin-id>/`。
-2. 参考 `plugin-demo-source/` 的目录结构。
+2. 参考 `linapro-demo-source/` 的目录结构。
 3. 在 `plugin.yaml` 中声明清单、菜单、页面、SQL 资源与可选 Hook。
 4. 插件后端代码保留在插件目录中，业务逻辑统一放在 `backend/internal/service/` 下，并且只依赖宿主公开包。
 5. 在 `apps/lina-plugins/lina-plugins.go` 中做显式接线。
@@ -104,10 +104,10 @@ apps/lina-plugins/<plugin-id>/
 
 ## 动态插件说明
 
-动态 WASM 插件仍然适用于运行时托管交付场景。如果插件需要通过上传、安装、启用、停用和卸载完成生命周期管理，请参考 `plugin-demo-dynamic/`。
+动态 WASM 插件仍然适用于运行时托管交付场景。如果插件需要通过上传、安装、启用、停用和卸载完成生命周期管理，请参考 `linapro-demo-dynamic/`。
 
 ## 参考入口
 
-- `apps/lina-plugins/plugin-demo-source/README.md`
-- `apps/lina-plugins/plugin-demo-dynamic/README.md`
+- `apps/lina-plugins/linapro-demo-source/README.md`
+- `apps/lina-plugins/linapro-demo-dynamic/README.md`
 - `apps/lina-plugins/OPERATIONS.md`

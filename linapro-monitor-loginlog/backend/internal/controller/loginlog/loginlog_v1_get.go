@@ -1,0 +1,17 @@
+// This file implements the login-log detail endpoint.
+package loginlog
+
+import (
+	"context"
+
+	v1 "lina-plugin-linapro-monitor-loginlog/backend/api/loginlog/v1"
+)
+
+// Get returns login-log details by ID.
+func (c *ControllerV1) Get(ctx context.Context, req *v1.GetReq) (res *v1.GetRes, err error) {
+	record, err := c.loginLogSvc.GetById(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetRes{LoginLogItem: toAPILoginLogItem(record)}, nil
+}

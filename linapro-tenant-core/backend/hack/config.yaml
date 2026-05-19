@@ -1,0 +1,26 @@
+# CLI tool, only in development environment.
+# https://goframe.org/docs/cli
+gfcli:
+  gen:
+    dao:
+      - link: "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/linapro?sslmode=disable"
+        path: "internal"
+        tables: "plugin_linapro_tenant_core_tenant,plugin_linapro_tenant_core_user_membership,plugin_linapro_tenant_core_config_override,sys_user,sys_plugin,sys_plugin_state"
+        removePrefix: "plugin_linapro_tenant_core_"
+        importPrefix: "lina-plugin-linapro-tenant-core/backend/internal"
+        descriptionTag: true
+        noModelComment: true
+        stdTime: true
+        typeMapping:
+          timestamp:
+            type: "*time.Time"
+            import: time
+          "timestamp without time zone":
+            type: "*time.Time"
+            import: time
+          timestamptz:
+            type: "*time.Time"
+            import: time
+          "timestamp with time zone":
+            type: "*time.Time"
+            import: time
