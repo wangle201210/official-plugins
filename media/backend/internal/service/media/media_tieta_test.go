@@ -29,10 +29,12 @@ func newTestMediaService(t *testing.T) Service {
 type fakeTietaClient struct {
 	user      *TietaUser
 	hasAccess bool
+	tokens    []string
 }
 
 // UserInfoByToken returns the configured test user.
 func (c *fakeTietaClient) UserInfoByToken(ctx context.Context, token string) (*TietaUser, error) {
+	c.tokens = append(c.tokens, token)
 	return c.user, nil
 }
 
@@ -44,6 +46,25 @@ func (c *fakeTietaClient) CheckTenantHasDevice(
 	deviceID string,
 ) (bool, error) {
 	return c.hasAccess, nil
+}
+
+// TestParseTietaTokenUsesMediaClient verifies Tieta token parsing stays inside the media service package.
+func TestParseTietaTokenUsesMediaClient(t *testing.T) {
+	ctx := context.Background()
+	client := &fakeTietaClient{user: &TietaUser{Id: 13, Username: "wj530"}}
+	restoreTietaClient := replaceMediaTietaClient(t, client)
+	defer restoreTietaClient()
+
+	user, err := parseTietaToken(ctx, "Bearer token-value")
+	if err != nil {
+		t.Fatalf("parse tieta token: %v", err)
+	}
+	if user == nil || user.Id != 13 || user.Username != "wj530" {
+		t.Fatalf("unexpected Tieta user: %+v", user)
+	}
+	if len(client.tokens) != 1 || client.tokens[0] != "Bearer token-value" {
+		t.Fatalf("expected media-local parser to pass raw header once, got %#v", client.tokens)
+	}
 }
 
 // TestResolveStrategyByTokenUsesTietaTenantDevicePermission verifies token tenant and device authorization drive strategy resolution.

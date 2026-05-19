@@ -39,6 +39,12 @@ var (
 	mediaTietaClient tietaClient = &httpTietaClient{}
 )
 
+// parseTietaToken mirrors HotGo's Tieta-token fallback parsing inside the
+// media plugin boundary instead of extending host authentication contracts.
+func parseTietaToken(ctx context.Context, header string) (*TietaUser, error) {
+	return mediaTietaClient.UserInfoByToken(ctx, header)
+}
+
 // tietaClient defines the Tieta operations used by media services.
 type tietaClient interface {
 	UserInfoByToken(ctx context.Context, token string) (*TietaUser, error)

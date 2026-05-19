@@ -373,7 +373,7 @@ func (s *serviceImpl) ResolveStrategy(ctx context.Context, in ResolveStrategyInp
 
 // AuthenticateTietaToken validates one Tieta token and returns the Tieta user identity.
 func (s *serviceImpl) AuthenticateTietaToken(ctx context.Context, token string) (*TietaUser, error) {
-	user, err := mediaTietaClient.UserInfoByToken(ctx, token)
+	user, err := parseTietaToken(ctx, token)
 	if err != nil {
 		return nil, err
 	}

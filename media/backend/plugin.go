@@ -55,7 +55,6 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if err != nil {
 		return err
 	}
-	authMiddleware := mediaDualAuthMiddleware(hostServices.Auth(), mediaSvc)
 	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
 		group.Middleware(
 			middlewares.NeverDoneCtx(),
@@ -63,12 +62,16 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 			middlewares.CORS(),
 			middlewares.RequestBodyLimit(),
 			middlewares.Ctx(),
-			authMiddleware,
 		)
 		group.Group("/", func(group pluginhost.RouteGroup) {
 			group.Bind(publicController)
 		})
 		group.Group("/", func(group pluginhost.RouteGroup) {
+			group.Middleware(
+				middlewares.Auth(),
+				middlewares.Tenancy(),
+				middlewares.Permission(),
+			)
 			group.Bind(protectedController)
 		})
 	})
