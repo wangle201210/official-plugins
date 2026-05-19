@@ -3,6 +3,8 @@
 package cms
 
 import (
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	cmssvc "lina-plugin-cms/backend/internal/service/cms"
 )
 
@@ -12,9 +14,9 @@ type ControllerV1 struct {
 }
 
 // NewV1 creates and returns the concrete CMS API controller.
-func NewV1(cmsSvc cmssvc.Service) *ControllerV1 {
+func NewV1(cmsSvc cmssvc.Service) (*ControllerV1, error) {
 	if cmsSvc == nil {
-		panic("cms controller requires cms service")
+		return nil, gerror.New("cms controller requires cms service")
 	}
-	return &ControllerV1{cmsSvc: cmsSvc}
+	return &ControllerV1{cmsSvc: cmsSvc}, nil
 }

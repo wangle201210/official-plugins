@@ -1,0 +1,7 @@
+{
+  "plugin.linapro-tenant-core.name": "Multi Tenant",
+  "plugin.linapro-tenant-core.description": "Tenant management, memberships, built-in resolver policy, and lifecycle governance.",
+  "plugin.linapro-tenant-core.uninstall_blocked.tenants_exist": "Tenants exist. Delete tenants before uninstalling the linapro-tenant-core plugin.",
+  "plugin.linapro-tenant-core.disable_blocked.tenants_exist": "Tenants exist. Delete tenants before disabling the linapro-tenant-core plugin.",
+  "plugin.linapro-tenant-core.tenant_delete_blocked.resources_exist": "The tenant still has protected resources."
+}

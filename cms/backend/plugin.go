@@ -4,6 +4,8 @@ package backend
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	"lina-core/pkg/pluginhost"
 	cmsplugin "lina-plugin-cms"
 	cmscontroller "lina-plugin-cms/backend/internal/controller/cms"
@@ -41,9 +43,16 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 	middlewares := routes.Middlewares()
 	hostServices := registrar.HostServices()
 	if hostServices == nil || hostServices.BizCtx() == nil {
-		panic("cms routes require host bizctx service")
+		return gerror.New("cms routes require host bizctx service")
 	}
-	controller := cmscontroller.NewV1(cmssvc.New(hostServices.BizCtx()))
+	cmsSvc, err := cmssvc.New(hostServices.BizCtx())
+	if err != nil {
+		return err
+	}
+	controller, err := cmscontroller.NewV1(cmsSvc)
+	if err != nil {
+		return err
+	}
 
 	routes.Group("/", func(group pluginhost.RouteGroup) {
 		group.Middleware(

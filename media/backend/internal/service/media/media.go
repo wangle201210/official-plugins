@@ -4,6 +4,8 @@ package media
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	"lina-core/pkg/pluginservice/contract"
 )
 
@@ -45,6 +47,8 @@ type Service interface {
 	ResolveStrategy(ctx context.Context, in ResolveStrategyInput) (*ResolveStrategyOutput, error)
 	// ResolveStrategyByToken validates a Tieta token and resolves the effective strategy for one device.
 	ResolveStrategyByToken(ctx context.Context, in ResolveStrategyByTokenInput) (*ResolveStrategyByTokenOutput, error)
+	// AuthenticateTietaToken validates one Tieta token and returns its user identity.
+	AuthenticateTietaToken(ctx context.Context, token string) (*TietaUser, error)
 	// UserDeviceStrategyByToken returns the HotGo-compatible token and device strategy response.
 	UserDeviceStrategyByToken(ctx context.Context, in UserDeviceStrategyByTokenInput) (*UserDeviceStrategyByTokenOutput, error)
 	// SetRouteMemory stores HotGo-compatible route memory for one device channel.
@@ -110,22 +114,28 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	bizCtxSvc        contract.BizCtxService // bizCtxSvc reads current user and tenant metadata.
-	routeMemoryStore routeMemoryStore       // routeMemoryStore persists HotGo-compatible route memory.
+	bizCtxSvc contract.BizCtxService // bizCtxSvc reads current user and tenant metadata.
+	cacheSvc  routeMemoryCache       // cacheSvc stores HotGo-compatible route memory values.
 }
 
 // New creates and returns a new media service instance with host context.
-func New(bizCtxSvc contract.BizCtxService) Service {
+func New(bizCtxSvc contract.BizCtxService, cacheSvc contract.CacheService) (Service, error) {
 	if bizCtxSvc == nil {
-		panic("media service requires host bizctx service")
+		return nil, gerror.New("media service requires host bizctx service")
 	}
-	return newWithRouteMemoryStore(bizCtxSvc, defaultRouteMemoryStore{})
+	if cacheSvc == nil {
+		return nil, gerror.New("media service requires host cache service")
+	}
+	return newWithRouteMemoryCache(bizCtxSvc, cacheSvc)
 }
 
-// newWithRouteMemoryStore creates a media service with an explicit route memory store for tests.
-func newWithRouteMemoryStore(bizCtxSvc contract.BizCtxService, store routeMemoryStore) Service {
-	if bizCtxSvc == nil || store == nil {
-		panic("media service requires host bizctx service and route memory store")
+// newWithRouteMemoryCache creates a media service with an explicit route memory cache for tests.
+func newWithRouteMemoryCache(bizCtxSvc contract.BizCtxService, cacheSvc routeMemoryCache) (Service, error) {
+	if bizCtxSvc == nil {
+		return nil, gerror.New("media service requires host bizctx service")
 	}
-	return &serviceImpl{bizCtxSvc: bizCtxSvc, routeMemoryStore: store}
+	if cacheSvc == nil {
+		return nil, gerror.New("media service requires host cache service")
+	}
+	return &serviceImpl{bizCtxSvc: bizCtxSvc, cacheSvc: cacheSvc}, nil
 }

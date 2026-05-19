@@ -5,37 +5,47 @@ package media
 import (
 	"context"
 	"time"
+
+	"lina-core/pkg/pluginservice/contract"
 )
 
-// memoryRouteMemoryStore records route-memory operations in memory for service tests.
-type memoryRouteMemoryStore struct {
-	items   map[string]string
-	lastKey string
-	lastTTL time.Duration
+// memoryRouteMemoryCache records route-memory host cache operations in memory for service tests.
+type memoryRouteMemoryCache struct {
+	items         map[string]string
+	lastNamespace string
+	lastKey       string
+	lastTTL       time.Duration
 }
 
-// newMemoryRouteMemoryStore creates an empty route memory store test double.
-func newMemoryRouteMemoryStore() *memoryRouteMemoryStore {
-	return &memoryRouteMemoryStore{items: make(map[string]string)}
+// newMemoryRouteMemoryCache creates an empty route memory cache test double.
+func newMemoryRouteMemoryCache() *memoryRouteMemoryCache {
+	return &memoryRouteMemoryCache{items: make(map[string]string)}
+}
+
+// Get returns one cached route memory value.
+func (s *memoryRouteMemoryCache) Get(_ context.Context, namespace string, key string) (*contract.CacheItem, bool, error) {
+	s.lastNamespace = namespace
+	s.lastKey = key
+	value, ok := s.items[namespace+"\x00"+key]
+	if !ok {
+		return nil, false, nil
+	}
+	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindString, Value: value}, true, nil
 }
 
 // Set records one route memory value.
-func (s *memoryRouteMemoryStore) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+func (s *memoryRouteMemoryCache) Set(_ context.Context, namespace string, key string, value string, ttl time.Duration) (*contract.CacheItem, error) {
+	s.lastNamespace = namespace
 	s.lastKey = key
 	s.lastTTL = ttl
-	s.items[key] = value
-	return nil
-}
-
-// Get reads one in-memory route memory value.
-func (s *memoryRouteMemoryStore) Get(ctx context.Context, key string) (string, error) {
-	s.lastKey = key
-	return s.items[key], nil
+	s.items[namespace+"\x00"+key] = value
+	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindString, Value: value}, nil
 }
 
 // Delete removes one in-memory route memory value.
-func (s *memoryRouteMemoryStore) Delete(ctx context.Context, key string) error {
+func (s *memoryRouteMemoryCache) Delete(_ context.Context, namespace string, key string) error {
+	s.lastNamespace = namespace
 	s.lastKey = key
-	delete(s.items, key)
+	delete(s.items, namespace+"\x00"+key)
 	return nil
 }

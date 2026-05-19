@@ -82,25 +82,29 @@ func (q *taskQueue) processTask(consumerID int, task *watermarkTask) {
 	start := time.Now()
 	ctx := task.ctx
 	logger.Infof(ctx, "消费者 %d 开始处理水印任务: %s", consumerID, task.id)
-	q.store.update(task.id, func(record *taskRecord) {
+	if err := q.store.update(ctx, task.id, func(record *taskRecord) {
 		record.Status = TaskStatusProcessing
 		record.Message = "处理中"
-	})
+	}); err != nil {
+		logger.Errorf(ctx, "消费者 %d: 更新水印任务处理中状态失败 %s: %v", consumerID, task.id, err)
+	}
 
 	output, err := processSnapshot(ctx, task.request)
 	if err != nil {
 		logger.Errorf(ctx, "消费者 %d: 水印任务失败 %s: %v", consumerID, task.id, err)
-		q.store.update(task.id, func(record *taskRecord) {
+		if updateErr := q.store.update(ctx, task.id, func(record *taskRecord) {
 			record.Status = TaskStatusFailed
 			record.Success = false
 			record.Message = "处理失败"
 			record.Error = err.Error()
 			record.DurationMs = time.Since(start).Milliseconds()
-		})
+		}); updateErr != nil {
+			logger.Errorf(ctx, "消费者 %d: 更新水印任务失败状态失败 %s: %v", consumerID, task.id, updateErr)
+		}
 		return
 	}
 
-	q.store.update(task.id, func(record *taskRecord) {
+	if err = q.store.update(ctx, task.id, func(record *taskRecord) {
 		record.Status = output.Status
 		record.Success = output.Success
 		record.Message = output.Message
@@ -111,16 +115,20 @@ func (q *taskQueue) processTask(consumerID int, task *watermarkTask) {
 		record.Source = output.Source
 		record.SourceLabel = output.SourceLabel
 		record.DurationMs = time.Since(start).Milliseconds()
-	})
+	}); err != nil {
+		logger.Errorf(ctx, "消费者 %d: 更新水印任务完成状态失败 %s: %v", consumerID, task.id, err)
+	}
 
 	callbackURL := normalizedCallbackURL(task.request)
 	if callbackURL != "" {
 		payload := buildCallbackPayload(task.request, output.Image)
 		if err := sendResultToURL(ctx, callbackURL, payload); err != nil {
 			logger.Errorf(ctx, "消费者 %d: 发送水印回调失败 %s: %v", consumerID, task.id, err)
-			q.store.update(task.id, func(record *taskRecord) {
+			if updateErr := q.store.update(ctx, task.id, func(record *taskRecord) {
 				record.Error = err.Error()
-			})
+			}); updateErr != nil {
+				logger.Errorf(ctx, "消费者 %d: 更新水印任务回调错误失败 %s: %v", consumerID, task.id, updateErr)
+			}
 		}
 	}
 	logger.Infof(ctx, "消费者 %d 完成水印任务: %s, 耗时: %s", consumerID, task.id, time.Since(start))

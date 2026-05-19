@@ -19,6 +19,8 @@ var (
 	CodeWaterImageRequired = bizerr.MustDefine("WATER_IMAGE_REQUIRED", "图片不能为空", gcode.CodeInvalidParameter)
 	// CodeWaterTaskNotFound reports that a task ID was not found in recent status storage.
 	CodeWaterTaskNotFound = bizerr.MustDefine("WATER_TASK_NOT_FOUND", "水印任务不存在或已过期", gcode.CodeNotFound)
+	// CodeWaterTaskCacheFailed reports that task status cache storage failed.
+	CodeWaterTaskCacheFailed = bizerr.MustDefine("WATER_TASK_CACHE_FAILED", "水印任务状态缓存失败", gcode.CodeInternalError)
 	// CodeWaterTaskQueueFull reports that the in-memory task queue is full.
 	CodeWaterTaskQueueFull = bizerr.MustDefine("WATER_TASK_QUEUE_FULL", "水印任务队列已满，请稍后再试", gcode.CodeInvalidOperation)
 	// CodeWaterStrategyQueryFailed reports that media strategy query failed.

@@ -1,44 +1,33 @@
-// This file implements the in-memory watermark task status store.
+// This file implements the host-cache-backed watermark task status store.
 
 package water
 
 import (
-	"container/list"
 	"context"
-	"sync"
+	"encoding/json"
 
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-core/pkg/bizerr"
 )
 
-// taskRecord stores mutable task status in memory.
+// taskRecord stores one mutable task status snapshot.
 type taskRecord struct {
 	TaskSnapshot
 }
 
-// taskStore keeps recent task snapshots with FIFO eviction.
+// taskStore keeps recent task snapshots in the host plugin cache.
 type taskStore struct {
-	mu       sync.RWMutex
-	capacity int
-	items    map[string]*list.Element
-	order    *list.List
+	cache taskCache
 }
 
-// newTaskStore creates one bounded task status store.
-func newTaskStore(capacity int) *taskStore {
-	if capacity <= 0 {
-		capacity = defaultTaskStoreCapacity
-	}
-	return &taskStore{
-		capacity: capacity,
-		items:    make(map[string]*list.Element, capacity),
-		order:    list.New(),
-	}
+// newTaskStore creates one host-cache-backed task status store.
+func newTaskStore(cache taskCache) *taskStore {
+	return &taskStore{cache: cache}
 }
 
 // create inserts one queued task snapshot.
-func (s *taskStore) create(taskID string, in SubmitSnapInput) {
+func (s *taskStore) create(ctx context.Context, taskID string, in SubmitSnapInput) error {
 	now := gtime.Now().String()
 	record := &taskRecord{
 		TaskSnapshot: TaskSnapshot{
@@ -53,58 +42,65 @@ func (s *taskStore) create(taskID string, in SubmitSnapInput) {
 			UpdatedAt:   now,
 		},
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if existing, ok := s.items[taskID]; ok {
-		existing.Value = record
-		s.order.MoveToBack(existing)
-		return
-	}
-	element := s.order.PushBack(record)
-	s.items[taskID] = element
-	for len(s.items) > s.capacity {
-		front := s.order.Front()
-		if front == nil {
-			break
-		}
-		oldRecord, ok := front.Value.(*taskRecord)
-		if ok {
-			delete(s.items, oldRecord.TaskId)
-		}
-		s.order.Remove(front)
-	}
+	return s.save(ctx, record)
 }
 
 // update mutates one task snapshot if it still exists.
-func (s *taskStore) update(taskID string, mutate func(record *taskRecord)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	element, ok := s.items[taskID]
-	if !ok {
-		return
-	}
-	record, ok := element.Value.(*taskRecord)
-	if !ok || record == nil {
-		return
+func (s *taskStore) update(ctx context.Context, taskID string, mutate func(record *taskRecord)) error {
+	record, err := s.record(ctx, taskID)
+	if err != nil {
+		return err
 	}
 	mutate(record)
 	record.UpdatedAt = gtime.Now().String()
-	s.order.MoveToBack(element)
+	return s.save(ctx, record)
 }
 
 // get returns one task snapshot by ID.
-func (s *taskStore) get(_ context.Context, taskID string) (*TaskSnapshot, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	element, ok := s.items[taskID]
-	if !ok {
-		return nil, bizerr.NewCode(CodeWaterTaskNotFound)
-	}
-	record, ok := element.Value.(*taskRecord)
-	if !ok || record == nil {
-		return nil, bizerr.NewCode(CodeWaterTaskNotFound)
+func (s *taskStore) get(ctx context.Context, taskID string) (*TaskSnapshot, error) {
+	record, err := s.record(ctx, taskID)
+	if err != nil {
+		return nil, err
 	}
 	snapshot := record.TaskSnapshot
 	return &snapshot, nil
+}
+
+// record loads one mutable task record from host cache.
+func (s *taskStore) record(ctx context.Context, taskID string) (*taskRecord, error) {
+	if s == nil || s.cache == nil {
+		return nil, bizerr.NewCode(CodeWaterTaskCacheFailed)
+	}
+	item, found, err := s.cache.Get(ctx, taskStatusCacheNamespace, taskStatusCacheKey(taskID))
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeWaterTaskCacheFailed)
+	}
+	if !found || item == nil {
+		return nil, bizerr.NewCode(CodeWaterTaskNotFound)
+	}
+	var record taskRecord
+	if err = json.Unmarshal([]byte(item.Value), &record); err != nil {
+		return nil, bizerr.WrapCode(err, CodeWaterTaskCacheFailed)
+	}
+	return &record, nil
+}
+
+// save stores one task record in host cache with the configured retention TTL.
+func (s *taskStore) save(ctx context.Context, record *taskRecord) error {
+	if s == nil || s.cache == nil || record == nil {
+		return bizerr.NewCode(CodeWaterTaskCacheFailed)
+	}
+	payload, err := json.Marshal(record)
+	if err != nil {
+		return bizerr.WrapCode(err, CodeWaterTaskCacheFailed)
+	}
+	if _, err = s.cache.Set(ctx, taskStatusCacheNamespace, taskStatusCacheKey(record.TaskId), string(payload), defaultTaskStatusTTL); err != nil {
+		return bizerr.WrapCode(err, CodeWaterTaskCacheFailed)
+	}
+	return nil
+}
+
+// taskStatusCacheKey builds the host cache key for one water task snapshot.
+func taskStatusCacheKey(taskID string) string {
+	return taskStatusCacheKeyPrefix + taskID
 }

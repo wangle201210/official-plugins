@@ -4,16 +4,16 @@ go 1.25.0
 
 require (
 	lina-plugin-cms v0.0.0
-	lina-plugin-content-notice v0.0.0
-	lina-plugin-demo-control v0.0.0
-	lina-plugin-demo-source v0.0.0
+	lina-plugin-linapro-content-notice v0.0.0
+	lina-plugin-linapro-ops-demo-guard v0.0.0
+	lina-plugin-linapro-demo-source v0.0.0
+	lina-plugin-linapro-monitor-loginlog v0.0.0
+	lina-plugin-linapro-monitor-online v0.0.0
+	lina-plugin-linapro-monitor-operlog v0.0.0
+	lina-plugin-linapro-monitor-server v0.0.0
+	lina-plugin-linapro-tenant-core v0.0.0
+	lina-plugin-linapro-org-core v0.0.0
 	lina-plugin-media v0.0.0
-	lina-plugin-monitor-loginlog v0.0.0
-	lina-plugin-monitor-online v0.0.0
-	lina-plugin-monitor-operlog v0.0.0
-	lina-plugin-monitor-server v0.0.0
-	lina-plugin-multi-tenant v0.0.0
-	lina-plugin-org-center v0.0.0
 	lina-plugin-water v0.0.0
 )
 
@@ -59,7 +59,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
-	golang.org/x/image v0.25.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
@@ -69,26 +68,26 @@ require (
 
 replace lina-core => ../lina-core
 
-replace lina-plugin-content-notice => ./content-notice
-
 replace lina-plugin-cms => ./cms
 
-replace lina-plugin-demo-control => ./demo-control
+replace lina-plugin-linapro-content-notice => ./linapro-content-notice
 
-replace lina-plugin-demo-source => ./plugin-demo-source
+replace lina-plugin-linapro-ops-demo-guard => ./linapro-ops-demo-guard
+
+replace lina-plugin-linapro-demo-source => ./linapro-demo-source
+
+replace lina-plugin-linapro-monitor-loginlog => ./linapro-monitor-loginlog
+
+replace lina-plugin-linapro-monitor-online => ./linapro-monitor-online
+
+replace lina-plugin-linapro-monitor-operlog => ./linapro-monitor-operlog
+
+replace lina-plugin-linapro-monitor-server => ./linapro-monitor-server
+
+replace lina-plugin-linapro-tenant-core => ./linapro-tenant-core
+
+replace lina-plugin-linapro-org-core => ./linapro-org-core
 
 replace lina-plugin-media => ./media
-
-replace lina-plugin-monitor-loginlog => ./monitor-loginlog
-
-replace lina-plugin-monitor-online => ./monitor-online
-
-replace lina-plugin-monitor-operlog => ./monitor-operlog
-
-replace lina-plugin-monitor-server => ./monitor-server
-
-replace lina-plugin-multi-tenant => ./multi-tenant
-
-replace lina-plugin-org-center => ./org-center
 
 replace lina-plugin-water => ./water

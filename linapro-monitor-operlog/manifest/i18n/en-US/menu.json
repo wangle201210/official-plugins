@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "plugin:linapro-monitor-operlog:operlog": {
+      "title": "Audit Logs"
+    },
+    "plugin:linapro-monitor-operlog:operlog:clear": {
+      "title": "Clear"
+    },
+    "plugin:linapro-monitor-operlog:operlog:export": {
+      "title": "Export"
+    },
+    "plugin:linapro-monitor-operlog:operlog:query": {
+      "title": "Query"
+    },
+    "plugin:linapro-monitor-operlog:operlog:remove": {
+      "title": "Delete"
+    }
+  }
+}

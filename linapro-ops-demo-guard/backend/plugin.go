@@ -1,0 +1,45 @@
+// Package backend wires the linapro-ops-demo-guard source plugin into the host plugin registry.
+package backend
+
+import (
+	"context"
+
+	"github.com/gogf/gf/v2/errors/gerror"
+
+	"lina-core/pkg/pluginhost"
+	democontrolplugin "lina-plugin-linapro-ops-demo-guard"
+	middlewaresvc "lina-plugin-linapro-ops-demo-guard/backend/internal/service/middleware"
+)
+
+// linapro-ops-demo-guard plugin constants.
+const (
+	// pluginID is the immutable identifier published by the embedded source plugin.
+	pluginID = "linapro-ops-demo-guard"
+)
+
+// init registers the embedded linapro-ops-demo-guard source plugin and its host callbacks.
+func init() {
+	plugin := pluginhost.NewSourcePlugin(pluginID)
+	plugin.Assets().UseEmbeddedFiles(democontrolplugin.EmbeddedFiles)
+	if err := plugin.HTTP().RegisterRoutes(
+		pluginhost.ExtensionPointHTTPRouteRegister,
+		pluginhost.CallbackExecutionModeBlocking,
+		registerGlobalMiddleware,
+	); err != nil {
+		panic(err)
+	}
+	if err := pluginhost.RegisterSourcePlugin(plugin); err != nil {
+		panic(err)
+	}
+}
+
+// registerGlobalMiddleware binds the demo read-only guard into the host-wide
+// system request chain published to source plugins.
+func registerGlobalMiddleware(_ context.Context, registrar pluginhost.HTTPRegistrar) error {
+	hostServices := registrar.HostServices()
+	if hostServices == nil || hostServices.I18n() == nil || hostServices.PluginState() == nil {
+		return gerror.New("linapro-ops-demo-guard middleware requires host i18n and plugin-state services")
+	}
+	guardSvc := middlewaresvc.New(hostServices.I18n(), hostServices.PluginState())
+	return registrar.GlobalMiddlewares().Bind("/*", guardSvc.Guard)
+}

@@ -5,6 +5,8 @@
 package water
 
 import (
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	"lina-plugin-water/backend/api/water"
 	watersvc "lina-plugin-water/backend/internal/service/water"
 )
@@ -15,9 +17,9 @@ type ControllerV1 struct {
 }
 
 // NewV1 creates and returns a new water controller instance.
-func NewV1(waterSvc watersvc.Service) water.IWaterV1 {
+func NewV1(waterSvc watersvc.Service) (water.IWaterV1, error) {
 	if waterSvc == nil {
-		panic("water controller requires water service")
+		return nil, gerror.New("water controller requires water service")
 	}
-	return &ControllerV1{waterSvc: waterSvc}
+	return &ControllerV1{waterSvc: waterSvc}, nil
 }

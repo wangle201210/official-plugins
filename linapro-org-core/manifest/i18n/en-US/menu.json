@@ -1,0 +1,37 @@
+{
+  "menu": {
+    "plugin:linapro-org-core:dept": {
+      "title": "Departments"
+    },
+    "plugin:linapro-org-core:dept:add": {
+      "title": "Create"
+    },
+    "plugin:linapro-org-core:dept:edit": {
+      "title": "Update"
+    },
+    "plugin:linapro-org-core:dept:query": {
+      "title": "Query"
+    },
+    "plugin:linapro-org-core:dept:remove": {
+      "title": "Delete"
+    },
+    "plugin:linapro-org-core:post": {
+      "title": "Positions"
+    },
+    "plugin:linapro-org-core:post:add": {
+      "title": "Create"
+    },
+    "plugin:linapro-org-core:post:edit": {
+      "title": "Update"
+    },
+    "plugin:linapro-org-core:post:export": {
+      "title": "Export"
+    },
+    "plugin:linapro-org-core:post:query": {
+      "title": "Query"
+    },
+    "plugin:linapro-org-core:post:remove": {
+      "title": "Delete"
+    }
+  }
+}

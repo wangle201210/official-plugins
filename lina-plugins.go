@@ -1,16 +1,16 @@
 package linaplugins
 
 import (
-	_ "lina-plugin-content-notice/backend"
 	_ "lina-plugin-cms/backend"
-	_ "lina-plugin-demo-control/backend"
-	_ "lina-plugin-demo-source/backend"
+	_ "lina-plugin-linapro-content-notice/backend"
+	_ "lina-plugin-linapro-ops-demo-guard/backend"
+	_ "lina-plugin-linapro-demo-source/backend"
+	_ "lina-plugin-linapro-monitor-loginlog/backend"
+	_ "lina-plugin-linapro-monitor-online/backend"
+	_ "lina-plugin-linapro-monitor-operlog/backend"
+	_ "lina-plugin-linapro-monitor-server/backend"
+	_ "lina-plugin-linapro-tenant-core/backend"
+	_ "lina-plugin-linapro-org-core/backend"
 	_ "lina-plugin-media/backend"
-	_ "lina-plugin-monitor-loginlog/backend"
-	_ "lina-plugin-monitor-online/backend"
-	_ "lina-plugin-monitor-operlog/backend"
-	_ "lina-plugin-monitor-server/backend"
-	_ "lina-plugin-multi-tenant/backend"
-	_ "lina-plugin-org-center/backend"
 	_ "lina-plugin-water/backend"
 )

@@ -16,9 +16,9 @@
 
 ## 配置说明
 
-路由记忆使用 Redis 存储，默认保留 12 小时，键格式与 HotGo 保持一致：`route_data:<deviceCode>:<channelCode>`。
+路由记忆复用宿主 `pluginhost.HostServices.Cache()` 服务，默认保留 12 小时，逻辑键格式与 HotGo 保持一致：`route_data:<deviceCode>:<channelCode>`。
 
-默认情况下插件复用宿主 `cluster.redis.*` 配置。若部署环境需要独立 Redis，可在运行时配置中设置 `media.routeMemory.redis.*`，支持 `address`、`db`、`password`、`connectTimeout`、`readTimeout` 和 `writeTimeout`。
+插件不定义专属 Redis 配置命名空间，也不维护插件自有缓存后端。
 
 ## 开发入口
 

@@ -1,0 +1,31 @@
+{
+  "menu": {
+    "plugin:linapro-tenant-core:platform:tenants": {
+      "title": "Tenants"
+    },
+    "plugin:linapro-tenant-core:platform:tenants:add": {
+      "title": "Create"
+    },
+    "plugin:linapro-tenant-core:platform:tenants:edit": {
+      "title": "Update"
+    },
+    "plugin:linapro-tenant-core:platform:tenants:impersonate": {
+      "title": "Impersonate"
+    },
+    "plugin:linapro-tenant-core:platform:tenants:query": {
+      "title": "Query"
+    },
+    "plugin:linapro-tenant-core:platform:tenants:remove": {
+      "title": "Delete"
+    },
+    "plugin:linapro-tenant-core:tenant:plugin:disable": {
+      "title": "Disable"
+    },
+    "plugin:linapro-tenant-core:tenant:plugin:enable": {
+      "title": "Enable"
+    },
+    "plugin:linapro-tenant-core:tenant:plugin:list": {
+      "title": "List"
+    }
+  }
+}

@@ -16,8 +16,13 @@ import (
 )
 
 // newTestMediaService creates a media service with an explicit test bizctx adapter.
-func newTestMediaService() Service {
-	return newWithRouteMemoryStore(bizctx.New(nil), newMemoryRouteMemoryStore())
+func newTestMediaService(t *testing.T) Service {
+	t.Helper()
+	svc, err := newWithRouteMemoryCache(bizctx.New(nil), newMemoryRouteMemoryCache())
+	if err != nil {
+		t.Fatalf("create test media service: %v", err)
+	}
+	return svc
 }
 
 // fakeTietaClient provides deterministic token and device-permission responses for unit tests.
@@ -60,7 +65,7 @@ func TestResolveStrategyByTokenUsesTietaTenantDevicePermission(t *testing.T) {
 		t.Fatalf("insert tenant-device binding: %v", err)
 	}
 
-	out, err := newTestMediaService().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
+	out, err := newTestMediaService(t).ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
 		Token:    "Bearer token-value",
 		TenantId: "tenant-a",
 		DeviceId: "34020000001320000001",
@@ -101,7 +106,7 @@ func TestUserDeviceStrategyByTokenReturnsStrategyContent(t *testing.T) {
 		t.Fatalf("insert tenant-device binding: %v", err)
 	}
 
-	out, err := newTestMediaService().UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
+	out, err := newTestMediaService(t).UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
 		Token:    "token-value",
 		DeviceId: "34020000001320000001",
 	})
@@ -129,7 +134,7 @@ func TestResolveStrategyByTokenRejectsTenantMismatch(t *testing.T) {
 	})
 	defer restoreTietaClient()
 
-	_, err := newTestMediaService().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
+	_, err := newTestMediaService(t).ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
 		Token:    "token-value",
 		TenantId: "tenant-b",
 		DeviceId: "34020000001320000001",
@@ -157,7 +162,7 @@ func TestResolveStrategyByTokenDeniesWithoutDevicePermission(t *testing.T) {
 	defer restoreTietaClient()
 
 	insertTestStrategy(t, ctx, "全局策略", int(SwitchOn), int(SwitchOn))
-	out, err := newTestMediaService().ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
+	out, err := newTestMediaService(t).ResolveStrategyByToken(ctx, ResolveStrategyByTokenInput{
 		Authorization: "Bearer token-value",
 		DeviceId:      "34020000001320000001",
 	})

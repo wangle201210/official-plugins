@@ -49,6 +49,10 @@ var (
 	CodeMediaBindingSaveFailed = bizerr.MustDefine("MEDIA_BINDING_SAVE_FAILED", "保存媒体策略绑定失败", gcode.CodeInternalError)
 	// CodeMediaBindingDeleteFailed reports that binding deletion failed.
 	CodeMediaBindingDeleteFailed = bizerr.MustDefine("MEDIA_BINDING_DELETE_FAILED", "删除媒体策略绑定失败", gcode.CodeInternalError)
+	// CodeMediaAuthFailed reports that neither LinaPro nor Tieta authentication passed.
+	CodeMediaAuthFailed = bizerr.MustDefine("MEDIA_AUTH_FAILED", "媒体接口鉴权失败", gcode.CodeNotAuthorized)
+	// CodeMediaPermissionDenied reports that LinaPro permission validation failed.
+	CodeMediaPermissionDenied = bizerr.MustDefine("MEDIA_PERMISSION_DENIED", "缺少媒体接口权限：{permissions}", gcode.CodeNotAuthorized)
 	// CodeMediaTietaTokenRequired reports that token-based media authorization is missing a Tieta token.
 	CodeMediaTietaTokenRequired = bizerr.MustDefine("MEDIA_TIETA_TOKEN_REQUIRED", "铁塔 token 不能为空", gcode.CodeNotAuthorized)
 	// CodeMediaTietaTokenInvalid reports that Tieta rejected the provided token.

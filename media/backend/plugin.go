@@ -4,6 +4,8 @@ package backend
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	"lina-core/pkg/pluginhost"
 	mediaplugin "lina-plugin-media"
 	mediacontroller "lina-plugin-media/backend/internal/controller/media"
@@ -33,13 +35,27 @@ func init() {
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	hostServices := registrar.HostServices()
 	if hostServices == nil || hostServices.BizCtx() == nil {
-		panic("media routes require host bizctx service")
+		return gerror.New("media routes require host bizctx service")
 	}
-	mediaSvc := mediasvc.New(hostServices.BizCtx())
+	cacheSvc := hostServices.Cache()
+	if cacheSvc == nil {
+		return gerror.New("media routes require host cache service")
+	}
+	mediaSvc, err := mediasvc.New(hostServices.BizCtx(), cacheSvc)
+	if err != nil {
+		return err
+	}
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
-	publicController := mediaopencontroller.NewV1(mediaSvc)
-	protectedController := mediacontroller.NewV1(mediaSvc)
+	publicController, err := mediaopencontroller.NewV1(mediaSvc)
+	if err != nil {
+		return err
+	}
+	protectedController, err := mediacontroller.NewV1(mediaSvc)
+	if err != nil {
+		return err
+	}
+	authMiddleware := mediaDualAuthMiddleware(hostServices.Auth(), mediaSvc)
 	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
 		group.Middleware(
 			middlewares.NeverDoneCtx(),
@@ -47,16 +63,12 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 			middlewares.CORS(),
 			middlewares.RequestBodyLimit(),
 			middlewares.Ctx(),
+			authMiddleware,
 		)
 		group.Group("/", func(group pluginhost.RouteGroup) {
 			group.Bind(publicController)
 		})
 		group.Group("/", func(group pluginhost.RouteGroup) {
-			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
-			)
 			group.Bind(protectedController)
 		})
 	})

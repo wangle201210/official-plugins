@@ -1,0 +1,37 @@
+{
+  "menu": {
+    "plugin:linapro-org-core:dept": {
+      "title": "部门管理"
+    },
+    "plugin:linapro-org-core:dept:add": {
+      "title": "部门新增"
+    },
+    "plugin:linapro-org-core:dept:edit": {
+      "title": "部门修改"
+    },
+    "plugin:linapro-org-core:dept:query": {
+      "title": "部门查询"
+    },
+    "plugin:linapro-org-core:dept:remove": {
+      "title": "部门删除"
+    },
+    "plugin:linapro-org-core:post": {
+      "title": "岗位管理"
+    },
+    "plugin:linapro-org-core:post:add": {
+      "title": "岗位新增"
+    },
+    "plugin:linapro-org-core:post:edit": {
+      "title": "岗位修改"
+    },
+    "plugin:linapro-org-core:post:export": {
+      "title": "岗位导出"
+    },
+    "plugin:linapro-org-core:post:query": {
+      "title": "岗位查询"
+    },
+    "plugin:linapro-org-core:post:remove": {
+      "title": "岗位删除"
+    }
+  }
+}

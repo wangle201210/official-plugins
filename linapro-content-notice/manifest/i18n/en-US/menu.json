@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "plugin:linapro-content-notice:notice": {
+      "title": "Notices"
+    },
+    "plugin:linapro-content-notice:notice:add": {
+      "title": "Create"
+    },
+    "plugin:linapro-content-notice:notice:edit": {
+      "title": "Update"
+    },
+    "plugin:linapro-content-notice:notice:query": {
+      "title": "Query"
+    },
+    "plugin:linapro-content-notice:notice:remove": {
+      "title": "Delete"
+    }
+  }
+}

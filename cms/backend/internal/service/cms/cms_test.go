@@ -23,7 +23,11 @@ import (
 
 // newTestCMSService creates a CMS service with an explicit test bizctx adapter.
 func newTestCMSService() Service {
-	return New(bizctx.New(nil))
+	svc, err := New(bizctx.New(nil))
+	if err != nil {
+		panic(err)
+	}
+	return svc
 }
 
 // TestPublicArticlesFilterDraftsAndDisabledCategories verifies public article

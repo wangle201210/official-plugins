@@ -16,9 +16,9 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 
 ## Configuration
 
-Route memory uses Redis and keeps entries for 12 hours with HotGo-compatible keys in the form `route_data:<deviceCode>:<channelCode>`.
+Route memory reuses the host `pluginhost.HostServices.Cache()` service and keeps entries for 12 hours with HotGo-compatible logical keys in the form `route_data:<deviceCode>:<channelCode>`.
 
-By default, the plugin reuses host `cluster.redis.*` settings. Deployments that need a dedicated Redis endpoint can set `media.routeMemory.redis.*` in the runtime config with `address`, `db`, `password`, `connectTimeout`, `readTimeout`, and `writeTimeout`.
+The plugin does not define a plugin-specific Redis configuration namespace or maintain a plugin-owned cache backend.
 
 ## Development
 

@@ -1,0 +1,20 @@
+{
+  "job": {
+    "handler": {
+      "plugin": {
+        "linapro-monitor-server": {
+          "cron": {
+            "service-monitor-cleanup": {
+              "description": "linapro-monitor-server 插件注册的内置定时任务。",
+              "name": "服务监控清理"
+            },
+            "service-monitor-collector": {
+              "description": "linapro-monitor-server 插件注册的内置定时任务。",
+              "name": "服务监控采集"
+            }
+          }
+        }
+      }
+    }
+  }
+}

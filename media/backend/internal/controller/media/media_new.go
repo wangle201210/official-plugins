@@ -3,6 +3,8 @@
 package media
 
 import (
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	"lina-plugin-media/backend/api/media"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
@@ -13,9 +15,9 @@ type ControllerV1 struct {
 }
 
 // NewV1 creates and returns a new media controller instance.
-func NewV1(mediaSvc mediasvc.Service) media.IMediaV1 {
+func NewV1(mediaSvc mediasvc.Service) (media.IMediaV1, error) {
 	if mediaSvc == nil {
-		panic("media controller requires media service")
+		return nil, gerror.New("media controller requires media service")
 	}
-	return &ControllerV1{mediaSvc: mediaSvc}
+	return &ControllerV1{mediaSvc: mediaSvc}, nil
 }

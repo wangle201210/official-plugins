@@ -3,7 +3,11 @@ package water
 
 import (
 	"context"
-	"sync"
+	"time"
+
+	"github.com/gogf/gf/v2/errors/gerror"
+
+	"lina-core/pkg/pluginservice/contract"
 )
 
 // Service defines the water plugin service contract.
@@ -19,26 +23,28 @@ type Service interface {
 // Interface compliance assertion for the default water service implementation.
 var _ Service = (*serviceImpl)(nil)
 
-// Package-level singleton keeps the in-memory queue and task store shared by controllers.
-var (
-	defaultService Service
-	serviceOnce    sync.Once
-)
-
 // serviceImpl implements Service.
 type serviceImpl struct {
 	queue *taskQueue // queue executes asynchronous watermark tasks.
-	store *taskStore // store keeps recent task status snapshots.
+	store *taskStore // store keeps recent task status snapshots in host cache.
+}
+
+// taskCache defines the host cache operations water uses for task snapshots.
+type taskCache interface {
+	// Get returns the cached task snapshot payload for key when it exists.
+	Get(ctx context.Context, namespace string, key string) (*contract.CacheItem, bool, error)
+	// Set stores the task snapshot payload for key with a finite TTL.
+	Set(ctx context.Context, namespace string, key string, value string, ttl time.Duration) (*contract.CacheItem, error)
 }
 
 // New creates and returns the shared water service instance.
-func New() Service {
-	serviceOnce.Do(func() {
-		store := newTaskStore(defaultTaskStoreCapacity)
-		defaultService = &serviceImpl{
-			queue: newTaskQueue(store),
-			store: store,
-		}
-	})
-	return defaultService
+func New(cacheSvc contract.CacheService) (Service, error) {
+	if cacheSvc == nil {
+		return nil, gerror.New("water service requires host cache service")
+	}
+	store := newTaskStore(cacheSvc)
+	return &serviceImpl{
+		queue: newTaskQueue(store),
+		store: store,
+	}, nil
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-core/pkg/bizerr"
@@ -123,11 +124,11 @@ type serviceImpl struct {
 }
 
 // New creates and returns a new CMS service instance with host context.
-func New(bizCtxSvc plugincontract.BizCtxService) Service {
+func New(bizCtxSvc plugincontract.BizCtxService) (Service, error) {
 	if bizCtxSvc == nil {
-		panic("cms service requires host bizctx service")
+		return nil, gerror.New("cms service requires host bizctx service")
 	}
-	return &serviceImpl{bizCtxSvc: bizCtxSvc}
+	return &serviceImpl{bizCtxSvc: bizCtxSvc}, nil
 }
 
 // SiteItem is the service-layer CMS site projection.

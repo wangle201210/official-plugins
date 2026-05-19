@@ -13,10 +13,13 @@ import (
 // TestRouteMemoryUsesDeviceChannelKeyAndTwelveHourTTL verifies route memory lifecycle behavior.
 func TestRouteMemoryUsesDeviceChannelKeyAndTwelveHourTTL(t *testing.T) {
 	ctx := context.Background()
-	store := newMemoryRouteMemoryStore()
-	svc := newWithRouteMemoryStore(bizctx.New(nil), store)
+	cacheSvc := newMemoryRouteMemoryCache()
+	svc, err := newWithRouteMemoryCache(bizctx.New(nil), cacheSvc)
+	if err != nil {
+		t.Fatalf("create media service: %v", err)
+	}
 
-	if err := svc.SetRouteMemory(ctx, RouteMemoryInput{
+	if err = svc.SetRouteMemory(ctx, RouteMemoryInput{
 		RouteMemoryKeyInput: RouteMemoryKeyInput{
 			DeviceCode:  "34020000001320000001",
 			ChannelCode: "34020000001320000002",
@@ -25,11 +28,14 @@ func TestRouteMemoryUsesDeviceChannelKeyAndTwelveHourTTL(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("set route memory: %v", err)
 	}
-	if store.lastKey != "route_data:34020000001320000001:34020000001320000002" {
-		t.Fatalf("expected HotGo route key, got %q", store.lastKey)
+	if cacheSvc.lastNamespace != "route-memory" {
+		t.Fatalf("expected route-memory namespace, got %q", cacheSvc.lastNamespace)
 	}
-	if store.lastTTL != 12*time.Hour {
-		t.Fatalf("expected 12h TTL, got %s", store.lastTTL)
+	if cacheSvc.lastKey != "route_data:34020000001320000001:34020000001320000002" {
+		t.Fatalf("expected HotGo route key, got %q", cacheSvc.lastKey)
+	}
+	if cacheSvc.lastTTL != 12*time.Hour {
+		t.Fatalf("expected 12h TTL, got %s", cacheSvc.lastTTL)
 	}
 
 	out, err := svc.GetRouteMemory(ctx, RouteMemoryKeyInput{

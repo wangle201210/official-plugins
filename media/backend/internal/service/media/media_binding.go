@@ -371,6 +371,18 @@ func (s *serviceImpl) ResolveStrategy(ctx context.Context, in ResolveStrategyInp
 	return buildResolveOutput(StrategySourceNone, nil), nil
 }
 
+// AuthenticateTietaToken validates one Tieta token and returns the Tieta user identity.
+func (s *serviceImpl) AuthenticateTietaToken(ctx context.Context, token string) (*TietaUser, error) {
+	user, err := mediaTietaClient.UserInfoByToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil || user.Id <= 0 {
+		return nil, bizerr.NewCode(CodeMediaTietaTokenInvalid, bizerr.P("message", "用户信息为空"))
+	}
+	return user, nil
+}
+
 // ResolveStrategyByToken validates a Tieta token and resolves the effective strategy for its tenant/device pair.
 func (s *serviceImpl) ResolveStrategyByToken(
 	ctx context.Context,
@@ -380,12 +392,9 @@ func (s *serviceImpl) ResolveStrategyByToken(
 	if token == "" {
 		token = normalizeTietaToken(in.Authorization)
 	}
-	user, err := mediaTietaClient.UserInfoByToken(ctx, token)
+	user, err := s.AuthenticateTietaToken(ctx, token)
 	if err != nil {
 		return nil, err
-	}
-	if user == nil || user.Id <= 0 {
-		return nil, bizerr.NewCode(CodeMediaTietaTokenInvalid, bizerr.P("message", "用户信息为空"))
 	}
 	tenantID, err := resolveTietaTenantID(in.TenantId, user)
 	if err != nil {

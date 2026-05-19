@@ -17,19 +17,23 @@ func (s *serviceImpl) SubmitSnap(ctx context.Context, in SubmitSnapInput) (*Subm
 		return nil, err
 	}
 	taskID := generateTaskID()
-	s.store.create(taskID, normalized)
+	if err = s.store.create(ctx, taskID, normalized); err != nil {
+		return nil, err
+	}
 	err = s.queue.submit(ctx, &watermarkTask{
 		id:      taskID,
 		ctx:     ctx,
 		request: normalized,
 	})
 	if err != nil {
-		s.store.update(taskID, func(record *taskRecord) {
+		if updateErr := s.store.update(ctx, taskID, func(record *taskRecord) {
 			record.Status = TaskStatusFailed
 			record.Success = false
 			record.Message = "提交失败"
 			record.Error = err.Error()
-		})
+		}); updateErr != nil {
+			return nil, updateErr
+		}
 		return nil, err
 	}
 	return &SubmitSnapOutput{

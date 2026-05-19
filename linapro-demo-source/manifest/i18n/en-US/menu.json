@@ -1,0 +1,16 @@
+{
+  "menu": {
+    "plugin:linapro-demo-source:record-create": {
+      "title": "Create"
+    },
+    "plugin:linapro-demo-source:record-delete": {
+      "title": "Delete"
+    },
+    "plugin:linapro-demo-source:record-update": {
+      "title": "Update"
+    },
+    "plugin:linapro-demo-source:sidebar-entry": {
+      "title": "Source Plugin Demo"
+    }
+  }
+}

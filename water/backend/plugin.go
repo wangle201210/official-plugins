@@ -4,6 +4,8 @@ package backend
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	"lina-core/pkg/pluginhost"
 	waterplugin "lina-plugin-water"
 	watercontroller "lina-plugin-water/backend/internal/controller/water"
@@ -30,9 +32,20 @@ func init() {
 
 // registerRoutes binds water routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
+	hostServices := registrar.HostServices()
+	if hostServices == nil || hostServices.Cache() == nil {
+		return gerror.New("water routes require host cache service")
+	}
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
-	waterSvc := watersvc.New()
+	waterSvc, err := watersvc.New(hostServices.Cache())
+	if err != nil {
+		return err
+	}
+	controller, err := watercontroller.NewV1(waterSvc)
+	if err != nil {
+		return err
+	}
 	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
 		group.Middleware(
 			middlewares.NeverDoneCtx(),
@@ -47,7 +60,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 				middlewares.Tenancy(),
 				middlewares.Permission(),
 			)
-			group.Bind(watercontroller.NewV1(waterSvc))
+			group.Bind(controller)
 		})
 	})
 	return nil

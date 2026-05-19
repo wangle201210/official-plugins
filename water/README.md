@@ -14,3 +14,5 @@ water:
 ```
 
 `consumerCount` controls asynchronous watermark task consumers. Values below `1` fall back to `1`; values above `32` are capped at `32`.
+
+Asynchronous task status snapshots reuse the host `pluginhost.HostServices.Cache()` service and stay queryable for 12 hours. The plugin does not define a plugin-specific Redis configuration namespace or maintain a plugin-owned cache backend.

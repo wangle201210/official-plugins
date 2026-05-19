@@ -1,0 +1,20 @@
+{
+  "job": {
+    "handler": {
+      "plugin": {
+        "linapro-monitor-server": {
+          "cron": {
+            "service-monitor-cleanup": {
+              "description": "Cleans up expired server runtime metric snapshots for the linapro-monitor-server plugin.",
+              "name": "Server Monitor Cleanup"
+            },
+            "service-monitor-collector": {
+              "description": "Collects server runtime metrics for the linapro-monitor-server plugin.",
+              "name": "Server Monitor Collection"
+            }
+          }
+        }
+      }
+    }
+  }
+}
