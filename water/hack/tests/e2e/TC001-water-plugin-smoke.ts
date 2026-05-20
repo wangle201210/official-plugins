@@ -68,8 +68,8 @@ async function currentGlobalStrategyIds(api: Awaited<ReturnType<typeof createAdm
   return result.list.map((item) => item.id);
 }
 
-test.describe("TC-237 water source plugin", () => {
-  test("TC-237a: water APIs render watermark from media_* strategy tables", async ({
+test.describe("TC-1 water source plugin", () => {
+  test("TC-1a: water APIs render watermark from media_* strategy tables", async ({
     adminPage,
   }) => {
     await ensureSourcePluginEnabled(adminPage, "media");
@@ -154,7 +154,7 @@ test.describe("TC-237 water source plugin", () => {
     }
   });
 
-  test("TC-237b: water page opens without frontend exceptions", async ({
+  test("TC-1b: water page opens without frontend exceptions", async ({
     adminPage,
   }) => {
     await ensureSourcePluginEnabled(adminPage, "water");

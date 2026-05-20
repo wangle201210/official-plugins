@@ -51,7 +51,7 @@ function findCategoryID(categories: CategoryNode[], code: string): number {
   return 0;
 }
 
-test.describe("TC-231 CMS 插件管理", () => {
+test.describe("TC-1 CMS 插件管理", () => {
   let adminApi: APIRequestContext;
 
   test.beforeAll(async () => {
@@ -76,7 +76,7 @@ test.describe("TC-231 CMS 插件管理", () => {
     await refreshPluginProjection(adminPage);
   });
 
-  test("TC-231a: 旧版简体中文运行时缓存会被内容指纹 ETag 刷新", async ({
+  test("TC-1a: 旧版简体中文运行时缓存会被内容指纹 ETag 刷新", async ({
     adminPage,
   }) => {
     await adminPage.evaluate((cacheKey) => {
@@ -134,7 +134,7 @@ test.describe("TC-231 CMS 插件管理", () => {
       );
   });
 
-  test("TC-231b: CMS 页面可打开并完成栏目、内容和留言基础流程", async ({
+  test("TC-1b: CMS 页面可打开并完成栏目、内容和留言基础流程", async ({
     adminPage,
   }) => {
     test.setTimeout(120_000);
