@@ -115,7 +115,7 @@ var _ Service = (*serviceImpl)(nil)
 // serviceImpl implements Service.
 type serviceImpl struct {
 	bizCtxSvc contract.BizCtxService // bizCtxSvc reads current user and tenant metadata.
-	cacheSvc  routeMemoryCache       // cacheSvc stores HotGo-compatible route memory values.
+	cacheSvc  mediaCache             // cacheSvc stores plugin-scoped transient cache values.
 }
 
 // New creates and returns a new media service instance with host context.
@@ -129,8 +129,8 @@ func New(bizCtxSvc contract.BizCtxService, cacheSvc contract.CacheService) (Serv
 	return newWithRouteMemoryCache(bizCtxSvc, cacheSvc)
 }
 
-// newWithRouteMemoryCache creates a media service with an explicit route memory cache for tests.
-func newWithRouteMemoryCache(bizCtxSvc contract.BizCtxService, cacheSvc routeMemoryCache) (Service, error) {
+// newWithRouteMemoryCache creates a media service with an explicit host cache for tests.
+func newWithRouteMemoryCache(bizCtxSvc contract.BizCtxService, cacheSvc mediaCache) (Service, error) {
 	if bizCtxSvc == nil {
 		return nil, gerror.New("media service requires host bizctx service")
 	}

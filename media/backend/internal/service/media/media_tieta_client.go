@@ -4,6 +4,9 @@ package media
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -28,6 +31,9 @@ const (
 	tietaAuthorizationPrefix          = "Bearer "
 	tietaDefaultTimeout               = 3 * time.Second
 	tietaMockTenantID                 = "1"
+	tietaUserCacheNamespace           = "tieta-user"
+	tietaUserCacheKeyPrefix           = "token:"
+	tietaUserCacheTTL                 = time.Minute
 	tietaHTTPMethodGet                = "GET"
 	tietaHTTPMethodPost               = "POST"
 	tietaUserInfoSuccessCode          = 200
@@ -43,6 +49,75 @@ var (
 // media plugin boundary instead of extending host authentication contracts.
 func parseTietaToken(ctx context.Context, header string) (*TietaUser, error) {
 	return mediaTietaClient.UserInfoByToken(ctx, header)
+}
+
+// authenticateCachedTietaToken validates a Tieta token and caches successful
+// user-info responses for one minute through the host-published cache backend.
+func authenticateCachedTietaToken(ctx context.Context, cacheSvc mediaCache, token string) (*TietaUser, error) {
+	normalizedToken := normalizeTietaToken(token)
+	if normalizedToken == "" {
+		return nil, bizerr.NewCode(CodeMediaTietaTokenRequired)
+	}
+	if user, found := getCachedTietaUser(ctx, cacheSvc, normalizedToken); found {
+		return user, nil
+	}
+
+	user, err := parseTietaToken(ctx, normalizedToken)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil || user.Id <= 0 {
+		return nil, bizerr.NewCode(CodeMediaTietaTokenInvalid, bizerr.P("message", "用户信息为空"))
+	}
+	setCachedTietaUser(ctx, cacheSvc, normalizedToken, user)
+	return user, nil
+}
+
+// getCachedTietaUser reads one cached Tieta user snapshot. Cache failures are
+// intentionally non-fatal so an unavailable cache does not block authentication.
+func getCachedTietaUser(ctx context.Context, cacheSvc mediaCache, token string) (*TietaUser, bool) {
+	if cacheSvc == nil {
+		return nil, false
+	}
+	item, found, err := cacheSvc.Get(ctx, tietaUserCacheNamespace, tietaUserCacheKey(token))
+	if err != nil {
+		logger.Warningf(ctx, "读取铁塔用户缓存失败: %v", err)
+		return nil, false
+	}
+	if !found || item == nil || strings.TrimSpace(item.Value) == "" {
+		return nil, false
+	}
+	var user TietaUser
+	if err := json.Unmarshal([]byte(item.Value), &user); err != nil {
+		logger.Warningf(ctx, "解析铁塔用户缓存失败: %v", err)
+		return nil, false
+	}
+	if user.Id <= 0 {
+		return nil, false
+	}
+	return &user, true
+}
+
+// setCachedTietaUser stores one successful Tieta user-info response with a
+// short TTL. Cache write failures are logged and do not fail authentication.
+func setCachedTietaUser(ctx context.Context, cacheSvc mediaCache, token string, user *TietaUser) {
+	if cacheSvc == nil || user == nil || user.Id <= 0 {
+		return
+	}
+	payload, err := json.Marshal(user)
+	if err != nil {
+		logger.Warningf(ctx, "序列化铁塔用户缓存失败: %v", err)
+		return
+	}
+	if _, err = cacheSvc.Set(ctx, tietaUserCacheNamespace, tietaUserCacheKey(token), string(payload), tietaUserCacheTTL); err != nil {
+		logger.Warningf(ctx, "写入铁塔用户缓存失败: %v", err)
+	}
+}
+
+// tietaUserCacheKey builds a bounded cache key from the normalized token.
+func tietaUserCacheKey(token string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(token)))
+	return tietaUserCacheKeyPrefix + hex.EncodeToString(sum[:])
 }
 
 // tietaClient defines the Tieta operations used by media services.

@@ -5,6 +5,7 @@ package media
 import (
 	"context"
 	"testing"
+	"time"
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	"github.com/gogf/gf/v2/database/gdb"
@@ -64,6 +65,44 @@ func TestParseTietaTokenUsesMediaClient(t *testing.T) {
 	}
 	if len(client.tokens) != 1 || client.tokens[0] != "Bearer token-value" {
 		t.Fatalf("expected media-local parser to pass raw header once, got %#v", client.tokens)
+	}
+}
+
+// TestAuthenticateTietaTokenCachesUserInfo verifies repeated auth reuses the host cache.
+func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
+	ctx := context.Background()
+	cacheSvc := newMemoryRouteMemoryCache()
+	svc, err := newWithRouteMemoryCache(bizctx.New(nil), cacheSvc)
+	if err != nil {
+		t.Fatalf("create media service: %v", err)
+	}
+	client := &fakeTietaClient{user: &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"}}
+	restoreTietaClient := replaceMediaTietaClient(t, client)
+	defer restoreTietaClient()
+
+	first, err := svc.AuthenticateTietaToken(ctx, "Bearer token-value")
+	if err != nil {
+		t.Fatalf("authenticate first token: %v", err)
+	}
+	second, err := svc.AuthenticateTietaToken(ctx, "token-value")
+	if err != nil {
+		t.Fatalf("authenticate cached token: %v", err)
+	}
+
+	if first == nil || second == nil || first.Id != second.Id || second.Username != "wj530" {
+		t.Fatalf("expected cached Tieta user to match first result, first=%+v second=%+v", first, second)
+	}
+	if len(client.tokens) != 1 || client.tokens[0] != "token-value" {
+		t.Fatalf("expected upstream Tieta user-info once with normalized token, got %#v", client.tokens)
+	}
+	if cacheSvc.lastNamespace != tietaUserCacheNamespace {
+		t.Fatalf("expected Tieta user cache namespace, got %q", cacheSvc.lastNamespace)
+	}
+	if cacheSvc.lastKey != tietaUserCacheKey("token-value") {
+		t.Fatalf("expected hashed Tieta user cache key, got %q", cacheSvc.lastKey)
+	}
+	if cacheSvc.lastTTL != time.Minute {
+		t.Fatalf("expected one-minute Tieta user cache TTL, got %s", cacheSvc.lastTTL)
 	}
 }
 

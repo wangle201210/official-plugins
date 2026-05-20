@@ -49,3 +49,19 @@ func (s *memoryRouteMemoryCache) Delete(_ context.Context, namespace string, key
 	delete(s.items, namespace+"\x00"+key)
 	return nil
 }
+
+// Incr is implemented to satisfy the host cache contract in media service tests.
+func (s *memoryRouteMemoryCache) Incr(_ context.Context, namespace string, key string, delta int64, ttl time.Duration) (*contract.CacheItem, error) {
+	s.lastNamespace = namespace
+	s.lastKey = key
+	s.lastTTL = ttl
+	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindInt, IntValue: delta}, nil
+}
+
+// Expire is implemented to satisfy the host cache contract in media service tests.
+func (s *memoryRouteMemoryCache) Expire(_ context.Context, namespace string, key string, ttl time.Duration) (bool, *time.Time, error) {
+	s.lastNamespace = namespace
+	s.lastKey = key
+	s.lastTTL = ttl
+	return true, nil, nil
+}

@@ -373,14 +373,7 @@ func (s *serviceImpl) ResolveStrategy(ctx context.Context, in ResolveStrategyInp
 
 // AuthenticateTietaToken validates one Tieta token and returns the Tieta user identity.
 func (s *serviceImpl) AuthenticateTietaToken(ctx context.Context, token string) (*TietaUser, error) {
-	user, err := parseTietaToken(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-	if user == nil || user.Id <= 0 {
-		return nil, bizerr.NewCode(CodeMediaTietaTokenInvalid, bizerr.P("message", "用户信息为空"))
-	}
-	return user, nil
+	return authenticateCachedTietaToken(ctx, s.cacheSvc, token)
 }
 
 // ResolveStrategyByToken validates a Tieta token and resolves the effective strategy for its tenant/device pair.

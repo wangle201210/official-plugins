@@ -21,14 +21,9 @@ const (
 	routeMemoryTTL       = 12 * time.Hour
 )
 
-// routeMemoryCache defines the host cache operations used by media route memory.
-type routeMemoryCache interface {
-	// Get returns one cached route memory item.
-	Get(ctx context.Context, namespace string, key string) (*contract.CacheItem, bool, error)
-	// Set stores one route memory value with a finite TTL.
-	Set(ctx context.Context, namespace string, key string, value string, ttl time.Duration) (*contract.CacheItem, error)
-	// Delete removes one route memory value.
-	Delete(ctx context.Context, namespace string, key string) error
+// mediaCache defines the host cache operations used by transient media data.
+type mediaCache interface {
+	contract.CacheService
 }
 
 // RouteMemoryKeyInput defines one route-memory device/channel key.
@@ -117,7 +112,7 @@ func (s *serviceImpl) routeMemoryCacheKey(in RouteMemoryKeyInput) (string, error
 }
 
 // hostRouteMemoryCache returns the host-published cache adapter.
-func (s *serviceImpl) hostRouteMemoryCache() (routeMemoryCache, error) {
+func (s *serviceImpl) hostRouteMemoryCache() (mediaCache, error) {
 	if s == nil || s.cacheSvc == nil {
 		return nil, gerror.New("media route memory cache service is unavailable")
 	}
