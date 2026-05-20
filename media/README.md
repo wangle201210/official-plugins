@@ -12,7 +12,7 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 - Stream alias CRUD
 - Node, device-node, and tenant stream config CRUD
 - Tenant whitelist CRUD
-- HotGo-compatible strategy authorization APIs: `POST /api/v1/media/strategy-authorizations` and `POST /api/v1/strategy/userDeviceStrategyByToken`
+- HotGo-compatible strategy authorization API: `POST /api/v1/strategy/userDeviceStrategyByToken`
 - HotGo-compatible route memory APIs: `POST /api/v1/route/set`, `POST /api/v1/route/get`, and `POST /api/v1/route/del`
 
 ## Configuration

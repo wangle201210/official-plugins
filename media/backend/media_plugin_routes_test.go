@@ -171,6 +171,56 @@ func TestMediaOpenRoutesUseInnerAPIAuth(t *testing.T) {
 	}
 }
 
+// TestMediaOpenRoutesExposeOnlyHotGoTokenStrategyEndpoint verifies obsolete token strategy routes stay unpublished.
+func TestMediaOpenRoutesExposeOnlyHotGoTokenStrategyEndpoint(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	removedResponse := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/media/strategy-authorizations",
+		`{"token":"token-value","deviceId":"34020000001320000001"}`,
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if removedResponse.status != http.StatusNotFound {
+		t.Fatalf("expected obsolete media strategy authorization route to be unpublished, got status=%d body=%s", removedResponse.status, removedResponse.body)
+	}
+
+	compatResponse := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/strategy/userDeviceStrategyByToken",
+		`{}`,
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if compatResponse.status == http.StatusNotFound {
+		t.Fatalf("expected HotGo-compatible token strategy route to remain published, got body=%s", compatResponse.body)
+	}
+	if compatResponse.status == http.StatusUnauthorized || compatResponse.status == http.StatusForbidden {
+		t.Fatalf("expected HotGo-compatible token strategy route to pass inner API auth, got status=%d body=%s", compatResponse.status, compatResponse.body)
+	}
+	if authCalls.Load() != 0 {
+		t.Fatalf("expected mediaopen strategy routes to avoid host Auth, got %d calls", authCalls.Load())
+	}
+}
+
 // TestMediaOpenRoutesRejectMissingInnerAPIKey verifies configured inner API auth rejects missing keys.
 func TestMediaOpenRoutesRejectMissingInnerAPIKey(t *testing.T) {
 	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
