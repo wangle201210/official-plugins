@@ -5,14 +5,14 @@ go 1.25.0
 require (
 	lina-plugin-cms v0.0.0
 	lina-plugin-linapro-content-notice v0.0.0
-	lina-plugin-linapro-ops-demo-guard v0.0.0
 	lina-plugin-linapro-demo-source v0.0.0
 	lina-plugin-linapro-monitor-loginlog v0.0.0
 	lina-plugin-linapro-monitor-online v0.0.0
 	lina-plugin-linapro-monitor-operlog v0.0.0
 	lina-plugin-linapro-monitor-server v0.0.0
-	lina-plugin-linapro-tenant-core v0.0.0
+	lina-plugin-linapro-ops-demo-guard v0.0.0
 	lina-plugin-linapro-org-core v0.0.0
+	lina-plugin-linapro-tenant-core v0.0.0
 	lina-plugin-media v0.0.0
 	lina-plugin-water v0.0.0
 )

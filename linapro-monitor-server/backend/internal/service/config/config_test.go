@@ -18,7 +18,7 @@ import (
 func TestLoadUsesDefaultsWhenUnset(t *testing.T) {
 	setTestConfigAdapter(t, `
 server:
-  address: ":8080"
+  address: ":9120"
 `)
 
 	cfg, err := Load(context.Background(), configsvc.New())

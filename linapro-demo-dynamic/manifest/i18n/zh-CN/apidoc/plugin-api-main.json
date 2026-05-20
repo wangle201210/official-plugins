@@ -6,12 +6,12 @@
           "v1": {
             "BackendSummaryReq": {
               "meta": {
-                "dc": "当请求通过宿主前缀 /api/v1/extensions/{pluginId}/... 分发时，返回 linapro-demo-dynamic 当前桥接执行摘要，包括插件 ID、路由信息和当前用户上下文。",
+                "dc": "当请求通过宿主前缀 /x/{pluginId}/... 分发时，返回 linapro-demo-dynamic 当前桥接执行摘要，包括插件 ID、路由信息和当前用户上下文。",
                 "summary": "查询动态插件后端执行摘要",
                 "tags": "动态插件示例"
               },
               "schema": {
-                "dc": "当请求通过宿主前缀 /api/v1/extensions/{pluginId}/... 分发时，返回 linapro-demo-dynamic 当前桥接执行摘要，包括插件 ID、路由信息和当前用户上下文。"
+                "dc": "当请求通过宿主前缀 /x/{pluginId}/... 分发时，返回 linapro-demo-dynamic 当前桥接执行摘要，包括插件 ID、路由信息和当前用户上下文。"
               }
             },
             "BackendSummaryRes": {
@@ -358,7 +358,7 @@
         "get": {
           "backend_summary": {
             "meta": {
-              "dc": "当请求通过宿主前缀 /api/v1/extensions/{pluginId}/... 分发时，返回 linapro-demo-dynamic 当前桥接执行摘要，包括插件 ID、路由信息和当前用户上下文。",
+              "dc": "当请求通过宿主前缀 /x/{pluginId}/... 分发时，返回 linapro-demo-dynamic 当前桥接执行摘要，包括插件 ID、路由信息和当前用户上下文。",
               "summary": "查询动态插件后端执行摘要",
               "tags": "动态插件示例"
             },

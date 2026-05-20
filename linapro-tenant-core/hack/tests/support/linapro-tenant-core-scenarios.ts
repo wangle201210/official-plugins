@@ -975,7 +975,7 @@ export async function scenarioTC0186() {
         isImpersonated: boolean;
       }>(
         await api.post(`platform/tenants/${tenant.id}/impersonate`, {
-          data: { reason: "TC0186" },
+          data: { reason: "TC001" },
         }),
       );
       expect(out.token).toBeTruthy();
@@ -1461,7 +1461,7 @@ export async function scenarioTC0204() {
         isImpersonated: boolean;
       }>(
         await api.post(`platform/tenants/${tenant.id}/impersonate`, {
-          data: { reason: "TC0204 override" },
+          data: { reason: "TC007 override" },
         }),
       );
       expect(out.tenantId).toBe(tenant.id);
@@ -2156,7 +2156,7 @@ export async function scenarioTC0215() {
     await withTenant(api, suffix, "tc215", async (tenant) => {
       await expectSuccess(
         await api.post(`platform/tenants/${tenant.id}/impersonate`, {
-          data: { reason: "TC0215" },
+          data: { reason: "TC003" },
         }),
       );
       expect(
