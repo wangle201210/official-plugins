@@ -51,6 +51,12 @@ var (
 	CodeMediaBindingDeleteFailed = bizerr.MustDefine("MEDIA_BINDING_DELETE_FAILED", "删除媒体策略绑定失败", gcode.CodeInternalError)
 	// CodeMediaAuthFailed reports that both LinaPro and Tieta authentication failed for a media route.
 	CodeMediaAuthFailed = bizerr.MustDefine("MEDIA_AUTH_FAILED", "媒体接口鉴权失败：{message}", gcode.CodeNotAuthorized)
+	// CodeMediaInnerAPIKeyRequired reports that a mediaopen request omitted its inner API key.
+	CodeMediaInnerAPIKeyRequired = bizerr.MustDefine("MEDIA_INNER_API_KEY_REQUIRED", "缺少API密钥", gcode.CodeNotAuthorized)
+	// CodeMediaInnerAPIKeyInvalid reports that a mediaopen request provided a wrong inner API key.
+	CodeMediaInnerAPIKeyInvalid = bizerr.MustDefine("MEDIA_INNER_API_KEY_INVALID", "API密钥无效", gcode.CodeNotAuthorized)
+	// CodeMediaInnerAPIKeyConfigFailed reports that mediaopen inner API key configuration could not be read.
+	CodeMediaInnerAPIKeyConfigFailed = bizerr.MustDefine("MEDIA_INNER_API_KEY_CONFIG_FAILED", "读取内部接口API密钥配置失败", gcode.CodeInternalError)
 	// CodeMediaTietaTokenRequired reports that token-based media authorization is missing a Tieta token.
 	CodeMediaTietaTokenRequired = bizerr.MustDefine("MEDIA_TIETA_TOKEN_REQUIRED", "铁塔 token 不能为空", gcode.CodeNotAuthorized)
 	// CodeMediaTietaTokenInvalid reports that Tieta rejected the provided token.

@@ -31,7 +31,8 @@ func init() {
 	pluginhost.RegisterSourcePlugin(plugin)
 }
 
-// registerRoutes binds media routes through the media-scoped dual-auth chain.
+// registerRoutes binds mediaopen routes through InnerApiAuth and management
+// routes through the media-scoped LinaPro/Tieta dual-auth chain.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	hostServices := registrar.HostServices()
 	if hostServices == nil || hostServices.BizCtx() == nil {
@@ -40,6 +41,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	cacheSvc := hostServices.Cache()
 	if cacheSvc == nil {
 		return gerror.New("media routes require host cache service")
+	}
+	configSvc := hostServices.Config()
+	if configSvc == nil {
+		return gerror.New("media routes require host config service")
 	}
 	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(hostServices.BizCtx()), cacheSvc)
 	if err != nil {
@@ -56,19 +61,30 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
+		mediaRegisterCommonMiddlewares(group, middlewares)
+		group.Middleware(mediaInnerAPIAuthMiddleware(configSvc))
+		group.Bind(publicController)
+	})
+	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
+		mediaRegisterCommonMiddlewares(group, middlewares)
 		group.Middleware(
-			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
-			middlewares.CORS(),
-			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
 			mediaDualAuthMiddleware(middlewares.Auth(), mediaSvc),
 			mediaSkipWhenTietaAuthenticated(middlewares.Tenancy()),
 			mediaSkipWhenTietaAuthenticated(middlewares.Permission()),
 			mediaSkipWhenTietaAuthenticated(mediaMarkHostGatePassed),
 		)
-		group.Bind(publicController)
 		group.Bind(protectedController)
 	})
 	return nil
+}
+
+// mediaRegisterCommonMiddlewares installs host-published request middleware shared by media routes.
+func mediaRegisterCommonMiddlewares(group pluginhost.RouteGroup, middlewares pluginhost.RouteMiddlewares) {
+	group.Middleware(
+		middlewares.NeverDoneCtx(),
+		middlewares.HandlerResponse(),
+		middlewares.CORS(),
+		middlewares.RequestBodyLimit(),
+		middlewares.Ctx(),
+	)
 }

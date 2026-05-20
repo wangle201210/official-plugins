@@ -6,6 +6,7 @@ package backend
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 	"strings"
 
@@ -23,6 +24,9 @@ const (
 	mediaBearerPrefix        = "Bearer "
 	mediaTokenField          = "token"
 	mediaAuthMessageFailed   = "LinaPro 与 Tieta 鉴权均未通过"
+	mediaInnerAPIKeyHeader   = "X-Inner-Api-Key"
+	mediaInnerAPIKeyConfig   = "innerapi.apiKey"
+	mediaInnerAPIKeyDefault  = "media"
 )
 
 // mediaAuthContextKey isolates media authentication state from host context keys.
@@ -99,6 +103,51 @@ func mediaDualAuthMiddleware(
 		}
 		r.Middleware.Next()
 	}
+}
+
+// mediaInnerAPIAuthMiddleware applies the HotGo-compatible inner API key gate
+// used by mediaopen routes. It intentionally lives in the media plugin instead
+// of extending core authentication contracts.
+func mediaInnerAPIAuthMiddleware(configSvc contract.ConfigService) pluginhost.RouteMiddleware {
+	return func(r *ghttp.Request) {
+		if r == nil {
+			return
+		}
+		expectedAPIKey, err := mediaExpectedInnerAPIKey(r.Context(), configSvc)
+		if err != nil {
+			mediaWriteInnerAPIAuthFailure(r, err, http.StatusInternalServerError)
+			return
+		}
+		if expectedAPIKey == "" {
+			r.Middleware.Next()
+			return
+		}
+		apiKey := strings.TrimSpace(r.Header.Get(mediaInnerAPIKeyHeader))
+		if apiKey == "" {
+			mediaWriteInnerAPIAuthFailure(r, bizerr.NewCode(mediasvc.CodeMediaInnerAPIKeyRequired), http.StatusUnauthorized)
+			return
+		}
+		if subtle.ConstantTimeCompare([]byte(apiKey), []byte(expectedAPIKey)) != 1 {
+			mediaWriteInnerAPIAuthFailure(r, bizerr.NewCode(mediasvc.CodeMediaInnerAPIKeyInvalid), http.StatusUnauthorized)
+			return
+		}
+		r.Middleware.Next()
+	}
+}
+
+// mediaExpectedInnerAPIKey reads the HotGo-compatible inner API key setting from host configuration.
+func mediaExpectedInnerAPIKey(ctx context.Context, configSvc contract.ConfigService) (string, error) {
+	if configSvc == nil {
+		return mediaInnerAPIKeyDefault, nil
+	}
+	value, err := configSvc.Get(ctx, mediaInnerAPIKeyConfig)
+	if err != nil {
+		return "", bizerr.WrapCode(err, mediasvc.CodeMediaInnerAPIKeyConfigFailed)
+	}
+	if value == nil || value.IsNil() {
+		return mediaInnerAPIKeyDefault, nil
+	}
+	return strings.TrimSpace(value.String()), nil
 }
 
 // mediaSkipWhenTietaAuthenticated bypasses one host middleware after Tieta fallback succeeds.
@@ -247,6 +296,15 @@ func mediaWriteAuthFailure(r *ghttp.Request, cause error) {
 	}
 	r.SetError(err)
 	r.Response.Status = http.StatusUnauthorized
+}
+
+// mediaWriteInnerAPIAuthFailure binds a structured authentication error for mediaopen routes.
+func mediaWriteInnerAPIAuthFailure(r *ghttp.Request, err error, status int) {
+	if r == nil {
+		return
+	}
+	r.SetError(err)
+	r.Response.Status = status
 }
 
 // mediaContextBool reads one plugin-local boolean context marker.

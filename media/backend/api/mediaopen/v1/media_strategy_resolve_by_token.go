@@ -6,10 +6,11 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ResolveStrategyByTokenReq defines the public request for resolving one media strategy through Tieta token authentication.
 type ResolveStrategyByTokenReq struct {
-	g.Meta   `path:"/media/strategy-authorizations" method:"post" tags:"媒体鉴权" summary:"通过铁塔 token 解析媒体策略" dc:"使用铁塔 token 换取租户身份，并校验租户对设备的访问权限后解析生效媒体策略。"`
-	Token    string `json:"token" dc:"铁塔用户Token；为空时读取 Authorization 请求头" eg:"Bearer token-value"`
-	TenantId string `json:"tenantId" dc:"可选租户ID；传入时必须与铁塔 token 返回租户一致" eg:"tenant-a"`
-	DeviceId string `json:"deviceId" v:"required#设备国标ID不能为空" dc:"设备国标ID" eg:"34020000001320000001"`
+	g.Meta      `path:"/media/strategy-authorizations" method:"post" tags:"媒体鉴权" summary:"通过铁塔 token 解析媒体策略" dc:"使用铁塔 token 换取租户身份，并校验租户对设备的访问权限后解析生效媒体策略。"`
+	InnerApiKey string `json:"X-Inner-Api-Key" in:"header" dc:"内部接口API Key；默认值media；显式配置innerapi.apiKey为空时可不传" eg:"media"`
+	Token       string `json:"token" dc:"铁塔用户Token；为空时读取 Authorization 请求头" eg:"Bearer token-value"`
+	TenantId    string `json:"tenantId" dc:"可选租户ID；传入时必须与铁塔 token 返回租户一致" eg:"tenant-a"`
+	DeviceId    string `json:"deviceId" v:"required#设备国标ID不能为空" dc:"设备国标ID" eg:"34020000001320000001"`
 }
 
 // ResolveStrategyByTokenRes defines the public response for one Tieta-authenticated strategy resolution.

@@ -12,9 +12,12 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 - Stream alias CRUD
 - Node, device-node, and tenant stream config CRUD
 - Tenant whitelist CRUD
+- HotGo-compatible strategy authorization APIs: `POST /api/v1/media/strategy-authorizations` and `POST /api/v1/strategy/userDeviceStrategyByToken`
 - HotGo-compatible route memory APIs: `POST /api/v1/route/set`, `POST /api/v1/route/get`, and `POST /api/v1/route/del`
 
 ## Configuration
+
+Mediaopen and HotGo-compatible APIs use a HotGo-style inner API key gate. Requests must send `X-Inner-Api-Key`, and the plugin compares it with `innerapi.apiKey`. When `innerapi.apiKey` is absent, the HotGo-compatible default is `media`; when it is explicitly blank, the key check is disabled for compatibility.
 
 Route memory reuses the host `pluginhost.HostServices.Cache()` service and keeps entries for 12 hours with HotGo-compatible logical keys in the form `route_data:<deviceCode>:<channelCode>`.
 

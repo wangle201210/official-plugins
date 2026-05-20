@@ -18,6 +18,7 @@ import (
 
 	"lina-core/pkg/pluginhost"
 	"lina-core/pkg/pluginservice/bizctx"
+	pluginconfig "lina-core/pkg/pluginservice/config"
 	"lina-core/pkg/pluginservice/contract"
 )
 
@@ -26,6 +27,7 @@ type mediaRouteHostServices struct {
 	pluginhost.HostServices
 	bizCtx contract.BizCtxService
 	cache  contract.CacheService
+	config contract.ConfigService
 }
 
 // BizCtx returns the test host business-context adapter.
@@ -36,6 +38,11 @@ func (s *mediaRouteHostServices) BizCtx() contract.BizCtxService {
 // Cache returns the test host cache adapter.
 func (s *mediaRouteHostServices) Cache() contract.CacheService {
 	return s.cache
+}
+
+// Config returns the test host configuration adapter.
+func (s *mediaRouteHostServices) Config() contract.ConfigService {
+	return s.config
 }
 
 // mediaRouteCache stores route-memory values for route boundary tests.
@@ -115,8 +122,199 @@ type mediaRouteHTTPResponse struct {
 	body   string
 }
 
-// TestMediaPluginRoutesPreferHostAuth verifies media routes try the LinaPro host chain first.
-func TestMediaPluginRoutesPreferHostAuth(t *testing.T) {
+// TestMediaOpenRoutesUseInnerAPIAuth verifies mediaopen routes use the HotGo-compatible inner API key gate.
+func TestMediaOpenRoutesUseInnerAPIAuth(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	var (
+		authCalls       atomic.Int32
+		tenancyCalls    atomic.Int32
+		permissionCalls atomic.Int32
+	)
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		func(r *ghttp.Request) {
+			tenancyCalls.Add(1)
+		},
+		func(r *ghttp.Request) {
+			permissionCalls.Add(1)
+		},
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/route/get",
+		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected inner-api-authenticated mediaopen route to pass, got status=%d body=%s", response.status, response.body)
+	}
+	if authCalls.Load() != 0 || tenancyCalls.Load() != 0 || permissionCalls.Load() != 0 {
+		t.Fatalf(
+			"expected mediaopen route to skip host chain, got auth=%d tenancy=%d permission=%d",
+			authCalls.Load(),
+			tenancyCalls.Load(),
+			permissionCalls.Load(),
+		)
+	}
+}
+
+// TestMediaOpenRoutesRejectMissingInnerAPIKey verifies configured inner API auth rejects missing keys.
+func TestMediaOpenRoutesRejectMissingInnerAPIKey(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/route/get",
+		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+	)
+	if response.status != http.StatusUnauthorized {
+		t.Fatalf("expected missing inner API key to fail, got status=%d body=%s", response.status, response.body)
+	}
+	if authCalls.Load() != 0 {
+		t.Fatalf("expected mediaopen route to avoid host Auth on inner API failure, got %d calls", authCalls.Load())
+	}
+}
+
+// TestMediaOpenRoutesRejectInvalidInnerAPIKey verifies configured inner API auth rejects wrong keys.
+func TestMediaOpenRoutesRejectInvalidInnerAPIKey(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/route/get",
+		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		map[string]string{mediaInnerAPIKeyHeader: "wrong"},
+	)
+	if response.status != http.StatusUnauthorized {
+		t.Fatalf("expected invalid inner API key to fail, got status=%d body=%s", response.status, response.body)
+	}
+	if authCalls.Load() != 0 {
+		t.Fatalf("expected mediaopen route to avoid host Auth on inner API failure, got %d calls", authCalls.Load())
+	}
+}
+
+// TestMediaOpenRoutesUseDefaultInnerAPIKey mirrors HotGo's default inner API key behavior.
+func TestMediaOpenRoutesUseDefaultInnerAPIKey(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true})
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/route/get",
+		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		map[string]string{mediaInnerAPIKeyHeader: mediaInnerAPIKeyDefault},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected default inner API key to pass, got status=%d body=%s", response.status, response.body)
+	}
+	if authCalls.Load() != 0 {
+		t.Fatalf("expected mediaopen route to avoid host Auth when default inner API key is used, got %d calls", authCalls.Load())
+	}
+}
+
+// TestMediaOpenRoutesAllowWhenInnerAPIKeyExplicitlyBlank preserves HotGo compatibility for disabled key checks.
+func TestMediaOpenRoutesAllowWhenInnerAPIKeyExplicitlyBlank(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, includeInnerAPIKey: true})
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/route/get",
+		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected explicitly blank inner API key to preserve compatibility, got status=%d body=%s", response.status, response.body)
+	}
+	if authCalls.Load() != 0 {
+		t.Fatalf("expected mediaopen route to avoid host Auth when inner API key check is disabled, got %d calls", authCalls.Load())
+	}
+}
+
+// TestMediaManagementRoutesPreferHostAuth verifies management routes try the LinaPro host chain first.
+func TestMediaManagementRoutesPreferHostAuth(t *testing.T) {
 	setMediaRouteTietaMock(t, true)
 
 	var (
@@ -149,12 +347,12 @@ func TestMediaPluginRoutesPreferHostAuth(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/media/strategies?pageNum=1&pageSize=1",
+		"",
 	)
-	if response.status != http.StatusOK {
-		t.Fatalf("expected host-authenticated media route to pass, got status=%d body=%s", response.status, response.body)
+	if response.status == http.StatusUnauthorized || response.status == http.StatusForbidden {
+		t.Fatalf("expected host-authenticated media management route to reach handler, got status=%d body=%s", response.status, response.body)
 	}
 	if authCalls.Load() != 1 || tenancyCalls.Load() != 1 || permissionCalls.Load() != 1 {
 		t.Fatalf(
@@ -243,12 +441,12 @@ func TestMediaPluginRoutesFallbackToTietaAfterHostPermissionFailure(t *testing.T
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/media/strategies?pageNum=1&pageSize=1",
+		"",
 		map[string]string{"Authorization": "Bearer fallback-token"},
 	)
-	if response.status != http.StatusOK {
+	if response.status == http.StatusUnauthorized || response.status == http.StatusForbidden {
 		t.Fatalf("expected Tieta fallback after permission failure, got status=%d body=%s", response.status, response.body)
 	}
 	if authCalls.Load() != 1 || tenancyCalls.Load() != 1 || permissionCalls.Load() != 1 {
@@ -286,9 +484,9 @@ func TestMediaPluginRoutesRejectWhenBothAuthPathsFail(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/media/strategies?pageNum=1&pageSize=1",
+		"",
 	)
 	if response.status != http.StatusUnauthorized {
 		t.Fatalf("expected media route auth failure, got status=%d body=%s", response.status, response.body)
@@ -298,8 +496,21 @@ func TestMediaPluginRoutesRejectWhenBothAuthPathsFail(t *testing.T) {
 	}
 }
 
+// mediaRouteTestConfig controls the request-time configuration used by route tests.
+type mediaRouteTestConfig struct {
+	tietaMock          bool
+	innerAPIKey        string
+	includeInnerAPIKey bool
+}
+
 // setMediaRouteTietaMock installs a test config adapter with deterministic Tieta mock mode.
 func setMediaRouteTietaMock(t *testing.T, enabled bool) {
+	t.Helper()
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: enabled})
+}
+
+// setMediaRouteConfig installs a test config adapter with media route options.
+func setMediaRouteConfig(t *testing.T, config mediaRouteTestConfig) {
 	t.Helper()
 
 	content := fmt.Sprintf(`
@@ -307,7 +518,13 @@ tieta:
   mock: %t
   baseUrl: "http://tieta.invalid"
   timeout: "3s"
-`, enabled)
+`, config.tietaMock)
+	if config.includeInnerAPIKey {
+		content += fmt.Sprintf(`
+innerapi:
+  apiKey: %q
+`, config.innerAPIKey)
+	}
 	adapter, err := gcfg.NewAdapterContent(content)
 	if err != nil {
 		t.Fatalf("create config adapter: %v", err)
@@ -335,6 +552,7 @@ func startMediaRouteTestServer(t *testing.T, middlewares pluginhost.RouteMiddlew
 	hostServices := &mediaRouteHostServices{
 		bizCtx: bizctx.New(nil),
 		cache:  newMediaRouteCache(),
+		config: pluginconfig.New(),
 	}
 	server.Group("/", func(group *ghttp.RouterGroup) {
 		registrar := pluginhost.NewHTTPRegistrar(

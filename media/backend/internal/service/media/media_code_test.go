@@ -71,6 +71,24 @@ func TestMediaBusinessErrorMetadata(t *testing.T) {
 			messageKey:  "error.media.tieta.tenant.mismatch",
 		},
 		{
+			name:        "inner api key required",
+			code:        CodeMediaInnerAPIKeyRequired,
+			runtimeCode: "MEDIA_INNER_API_KEY_REQUIRED",
+			messageKey:  "error.media.inner.api.key.required",
+		},
+		{
+			name:        "inner api key invalid",
+			code:        CodeMediaInnerAPIKeyInvalid,
+			runtimeCode: "MEDIA_INNER_API_KEY_INVALID",
+			messageKey:  "error.media.inner.api.key.invalid",
+		},
+		{
+			name:        "inner api key config failed",
+			code:        CodeMediaInnerAPIKeyConfigFailed,
+			runtimeCode: "MEDIA_INNER_API_KEY_CONFIG_FAILED",
+			messageKey:  "error.media.inner.api.key.config.failed",
+		},
+		{
 			name:        "tieta device permission denied",
 			code:        CodeMediaTietaDevicePermissionDenied,
 			runtimeCode: "MEDIA_TIETA_DEVICE_PERMISSION_DENIED",
