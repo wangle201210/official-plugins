@@ -14,6 +14,28 @@ public HTML rendering APIs.
 - Vben management page embedded through the plugin runtime
 - Plugin-owned E2E tests under `hack/tests`
 
+## Root Domain OpenResty Proxy
+
+The public CMS site is served by LinaPro under `/cms-site`. To publish it at a
+dedicated domain root, such as `https://cms.example.com/`, configure OpenResty
+to proxy the domain root to the backend `/cms-site` path and rewrite generated
+`/cms-site` links back to `/`.
+
+A 1Panel/OpenResty reference server block is provided at
+`deploy/openresty/cms-site-root-domain.conf`. Copy it into the 1Panel OpenResty
+`conf.d` directory, replace `cms.example.com` with the real domain, and update
+`127.0.0.1:9120` if LinaPro is exposed on a different host or port. Validate and
+reload OpenResty after changing the file:
+
+```bash
+openresty -t
+openresty -s reload
+```
+
+The reference config keeps `/cms-site` working as a redirect to `/`, proxies
+`/assets/*` and page routes back to `/cms-site/*`, and uses `sub_filter` so
+templates that render `/cms-site/...` links work correctly at the root domain.
+
 ## Public Templates
 
 Public templates live in `public/templates`. They use CMS-owned template tags
