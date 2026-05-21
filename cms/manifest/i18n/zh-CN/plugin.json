@@ -3,6 +3,7 @@
     "cms": {
       "actions": {
         "approve": "通过",
+        "clearData": "清空数据",
         "newArticle": "新建内容",
         "newCategory": "新建栏目",
         "query": "查询",
@@ -11,8 +12,11 @@
         "reset": "重置",
         "review": "处理",
         "save": "保存",
+        "clearDataConfirm": "确认清空",
         "newLink": "新建友情链接",
-        "newSlide": "新建轮播图"
+        "newSlide": "新建轮播图",
+        "loadSampleData": "加载示例数据",
+        "loadSampleDataConfirm": "确认加载示例"
       },
       "description": "提供站点配置、栏目、内容、留言和公开内容接口的官方源码 CMS 插件",
       "dialogs": {
@@ -94,7 +98,8 @@
         "linkUrl": "链接地址",
         "slideImage": "轮播图片",
         "slideLink": "跳转链接",
-        "slideTitle": "轮播标题"
+        "slideTitle": "轮播标题",
+        "showMessages": "留言是否展示"
       },
       "metrics": {
         "articleGlyph": "文",
@@ -112,7 +117,11 @@
         "publishedGlyph": "发"
       },
       "messages": {
-        "moderateConfirm": "确认更新该留言的审核状态？"
+        "clearDataConfirm": "确认清空 CMS 的栏目、文章、轮播图、友情链接和留言？该操作不可恢复，站点资料将重置为空白默认值。",
+        "clearDataSuccess": "CMS 数据已清空",
+        "moderateConfirm": "确认更新该留言的审核状态？",
+        "loadSampleDataConfirm": "确认清空当前 CMS 数据并重新加载插件内置示例站点？该操作不可恢复。",
+        "loadSampleDataSuccess": "CMS 示例数据已加载"
       },
       "name": "内容管理-CMS",
       "overview": {

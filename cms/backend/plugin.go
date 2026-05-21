@@ -87,6 +87,7 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 				controller.PublicLinkList,
 				controller.PublicSlideList,
 				controller.PublicMessageCreate,
+				controller.PublicMessageList,
 			)
 		})
 		group.Group("/", func(group pluginhost.RouteGroup) {
@@ -98,6 +99,8 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 			group.Bind(
 				controller.SiteGet,
 				controller.SiteUpdate,
+				controller.SiteClearData,
+				controller.SiteLoadSampleData,
 				controller.CategoryList,
 				controller.CategoryCreate,
 				controller.CategoryUpdate,

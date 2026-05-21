@@ -50,6 +50,13 @@
         "not": {
           "found": "CMS 輪播圖不存在"
         }
+      },
+      "sample": {
+        "data": {
+          "load": {
+            "failed": "CMS 示例資料載入失敗"
+          }
+        }
       }
     }
   }

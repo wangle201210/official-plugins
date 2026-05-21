@@ -11,6 +11,8 @@ import type { Article, Category, Link, Message, Site, Slide } from "./cms-client
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import { Page } from "@vben/common-ui";
+import { $te } from "@vben/locales";
+import { preferences } from "@vben/preferences";
 
 import {
   Button as AButton,
@@ -24,6 +26,7 @@ import {
   Popconfirm,
   Select as ASelect,
   Space,
+  Switch as ASwitch,
   TabPane as ATabPane,
   Table as ATable,
   Tabs as ATabs,
@@ -56,6 +59,8 @@ import {
   cmsMessageList,
   cmsMessageUpdate,
   cmsSite,
+  cmsSiteClearData,
+  cmsSiteLoadSampleData,
   cmsSiteUpdate,
   cmsSlideCreate,
   cmsSlideDelete,
@@ -72,6 +77,59 @@ type SelectNumberOption = {
 const dictStore = useDictStore();
 const activeTab = ref("site");
 const dashboardLoading = ref(false);
+const siteClearing = ref(false);
+const sampleLoading = ref(false);
+
+type CmsFallbackKey =
+  | "plugin.cms.actions.clearData"
+  | "plugin.cms.actions.loadSampleData"
+  | "plugin.cms.messages.clearDataConfirm"
+  | "plugin.cms.messages.clearDataSuccess"
+  | "plugin.cms.messages.loadSampleDataConfirm"
+  | "plugin.cms.messages.loadSampleDataSuccess";
+
+const cmsFallbackMessages: Record<string, Record<CmsFallbackKey, string>> = {
+  "en-US": {
+    "plugin.cms.actions.clearData": "Clear Data",
+    "plugin.cms.actions.loadSampleData": "Load Sample Data",
+    "plugin.cms.messages.clearDataConfirm":
+      "Clear CMS categories, articles, slides, friendly links, and messages? This cannot be undone. Site settings will be reset to a blank default.",
+    "plugin.cms.messages.clearDataSuccess": "CMS data has been cleared",
+    "plugin.cms.messages.loadSampleDataConfirm":
+      "Clear current CMS data and reload the packaged sample site? This cannot be undone.",
+    "plugin.cms.messages.loadSampleDataSuccess": "CMS sample data has been loaded",
+  },
+  "zh-CN": {
+    "plugin.cms.actions.clearData": "清空数据",
+    "plugin.cms.actions.loadSampleData": "加载示例数据",
+    "plugin.cms.messages.clearDataConfirm":
+      "确认清空 CMS 的栏目、文章、轮播图、友情链接和留言？该操作不可恢复，站点资料将重置为空白默认值。",
+    "plugin.cms.messages.clearDataSuccess": "CMS 数据已清空",
+    "plugin.cms.messages.loadSampleDataConfirm":
+      "确认清空当前 CMS 数据并重新加载插件内置示例站点？该操作不可恢复。",
+    "plugin.cms.messages.loadSampleDataSuccess": "CMS 示例数据已加载",
+  },
+  "zh-TW": {
+    "plugin.cms.actions.clearData": "清空資料",
+    "plugin.cms.actions.loadSampleData": "載入示例資料",
+    "plugin.cms.messages.clearDataConfirm":
+      "確認清空 CMS 的欄目、文章、輪播圖、友情連結和留言？該操作不可恢復，站點資料將重置為空白預設值。",
+    "plugin.cms.messages.clearDataSuccess": "CMS 資料已清空",
+    "plugin.cms.messages.loadSampleDataConfirm":
+      "確認清空目前 CMS 資料並重新載入插件內建示例站點？該操作不可恢復。",
+    "plugin.cms.messages.loadSampleDataSuccess": "CMS 示例資料已載入",
+  },
+};
+
+function cmsText(key: CmsFallbackKey) {
+  if ($te(key)) {
+    return $t(key);
+  }
+  return (
+    cmsFallbackMessages[preferences.app.locale]?.[key] ??
+    cmsFallbackMessages["zh-CN"][key]
+  );
+}
 
 const siteForm = reactive<Partial<Site>>({
   address: "",
@@ -86,6 +144,7 @@ const siteForm = reactive<Partial<Site>>({
   phone: "",
   slogan: "",
   status: 1,
+  showMessages: 1,
   weixin: "",
 });
 
@@ -785,6 +844,40 @@ function truncateText(value?: string, maxLength = 32) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
+function resetCMSViewState() {
+  Object.assign(articleQuery, {
+    categoryId: undefined,
+    categoryType: CategoryTypeList,
+    includeChildren: true,
+    pageNum: 1,
+    pageSize: 10,
+    status: undefined,
+    title: "",
+  });
+  selectedArticleSection.value = "model:list";
+  expandedArticleCategoryIds.value = new Set();
+  Object.assign(messageQuery, {
+    keyword: "",
+    pageNum: 1,
+    pageSize: 10,
+    status: undefined,
+  });
+  Object.assign(slideQuery, {
+    groupCode: "",
+    keyword: "",
+    pageNum: 1,
+    pageSize: 10,
+    status: undefined,
+  });
+  Object.assign(linkQuery, {
+    groupCode: "",
+    keyword: "",
+    pageNum: 1,
+    pageSize: 10,
+    status: undefined,
+  });
+}
+
 async function refreshAll() {
   if (!articleQuery.categoryType && !articleQuery.categoryId) {
     articleQuery.categoryType = CategoryTypeList;
@@ -827,6 +920,30 @@ async function saveSite() {
   await cmsSiteUpdate(siteForm);
   message.success($t("pages.common.updateSuccess"));
   await loadSite();
+}
+
+async function clearSiteData() {
+  siteClearing.value = true;
+  try {
+    await cmsSiteClearData();
+    resetCMSViewState();
+    await refreshAll();
+    message.success(cmsText("plugin.cms.messages.clearDataSuccess"));
+  } finally {
+    siteClearing.value = false;
+  }
+}
+
+async function loadSampleData() {
+  sampleLoading.value = true;
+  try {
+    await cmsSiteLoadSampleData();
+    resetCMSViewState();
+    await refreshAll();
+    message.success(cmsText("plugin.cms.messages.loadSampleDataSuccess"));
+  } finally {
+    sampleLoading.value = false;
+  }
 }
 
 async function loadCategories() {
@@ -1311,6 +1428,29 @@ async function deleteLink(row: Link) {
                   <p>{{ $t("plugin.cms.sections.siteProfileSubtitle") }}</p>
                 </div>
                 <Space>
+                  <Popconfirm
+                    :title="cmsText('plugin.cms.messages.clearDataConfirm')"
+                    @confirm="clearSiteData"
+                  >
+                    <a-button
+                      danger
+                      data-testid="cms-site-clear-data"
+                      :loading="siteClearing"
+                    >
+                      {{ cmsText("plugin.cms.actions.clearData") }}
+                    </a-button>
+                  </Popconfirm>
+                  <Popconfirm
+                    :title="cmsText('plugin.cms.messages.loadSampleDataConfirm')"
+                    @confirm="loadSampleData"
+                  >
+                    <a-button
+                      data-testid="cms-site-load-sample-data"
+                      :loading="sampleLoading"
+                    >
+                      {{ cmsText("plugin.cms.actions.loadSampleData") }}
+                    </a-button>
+                  </Popconfirm>
                   <a-button data-testid="cms-site-refresh" @click="loadSite">
                     {{ $t("plugin.cms.actions.refresh") }}
                   </a-button>
@@ -1341,6 +1481,14 @@ async function deleteLink(row: Link) {
                   <a-select
                     v-model:value="siteForm.status"
                     :options="siteStatusOptions"
+                  />
+                </a-form-item>
+                <a-form-item :label="$t('plugin.cms.fields.showMessages')">
+                  <a-switch
+                    v-model:checked="siteForm.showMessages"
+                    :checked-value="1"
+                    :un-checked-value="0"
+                    data-testid="cms-site-show-messages"
                   />
                 </a-form-item>
                 <div class="cms-site-media-grid cms-span-all">

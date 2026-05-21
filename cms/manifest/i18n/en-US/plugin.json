@@ -3,6 +3,7 @@
     "cms": {
       "actions": {
         "approve": "Approve",
+        "clearData": "Clear Data",
         "newArticle": "New Article",
         "newCategory": "New Category",
         "query": "Query",
@@ -11,8 +12,11 @@
         "reset": "Reset",
         "review": "Review",
         "save": "Save",
+        "clearDataConfirm": "Confirm Clear",
         "newLink": "New Link",
-        "newSlide": "New Slide"
+        "newSlide": "New Slide",
+        "loadSampleData": "Load Sample Data",
+        "loadSampleDataConfirm": "Confirm Load Sample Data"
       },
       "description": "Official source CMS plugin for site settings, categories, articles, messages, and public content APIs.",
       "dialogs": {
@@ -94,7 +98,8 @@
         "linkUrl": "Link URL",
         "slideImage": "Slide Image",
         "slideLink": "Slide Link",
-        "slideTitle": "Slide Title"
+        "slideTitle": "Slide Title",
+        "showMessages": "Show Messages"
       },
       "metrics": {
         "articleGlyph": "A",
@@ -112,7 +117,11 @@
         "publishedGlyph": "P"
       },
       "messages": {
-        "moderateConfirm": "Update the moderation status for this message?"
+        "clearDataConfirm": "Clear CMS categories, articles, slides, friendly links, and messages? This cannot be undone. Site settings will be reset to a blank default.",
+        "clearDataSuccess": "CMS data has been cleared",
+        "moderateConfirm": "Update the moderation status for this message?",
+        "loadSampleDataConfirm": "Clear current CMS data and reload the packaged sample site? This cannot be undone.",
+        "loadSampleDataSuccess": "CMS sample data has been loaded"
       },
       "name": "Content - CMS",
       "overview": {

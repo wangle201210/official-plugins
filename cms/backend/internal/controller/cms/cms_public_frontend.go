@@ -47,7 +47,7 @@ const (
 
 var (
 	publicFrontendIncludePattern    = regexp.MustCompile(`\{include\s+file=([^}]+)\}`)
-	publicFrontendLoopStartPattern  = regexp.MustCompile(`\{cms:(nav|children|grandchildren|list|search|slide|link|category)((?:[^{}]|\{(?:category|article|nav|child|grandchild|list|search):[^}]+\})*)\}`)
+	publicFrontendLoopStartPattern  = regexp.MustCompile(`\{cms:(nav|children|grandchildren|list|search|slide|link|category|message)((?:[^{}]|\{(?:category|article|nav|child|grandchild|list|search|message):[^}]+\})*)\}`)
 	publicFrontendIfStartPattern    = regexp.MustCompile(`\{cms:if\(([^)]*)\)\}`)
 	publicFrontendScriptPattern     = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
 	publicFrontendStylePattern      = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
@@ -84,6 +84,7 @@ const (
 	publicFrontendSlideScope      publicFrontendTemplateScope = "slide"
 	publicFrontendLinkScope       publicFrontendTemplateScope = "link"
 	publicFrontendCategoryScope   publicFrontendTemplateScope = "category"
+	publicFrontendMessageScope    publicFrontendTemplateScope = "message"
 )
 
 // publicFrontendLoopAttrs contains parsed CMS loop tag attributes.
@@ -113,6 +114,7 @@ type publicFrontendView struct {
 	PrimarySlide      *publicFrontendSlide
 	Slides            []*publicFrontendSlide
 	Links             []*publicFrontendLink
+	ApprovedMessages  []*publicFrontendMessage
 	Pagination        *publicFrontendPagination
 	TemplateName      string
 	PageTitle         string
@@ -124,6 +126,7 @@ type publicFrontendView struct {
 	Submitted         bool
 	InvalidMessage    bool
 	MessageError      bool
+	ShowMessages      bool
 	Year              int
 }
 
@@ -203,6 +206,16 @@ type publicFrontendLink struct {
 	Group string
 }
 
+// publicFrontendMessage is a public-safe visitor message projection.
+type publicFrontendMessage struct {
+	Id        int64
+	Name      string
+	Content   string
+	Reply     string
+	CreatedAt string
+	UpdatedAt string
+}
+
 // PublicFrontendPage renders the CMS public site as a standalone HTML page.
 func (c *ControllerV1) PublicFrontendPage(r *ghttp.Request) {
 	if r == nil {
@@ -245,6 +258,17 @@ func (c *ControllerV1) PublicFrontendMessagePage(r *ghttp.Request) {
 	}
 	view.TemplateName = strings.TrimSuffix(publicFrontendMessageName, ".html")
 	view.PageTitle = "提交留言"
+	if view.ShowMessages {
+		messages, err := c.cmsSvc.ListPublicMessages(r.GetCtx(), cmssvc.PublicMessageListInput{
+			PageNum:  1,
+			PageSize: publicFrontendPageSize,
+		})
+		if err != nil {
+			writePublicFrontendStatus(r, http.StatusInternalServerError, "CMS public messages are temporarily unavailable.")
+			return
+		}
+		view.ApprovedMessages = mapPublicFrontendMessages(messages.List)
+	}
 	tpl, err := publicFrontendTemplate()
 	if err != nil {
 		writePublicFrontendStatus(r, http.StatusInternalServerError, "CMS public template is temporarily unavailable.")
@@ -602,6 +626,7 @@ func (c *ControllerV1) buildPublicFrontendBaseView(
 		Submitted:         messageState == "submitted",
 		InvalidMessage:    messageState == "invalid",
 		MessageError:      messageState == "error",
+		ShowMessages:      site.ShowMessages == cmssvc.StatusEnabled,
 		Year:              time.Now().Year(),
 	}, nil
 }
@@ -756,6 +781,8 @@ func publicFrontendLoopScope(name string) publicFrontendTemplateScope {
 		return publicFrontendLinkScope
 	case "category":
 		return publicFrontendCategoryScope
+	case "message":
+		return publicFrontendMessageScope
 	default:
 		return publicFrontendRootScope
 	}
@@ -899,6 +926,8 @@ func publicFrontendLoopTemplate(scope publicFrontendTemplateScope, attrs publicF
 			return "{{range cmsGroupedLinks $.Links " + publicFrontendStringLiteral(attrs.Group) + " " + limit + "}}" + body + "{{end}}"
 		}
 		return "{{range cmsLimit .Links " + limit + "}}" + body + "{{end}}"
+	case publicFrontendMessageScope:
+		return "{{range cmsLimit .ApprovedMessages " + limit + "}}" + body + "{{end}}"
 	case publicFrontendCategoryScope:
 		if attrs.Code != "" {
 			if attrs.Code == "{category:topcode}" {
@@ -962,6 +991,10 @@ func publicFrontendIfCondition(expression string, scope publicFrontendTemplateSc
 		return ".InvalidMessage"
 	case expr == "{message:error}":
 		return ".MessageError"
+	case expr == "{message:show}":
+		return ".ShowMessages"
+	case expr == "[message:reply]":
+		return ".Reply"
 	case expr == "{slide:firstimage}":
 		return ".PrimarySlide.Image"
 	case expr == "{site:logo}":
@@ -1075,6 +1108,8 @@ func replacePublicFrontendScopedTags(content string, scope publicFrontendTemplat
 		return replacePublicFrontendLinkTags(content)
 	case publicFrontendCategoryScope:
 		return replacePublicFrontendCategoryTags(content, "category")
+	case publicFrontendMessageScope:
+		return replacePublicFrontendMessageTags(content)
 	default:
 		return content
 	}
@@ -1149,6 +1184,22 @@ func replacePublicFrontendLinkTags(content string) string {
 		"[link:name]", "{{.Name}}",
 		"[link:logo]", "{{.Logo}}",
 	).Replace(content)
+}
+
+// replacePublicFrontendMessageTags maps approved visitor message loop tags.
+func replacePublicFrontendMessageTags(content string) string {
+	replaced := strings.NewReplacer(
+		"[message:id]", "{{.Id}}",
+		"[message:name]", "{{.Name}}",
+		"[message:content]", "{{.Content}}",
+		"[message:reply]", "{{.Reply}}",
+		"[message:date]", "{{.CreatedAt}}",
+		"[message:updated]", "{{.UpdatedAt}}",
+	).Replace(content)
+	replaced = replacePublicFrontendTextParamTags(replaced, "message", "name", ".Name")
+	replaced = replacePublicFrontendTextParamTags(replaced, "message", "content", ".Content")
+	replaced = replacePublicFrontendTextParamTags(replaced, "message", "reply", ".Reply")
+	return replaced
 }
 
 // replacePublicFrontendTextParamTags maps text tags with length/more modifiers
@@ -1765,6 +1816,25 @@ func mapPublicFrontendLinks(items []*cmssvc.LinkItem) []*publicFrontendLink {
 		})
 	}
 	return links
+}
+
+// mapPublicFrontendMessages maps approved visitor messages for template rendering.
+func mapPublicFrontendMessages(items []*cmssvc.MessageItem) []*publicFrontendMessage {
+	messages := make([]*publicFrontendMessage, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		messages = append(messages, &publicFrontendMessage{
+			Id:        item.Id,
+			Name:      item.Name,
+			Content:   item.Content,
+			Reply:     item.Reply,
+			CreatedAt: publicFrontendDate(item.CreatedAt),
+			UpdatedAt: publicFrontendDate(item.UpdatedAt),
+		})
+	}
+	return messages
 }
 
 // publicFrontendLinkGroup maps the restored reference-site links into four footer groups.

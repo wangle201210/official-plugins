@@ -50,6 +50,13 @@
         "not": {
           "found": "CMS slide does not exist"
         }
+      },
+      "sample": {
+        "data": {
+          "load": {
+            "failed": "CMS sample data could not be loaded"
+          }
+        }
       }
     }
   }

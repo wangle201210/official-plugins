@@ -584,10 +584,10 @@
                   "dc": "更新者使用者 ID"
                 },
                 "createdAt": {
-                  "dc": "建立時間"
+                  "dc": "建立時間，Unix 毫秒時間戳"
                 },
                 "updatedAt": {
-                  "dc": "更新時間"
+                  "dc": "更新時間，Unix 毫秒時間戳"
                 }
               }
             },
@@ -888,6 +888,56 @@
                 }
               }
             },
+            "PublicMessageItem": {
+              "fields": {
+                "content": {
+                  "dc": "留言內容"
+                },
+                "createdAt": {
+                  "dc": "建立時間"
+                },
+                "id": {
+                  "dc": "留言 ID"
+                },
+                "name": {
+                  "dc": "訪客名稱"
+                },
+                "reply": {
+                  "dc": "回覆內容"
+                },
+                "updatedAt": {
+                  "dc": "更新時間"
+                }
+              }
+            },
+            "PublicMessageListReq": {
+              "fields": {
+                "pageNum": {
+                  "dc": "頁碼"
+                },
+                "pageSize": {
+                  "dc": "每頁筆數"
+                }
+              },
+              "meta": {
+                "dc": "無需後台認證取得已審核且允許公開展示的 CMS 訪客留言。",
+                "summary": "取得公開 CMS 訪客留言列表",
+                "tags": "CMS 公開接口"
+              },
+              "schema": {
+                "dc": "無需後台認證取得已審核且允許公開展示的 CMS 訪客留言。"
+              }
+            },
+            "PublicMessageListRes": {
+              "fields": {
+                "list": {
+                  "dc": "已審核公開訪客留言列表"
+                },
+                "total": {
+                  "dc": "已審核公開訪客留言總數"
+                }
+              }
+            },
             "PublicSiteReq": {
               "meta": {
                 "dc": "无需后台认证获取公开 CMS 站点配置。",
@@ -923,6 +973,16 @@
               },
               "schema": {
                 "dc": "获取可编辑的 CMS 站点配置。"
+              }
+            },
+            "SiteClearDataReq": {
+              "meta": {
+                "dc": "清空 CMS 欄目、文章、標籤、輪播圖、友情連結和留言，並重置預設站點配置。",
+                "summary": "清空 CMS 站點資料",
+                "tags": "CMS 站點"
+              },
+              "schema": {
+                "dc": "清空 CMS 欄目、文章、標籤、輪播圖、友情連結和留言，並重置預設站點配置。"
               }
             },
             "SiteItem": {
@@ -972,6 +1032,9 @@
                 "slogan": {
                   "dc": "站点标语"
                 },
+                "showMessages": {
+                  "dc": "留言公開展示開關：0=隱藏，1=展示"
+                },
                 "status": {
                   "dc": "状态：0=停用，1=启用"
                 },
@@ -1017,6 +1080,9 @@
                 },
                 "slogan": {
                   "dc": "站点标语"
+                },
+                "showMessages": {
+                  "dc": "留言公開展示開關：0=隱藏，1=展示"
                 },
                 "status": {
                   "dc": "状态：0=停用，1=启用"
@@ -1197,6 +1263,16 @@
               },
               "schema": {
                 "dc": "更新一张 CMS 輪播圖。"
+              }
+            },
+            "SiteLoadSampleDataReq": {
+              "meta": {
+                "dc": "清空目前 CMS 欄目、文章、標籤、輪播圖、友情連結、留言和站點配置後，重新載入插件內建 starter 示例站點資料。",
+                "summary": "載入 CMS 示例資料",
+                "tags": "CMS 站點"
+              },
+              "schema": {
+                "dc": "清空目前 CMS 欄目、文章、標籤、輪播圖、友情連結、留言和站點配置後，重新載入插件內建 starter 示例站點資料。"
               }
             }
           }

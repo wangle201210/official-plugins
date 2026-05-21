@@ -45,6 +45,9 @@
     "plugin:cms:site:edit": {
       "title": "站点配置维护"
     },
+    "plugin:cms:site:purge": {
+      "title": "站點資料清空"
+    },
     "plugin:cms:slide:add": {
       "title": "輪播圖新增"
     },
@@ -59,6 +62,9 @@
     },
     "plugin:cms:workspace": {
       "title": "CMS 内容站点"
+    },
+    "plugin:cms:site:sample": {
+      "title": "載入示例資料"
     }
   }
 }

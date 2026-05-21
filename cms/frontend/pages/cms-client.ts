@@ -15,6 +15,7 @@ export interface Site {
   siteKey: string;
   slogan: string;
   status: number;
+  showMessages: number;
   weixin: string;
 }
 
@@ -134,6 +135,14 @@ export async function cmsSite() {
 
 export function cmsSiteUpdate(data: Partial<Site>) {
   return requestClient.put("/cms/site", data);
+}
+
+export function cmsSiteClearData() {
+  return requestClient.delete("/cms/site/data");
+}
+
+export function cmsSiteLoadSampleData() {
+  return requestClient.post("/cms/site/sample-data");
 }
 
 export async function cmsCategoryList(params?: { status?: number }) {

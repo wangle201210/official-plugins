@@ -17,3 +17,16 @@ type PublicMessageCreateReq struct {
 type PublicMessageCreateRes struct {
 	Id int64 `json:"id" dc:"Message ID" eg:"1"`
 }
+
+// PublicMessageListReq defines the public request for approved visitor messages.
+type PublicMessageListReq struct {
+	g.Meta   `path:"/cms/public/messages" method:"get" tags:"CMS Public" summary:"List approved CMS visitor messages" dc:"List approved visitor messages and replies when site settings allow public message display."`
+	PageNum  int `json:"pageNum" dc:"Page number" eg:"1"`
+	PageSize int `json:"pageSize" dc:"Page size" eg:"10"`
+}
+
+// PublicMessageListRes defines the public approved visitor-message list response.
+type PublicMessageListRes struct {
+	List  []*PublicMessageItem `json:"list" dc:"Approved visitor messages"`
+	Total int                  `json:"total" dc:"Total approved visitor messages" eg:"1"`
+}

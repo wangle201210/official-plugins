@@ -14,7 +14,9 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-core/pkg/bizerr"
+	"lina-core/pkg/dialect"
 	plugincontract "lina-core/pkg/pluginservice/contract"
+	cmsplugin "lina-plugin-cms"
 	"lina-plugin-cms/backend/internal/dao"
 	"lina-plugin-cms/backend/internal/model/do"
 	entitymodel "lina-plugin-cms/backend/internal/model/entity"
@@ -48,6 +50,11 @@ const (
 	ArticleStatusPublished = 1 // ArticleStatusPublished means publicly visible.
 )
 
+const (
+	// cmsStarterContentSQLPath embeds the starter dataset used by install and runtime reset.
+	cmsStarterContentSQLPath = "manifest/sql/003-cms-starter-content.sql"
+)
+
 // CMS message status values.
 const (
 	MessageStatusPending  = 0 // MessageStatusPending means waiting for moderation.
@@ -61,6 +68,10 @@ type Service interface {
 	GetSite(ctx context.Context, publicOnly bool) (*SiteItem, error)
 	// UpdateSite updates CMS site settings.
 	UpdateSite(ctx context.Context, in SiteUpdateInput) error
+	// ClearSiteData removes all CMS business content and resets the default site.
+	ClearSiteData(ctx context.Context) error
+	// LoadSampleData replaces current CMS content with the packaged starter dataset.
+	LoadSampleData(ctx context.Context) error
 	// ListCategories returns the CMS category tree.
 	ListCategories(ctx context.Context, in CategoryListInput) ([]*CategoryItem, error)
 	// CreateCategory creates a CMS category.
@@ -81,6 +92,8 @@ type Service interface {
 	DeleteArticle(ctx context.Context, id int64) error
 	// ListMessages returns paged visitor messages.
 	ListMessages(ctx context.Context, in MessageListInput) (*MessageListOutput, error)
+	// ListPublicMessages returns approved visitor messages when enabled by site settings.
+	ListPublicMessages(ctx context.Context, in PublicMessageListInput) (*MessageListOutput, error)
 	// UpdateMessage updates visitor message moderation data.
 	UpdateMessage(ctx context.Context, in MessageUpdateInput) error
 	// DeleteMessage deletes one visitor message.
@@ -189,19 +202,20 @@ func NormalizePublicArticleOrder(value string) PublicArticleOrder {
 
 // SiteUpdateInput defines CMS site update input.
 type SiteUpdateInput struct {
-	Name        string // Site name.
-	Logo        string // Site logo URL.
-	Weixin      string // WeChat QR code image URL.
-	Domain      string // Primary site domain.
-	Slogan      string // Site slogan.
-	Keywords    string // SEO keywords.
-	Description string // SEO description.
-	Icp         string // ICP record number.
-	Contact     string // Contact person.
-	Phone       string // Contact phone.
-	Email       string // Contact email.
-	Address     string // Contact address.
-	Status      int    // Status: 0=disabled, 1=enabled.
+	Name         string // Site name.
+	Logo         string // Site logo URL.
+	Weixin       string // WeChat QR code image URL.
+	Domain       string // Primary site domain.
+	Slogan       string // Site slogan.
+	Keywords     string // SEO keywords.
+	Description  string // SEO description.
+	Icp          string // ICP record number.
+	Contact      string // Contact person.
+	Phone        string // Contact phone.
+	Email        string // Contact email.
+	Address      string // Contact address.
+	Status       int    // Status: 0=disabled, 1=enabled.
+	ShowMessages int    // Show approved visitor messages on the public message page.
 }
 
 // CategoryListInput defines CMS category list filters.
@@ -289,6 +303,12 @@ type MessageListInput struct {
 type MessageListOutput struct {
 	List  []*MessageItem // Message list.
 	Total int            // Total count.
+}
+
+// PublicMessageListInput defines public approved visitor message filters.
+type PublicMessageListInput struct {
+	PageNum  int // Page number.
+	PageSize int // Page size.
 }
 
 // MessageUpdateInput defines visitor message moderation input.
@@ -392,23 +412,59 @@ func (s *serviceImpl) UpdateSite(ctx context.Context, in SiteUpdateInput) error 
 	_, err = dao.CmsSite.Ctx(ctx).
 		Where(columns.Id, site.Id).
 		Data(do.CmsSite{
-			Name:        in.Name,
-			Logo:        in.Logo,
-			Weixin:      in.Weixin,
-			Domain:      in.Domain,
-			Slogan:      in.Slogan,
-			Keywords:    in.Keywords,
-			Description: in.Description,
-			Icp:         in.Icp,
-			Contact:     in.Contact,
-			Phone:       in.Phone,
-			Email:       in.Email,
-			Address:     in.Address,
-			Status:      in.Status,
-			UpdatedBy:   s.currentUserID(ctx),
+			Name:         in.Name,
+			Logo:         in.Logo,
+			Weixin:       in.Weixin,
+			Domain:       in.Domain,
+			Slogan:       in.Slogan,
+			Keywords:     in.Keywords,
+			Description:  in.Description,
+			Icp:          in.Icp,
+			Contact:      in.Contact,
+			Phone:        in.Phone,
+			Email:        in.Email,
+			Address:      in.Address,
+			Status:       in.Status,
+			ShowMessages: in.ShowMessages,
+			UpdatedBy:    s.currentUserID(ctx),
 		}).
 		Update()
 	return err
+}
+
+// ClearSiteData removes all CMS content rows and leaves one blank default site.
+func (s *serviceImpl) ClearSiteData(ctx context.Context) error {
+	userID := s.currentUserID(ctx)
+	return dao.CmsSite.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if err := clearCMSData(ctx, tx); err != nil {
+			return err
+		}
+		_, err := tx.Model(dao.CmsSite.Table()).Ctx(ctx).Data(do.CmsSite{
+			SiteKey:      "default",
+			Name:         "LinaPro CMS",
+			Status:       StatusEnabled,
+			ShowMessages: StatusEnabled,
+			CreatedBy:    userID,
+			UpdatedBy:    userID,
+		}).Insert()
+		return err
+	})
+}
+
+// LoadSampleData resets CMS business data and reloads the packaged starter dataset.
+func (s *serviceImpl) LoadSampleData(ctx context.Context) error {
+	return dao.CmsSite.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if err := clearCMSData(ctx, tx); err != nil {
+			return bizerr.WrapCode(err, CodeSampleDataLoadFailed)
+		}
+		if err := executeStarterContentSQL(ctx, tx); err != nil {
+			return err
+		}
+		if err := markSampleDataMaintainer(ctx, tx, s.currentUserID(ctx)); err != nil {
+			return bizerr.WrapCode(err, CodeSampleDataLoadFailed)
+		}
+		return nil
+	})
 }
 
 // ListCategories returns CMS categories as a tree.
@@ -659,6 +715,25 @@ func (s *serviceImpl) ListMessages(ctx context.Context, in MessageListInput) (*M
 		return nil, err
 	}
 	return &MessageListOutput{List: list, Total: total}, nil
+}
+
+// ListPublicMessages returns approved visitor messages when site settings allow
+// public message display.
+func (s *serviceImpl) ListPublicMessages(ctx context.Context, in PublicMessageListInput) (*MessageListOutput, error) {
+	site, err := s.GetSite(ctx, true)
+	if err != nil {
+		return nil, err
+	}
+	if site.ShowMessages != StatusEnabled {
+		return &MessageListOutput{List: []*MessageItem{}, Total: 0}, nil
+	}
+
+	approvedStatus := MessageStatusApproved
+	return s.ListMessages(ctx, MessageListInput{
+		PageNum:  in.PageNum,
+		PageSize: in.PageSize,
+		Status:   &approvedStatus,
+	})
 }
 
 // UpdateMessage updates visitor message moderation data.
@@ -946,15 +1021,7 @@ func (s *serviceImpl) CreatePublicMessage(ctx context.Context, in PublicMessageC
 
 // PurgeStorageData clears plugin-owned tables during purge uninstall.
 func PurgeStorageData(ctx context.Context) error {
-	tables := []string{
-		dao.CmsMessage.Table(),
-		dao.CmsSlide.Table(),
-		dao.CmsLink.Table(),
-		dao.CmsArticleTag.Table(),
-		dao.CmsArticle.Table(),
-		dao.CmsCategory.Table(),
-		dao.CmsSite.Table(),
-	}
+	tables := append(cmsContentTables(), dao.CmsSite.Table())
 	for _, table := range tables {
 		if _, err := dao.CmsSite.DB().Exec(ctx, "DELETE FROM "+table); err != nil {
 			return err
@@ -966,6 +1033,70 @@ func PurgeStorageData(ctx context.Context) error {
 // PurgeStorageData delegates service cleanup to the dependency-free purge entry.
 func (s *serviceImpl) PurgeStorageData(ctx context.Context) error {
 	return PurgeStorageData(ctx)
+}
+
+// clearCMSData removes all CMS content tables and site settings inside caller transaction.
+func clearCMSData(ctx context.Context, tx gdb.TX) error {
+	for _, table := range cmsContentTables() {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM "+table); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM "+dao.CmsSite.Table()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// executeStarterContentSQL executes the embedded starter content SQL inside caller transaction.
+func executeStarterContentSQL(ctx context.Context, tx gdb.TX) error {
+	content, err := cmsplugin.EmbeddedFiles.ReadFile(cmsStarterContentSQLPath)
+	if err != nil {
+		return bizerr.WrapCode(err, CodeSampleDataLoadFailed)
+	}
+	for _, statement := range dialect.SplitSQLStatements(string(content)) {
+		if _, err = tx.ExecContext(ctx, statement); err != nil {
+			return bizerr.WrapCode(err, CodeSampleDataLoadFailed)
+		}
+	}
+	return nil
+}
+
+// markSampleDataMaintainer records the operator that triggered runtime sample data loading.
+func markSampleDataMaintainer(ctx context.Context, tx gdb.TX, userID int64) error {
+	if userID <= 0 {
+		return nil
+	}
+	updates := []struct {
+		table string
+		data  any
+	}{
+		{table: dao.CmsMessage.Table(), data: do.CmsMessage{CreatedBy: userID, UpdatedBy: userID}},
+		{table: dao.CmsSlide.Table(), data: do.CmsSlide{CreatedBy: userID, UpdatedBy: userID}},
+		{table: dao.CmsLink.Table(), data: do.CmsLink{CreatedBy: userID, UpdatedBy: userID}},
+		{table: dao.CmsArticleTag.Table(), data: do.CmsArticleTag{CreatedBy: userID, UpdatedBy: userID}},
+		{table: dao.CmsArticle.Table(), data: do.CmsArticle{CreatedBy: userID, UpdatedBy: userID}},
+		{table: dao.CmsCategory.Table(), data: do.CmsCategory{CreatedBy: userID, UpdatedBy: userID}},
+		{table: dao.CmsSite.Table(), data: do.CmsSite{CreatedBy: userID, UpdatedBy: userID}},
+	}
+	for _, update := range updates {
+		if _, err := tx.Model(update.table).Ctx(ctx).Data(update.data).Update(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// cmsContentTables returns content tables in an order that clears dependents before parents.
+func cmsContentTables() []string {
+	return []string{
+		dao.CmsMessage.Table(),
+		dao.CmsSlide.Table(),
+		dao.CmsLink.Table(),
+		dao.CmsArticleTag.Table(),
+		dao.CmsArticle.Table(),
+		dao.CmsCategory.Table(),
+	}
 }
 
 // applyArticleManagementFilters applies management article list filters.

@@ -81,6 +81,50 @@ func TestPublicFrontendSearchLoopCompiles(t *testing.T) {
 	}
 }
 
+// TestPublicFrontendMessageLoopCompiles verifies approved visitor messages can
+// render behind the site-level display switch and include public replies.
+func TestPublicFrontendMessageLoopCompiles(t *testing.T) {
+	const source = `{cms:if({message:show})}{cms:message limit=1}<section data-testid="item"><b>[message:name]</b><p>[message:content]</p>{cms:if([message:reply])}<em>[message:reply]</em>{/cms:if}</section>{/cms:message}{/cms:if}`
+
+	compiled := compilePublicFrontendTemplate(source, publicFrontendRootScope)
+	tpl, err := template.New("case").Funcs(template.FuncMap{
+		"cmsLimit": publicFrontendLimit,
+	}).Parse(compiled)
+	if err != nil {
+		t.Fatalf("parse compiled public frontend message template: %v", err)
+	}
+
+	messages := []*publicFrontendMessage{
+		{Name: "访客一", Content: "审核通过留言", Reply: "公开回复"},
+		{Name: "访客二", Content: "超出限制留言", Reply: "不应展示"},
+	}
+	var closedBuffer bytes.Buffer
+	if err = tpl.Execute(&closedBuffer, &publicFrontendView{ApprovedMessages: messages}); err != nil {
+		t.Fatalf("execute closed public frontend message template: %v", err)
+	}
+	if strings.Contains(closedBuffer.String(), `data-testid="item"`) {
+		t.Fatalf("expected disabled message switch to hide public messages, got %s", closedBuffer.String())
+	}
+
+	var openBuffer bytes.Buffer
+	if err = tpl.Execute(&openBuffer, &publicFrontendView{
+		ApprovedMessages: messages,
+		ShowMessages:     true,
+	}); err != nil {
+		t.Fatalf("execute open public frontend message template: %v", err)
+	}
+	html := openBuffer.String()
+	if count := strings.Count(html, `data-testid="item"`); count != 1 {
+		t.Fatalf("expected one rendered public message, got %d in %s", count, html)
+	}
+	if !strings.Contains(html, "审核通过留言") || !strings.Contains(html, "公开回复") {
+		t.Fatalf("expected approved message content and reply, got %s", html)
+	}
+	if strings.Contains(html, "超出限制留言") {
+		t.Fatalf("expected message beyond limit to be hidden, got %s", html)
+	}
+}
+
 // TestPublicFrontendCategoryTagsCompile verifies category semantics use
 // category-named tags throughout current-category rendering.
 func TestPublicFrontendCategoryTagsCompile(t *testing.T) {

@@ -21,50 +21,52 @@ type CmsSiteDao struct {
 
 // CmsSiteColumns defines and stores column names for the table plugin_cms_site.
 type CmsSiteColumns struct {
-	Id          string // Site ID
-	SiteKey     string // Stable site key
-	Name        string // Site name
-	Logo        string // Site logo URL
-	Weixin      string // WeChat QR code image URL
-	Domain      string // Primary site domain
-	Slogan      string // Site slogan
-	Keywords    string // SEO keywords
-	Description string // SEO description
-	Icp         string // ICP record number
-	Contact     string // Contact person
-	Phone       string // Contact phone
-	Email       string // Contact email
-	Address     string // Contact address
-	Status      string // Status: 0=disabled, 1=enabled
-	CreatedBy   string // Creator user ID
-	UpdatedBy   string // Updater user ID
-	CreatedAt   string // Creation time
-	UpdatedAt   string // Update time
-	DeletedAt   string // Deletion time
+	Id           string // Site ID
+	SiteKey      string // Stable site key
+	Name         string // Site name
+	Logo         string // Site logo URL
+	Weixin       string // WeChat QR code image URL
+	Domain       string // Primary site domain
+	Slogan       string // Site slogan
+	Keywords     string // SEO keywords
+	Description  string // SEO description
+	Icp          string // ICP record number
+	Contact      string // Contact person
+	Phone        string // Contact phone
+	Email        string // Contact email
+	Address      string // Contact address
+	Status       string // Status: 0=disabled, 1=enabled
+	CreatedBy    string // Creator user ID
+	UpdatedBy    string // Updater user ID
+	CreatedAt    string // Creation time
+	UpdatedAt    string // Update time
+	DeletedAt    string // Deletion time
+	ShowMessages string // Show approved visitor messages on public message page: 0=no, 1=yes
 }
 
 // cmsSiteColumns holds the columns for the table plugin_cms_site.
 var cmsSiteColumns = CmsSiteColumns{
-	Id:          "id",
-	SiteKey:     "site_key",
-	Name:        "name",
-	Logo:        "logo",
-	Weixin:      "weixin",
-	Domain:      "domain",
-	Slogan:      "slogan",
-	Keywords:    "keywords",
-	Description: "description",
-	Icp:         "icp",
-	Contact:     "contact",
-	Phone:       "phone",
-	Email:       "email",
-	Address:     "address",
-	Status:      "status",
-	CreatedBy:   "created_by",
-	UpdatedBy:   "updated_by",
-	CreatedAt:   "created_at",
-	UpdatedAt:   "updated_at",
-	DeletedAt:   "deleted_at",
+	Id:           "id",
+	SiteKey:      "site_key",
+	Name:         "name",
+	Logo:         "logo",
+	Weixin:       "weixin",
+	Domain:       "domain",
+	Slogan:       "slogan",
+	Keywords:     "keywords",
+	Description:  "description",
+	Icp:          "icp",
+	Contact:      "contact",
+	Phone:        "phone",
+	Email:        "email",
+	Address:      "address",
+	Status:       "status",
+	CreatedBy:    "created_by",
+	UpdatedBy:    "updated_by",
+	CreatedAt:    "created_at",
+	UpdatedAt:    "updated_at",
+	DeletedAt:    "deleted_at",
+	ShowMessages: "show_messages",
 }
 
 // NewCmsSiteDao creates and returns a new DAO object for table data access.

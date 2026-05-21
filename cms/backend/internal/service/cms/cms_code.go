@@ -81,4 +81,10 @@ var (
 		"Public CMS content does not exist",
 		gcode.CodeNotFound,
 	)
+	// CodeSampleDataLoadFailed reports that packaged starter content could not be loaded.
+	CodeSampleDataLoadFailed = bizerr.MustDefine(
+		"CMS_SAMPLE_DATA_LOAD_FAILED",
+		"CMS sample data could not be loaded",
+		gcode.CodeInternalError,
+	)
 )

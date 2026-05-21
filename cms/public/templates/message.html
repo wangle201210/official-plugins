@@ -52,6 +52,34 @@
           </form>
         </div>
       </div>
+      {cms:if({message:show})}
+      <div class="article-detail message-board" data-testid="cms-public-approved-messages">
+        <div class="article-detail-header">
+          <h1>留言反馈</h1>
+          <div class="article-meta">
+            <span>公开展示已审核留言</span>
+            <span>答复内容同步公开</span>
+          </div>
+        </div>
+        <div class="message-list">
+          {cms:message limit=12}
+          <div class="message-item" data-testid="cms-public-approved-message">
+            <div class="message-item-head">
+              <strong>[message:name]</strong>
+              <span>[message:date]</span>
+            </div>
+            <p class="message-item-content">[message:content]</p>
+            {cms:if([message:reply])}
+            <div class="message-reply" data-testid="cms-public-approved-message-reply">
+              <b>回复</b>
+              <p>[message:reply]</p>
+            </div>
+            {/cms:if}
+          </div>
+          {/cms:message}
+        </div>
+      </div>
+      {/cms:if}
     </div>
   </div>
 </div>

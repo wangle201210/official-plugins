@@ -1,18 +1,38 @@
--- 001: CMS plugin reference-site mock data
--- 001：CMS 插件参考站点演示数据
+-- 003: CMS plugin starter site content
+-- 003：CMS 插件默认站点内容
 --
--- This mock dataset mirrors the local LinaPro CMS export used by the
--- LinaPro CMS public-site restoration workflow. It replaces the small default
--- CMS demo content when mock data is loaded.
+-- This starter dataset is part of normal plugin installation. It gives a newly
+-- installed CMS plugin a usable public site without requiring optional mock
+-- data. The statements are idempotent and avoid deleting or replacing rows
+-- that operators have already maintained after installation.
 
-DELETE FROM plugin_cms_message;
-DELETE FROM plugin_cms_article_tag;
-DELETE FROM plugin_cms_article;
-DELETE FROM plugin_cms_category;
-DELETE FROM plugin_cms_link;
-DELETE FROM plugin_cms_slide;
-DELETE FROM plugin_cms_site;
-INSERT INTO plugin_cms_site ("site_key", "name", "logo", "weixin", "domain", "slogan", "keywords", "description", "icp", "contact", "phone", "email", "address", "status", "show_messages", "created_at", "updated_at") VALUES ('default', '启明先进材料产业研究院', '/static/logo.svg', '/static/wechat.jpg', 'www.advanced-materials-demo.com', '启明先进材料产业研究院', '启明先进材料产业研究院', '启明先进材料产业研究院', '', '贾老师', '0731-88886666', 'admin@advanced-materials-demo.com', '示范区科创园先进材料公共服务中心', 1, 1, '2026-05-09 13:37:35', '2026-05-09 13:37:35');
+INSERT INTO plugin_cms_site ("site_key", "name", "logo", "weixin", "domain", "slogan", "keywords", "description", "icp", "contact", "phone", "email", "address", "status", "show_messages", "created_at", "updated_at")
+SELECT 'default', '启明先进材料产业研究院', '/static/logo.svg', '/static/wechat.jpg', 'www.advanced-materials-demo.com', '启明先进材料产业研究院', '启明先进材料产业研究院', '启明先进材料产业研究院', '', '贾老师', '0731-88886666', 'admin@advanced-materials-demo.com', '示范区科创园先进材料公共服务中心', 1, 1, '2026-05-09 13:37:35', '2026-05-09 13:37:35'
+WHERE NOT EXISTS (
+    SELECT 1 FROM plugin_cms_site WHERE "site_key" = 'default'
+);
+
+UPDATE plugin_cms_site
+SET
+    "name" = '启明先进材料产业研究院',
+    "logo" = '/static/logo.svg',
+    "weixin" = '/static/wechat.jpg',
+    "domain" = 'www.advanced-materials-demo.com',
+    "slogan" = '启明先进材料产业研究院',
+    "keywords" = '启明先进材料产业研究院',
+    "description" = '启明先进材料产业研究院',
+    "contact" = '贾老师',
+    "phone" = '0731-88886666',
+    "email" = 'admin@advanced-materials-demo.com',
+    "address" = '示范区科创园先进材料公共服务中心',
+    "status" = 1,
+    "show_messages" = 1
+WHERE "site_key" = 'default'
+  AND "updated_by" = 0
+  AND "name" = 'LinaPro CMS'
+  AND "slogan" = 'AI-native full-stack delivery framework'
+  AND "keywords" = 'LinaPro,CMS,AI-native'
+  AND "description" = 'LinaPro CMS demo site';
 
 INSERT INTO plugin_cms_category ("code", "parent_id", "name", "type", "path", "cover", "outlink", "title", "keywords", "description", "sort", "status", "created_at", "updated_at") VALUES
 ('1', 0, '关于我们', 2, '/about_1/', '', '', '', '', '', 255, 1, '2018-04-11 17:26:11', '2026-04-18 22:08:10'),
@@ -61,57 +81,86 @@ INSERT INTO plugin_cms_category ("code", "parent_id", "name", "type", "path", "c
 ('51', 0, '互动交流', 2, '/about_51/', '', '', '', '', '', 255, 0, '2026-04-22 21:04:11', '2026-04-22 21:04:11'),
 ('52', 0, '在线咨询', 2, '/about_52/', '', '', '', '', '', 255, 0, '2026-04-22 21:04:45', '2026-04-22 21:06:42'),
 ('53', 0, '意见建议', 1, '/list_53/', '', '', '', '', '', 255, 0, '2026-04-22 21:05:24', '2026-04-22 21:05:24'),
-('54', 0, '专家答疑', 1, '/list_54/', '', '', '', '', '', 255, 0, '2026-04-22 21:06:08', '2026-04-22 21:06:38');
+('54', 0, '专家答疑', 1, '/list_54/', '', '', '', '', '', 255, 0, '2026-04-22 21:06:08', '2026-04-22 21:06:38')
+ON CONFLICT ("code") DO NOTHING;
 
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '3' AND parent."code" = '2';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '4' AND parent."code" = '2';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '12' AND parent."code" = '1';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '13' AND parent."code" = '1';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '14' AND parent."code" = '1';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '15' AND parent."code" = '45';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '16' AND parent."code" = '1';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '17' AND parent."code" = '4';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '18' AND parent."code" = '4';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '19' AND parent."code" = '5';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '20' AND parent."code" = '5';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '21' AND parent."code" = '5';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '22' AND parent."code" = '5';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '24' AND parent."code" = '23';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '25' AND parent."code" = '23';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '26' AND parent."code" = '25';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '27' AND parent."code" = '25';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '28' AND parent."code" = '25';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '29' AND parent."code" = '25';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '30' AND parent."code" = '25';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '32' AND parent."code" = '31';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '33' AND parent."code" = '31';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '35' AND parent."code" = '34';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '36' AND parent."code" = '34';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '37' AND parent."code" = '34';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '38' AND parent."code" = '34';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '39' AND parent."code" = '34';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '42' AND parent."code" = '40';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '43' AND parent."code" = '40';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '44' AND parent."code" = '40';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '46' AND parent."code" = '45';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '47' AND parent."code" = '45';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '48' AND parent."code" = '45';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '49' AND parent."code" = '45';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '50' AND parent."code" = '40';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '52' AND parent."code" = '51';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '53' AND parent."code" = '51';
-UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '54' AND parent."code" = '51';
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '3' AND parent."code" = '2' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '4' AND parent."code" = '2' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '12' AND parent."code" = '1' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '13' AND parent."code" = '1' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '14' AND parent."code" = '1' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '15' AND parent."code" = '45' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '16' AND parent."code" = '1' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '17' AND parent."code" = '4' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '18' AND parent."code" = '4' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '19' AND parent."code" = '5' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '20' AND parent."code" = '5' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '21' AND parent."code" = '5' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '22' AND parent."code" = '5' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '24' AND parent."code" = '23' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '25' AND parent."code" = '23' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '26' AND parent."code" = '25' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '27' AND parent."code" = '25' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '28' AND parent."code" = '25' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '29' AND parent."code" = '25' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '30' AND parent."code" = '25' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '32' AND parent."code" = '31' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '33' AND parent."code" = '31' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '35' AND parent."code" = '34' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '36' AND parent."code" = '34' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '37' AND parent."code" = '34' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '38' AND parent."code" = '34' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '39' AND parent."code" = '34' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '42' AND parent."code" = '40' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '43' AND parent."code" = '40' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '44' AND parent."code" = '40' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '46' AND parent."code" = '45' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '47' AND parent."code" = '45' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '48' AND parent."code" = '45' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '49' AND parent."code" = '45' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '50' AND parent."code" = '40' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '52' AND parent."code" = '51' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '53' AND parent."code" = '51' AND child."parent_id" = 0 AND child."updated_by" = 0;
+UPDATE plugin_cms_category AS child SET "parent_id" = parent."id" FROM plugin_cms_category AS parent WHERE child."code" = '54' AND parent."code" = '51' AND child."parent_id" = 0 AND child."updated_by" = 0;
 
-UPDATE plugin_cms_category SET "list_template" = 'list.html', "content_template" = 'detail.html' WHERE "type" = 1;
-UPDATE plugin_cms_category SET "list_template" = '', "content_template" = 'single.html' WHERE "type" = 2;
-UPDATE plugin_cms_category SET "list_template" = 'list-card.html', "content_template" = 'detail.html' WHERE "code" = '46';
+UPDATE plugin_cms_category
+SET "list_template" = 'list.html', "content_template" = 'detail.html'
+WHERE "type" = 1
+  AND "updated_by" = 0
+  AND BTRIM("list_template") = ''
+  AND BTRIM("content_template") = '';
 
-INSERT INTO plugin_cms_slide ("group_code", "title", "subtitle", "image", "link", "sort", "status", "created_at", "updated_at") VALUES
+UPDATE plugin_cms_category
+SET "list_template" = '', "content_template" = 'single.html'
+WHERE "type" = 2
+  AND "updated_by" = 0
+  AND BTRIM("list_template") = ''
+  AND BTRIM("content_template") = '';
+
+UPDATE plugin_cms_category
+SET "list_template" = 'list-card.html', "content_template" = 'detail.html'
+WHERE "code" = '46'
+  AND "updated_by" = 0
+  AND "list_template" IN ('', 'list.html')
+  AND "content_template" IN ('', 'detail.html');
+
+INSERT INTO plugin_cms_slide ("group_code", "title", "subtitle", "image", "link", "sort", "status", "created_at", "updated_at")
+SELECT seed."group_code", seed."title", seed."subtitle", seed."image", seed."link", seed."sort", seed."status", seed."created_at"::timestamp, seed."updated_at"::timestamp
+FROM (VALUES
 ('1', '致力于先进材料前沿研究', '推动产业创新发展，打造国内一流科研平台', 'https://picsum.photos/seed/banner1/800/300', '', 255, 1, '2018-03-01 16:19:03', '2018-04-12 10:43:19'),
 ('1', '深化产学研合作', '联合高校科研机构，攻克关键核心技术', 'https://picsum.photos/seed/banner2/800/300', '', 255, 1, '2018-04-12 10:46:07', '2018-04-12 10:46:07'),
-('1', '加速科技成果转化', '服务地方经济，推动先进材料产业升级', 'https://picsum.photos/seed/banner3/800/300', '', 255, 1, '2026-04-18 10:00:00', '2026-04-18 10:00:00');
+('1', '加速科技成果转化', '服务地方经济，推动先进材料产业升级', 'https://picsum.photos/seed/banner3/800/300', '', 255, 1, '2026-04-18 10:00:00', '2026-04-18 10:00:00')
+) AS seed("group_code", "title", "subtitle", "image", "link", "sort", "status", "created_at", "updated_at")
+WHERE NOT EXISTS (
+    SELECT 1 FROM plugin_cms_slide AS existing
+    WHERE existing."group_code" = seed."group_code"
+      AND existing."title" = seed."title"
+      AND existing."deleted_at" IS NULL
+);
 
-INSERT INTO plugin_cms_link ("group_code", "name", "url", "logo", "sort", "status", "created_at", "updated_at") VALUES
+INSERT INTO plugin_cms_link ("group_code", "name", "url", "logo", "sort", "status", "created_at", "updated_at")
+SELECT seed."group_code", seed."name", seed."url", seed."logo", seed."sort", seed."status", seed."created_at"::timestamp, seed."updated_at"::timestamp
+FROM (VALUES
 ('1', '国家科技部', 'https://www.most.gov.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00'),
 ('1', '江西省科技厅', 'http://kjt.jiangxi.gov.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00'),
 ('1', '吉安市人民政府', 'http://www.jian.gov.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00'),
@@ -122,7 +171,15 @@ INSERT INTO plugin_cms_link ("group_code", "name", "url", "logo", "sort", "statu
 ('3', '南昌大学', 'https://www.ncu.edu.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00'),
 ('3', '东华大学', 'https://www.dhu.edu.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00'),
 ('4', '中国材料网', 'http://www.matinfo.com.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00'),
-('4', '中国纺织网', 'http://www.texnet.com.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00');
+('4', '中国纺织网', 'http://www.texnet.com.cn', '', 255, 1, '2026-01-01 10:00:00', '2026-01-01 10:00:00')
+) AS seed("group_code", "name", "url", "logo", "sort", "status", "created_at", "updated_at")
+WHERE NOT EXISTS (
+    SELECT 1 FROM plugin_cms_link AS existing
+    WHERE existing."group_code" = seed."group_code"
+      AND existing."name" = seed."name"
+      AND existing."url" = seed."url"
+      AND existing."deleted_at" IS NULL
+);
 
 INSERT INTO plugin_cms_article ("category_id", "title", "subtitle", "slug", "summary", "cover", "author", "source", "content", "tags", "keywords", "description", "sort", "status", "is_top", "is_recommend", "views", "published_at", "created_at", "updated_at") VALUES
 ((SELECT "id" FROM plugin_cms_category WHERE "code"='1'), '研究院简介', '', 'cms-1', '启明先进材料产业研究院聚焦先进材料公共技术服务、成果转化和产业协同。', '', 'admin', '本站', '<p>启明先进材料产业研究院面向先进材料产业链提供技术研发、检测验证、人才培训和成果转化服务，建设开放共享的创新服务平台。</p>', '', '', '启明先进材料产业研究院聚焦先进材料公共技术服务、成果转化和产业协同。', 255, 1, 0, 0, 61, '2018-04-11 17:26:11', '2018-04-11 17:26:11', '2026-04-18 21:57:09'),
@@ -227,7 +284,8 @@ INSERT INTO plugin_cms_article ("category_id", "title", "subtitle", "slug", "sum
 ((SELECT "id" FROM plugin_cms_category WHERE "code"='51'), '互动交流', '', 'cms-114', '', '', '超级管理员', '本站', '', '', '', '', 255, 1, 0, 0, 8, '2026-04-22 21:04:11', '2026-04-22 21:04:11', '2026-04-22 21:04:11'),
 ((SELECT "id" FROM plugin_cms_category WHERE "code"='52'), '在线咨询服务指南', '', 'cms-115', '在线咨询窗口、工作时间、联系电话和服务材料说明。', 'https://picsum.photos/seed/cms-cms-115/640/360', '超级管理员', '本站', '<p>在线咨询服务面向企业技术负责人、项目申报人员和高校课题组开放，访客可提交材料方向、样品状态、预期指标、时间要求和联系方式，研究院工作人员会在工作日内完成初步分流。</p>', '在线咨询,启明研究院,产业服务', '先进材料,在线咨询,服务指南', '在线咨询窗口、工作时间、联系电话和服务材料说明。', 255, 1, 0, 0, 15, '2026-04-22 21:04:45', '2026-04-22 21:04:45', '2026-04-22 21:07:26'),
 ((SELECT "id" FROM plugin_cms_category WHERE "code"='54'), '常见技术问题解答', '', 'cms-116', '整理企业在材料检测、样品准备、报告交付和成果转化咨询中的高频问题。', 'https://picsum.photos/seed/cms-cms-116/640/360', '超级管理员', '本站', '<p>本栏目整理企业和课题组在检测预约、样品数量、测试周期、报告格式、专家咨询和后续转化服务中的常见问题，便于访客在提交咨询前了解基础规则。</p>', '常见问题,启明研究院,产业服务', '先进材料,常见技术问题解答,咨询服务', '整理企业在材料检测、样品准备、报告交付和成果转化咨询中的高频问题。', 255, 1, 0, 0, 3, '2026-04-22 21:07:49', '2026-04-22 21:08:09', '2026-04-22 21:08:09'),
-((SELECT "id" FROM plugin_cms_category WHERE "code"='54'), '专家团队与服务方向介绍', '', 'cms-117', '介绍研究院专家团队的材料设计、工艺放大、检测评价和产业化服务方向。', 'https://picsum.photos/seed/cms-cms-117/640/360', '超级管理员', '本站', '<p>专家团队覆盖高分子材料、纤维复合材料、涂层工艺、性能检测、质量体系和成果转化等方向，可为企业提供需求诊断、方案评审和项目跟踪服务。</p>', '专家团队,启明研究院,产业服务', '先进材料,专家团队,咨询服务', '介绍研究院专家团队的材料设计、工艺放大、检测评价和产业化服务方向。', 255, 1, 0, 0, 7, '2026-04-22 21:08:10', '2026-04-22 21:08:27', '2026-04-22 21:08:27');
+((SELECT "id" FROM plugin_cms_category WHERE "code"='54'), '专家团队与服务方向介绍', '', 'cms-117', '介绍研究院专家团队的材料设计、工艺放大、检测评价和产业化服务方向。', 'https://picsum.photos/seed/cms-cms-117/640/360', '超级管理员', '本站', '<p>专家团队覆盖高分子材料、纤维复合材料、涂层工艺、性能检测、质量体系和成果转化等方向，可为企业提供需求诊断、方案评审和项目跟踪服务。</p>', '专家团队,启明研究院,产业服务', '先进材料,专家团队,咨询服务', '介绍研究院专家团队的材料设计、工艺放大、检测评价和产业化服务方向。', 255, 1, 0, 0, 7, '2026-04-22 21:08:10', '2026-04-22 21:08:27', '2026-04-22 21:08:27')
+ON CONFLICT ("slug") DO NOTHING;
 
 UPDATE plugin_cms_article
 SET "title" = CASE "slug"
@@ -239,7 +297,7 @@ SET "title" = CASE "slug"
     WHEN 'cms-117' THEN '专家团队与服务方向介绍'
     ELSE "title"
 END
-WHERE "slug" IN ('cms-7', 'cms-19', 'cms-52', 'cms-115', 'cms-116', 'cms-117');
+WHERE "updated_by" = 0 AND "slug" IN ('cms-7', 'cms-19', 'cms-52', 'cms-115', 'cms-116', 'cms-117');
 
 UPDATE plugin_cms_article AS article
 SET
@@ -300,12 +358,31 @@ SET
         '<p>这批初始化内容主要用于 CMS 插件演示和二次开发参考，正文均保持三百字以上，并尽量贴近真实官网的表达方式。后续用户可以在后台继续替换封面、调整摘要、补充附件或关联留言反馈，把演示站点扩展成正式的机构官网、公共服务平台或产业园门户。</p>'
     )
 FROM plugin_cms_category AS category
-WHERE article."category_id" = category."id";
+WHERE article."category_id" = category."id"
+  AND article."slug" IN ('cms-1', 'cms-5', 'cms-6', 'cms-7', 'cms-18', 'cms-19', 'cms-20', 'cms-21', 'cms-22', 'cms-23', 'cms-24', 'cms-25', 'cms-26', 'cms-27', 'cms-28', 'cms-29', 'cms-30', 'cms-31', 'cms-32', 'cms-33', 'cms-34', 'cms-35', 'cms-36', 'cms-37', 'cms-38', 'cms-39', 'cms-40', 'cms-41', 'cms-42', 'cms-43', 'cms-44', 'cms-45', 'cms-46', 'cms-47', 'cms-48', 'cms-49', 'cms-50', 'cms-51', 'cms-52', 'cms-53', 'cms-54', 'cms-55', 'cms-56', 'cms-57', 'cms-58', 'cms-59', 'cms-60', 'cms-61', 'cms-62', 'cms-63', 'cms-64', 'cms-65', 'cms-66', 'cms-67', 'cms-68', 'cms-69', 'cms-70', 'cms-71', 'cms-72', 'cms-73', 'cms-74', 'cms-75', 'cms-76', 'cms-77', 'cms-78', 'cms-79', 'cms-80', 'cms-81', 'cms-82', 'cms-83', 'cms-84', 'cms-85', 'cms-86', 'cms-87', 'cms-88', 'cms-89', 'cms-90', 'cms-91', 'cms-92', 'cms-93', 'cms-94', 'cms-95', 'cms-96', 'cms-97', 'cms-98', 'cms-99', 'cms-100', 'cms-101', 'cms-102', 'cms-103', 'cms-104', 'cms-105', 'cms-106', 'cms-107', 'cms-108', 'cms-109', 'cms-110', 'cms-111', 'cms-113', 'cms-114', 'cms-115', 'cms-116', 'cms-117')
+  AND article."updated_by" = 0
+  AND (
+      BTRIM(article."summary") = ''
+      OR BTRIM(article."description") = ''
+      OR BTRIM(article."cover") = ''
+      OR BTRIM(article."content") = ''
+      OR article."content" LIKE '&lt;%'
+      OR LENGTH(REGEXP_REPLACE(article."content", '<[^>]+>', '', 'g')) < 300
+      OR category."code" = '46'
+  );
 
 INSERT INTO plugin_cms_message ("name", "mobile", "email", "content", "reply", "status", "user_ip", "user_agent", "created_at", "updated_at")
-VALUES
-('吉安材料科技有限公司 王经理', '13888886666', 'wang@example.com', '想了解高性能复合材料检测服务的预约流程。', '您好，可以在工作日联系公共服务中心，我们会安排检测工程师对接样品和指标要求。', 1, '127.0.0.1', 'mock', '2026-05-09 14:00:00', '2026-05-09 14:20:00'),
-('启明新材项目组', '13900001111', 'project@example.com', '希望咨询科技成果转化合作的入驻条件。', '您好，成果转化合作可先提交项目简介，研究院会组织专家进行初审和需求匹配。', 1, '127.0.0.1', 'mock', '2026-05-09 15:10:00', '2026-05-09 15:35:00'),
-('高校联合实验室 李老师', '13700002222', 'li@example.edu', '共享平台设备是否支持校企联合课题预约？', '支持，请提前准备课题说明、样品信息和预计使用时段，工作人员会协助完成预约。', 1, '127.0.0.1', 'mock', '2026-05-09 16:00:00', '2026-05-09 16:30:00'),
-('产业园企业代表', '13600003333', 'park@example.com', '想报名参加近期先进材料产业政策培训。', '', 0, '127.0.0.1', 'mock', '2026-05-09 17:00:00', '2026-05-09 17:00:00'),
-('访客陈先生', '13500004444', 'chen@example.com', '请问专家答疑栏目能否提交更详细的技术问题？', '', 2, '127.0.0.1', 'mock', '2026-05-09 18:00:00', '2026-05-09 18:10:00');
+SELECT seed."name", seed."mobile", seed."email", seed."content", seed."reply", seed."status", seed."user_ip", seed."user_agent", seed."created_at"::timestamp, seed."updated_at"::timestamp
+FROM (VALUES
+('吉安材料科技有限公司 王经理', '13888886666', 'wang@example.com', '想了解高性能复合材料检测服务的预约流程。', '您好，可以在工作日联系公共服务中心，我们会安排检测工程师对接样品和指标要求。', 1, '127.0.0.1', 'starter', '2026-05-09 14:00:00', '2026-05-09 14:20:00'),
+('启明新材项目组', '13900001111', 'project@example.com', '希望咨询科技成果转化合作的入驻条件。', '您好，成果转化合作可先提交项目简介，研究院会组织专家进行初审和需求匹配。', 1, '127.0.0.1', 'starter', '2026-05-09 15:10:00', '2026-05-09 15:35:00'),
+('高校联合实验室 李老师', '13700002222', 'li@example.edu', '共享平台设备是否支持校企联合课题预约？', '支持，请提前准备课题说明、样品信息和预计使用时段，工作人员会协助完成预约。', 1, '127.0.0.1', 'starter', '2026-05-09 16:00:00', '2026-05-09 16:30:00'),
+('产业园企业代表', '13600003333', 'park@example.com', '想报名参加近期先进材料产业政策培训。', '', 0, '127.0.0.1', 'starter', '2026-05-09 17:00:00', '2026-05-09 17:00:00'),
+('访客陈先生', '13500004444', 'chen@example.com', '请问专家答疑栏目能否提交更详细的技术问题？', '', 2, '127.0.0.1', 'starter', '2026-05-09 18:00:00', '2026-05-09 18:10:00')
+) AS seed("name", "mobile", "email", "content", "reply", "status", "user_ip", "user_agent", "created_at", "updated_at")
+WHERE NOT EXISTS (
+    SELECT 1 FROM plugin_cms_message AS existing
+    WHERE existing."name" = seed."name"
+      AND existing."content" = seed."content"
+      AND existing."deleted_at" IS NULL
+);

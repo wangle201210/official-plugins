@@ -1475,6 +1475,67 @@
     color: #8a5700;
 }
 
+.message-board {
+    margin-top: 24px;
+}
+
+.message-list {
+    display: grid;
+    gap: 16px;
+    padding: 8px 30px 30px;
+}
+
+.message-item {
+    border: 1px solid rgba(16, 34, 56, 0.12);
+    border-radius: var(--cms-radius, 8px);
+    padding: 18px 20px;
+    background: #fbfcf8;
+}
+
+.message-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--cms-ink, #102238);
+    font-size: 14px;
+}
+
+.message-item-head strong {
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.message-item-head span {
+    color: var(--cms-muted, #6d7b88);
+    white-space: nowrap;
+}
+
+.message-item-content {
+    margin: 12px 0 0;
+    color: var(--cms-text, #26394d);
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.message-reply {
+    margin-top: 14px;
+    border-left: 3px solid var(--cms-blue, #115c8d);
+    padding: 12px 14px;
+    background: #ffffff;
+}
+
+.message-reply b {
+    color: var(--cms-blue, #115c8d);
+    font-weight: 900;
+}
+
+.message-reply p {
+    margin: 6px 0 0;
+    color: var(--cms-text, #26394d);
+    line-height: 1.8;
+}
+
 @media (max-width: 1024px) {
     .article-card-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1575,6 +1636,15 @@
 
     .msg-form-grid {
         grid-template-columns: 1fr;
+    }
+
+    .message-list {
+        padding: 4px 18px 22px;
+    }
+
+    .message-item-head {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 

@@ -88,6 +88,31 @@ export class CmsPluginPage {
 
   async expectSiteImageUploadsVisible() {
     await this.page.getByTestId("cms-section-site").click();
+    await this.page.getByTestId("cms-site-show-messages").waitFor({
+      state: "visible",
+      timeout: 10_000,
+    });
+    await expect(this.page.getByTestId("cms-site-show-messages")).toHaveClass(
+      /ant-switch/,
+    );
+    await expect(this.page.getByTestId("cms-site-show-messages")).toHaveAttribute(
+      "role",
+      "switch",
+    );
+    await expect(this.page.getByTestId("cms-site-clear-data")).toBeVisible();
+    await expect(this.page.getByTestId("cms-site-clear-data")).toContainText(
+      /清空数据|Clear Data|清空資料/,
+    );
+    await expect(this.page.getByTestId("cms-site-clear-data")).not.toContainText(
+      "plugin.cms.actions.clearData",
+    );
+    await expect(this.page.getByTestId("cms-site-load-sample-data")).toBeVisible();
+    await expect(
+      this.page.getByTestId("cms-site-load-sample-data"),
+    ).toContainText(/加载示例数据|Load Sample Data|載入示例資料/);
+    await expect(
+      this.page.getByTestId("cms-site-load-sample-data"),
+    ).not.toContainText("plugin.cms.actions.loadSampleData");
     await this.page.getByTestId("cms-site-logo-upload").waitFor({
       state: "visible",
       timeout: 10_000,
@@ -466,6 +491,33 @@ export class CmsPluginPage {
     await waitForBusyIndicatorsToClear(this.page);
   }
 
+  async expectClearAndLoadActionsRefreshAllSections() {
+    await this.page.route("**/api/v1/cms/site/data", async (route) => {
+      await route.fulfill({ contentType: "application/json", json: { code: 0 } });
+    });
+    await this.page.route("**/api/v1/cms/site/sample-data", async (route) => {
+      await route.fulfill({ contentType: "application/json", json: { code: 0 } });
+    });
+
+    await this.openArticlesTab();
+    await this.page.getByTestId("cms-article-title-filter").fill("stale filter");
+    await this.page.getByTestId("cms-section-site").click();
+
+    await this.expectSiteActionRefreshesAllSections("cms-site-clear-data", "DELETE");
+    await expect(this.page.getByTestId("cms-article-title-filter")).toHaveValue("");
+
+    await this.openSlidesTab();
+    await this.page.getByTestId("cms-slide-keyword-filter").fill("stale slide");
+    await this.page.getByTestId("cms-section-site").click();
+
+    await this.expectSiteActionRefreshesAllSections(
+      "cms-site-load-sample-data",
+      "POST",
+    );
+    await this.openSlidesTab();
+    await expect(this.page.getByTestId("cms-slide-keyword-filter")).toHaveValue("");
+  }
+
   private tableRowByText(testId: string, text: string) {
     return this.page
       .getByTestId(testId)
@@ -482,6 +534,48 @@ export class CmsPluginPage {
         state: "visible",
         timeout: 10_000,
       });
+  }
+
+  private async expectSiteActionRefreshesAllSections(
+    testId: string,
+    actionMethod: string,
+  ) {
+    const refreshPaths = [
+      "/api/v1/cms/site",
+      "/api/v1/cms/categories",
+      "/api/v1/cms/articles",
+      "/api/v1/cms/messages",
+      "/api/v1/cms/slides",
+      "/api/v1/cms/links",
+    ];
+    const refreshResponses = refreshPaths.map((path) =>
+      this.page.waitForResponse(
+        (response) =>
+          response.url().includes(path) &&
+          response.request().method() === "GET" &&
+          response.status() === 200,
+      ),
+    );
+    const actionResponse = this.page.waitForResponse(
+      (response) =>
+        response.url().includes(
+          testId === "cms-site-clear-data"
+            ? "/api/v1/cms/site/data"
+            : "/api/v1/cms/site/sample-data",
+        ) &&
+        response.request().method() === actionMethod &&
+        response.status() === 200,
+    );
+
+    await this.page.getByTestId(testId).click();
+    await this.confirmPopconfirm();
+    await actionResponse;
+    await Promise.all(refreshResponses);
+    await waitForBusyIndicatorsToClear(this.page);
+    await this.openArticlesTab();
+    await expect(this.page.getByTestId("cms-content-model-model-list")).toHaveClass(
+      /is-active/,
+    );
   }
 
   private async selectArticleModel(model: "list" | "single") {

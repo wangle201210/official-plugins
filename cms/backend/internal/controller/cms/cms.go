@@ -5,6 +5,8 @@ package cms
 import (
 	v1 "lina-plugin-cms/backend/api/cms/v1"
 	cmssvc "lina-plugin-cms/backend/internal/service/cms"
+
+	"github.com/gogf/gf/v2/os/gtime"
 )
 
 // toAPISite converts a service-layer site into the API response projection.
@@ -13,26 +15,55 @@ func toAPISite(item *cmssvc.SiteItem) *v1.SiteItem {
 		return nil
 	}
 	return &v1.SiteItem{
-		Id:          item.Id,
-		SiteKey:     item.SiteKey,
-		Name:        item.Name,
-		Logo:        item.Logo,
-		Weixin:      item.Weixin,
-		Domain:      item.Domain,
-		Slogan:      item.Slogan,
-		Keywords:    item.Keywords,
-		Description: item.Description,
-		Icp:         item.Icp,
-		Contact:     item.Contact,
-		Phone:       item.Phone,
-		Email:       item.Email,
-		Address:     item.Address,
-		Status:      item.Status,
-		CreatedBy:   item.CreatedBy,
-		UpdatedBy:   item.UpdatedBy,
-		CreatedAt:   item.CreatedAt,
-		UpdatedAt:   item.UpdatedAt,
+		Id:           item.Id,
+		SiteKey:      item.SiteKey,
+		Name:         item.Name,
+		Logo:         item.Logo,
+		Weixin:       item.Weixin,
+		Domain:       item.Domain,
+		Slogan:       item.Slogan,
+		Keywords:     item.Keywords,
+		Description:  item.Description,
+		Icp:          item.Icp,
+		Contact:      item.Contact,
+		Phone:        item.Phone,
+		Email:        item.Email,
+		Address:      item.Address,
+		Status:       item.Status,
+		ShowMessages: item.ShowMessages,
+		CreatedBy:    item.CreatedBy,
+		UpdatedBy:    item.UpdatedBy,
+		CreatedAt:    item.CreatedAt,
+		UpdatedAt:    item.UpdatedAt,
 	}
+}
+
+// toAPIPublicMessages converts approved visitor messages into public-safe projections.
+func toAPIPublicMessages(list []*cmssvc.MessageItem) []*v1.PublicMessageItem {
+	items := make([]*v1.PublicMessageItem, 0, len(list))
+	for _, item := range list {
+		if item == nil {
+			continue
+		}
+		items = append(items, &v1.PublicMessageItem{
+			Id:        item.Id,
+			Name:      item.Name,
+			Content:   item.Content,
+			Reply:     item.Reply,
+			CreatedAt: toAPITimeMillis(item.CreatedAt),
+			UpdatedAt: toAPITimeMillis(item.UpdatedAt),
+		})
+	}
+	return items
+}
+
+// toAPITimeMillis converts GoFrame time values to Unix milliseconds for public APIs.
+func toAPITimeMillis(value *gtime.Time) *int64 {
+	if value == nil {
+		return nil
+	}
+	millis := value.TimestampMilli()
+	return &millis
 }
 
 // toAPICategory converts a service-layer category into the API response projection.

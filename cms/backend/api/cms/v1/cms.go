@@ -6,25 +6,26 @@ import "github.com/gogf/gf/v2/os/gtime"
 
 // SiteItem defines CMS site settings returned by management and public APIs.
 type SiteItem struct {
-	Id          int64       `json:"id" dc:"Site ID" eg:"1"`
-	SiteKey     string      `json:"siteKey" dc:"Stable site key" eg:"default"`
-	Name        string      `json:"name" dc:"Site name" eg:"LinaPro CMS"`
-	Logo        string      `json:"logo" dc:"Site logo URL" eg:"/uploads/logo.png"`
-	Weixin      string      `json:"weixin" dc:"WeChat QR code image URL" eg:"/uploads/weixin.png"`
-	Domain      string      `json:"domain" dc:"Primary site domain" eg:"https://example.com"`
-	Slogan      string      `json:"slogan" dc:"Site slogan" eg:"AI-native content delivery"`
-	Keywords    string      `json:"keywords" dc:"SEO keywords" eg:"LinaPro,CMS"`
-	Description string      `json:"description" dc:"SEO description" eg:"LinaPro CMS site"`
-	Icp         string      `json:"icp" dc:"ICP record number" eg:"ICP 00000000"`
-	Contact     string      `json:"contact" dc:"Contact person" eg:"Admin"`
-	Phone       string      `json:"phone" dc:"Contact phone" eg:"13800000000"`
-	Email       string      `json:"email" dc:"Contact email" eg:"hello@example.com"`
-	Address     string      `json:"address" dc:"Contact address" eg:"Shanghai"`
-	Status      int         `json:"status" dc:"Status: 0=disabled, 1=enabled" eg:"1"`
-	CreatedBy   int64       `json:"createdBy" dc:"Creator user ID" eg:"1"`
-	UpdatedBy   int64       `json:"updatedBy" dc:"Updater user ID" eg:"1"`
-	CreatedAt   *gtime.Time `json:"createdAt" dc:"Creation time"`
-	UpdatedAt   *gtime.Time `json:"updatedAt" dc:"Update time"`
+	Id           int64       `json:"id" dc:"Site ID" eg:"1"`
+	SiteKey      string      `json:"siteKey" dc:"Stable site key" eg:"default"`
+	Name         string      `json:"name" dc:"Site name" eg:"LinaPro CMS"`
+	Logo         string      `json:"logo" dc:"Site logo URL" eg:"/uploads/logo.png"`
+	Weixin       string      `json:"weixin" dc:"WeChat QR code image URL" eg:"/uploads/weixin.png"`
+	Domain       string      `json:"domain" dc:"Primary site domain" eg:"https://example.com"`
+	Slogan       string      `json:"slogan" dc:"Site slogan" eg:"AI-native content delivery"`
+	Keywords     string      `json:"keywords" dc:"SEO keywords" eg:"LinaPro,CMS"`
+	Description  string      `json:"description" dc:"SEO description" eg:"LinaPro CMS site"`
+	Icp          string      `json:"icp" dc:"ICP record number" eg:"ICP 00000000"`
+	Contact      string      `json:"contact" dc:"Contact person" eg:"Admin"`
+	Phone        string      `json:"phone" dc:"Contact phone" eg:"13800000000"`
+	Email        string      `json:"email" dc:"Contact email" eg:"hello@example.com"`
+	Address      string      `json:"address" dc:"Contact address" eg:"Shanghai"`
+	Status       int         `json:"status" dc:"Status: 0=disabled, 1=enabled" eg:"1"`
+	ShowMessages int         `json:"showMessages" dc:"Show approved visitor messages on public message page: 0=no, 1=yes" eg:"0"`
+	CreatedBy    int64       `json:"createdBy" dc:"Creator user ID" eg:"1"`
+	UpdatedBy    int64       `json:"updatedBy" dc:"Updater user ID" eg:"1"`
+	CreatedAt    *gtime.Time `json:"createdAt" dc:"Creation time"`
+	UpdatedAt    *gtime.Time `json:"updatedAt" dc:"Update time"`
 }
 
 // CategoryItem defines a CMS category node returned by management and public APIs.
@@ -94,6 +95,16 @@ type MessageItem struct {
 	UpdatedBy int64       `json:"updatedBy" dc:"Updater user ID" eg:"1"`
 	CreatedAt *gtime.Time `json:"createdAt" dc:"Creation time"`
 	UpdatedAt *gtime.Time `json:"updatedAt" dc:"Update time"`
+}
+
+// PublicMessageItem defines an approved visitor message exposed on the public site.
+type PublicMessageItem struct {
+	Id        int64  `json:"id" dc:"Message ID" eg:"1"`
+	Name      string `json:"name" dc:"Visitor name" eg:"Alice"`
+	Content   string `json:"content" dc:"Message content" eg:"Please contact me"`
+	Reply     string `json:"reply" dc:"Reply content" eg:"Thanks"`
+	CreatedAt *int64 `json:"createdAt" dc:"Creation time as Unix timestamp in milliseconds" eg:"1715740800000"`
+	UpdatedAt *int64 `json:"updatedAt" dc:"Update time as Unix timestamp in milliseconds" eg:"1715740800000"`
 }
 
 // LinkItem defines a public CMS friendly link.

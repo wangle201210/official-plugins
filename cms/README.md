@@ -14,6 +14,25 @@ public HTML rendering APIs.
 - Vben management page embedded through the plugin runtime
 - Plugin-owned E2E tests under `hack/tests`
 
+Normal plugin installation loads starter content from
+`manifest/sql/003-cms-starter-content.sql`. A new CMS installation therefore
+already includes the reference site settings, category tree, slides, friendly
+links, rich article bodies, and three visible approved visitor messages. The
+optional `manifest/sql/mock-data/` files remain local reset data for validation
+scenarios.
+
+After reviewing the starter content, administrators can use the CMS management
+page's `Clear Data` action to remove CMS categories, articles, tags, slides,
+friendly links, and visitor messages. The action keeps a blank default site
+record so the management page and public endpoints remain available while users
+build their own site. Shared uploaded files are not deleted because they are
+owned by the host file module rather than the CMS plugin.
+
+Administrators can also use `Load Sample Data` to clear the current CMS
+business content and reload the packaged starter site from
+`manifest/sql/003-cms-starter-content.sql`. This is intended for returning a
+reviewed or emptied demo site to the delivered sample state.
+
 ## Root Domain OpenResty Proxy
 
 The public CMS site is served by LinaPro under `/cms-site`. To publish it at a
@@ -310,6 +329,10 @@ Example:
 
 ### Pagination, Breadcrumb, and Message State
 
+The public message list is enabled in the default demo data. Disable
+`Show Messages` in CMS site settings when `/cms-site/message` should hide
+approved visitor messages and replies.
+
 | Tag | Output |
 | --- | --- |
 | `{page:breadcrumb separator='&gt;'}` | Breadcrumb navigation |
@@ -322,6 +345,14 @@ Example:
 | `{message:submitted}` | Message submitted successfully |
 | `{message:invalid}` | Message payload is invalid |
 | `{message:error}` | Message submit failed |
+| `{message:show}` | Approved visitor-message display is enabled |
+| `{cms:message limit=12}` | Loop over approved visitor messages, capped at `50` |
+| `[message:id]` | Visitor message ID |
+| `[message:name]` | Visitor name |
+| `[message:content]` | Visitor message content |
+| `[message:reply]` | Public reply content |
+| `[message:date]` | Visitor message creation time |
+| `[message:updated]` | Visitor message update time |
 
 ### Conditional Tags
 
@@ -334,6 +365,15 @@ They do not execute arbitrary scripts. Common forms:
 {cms:if([nav:childcount]>0)}...{/cms:if}
 {cms:if({page:total}>0)}...{else}No content{/cms:if}
 {cms:if({message:submitted})}<p>Submitted</p>{/cms:if}
+{cms:if({message:show})}
+  {cms:message limit=12}
+    <article>
+      <h3>[message:name]</h3>
+      <p>[message:content]</p>
+      {cms:if([message:reply])}<p>[message:reply]</p>{/cms:if}
+    </article>
+  {/cms:message}
+{/cms:if}
 ```
 
 ## Development

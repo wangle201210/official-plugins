@@ -25,6 +25,18 @@ menus:
     perms: cms:site:edit
     type: B
     sort: 1
+  - key: plugin:cms:site:purge
+    parent_key: plugin:cms:workspace
+    name: 站点数据清空
+    perms: cms:site:purge
+    type: B
+    sort: 20
+  - key: plugin:cms:site:sample
+    parent_key: plugin:cms:workspace
+    name: 加载示例数据
+    perms: cms:site:sample
+    type: B
+    sort: 21
   - key: plugin:cms:category:query
     parent_key: plugin:cms:workspace
     name: 栏目查询

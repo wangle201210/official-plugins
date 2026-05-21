@@ -172,6 +172,7 @@ test.describe("TC-1 CMS 插件管理", () => {
     await cmsPage.goto();
     await cmsPage.expectWorkbenchVisible();
     await cmsPage.expectSiteImageUploadsVisible();
+    await cmsPage.expectClearAndLoadActionsRefreshAllSections();
     const originalSite = await expectSuccess<SiteDetail>(
       await adminApi.get("cms/site"),
     );
