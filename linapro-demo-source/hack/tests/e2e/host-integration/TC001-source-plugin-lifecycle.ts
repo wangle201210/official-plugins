@@ -395,7 +395,11 @@ test.describe("TC-1 源码插件生命周期", () => {
     await pluginPage.expectTableColumnHidden("入口");
     await pluginPage.expectTableColumnHidden("生命周期");
     await pluginPage.expectTableColumnHidden("治理摘要");
-    await pluginPage.expectTableColumnBetween("描述", "版本", "状态");
+    await pluginPage.expectTableColumnBetween(
+      ["插件描述", "Plugin Description"],
+      ["插件名称", "Plugin Name"],
+      ["版本", "版本号", "Version"],
+    );
     await pluginPage.expectDescriptionUsesNativeTooltip(pluginID);
     await pluginPage.expectInstallActionVisible(pluginID);
     await pluginPage.expectUninstallActionHidden(pluginID);
