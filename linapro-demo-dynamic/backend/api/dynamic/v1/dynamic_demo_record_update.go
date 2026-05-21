@@ -2,11 +2,11 @@
 
 package v1
 
-import "github.com/gogf/gf/v2/frame/g"
+import "github.com/gogf/gf/v2/util/gmeta"
 
 // UpdateDemoRecordReq is the request for updating one dynamic demo record.
 type UpdateDemoRecordReq struct {
-	g.Meta                  `path:"/demo-records/{id}" method:"put" tags:"Dynamic Plugin Demo" summary:"Update dynamic plugin sample record" dc:"Update a linapro-demo-dynamic sample record and optionally replace or remove its attachment, demonstrating writes to plugin-owned tables and authorized storage files." access:"login" permission:"linapro-demo-dynamic:record:update" operLog:"update"`
+	gmeta.Meta              `path:"/demo-records/{id}" method:"put" tags:"Dynamic Plugin Demo" summary:"Update dynamic plugin sample record" dc:"Update a linapro-demo-dynamic sample record and optionally replace or remove its attachment, demonstrating writes to plugin-owned tables and authorized storage files." access:"login" permission:"linapro-demo-dynamic:record:update" operLog:"update"`
 	Id                      string `json:"id" v:"required|length:1,64" dc:"Record unique identifier" eg:"demo-record-1"`
 	Title                   string `json:"title" v:"required|length:1,128" dc:"Record title" eg:"Dynamic plugin SQL sample records"`
 	Content                 string `json:"content" v:"max-length:1000" dc:"Record content" eg:"Updated dynamic plugin example logging content."`

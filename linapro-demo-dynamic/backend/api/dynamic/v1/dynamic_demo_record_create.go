@@ -2,11 +2,11 @@
 
 package v1
 
-import "github.com/gogf/gf/v2/frame/g"
+import "github.com/gogf/gf/v2/util/gmeta"
 
 // CreateDemoRecordReq is the request for creating one dynamic demo record.
 type CreateDemoRecordReq struct {
-	g.Meta                  `path:"/demo-records" method:"post" tags:"Dynamic Plugin Demo" summary:"Create dynamic plugin sample record" dc:"Create a linapro-demo-dynamic sample record with an optional plugin-owned attachment, demonstrating writes to the data table and authorized storage file created by the installation SQL." access:"login" permission:"linapro-demo-dynamic:record:create" operLog:"create"`
+	gmeta.Meta              `path:"/demo-records" method:"post" tags:"Dynamic Plugin Demo" summary:"Create dynamic plugin sample record" dc:"Create a linapro-demo-dynamic sample record with an optional plugin-owned attachment, demonstrating writes to the data table and authorized storage file created by the installation SQL." access:"login" permission:"linapro-demo-dynamic:record:create" operLog:"create"`
 	Title                   string `json:"title" v:"required|length:1,128" dc:"Record title" eg:"Dynamic plugin SQL sample records"`
 	Content                 string `json:"content" v:"max-length:1000" dc:"Record content" eg:"This record is created by the dynamic plugin sample page to demonstrate the new operations of the SQL data table."`
 	AttachmentName          string `json:"attachmentName" dc:"The original file name of the attachment; pass an empty string when no attachment is uploaded." eg:"linapro-demo-dynamic-note.txt"`
