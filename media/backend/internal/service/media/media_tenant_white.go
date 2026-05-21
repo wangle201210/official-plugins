@@ -50,6 +50,11 @@ type TenantWhiteMutationInput struct {
 	Enable      int    // Enable marks whether the whitelist entry is active.
 }
 
+// TenantWhiteIPsByTokenInput defines the token source for public whitelist IP lookup.
+type TenantWhiteIPsByTokenInput struct {
+	Token string // Token is the required token request field.
+}
+
 // TenantWhiteMutationOutput defines tenant whitelist mutation result.
 type TenantWhiteMutationOutput struct {
 	TenantId string // TenantId is the media tenant ID.
@@ -210,6 +215,45 @@ func (s *serviceImpl) DeleteTenantWhite(ctx context.Context, tenantID string, ip
 		return nil, bizerr.WrapCode(err, CodeMediaTenantWhiteDeleteFailed)
 	}
 	return &TenantWhiteMutationOutput{TenantId: normalizedTenantID, Ip: normalizedIP}, nil
+}
+
+// ListTenantWhiteIPsByToken validates a user token and returns enabled whitelist IPs for its tenant.
+func (s *serviceImpl) ListTenantWhiteIPsByToken(ctx context.Context, in TenantWhiteIPsByTokenInput) ([]string, error) {
+	if err := validateMediaTablesReady(ctx); err != nil {
+		return nil, err
+	}
+	token := normalizeTietaToken(in.Token)
+	user, err := s.AuthenticateTietaToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	tenantID, err := resolveTietaTenantID("", user)
+	if err != nil {
+		return nil, err
+	}
+
+	columns := dao.MediaTenantWhite.Columns()
+	items := make([]*tenantWhiteEntity, 0)
+	err = dao.MediaTenantWhite.Ctx(ctx).
+		Fields(columns.Ip).
+		Where(do.MediaTenantWhite{TenantId: tenantID, Enable: int(WhiteEnabled)}).
+		OrderAsc(columns.Ip).
+		Scan(&items)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaTenantWhiteListQueryFailed)
+	}
+
+	ips := make([]string, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		ip := strings.TrimSpace(item.Ip)
+		if ip != "" {
+			ips = append(ips, ip)
+		}
+	}
+	return ips, nil
 }
 
 // tenantWhiteExists reports whether one tenant whitelist natural key exists.

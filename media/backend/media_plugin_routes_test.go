@@ -4,14 +4,18 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcfg"
@@ -20,6 +24,7 @@ import (
 	"lina-core/pkg/pluginservice/bizctx"
 	pluginconfig "lina-core/pkg/pluginservice/config"
 	"lina-core/pkg/pluginservice/contract"
+	mediaopenv1 "lina-plugin-media/backend/api/mediaopen/v1"
 )
 
 // mediaRouteHostServices publishes only the host services required by media route registration.
@@ -363,6 +368,97 @@ func TestMediaOpenRoutesAllowWhenInnerAPIKeyExplicitlyBlank(t *testing.T) {
 	}
 }
 
+// TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsArray verifies the public whitelist route returns a raw IP array.
+func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsArray(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+	setupMediaRouteSQLite(t)
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/tenant-whites/ips",
+		`{"token":"1"}`,
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected whitelist IP route to pass, got status=%d body=%s", response.status, response.body)
+	}
+	var ips []string
+	if err := json.Unmarshal([]byte(response.body), &ips); err != nil {
+		t.Fatalf("expected raw JSON array response, got body=%s err=%v", response.body, err)
+	}
+	if len(ips) != 0 {
+		t.Fatalf("expected empty whitelist IP array without rows, got %#v", ips)
+	}
+	if authCalls.Load() != 0 {
+		t.Fatalf("expected mediaopen whitelist route to avoid host Auth, got %d calls", authCalls.Load())
+	}
+}
+
+// TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken verifies the public whitelist route requires token input.
+func TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodPost,
+		baseURL+"/api/v1/tenant-whites/ips",
+		`{}`,
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if !strings.Contains(response.body, "token") {
+		t.Fatalf("expected missing token response to mention token, got body=%s", response.body)
+	}
+}
+
+// TestTenantWhiteIPsByTokenReqOnlyExposesRequiredToken verifies the public request DTO has one required user-token input.
+func TestTenantWhiteIPsByTokenReqOnlyExposesRequiredToken(t *testing.T) {
+	reqType := reflect.TypeOf(mediaopenv1.TenantWhiteIPsByTokenReq{})
+	metaField := reqType.Field(0)
+	if !strings.Contains(string(metaField.Tag), `method:"post"`) {
+		t.Fatalf("expected TenantWhiteIPsByTokenReq to use POST, got tag=%s", metaField.Tag)
+	}
+	tokenField, ok := reqType.FieldByName("Token")
+	if !ok {
+		t.Fatalf("expected TenantWhiteIPsByTokenReq to expose Token")
+	}
+	if !strings.Contains(string(tokenField.Tag), `v:"required`) {
+		t.Fatalf("expected TenantWhiteIPsByTokenReq.Token to be required, got tag=%s", tokenField.Tag)
+	}
+	if _, ok := reqType.FieldByName("Authorization"); ok {
+		t.Fatalf("expected TenantWhiteIPsByTokenReq to avoid Authorization")
+	}
+}
+
 // TestMediaManagementRoutesPreferHostAuth verifies management routes try the LinaPro host chain first.
 func TestMediaManagementRoutesPreferHostAuth(t *testing.T) {
 	setMediaRouteTietaMock(t, true)
@@ -625,6 +721,43 @@ func startMediaRouteTestServer(t *testing.T, middlewares pluginhost.RouteMiddlew
 	return fmt.Sprintf("http://127.0.0.1:%d", server.GetListenedPort()), func() {
 		if err := server.Shutdown(); err != nil {
 			t.Fatalf("shutdown server: %v", err)
+		}
+	}
+}
+
+// setupMediaRouteSQLite installs a minimal media schema for route-level controller tests.
+func setupMediaRouteSQLite(t *testing.T) {
+	t.Helper()
+
+	originalConfig := gdb.GetAllConfig()
+	dbPath := t.TempDir() + "/media-route.db"
+	if err := gdb.SetConfig(gdb.Config{
+		"default": {
+			{Link: "sqlite::@file(" + dbPath + ")"},
+		},
+	}); err != nil {
+		t.Fatalf("set sqlite config: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := gdb.SetConfig(originalConfig); err != nil {
+			t.Fatalf("restore db config: %v", err)
+		}
+	})
+
+	statements := []string{
+		`CREATE TABLE media_strategy (id INTEGER PRIMARY KEY AUTOINCREMENT)`,
+		`CREATE TABLE media_strategy_device (device_id TEXT PRIMARY KEY, strategy_id INTEGER NOT NULL)`,
+		`CREATE TABLE media_strategy_tenant (tenant_id TEXT PRIMARY KEY, strategy_id INTEGER NOT NULL)`,
+		`CREATE TABLE media_strategy_device_tenant (tenant_id TEXT NOT NULL, device_id TEXT NOT NULL, strategy_id INTEGER NOT NULL, PRIMARY KEY (tenant_id, device_id))`,
+		`CREATE TABLE media_device_node (device_id TEXT NOT NULL, channel_id TEXT NOT NULL, node_num INTEGER NOT NULL)`,
+		`CREATE TABLE media_node (id INTEGER PRIMARY KEY AUTOINCREMENT)`,
+		`CREATE TABLE media_tenant_stream_config (tenant_id TEXT PRIMARY KEY)`,
+		`CREATE TABLE media_tenant_white (tenant_id TEXT NOT NULL, ip TEXT NOT NULL, enable INTEGER NOT NULL, PRIMARY KEY (tenant_id, ip))`,
+		`CREATE TABLE media_stream_alias (id INTEGER PRIMARY KEY AUTOINCREMENT)`,
+	}
+	for _, statement := range statements {
+		if _, err := g.DB().Exec(context.Background(), statement); err != nil {
+			t.Fatalf("exec sqlite schema: %v", err)
 		}
 	}
 }

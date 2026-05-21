@@ -184,6 +184,30 @@ func TestUserDeviceStrategyByTokenReturnsStrategyContent(t *testing.T) {
 	}
 }
 
+// TestListTenantWhiteIPsByTokenReturnsEnabledTenantIPs verifies token tenant resolution drives whitelist lookup.
+func TestListTenantWhiteIPsByTokenReturnsEnabledTenantIPs(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
+		user: &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"},
+	})
+	defer restoreTietaClient()
+
+	insertTestTenantWhite(t, ctx, "tenant-a", "192.0.2.10", int(WhiteEnabled))
+	insertTestTenantWhite(t, ctx, "tenant-a", "192.0.2.11", int(WhiteDisabled))
+	insertTestTenantWhite(t, ctx, "tenant-b", "192.0.2.12", int(WhiteEnabled))
+
+	ips, err := newTestMediaService(t).ListTenantWhiteIPsByToken(ctx, TenantWhiteIPsByTokenInput{
+		Token: "token-value",
+	})
+	if err != nil {
+		t.Fatalf("list tenant whitelist IPs by token: %v", err)
+	}
+	if len(ips) != 1 || ips[0] != "192.0.2.10" {
+		t.Fatalf("expected only enabled tenant-a whitelist IPs, got %#v", ips)
+	}
+}
+
 // TestResolveStrategyByTokenRejectsTenantMismatch verifies callers cannot override the token tenant.
 func TestResolveStrategyByTokenRejectsTenantMismatch(t *testing.T) {
 	ctx := context.Background()
@@ -306,6 +330,19 @@ func insertTestStrategy(t *testing.T, ctx context.Context, name string, global i
 		t.Fatalf("insert strategy: %v", err)
 	}
 	return id
+}
+
+// insertTestTenantWhite inserts one tenant whitelist fixture.
+func insertTestTenantWhite(t *testing.T, ctx context.Context, tenantID string, ip string, enable int) {
+	t.Helper()
+
+	if _, err := dao.MediaTenantWhite.Ctx(ctx).Data(do.MediaTenantWhite{
+		TenantId: tenantID,
+		Ip:       ip,
+		Enable:   enable,
+	}).Insert(); err != nil {
+		t.Fatalf("insert tenant whitelist: %v", err)
+	}
 }
 
 // replaceMediaTietaClient swaps the process Tieta client and returns a restore function.
