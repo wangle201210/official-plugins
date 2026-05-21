@@ -38,6 +38,13 @@ author: linapro
 # 插件许可证标识。
 license: Apache-2.0
 
+# Internationalization policy. This project plugin intentionally keeps Chinese
+# source copy and does not ship runtime or API-documentation i18n resources.
+# 国际化策略。本项目插件按需求保留中文源码文案，不交付运行时或接口文档 i18n 资源。
+i18n:
+  enabled: false
+  apidoc: false
+
 # Plugin dependency declaration. Water reads media-owned strategy tables, so the
 # host must install media before water.
 # 插件依赖声明。water 读取 media 插件拥有的策略表，因此宿主必须先安装 media。
