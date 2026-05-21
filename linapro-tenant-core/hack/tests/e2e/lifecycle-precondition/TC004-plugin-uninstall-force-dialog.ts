@@ -69,7 +69,7 @@ test.describe('TC-4 多租户插件卸载前置条件弹窗', () => {
         '当前插件阻止操作，原因：',
       );
       await expect(pluginPage.lifecyclePreconditionReasonText()).toContainText(
-        '仍存在租户，请先删除租户，再卸载插件。',
+        '仍存在租户。请先删除租户，再卸载多租户插件。',
       );
       await expect(pluginPage.lifecyclePreconditionForceAlert()).toContainText(
         '强制卸载会绕过上述前置条件并清理插件数据，请确认你理解该风险。',

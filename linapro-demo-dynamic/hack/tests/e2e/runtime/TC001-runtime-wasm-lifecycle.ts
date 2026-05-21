@@ -95,6 +95,12 @@ type BundledRuntimeDemoRecordListPayload = {
   total?: number;
 };
 
+type ConfigItem = {
+  id: number;
+  key: string;
+  value: string;
+};
+
 function unwrapApiData(payload: any) {
   if (payload && typeof payload === "object" && "data" in payload) {
     return payload.data;
@@ -104,6 +110,16 @@ function unwrapApiData(payload: any) {
 
 function assertOk(response: APIResponse, message: string) {
   expect(response.ok(), `${message}, status=${response.status()}`).toBeTruthy();
+}
+
+async function expectApiSuccess<T = unknown>(
+  response: APIResponse,
+  message: string,
+): Promise<T> {
+  assertOk(response, message);
+  const payload = await response.json();
+  expect(payload?.code ?? 0, `${message}: ${payload?.message ?? ""}`).toBe(0);
+  return unwrapApiData(payload) as T;
 }
 
 async function createAdminApiContext(): Promise<APIRequestContext> {
@@ -127,6 +143,24 @@ async function createAdminApiContext(): Promise<APIRequestContext> {
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+async function getConfigByKey(adminApi: APIRequestContext, key: string) {
+  return expectApiSuccess<ConfigItem>(
+    await adminApi.get(`config/key/${encodeURIComponent(key)}`),
+    `查询系统参数失败: ${key}`,
+  );
+}
+
+async function updateConfigValue(
+  adminApi: APIRequestContext,
+  configID: number,
+  value: string,
+) {
+  await expectApiSuccess(
+    await adminApi.put(`config/${configID}`, { data: { value } }),
+    `更新系统参数失败: ${configID}`,
+  );
 }
 
 async function listPlugins(
@@ -1473,25 +1507,62 @@ test.describe("TC-1 运行时 wasm 插件生命周期", () => {
   test("TC-1m: linapro-demo-dynamic 在 multipart 请求体超过默认 8MB 时仍按上传参数上限完成上传", async () => {
     const artifactPath = ensureBundledRuntimeUploadFixture();
     const paddingBytes = bundledRuntimeMultipartPaddingBytes(artifactPath);
-    const uploadPayload = await uploadDynamicPluginViaAPI(
+    const minimumUploadMaxSizeMB =
+      Math.ceil(statSync(artifactPath).size / bytesPerMegabyte) + 1;
+    const uploadMaxSizeConfig = await getConfigByKey(
       adminApi!,
-      artifactPath,
-      true,
-      paddingBytes,
+      "sys.upload.maxSize",
     );
-
     expect(
       statSync(artifactPath).size + paddingBytes,
       "探针请求体应超过默认 8MB 门槛，才能覆盖本次回归场景",
     ).toBeGreaterThan(defaultRequestBodyLimitBytes);
-    expect(uploadPayload?.id).toBe(bundledRuntimePluginID);
-    expect(uploadPayload?.installed ?? 0).toBe(0);
-    expect(uploadPayload?.enabled ?? 0).toBe(0);
 
-    const pluginAfterUpload = await findPlugin(adminApi!, bundledRuntimePluginID);
-    expect(pluginAfterUpload, "上传后应保留 linapro-demo-dynamic 记录").toBeTruthy();
-    expect(pluginAfterUpload?.installed ?? 0).toBe(0);
-    expect(pluginAfterUpload?.enabled ?? 0).toBe(0);
+    if (runtimeUploadMaxSizeMB() < minimumUploadMaxSizeMB) {
+      await updateConfigValue(
+        adminApi!,
+        uploadMaxSizeConfig.id,
+        `${minimumUploadMaxSizeMB}`,
+      );
+      await expect
+        .poll(() => runtimeUploadMaxSizeMB(), {
+          timeout: 10000,
+          message: "sys.upload.maxSize should accept the runtime artifact",
+        })
+        .toBeGreaterThanOrEqual(minimumUploadMaxSizeMB);
+    }
+
+    try {
+      const uploadPayload = await uploadDynamicPluginViaAPI(
+        adminApi!,
+        artifactPath,
+        true,
+        paddingBytes,
+      );
+
+      expect(uploadPayload?.id).toBe(bundledRuntimePluginID);
+      expect(uploadPayload?.installed ?? 0).toBe(0);
+      expect(uploadPayload?.enabled ?? 0).toBe(0);
+
+      const pluginAfterUpload = await findPlugin(adminApi!, bundledRuntimePluginID);
+      expect(pluginAfterUpload, "上传后应保留 linapro-demo-dynamic 记录").toBeTruthy();
+      expect(pluginAfterUpload?.installed ?? 0).toBe(0);
+      expect(pluginAfterUpload?.enabled ?? 0).toBe(0);
+    } finally {
+      if (`${runtimeUploadMaxSizeMB()}` !== uploadMaxSizeConfig.value) {
+        await updateConfigValue(
+          adminApi!,
+          uploadMaxSizeConfig.id,
+          uploadMaxSizeConfig.value,
+        );
+        await expect
+          .poll(() => runtimeUploadMaxSizeMB(), {
+            timeout: 10000,
+            message: "sys.upload.maxSize should be restored",
+          })
+          .toBe(Number.parseInt(uploadMaxSizeConfig.value, 10));
+      }
+    }
   });
 
   test("TC-1n: 超过上传上限的 multipart 请求返回文件过大提示而不是 500", async ({
