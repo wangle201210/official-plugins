@@ -1,6 +1,8 @@
 -- 001: CMS plugin schema and seed dictionaries
 -- 001：CMS 插件数据结构与字典种子
 
+-- Purpose: Stores global CMS site settings and contact metadata.
+-- 用途：存储 CMS 站点基础配置和联系信息。
 CREATE TABLE IF NOT EXISTS plugin_cms_site (
     "id"          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "site_key"    VARCHAR(64)  NOT NULL DEFAULT 'default',
@@ -49,6 +51,8 @@ COMMENT ON COLUMN plugin_cms_site."deleted_at" IS 'Deletion time';
 CREATE UNIQUE INDEX IF NOT EXISTS uk_plugin_cms_site_key ON plugin_cms_site ("site_key");
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_site_status ON plugin_cms_site ("status");
 
+-- Purpose: Stores the CMS category tree and presentation metadata.
+-- 用途：存储 CMS 栏目树及展示元数据。
 CREATE TABLE IF NOT EXISTS plugin_cms_category (
     "id"               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "parent_id"        BIGINT       NOT NULL DEFAULT 0,
@@ -98,6 +102,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_plugin_cms_category_code ON plugin_cms_cate
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_category_parent ON plugin_cms_category ("parent_id");
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_category_status_sort ON plugin_cms_category ("status", "sort");
 
+-- Purpose: Stores CMS article bodies, publication state, and SEO metadata.
+-- 用途：存储 CMS 文章正文、发布状态与 SEO 元数据。
 CREATE TABLE IF NOT EXISTS plugin_cms_article (
     "id"            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "category_id"   BIGINT       NOT NULL DEFAULT 0,
@@ -157,6 +163,8 @@ CREATE INDEX IF NOT EXISTS idx_plugin_cms_article_status_publish ON plugin_cms_a
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_article_sort ON plugin_cms_article ("sort");
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_article_title ON plugin_cms_article ("title");
 
+-- Purpose: Stores reusable CMS article tags.
+-- 用途：存储 CMS 文章标签。
 CREATE TABLE IF NOT EXISTS plugin_cms_article_tag (
     "id"         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "name"       VARCHAR(64)  NOT NULL DEFAULT '',
@@ -185,6 +193,8 @@ COMMENT ON COLUMN plugin_cms_article_tag."deleted_at" IS 'Deletion time';
 CREATE UNIQUE INDEX IF NOT EXISTS uk_plugin_cms_article_tag_slug ON plugin_cms_article_tag ("slug");
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_article_tag_status_sort ON plugin_cms_article_tag ("status", "sort");
 
+-- Purpose: Stores CMS friendly links grouped for public display.
+-- 用途：存储 CMS 友情链接及其展示分组。
 CREATE TABLE IF NOT EXISTS plugin_cms_link (
     "id"         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "group_code" VARCHAR(32)  NOT NULL DEFAULT '',
@@ -217,6 +227,8 @@ COMMENT ON COLUMN plugin_cms_link."deleted_at" IS 'Deletion time';
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_link_group_status_sort ON plugin_cms_link ("group_code", "status", "sort");
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_link_status_sort ON plugin_cms_link ("status", "sort");
 
+-- Purpose: Stores CMS slide images and click targets.
+-- 用途：存储 CMS 轮播图及跳转目标。
 CREATE TABLE IF NOT EXISTS plugin_cms_slide (
     "id"         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "group_code" VARCHAR(32)  NOT NULL DEFAULT '',
@@ -251,6 +263,8 @@ COMMENT ON COLUMN plugin_cms_slide."deleted_at" IS 'Deletion time';
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_slide_group_status_sort ON plugin_cms_slide ("group_code", "status", "sort");
 CREATE INDEX IF NOT EXISTS idx_plugin_cms_slide_status_sort ON plugin_cms_slide ("status", "sort");
 
+-- Purpose: Stores visitor messages and moderation replies.
+-- 用途：存储访客留言及审核回复。
 CREATE TABLE IF NOT EXISTS plugin_cms_message (
     "id"         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "name"       VARCHAR(128) NOT NULL DEFAULT '',

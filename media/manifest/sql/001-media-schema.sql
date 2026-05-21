@@ -1,8 +1,11 @@
 -- ------------------------------------------------------------
 -- 001 media schema SQL file
 -- Purpose: Stores media strategies, strategy bindings, stream aliases, tenant whitelist entries, stream config, and nodes for the media source plugin.
+-- 用途：存储媒体策略、策略绑定、流别名、租户白名单、流配置和媒体节点。
 -- ------------------------------------------------------------
 
+-- Purpose: Stores reusable media strategy definitions and global strategy state.
+-- 用途：存储可复用媒体策略定义与全局策略状态。
 CREATE TABLE IF NOT EXISTS media_strategy (
     "id"          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "name"        VARCHAR(255) DEFAULT '',
@@ -68,6 +71,8 @@ CREATE TRIGGER trg_media_strategy_update_time
     FOR EACH ROW
     EXECUTE FUNCTION media_touch_update_time();
 
+-- Purpose: Binds one device to one media strategy.
+-- 用途：维护设备到媒体策略的一对一绑定。
 CREATE TABLE IF NOT EXISTS media_strategy_device (
     "device_id"   VARCHAR(64) NOT NULL,
     "strategy_id" BIGINT NOT NULL,
@@ -87,6 +92,8 @@ COMMENT ON COLUMN media_strategy_device."strategy_id" IS '策略id';
 
 CREATE INDEX IF NOT EXISTS idx_media_strategy_device_strategy ON media_strategy_device ("strategy_id");
 
+-- Purpose: Binds one tenant to one media strategy.
+-- 用途：维护租户到媒体策略的一对一绑定。
 CREATE TABLE IF NOT EXISTS media_strategy_tenant (
     "tenant_id"   VARCHAR(64) NOT NULL,
     "strategy_id" BIGINT NOT NULL,
@@ -106,6 +113,8 @@ COMMENT ON COLUMN media_strategy_tenant."strategy_id" IS '策略ID';
 
 CREATE INDEX IF NOT EXISTS idx_media_strategy_tenant_strategy ON media_strategy_tenant ("strategy_id");
 
+-- Purpose: Binds a tenant device override to one media strategy.
+-- 用途：维护租户设备维度的策略覆盖绑定。
 CREATE TABLE IF NOT EXISTS media_strategy_device_tenant (
     "tenant_id"   VARCHAR(64) NOT NULL,
     "device_id"   VARCHAR(64) NOT NULL,
@@ -129,6 +138,8 @@ COMMENT ON COLUMN media_strategy_device_tenant."strategy_id" IS '策略ID';
 CREATE INDEX IF NOT EXISTS idx_media_strategy_device_tenant_strategy ON media_strategy_device_tenant ("strategy_id");
 CREATE INDEX IF NOT EXISTS idx_media_strategy_device_tenant_device ON media_strategy_device_tenant ("device_id");
 
+-- Purpose: Maps public stream aliases to physical device channel stream paths.
+-- 用途：维护公开流别名与设备通道真实流路径的映射。
 CREATE TABLE IF NOT EXISTS media_stream_alias (
     "id"          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "alias"       VARCHAR(255) NOT NULL,
@@ -167,6 +178,8 @@ COMMENT ON COLUMN media_stream_alias."create_time" IS '创建时间';
 CREATE UNIQUE INDEX IF NOT EXISTS uk_media_stream_alias_alias ON media_stream_alias ("alias");
 CREATE INDEX IF NOT EXISTS idx_media_stream_alias_device_channel ON media_stream_alias ("device_id", "channel_id");
 
+-- Purpose: Stores tenant media access whitelist IP rules.
+-- 用途：存储租户媒体访问白名单 IP 规则。
 CREATE TABLE IF NOT EXISTS media_tenant_white (
     "tenant_id"   VARCHAR(64) NOT NULL,
     "ip"          VARCHAR(64) NOT NULL,
@@ -205,6 +218,8 @@ COMMENT ON COLUMN media_tenant_white."update_time" IS '修改时间';
 CREATE INDEX IF NOT EXISTS idx_media_tenant_white_enable ON media_tenant_white ("enable");
 CREATE INDEX IF NOT EXISTS idx_media_tenant_white_ip ON media_tenant_white ("ip");
 
+-- Purpose: Stores tenant stream concurrency and node routing settings.
+-- 用途：存储租户流并发与节点路由配置。
 CREATE TABLE IF NOT EXISTS media_tenant_stream_config (
     "tenant_id"      VARCHAR(64) NOT NULL PRIMARY KEY,
     "max_concurrent" INTEGER NOT NULL,
@@ -266,6 +281,8 @@ COMMENT ON COLUMN media_tenant_stream_config."update_time" IS '修改时间';
 CREATE INDEX IF NOT EXISTS idx_media_tenant_stream_config_node_num ON media_tenant_stream_config ("node_num");
 CREATE INDEX IF NOT EXISTS idx_media_tenant_stream_config_enable ON media_tenant_stream_config ("enable");
 
+-- Purpose: Maps device channels to media node numbers.
+-- 用途：维护设备通道到媒体节点编号的映射。
 CREATE TABLE IF NOT EXISTS media_device_node (
     "device_id"  VARCHAR(64) NOT NULL,
     "channel_id" VARCHAR(64) NOT NULL,
@@ -292,6 +309,8 @@ COMMENT ON COLUMN media_device_node."node_num" IS '节点编号';
 CREATE INDEX IF NOT EXISTS idx_media_device_node_node_num ON media_device_node ("node_num");
 CREATE INDEX IF NOT EXISTS idx_media_device_node_channel ON media_device_node ("channel_id");
 
+-- Purpose: Stores media node gateway endpoints.
+-- 用途：存储媒体节点网关地址配置。
 CREATE TABLE IF NOT EXISTS media_node (
     "id"          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "node_num"    SMALLINT NOT NULL,

@@ -137,9 +137,9 @@ INSERT INTO media_strategy_device (
 )
 SELECT
     '34020000001320000001',
-    strategy."id"
-FROM media_strategy strategy
-WHERE strategy."name" = '门店低延迟预览策略'
+    ms."id"
+FROM media_strategy ms
+WHERE ms."name" = '门店低延迟预览策略'
   AND NOT EXISTS (
       SELECT 1
       FROM media_strategy_device existing
@@ -152,9 +152,9 @@ INSERT INTO media_strategy_tenant (
 )
 SELECT
     'tenant-retail-east',
-    strategy."id"
-FROM media_strategy strategy
-WHERE strategy."name" = '门店低延迟预览策略'
+    ms."id"
+FROM media_strategy ms
+WHERE ms."name" = '门店低延迟预览策略'
   AND NOT EXISTS (
       SELECT 1
       FROM media_strategy_tenant existing
@@ -169,9 +169,9 @@ INSERT INTO media_strategy_device_tenant (
 SELECT
     'tenant-park-security',
     '34020000001320000002',
-    strategy."id"
-FROM media_strategy strategy
-WHERE strategy."name" = '园区安防留存策略'
+    ms."id"
+FROM media_strategy ms
+WHERE ms."name" = '园区安防留存策略'
   AND NOT EXISTS (
       SELECT 1
       FROM media_strategy_device_tenant existing
