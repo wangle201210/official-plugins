@@ -447,6 +447,9 @@ func TestTenantWhiteIPsByTokenReqOnlyExposesRequiredToken(t *testing.T) {
 	if !strings.Contains(string(metaField.Tag), `method:"post"`) {
 		t.Fatalf("expected TenantWhiteIPsByTokenReq to use POST, got tag=%s", metaField.Tag)
 	}
+	if !strings.Contains(string(metaField.Tag), `access:"public"`) {
+		t.Fatalf("expected TenantWhiteIPsByTokenReq to declare public access, got tag=%s", metaField.Tag)
+	}
 	tokenField, ok := reqType.FieldByName("Token")
 	if !ok {
 		t.Fatalf("expected TenantWhiteIPsByTokenReq to expose Token")
@@ -454,8 +457,39 @@ func TestTenantWhiteIPsByTokenReqOnlyExposesRequiredToken(t *testing.T) {
 	if !strings.Contains(string(tokenField.Tag), `v:"required`) {
 		t.Fatalf("expected TenantWhiteIPsByTokenReq.Token to be required, got tag=%s", tokenField.Tag)
 	}
+	if strings.Contains(string(tokenField.Tag), "Bearer") {
+		t.Fatalf("expected TenantWhiteIPsByTokenReq.Token docs to avoid Bearer prefix, got tag=%s", tokenField.Tag)
+	}
 	if _, ok := reqType.FieldByName("Authorization"); ok {
 		t.Fatalf("expected TenantWhiteIPsByTokenReq to avoid Authorization")
+	}
+}
+
+// TestMediaOpenRequestDTOsDeclarePublicAccess verifies all mediaopen DTOs opt
+// out of the host-level JWT Bearer requirement in generated apidocs.
+func TestMediaOpenRequestDTOsDeclarePublicAccess(t *testing.T) {
+	requests := []interface{}{
+		mediaopenv1.SetRouteDataReq{},
+		mediaopenv1.GetRouteDataReq{},
+		mediaopenv1.DelRouteDataReq{},
+		mediaopenv1.UserDeviceStrategyByTokenReq{},
+		mediaopenv1.TenantWhiteIPsByTokenReq{},
+	}
+	for _, request := range requests {
+		reqType := reflect.TypeOf(request)
+		metaField := reqType.Field(0)
+		if !strings.Contains(string(metaField.Tag), `access:"public"`) {
+			t.Fatalf("expected %s to declare public access, got tag=%s", reqType.Name(), metaField.Tag)
+		}
+	}
+
+	strategyType := reflect.TypeOf(mediaopenv1.UserDeviceStrategyByTokenReq{})
+	tokenField, ok := strategyType.FieldByName("Token")
+	if !ok {
+		t.Fatalf("expected UserDeviceStrategyByTokenReq to expose Token")
+	}
+	if strings.Contains(string(tokenField.Tag), "Bearer") {
+		t.Fatalf("expected UserDeviceStrategyByTokenReq.Token docs to avoid Bearer prefix, got tag=%s", tokenField.Tag)
 	}
 }
 
