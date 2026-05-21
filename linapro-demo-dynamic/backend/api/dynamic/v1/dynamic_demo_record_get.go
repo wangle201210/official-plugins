@@ -2,12 +2,12 @@
 
 package v1
 
-import "github.com/gogf/gf/v2/util/gmeta"
+import "github.com/gogf/gf/v2/frame/g"
 
 // DemoRecordReq is the request for querying one dynamic demo record detail.
 type DemoRecordReq struct {
-	gmeta.Meta `path:"/demo-records/{id}" method:"get" tags:"Dynamic Plugin Demo" summary:"Query dynamic plugin example record details" dc:"Get linapro-demo-dynamic sample record details for edit-form backfill and attachment checks before download." access:"login" permission:"linapro-demo-dynamic:record:view" operLog:"other"`
-	Id         string `json:"id" v:"required|length:1,64" dc:"Record unique identifier" eg:"demo-record-1"`
+	g.Meta `path:"/demo-records/{id}" method:"get" tags:"Dynamic Plugin Demo" summary:"Query dynamic plugin example record details" dc:"Get linapro-demo-dynamic sample record details for edit-form backfill and attachment checks before download." access:"login" permission:"linapro-demo-dynamic:record:view" operLog:"other"`
+	Id     string `json:"id" v:"required|length:1,64" dc:"Record unique identifier" eg:"demo-record-1"`
 }
 
 // DemoRecordRes is the response for querying one dynamic demo record detail.
