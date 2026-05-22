@@ -37,3 +37,15 @@ author: linapro
 # Plugin license identifier.
 # 插件许可证标识。
 license: Apache-2.0
+
+# Plugin internationalization config. This follows the host i18n config shape;
+# enabled plugins must ship manifest/i18n resources for the listed locales.
+# 插件国际化配置。该配置与宿主 i18n 配置结构保持一致；启用后需提供对应语言资源。
+i18n:
+  enabled: true
+  default: zh-CN
+  locales:
+    - locale: en-US
+      nativeName: English
+    - locale: zh-CN
+      nativeName: 简体中文
