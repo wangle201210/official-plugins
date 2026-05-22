@@ -1,16 +1,18 @@
 import { test, expect } from '@host-tests/fixtures/auth';
 import { ensureSourcePluginEnabled } from '@host-tests/fixtures/plugin';
 import { NoticePage } from '../../pages/NoticePage';
-import { config } from '@host-tests/fixtures/config';
+import { config, pluginApiPath } from '@host-tests/fixtures/config';
 
-const API_BASE = `${config.baseURL}/api/v1`;
+const PLUGIN_ID = 'linapro-content-notice';
+const HOST_API_BASE = config.apiBaseURL.replace(/\/$/, '');
+const PLUGIN_API_BASE = `${config.publicBaseURL.replace(/\/$/, '')}${pluginApiPath(PLUGIN_ID)}`;
 
 /** Login via API and return accessToken */
 async function apiLogin(
   username: string,
   password: string,
 ): Promise<string> {
-  const resp = await fetch(`${API_BASE}/auth/login`, {
+  const resp = await fetch(`${HOST_API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -22,7 +24,7 @@ async function apiLogin(
 
 /** Get unread message count via API */
 async function apiUnreadCount(token: string): Promise<number> {
-  const resp = await fetch(`${API_BASE}/user/message/count`, {
+  const resp = await fetch(`${HOST_API_BASE}/user/message/count`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await resp.json();
@@ -31,7 +33,7 @@ async function apiUnreadCount(token: string): Promise<number> {
 
 /** Clear all messages via API */
 async function apiClearMessages(token: string): Promise<void> {
-  await fetch(`${API_BASE}/user/message/clear`, {
+  await fetch(`${HOST_API_BASE}/user/message/clear`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -72,7 +74,7 @@ test.describe('TC003 通知公告发布与消息分发', () => {
 
     // Admin creates a published notice
     const adminToken = await apiLogin(config.adminUser, config.adminPass);
-    const resp = await fetch(`${API_BASE}/notice`, {
+    const resp = await fetch(`${PLUGIN_API_BASE}/notice`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -95,7 +97,7 @@ test.describe('TC003 通知公告发布与消息分发', () => {
     // Clean up: clear user001's messages and delete the notice
     await apiClearMessages(userToken);
     const noticeId = createData.data.id;
-    await fetch(`${API_BASE}/notice/${noticeId}`, {
+    await fetch(`${PLUGIN_API_BASE}/notice/${noticeId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${adminToken}` },
     });
@@ -112,7 +114,7 @@ test.describe('TC003 通知公告发布与消息分发', () => {
 
     // Admin creates a DRAFT notice
     const adminToken = await apiLogin(config.adminUser, config.adminPass);
-    const createResp = await fetch(`${API_BASE}/notice`, {
+    const createResp = await fetch(`${PLUGIN_API_BASE}/notice`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -134,7 +136,7 @@ test.describe('TC003 通知公告发布与消息分发', () => {
     expect(countAfterDraft).toBe(0);
 
     // Now publish the draft by updating status to 1
-    const updateResp = await fetch(`${API_BASE}/notice/${noticeId}`, {
+    const updateResp = await fetch(`${PLUGIN_API_BASE}/notice/${noticeId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -151,7 +153,7 @@ test.describe('TC003 通知公告发布与消息分发', () => {
 
     // Clean up
     await apiClearMessages(userToken);
-    await fetch(`${API_BASE}/notice/${noticeId}`, {
+    await fetch(`${PLUGIN_API_BASE}/notice/${noticeId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${adminToken}` },
     });

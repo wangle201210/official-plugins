@@ -34,8 +34,8 @@ const publicBaseURL =
 const pluginID = "plugin-dev-dynamic-e2e";
 const pluginName = "Runtime E2E Plugin";
 const pluginVersion = "v0.1.0";
-const hostedAssetPath = `/plugin-assets/${pluginID}/${pluginVersion}/index.html`;
-const embeddedAssetPath = `/plugin-assets/${pluginID}/${pluginVersion}/mount.js`;
+const hostedAssetPath = `/x-assets/${pluginID}/${pluginVersion}/index.html`;
+const embeddedAssetPath = `/x-assets/${pluginID}/${pluginVersion}/mount.js`;
 const iframeMenuKey = "plugin:plugin-dev-dynamic-e2e:iframe-entry";
 const embeddedMenuKey = "plugin:plugin-dev-dynamic-e2e:embedded-entry";
 const newWindowMenuKey = "plugin:plugin-dev-dynamic-e2e:new-window-entry";
@@ -57,7 +57,7 @@ const bundledRuntimeLegacyArtifactPath = path.join(
 );
 const bundledRuntimeMenuName = "动态插件示例";
 const bundledRuntimeStandalonePath =
-  "/plugin-assets/linapro-demo-dynamic/v0.1.0/standalone.html";
+  "/x-assets/linapro-demo-dynamic/v0.1.0/standalone.html";
 const bytesPerMegabyte = 1024 * 1024;
 const defaultRequestBodyLimitBytes = 8 * bytesPerMegabyte;
 const fallbackUploadMaxSizeMB = 20;
@@ -269,7 +269,7 @@ function bundledRuntimeUploadProbePath() {
 }
 
 function pluginHostedAssetPath(relativePath = "index.html") {
-  return `/plugin-assets/${pluginID}/${pluginVersion}/${relativePath}`;
+  return `/x-assets/${pluginID}/${pluginVersion}/${relativePath}`;
 }
 
 function pluginAssetURL(relativePath = "index.html") {
@@ -597,14 +597,14 @@ function buildRuntimeWasmFixture() {
   const frontendAssetPayload = Buffer.from(
     JSON.stringify([
       {
-        path: "index.html",
+        path: "frontend/pages/index.html",
         contentBase64: Buffer.from(
           `<html><body><h1>${pluginName}</h1><p>runtime frontend asset</p></body></html>`,
         ).toString("base64"),
         contentType: "text/html; charset=utf-8",
       },
       {
-        path: "mount.js",
+        path: "frontend/pages/mount.js",
         contentBase64: Buffer.from(
           `
             export function mount(context) {
@@ -640,6 +640,13 @@ function buildRuntimeWasmFixture() {
       supportsMultiTenant: false,
       defaultInstallMode: "global",
       description: "Runtime plugin used by Playwright lifecycle verification.",
+      public_assets: [
+        {
+          source: "frontend/pages",
+          mount: "/",
+          index: "index.html",
+        },
+      ],
       menus: buildRuntimeManifestMenus(),
     }),
   );

@@ -124,7 +124,7 @@ test.describe('TC-4 Dynamic plugin permission menu tree regression', () => {
     const pluginMenu = flatMenus.find(
       ({ node }) =>
         node.perms === `${pluginID}:view` ||
-        (node.path ?? '').includes(`/plugin-assets/${pluginID}/`),
+        (node.path ?? '').includes(`/x-assets/${pluginID}/`),
     );
     expect(pluginMenu, 'missing dynamic plugin main menu').toBeTruthy();
 
