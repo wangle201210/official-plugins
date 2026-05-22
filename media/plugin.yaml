@@ -38,12 +38,11 @@ author: linapro
 # 插件许可证标识。
 license: Apache-2.0
 
-# Internationalization policy. This project plugin intentionally keeps Chinese
-# source copy and does not ship runtime or API-documentation i18n resources.
-# 国际化策略。本项目插件按需求保留中文源码文案，不交付运行时或接口文档 i18n 资源。
+# Internationalization policy. The framework treats missing or false disabled
+# as i18n-managed; this project plugin explicitly opts out.
+# 国际化策略。框架将缺省或 disabled=false 视为启用 i18n 治理；本项目插件显式退出。
 i18n:
-  enabled: false
-  apidoc: false
+  disabled: true
 
 # Plugin menu declaration list; the host syncs menus, permissions, and route entries from it.
 # 插件菜单声明列表，宿主按该列表同步菜单、权限和路由入口。
