@@ -197,14 +197,17 @@ func TestListTenantWhiteIPsByTokenReturnsEnabledTenantIPs(t *testing.T) {
 	insertTestTenantWhite(t, ctx, "tenant-a", "192.0.2.11", int(WhiteDisabled))
 	insertTestTenantWhite(t, ctx, "tenant-b", "192.0.2.12", int(WhiteEnabled))
 
-	ips, err := newTestMediaService(t).ListTenantWhiteIPsByToken(ctx, TenantWhiteIPsByTokenInput{
+	out, err := newTestMediaService(t).ListTenantWhiteIPsByToken(ctx, TenantWhiteIPsByTokenInput{
 		Token: "token-value",
 	})
 	if err != nil {
 		t.Fatalf("list tenant whitelist IPs by token: %v", err)
 	}
-	if len(ips) != 1 || ips[0] != "192.0.2.10" {
-		t.Fatalf("expected only enabled tenant-a whitelist IPs, got %#v", ips)
+	if out.TenantId != "tenant-a" {
+		t.Fatalf("expected tenant-a in whitelist lookup output, got %q", out.TenantId)
+	}
+	if len(out.Ips) != 1 || out.Ips[0] != "192.0.2.10" {
+		t.Fatalf("expected only enabled tenant-a whitelist IPs, got %#v", out.Ips)
 	}
 }
 

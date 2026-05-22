@@ -368,8 +368,8 @@ func TestMediaOpenRoutesAllowWhenInnerAPIKeyExplicitlyBlank(t *testing.T) {
 	}
 }
 
-// TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsArray verifies the public whitelist route returns a raw IP array.
-func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsArray(t *testing.T) {
+// TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsTenantScopedIPs verifies the public whitelist route returns tenant-scoped IPs.
+func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsTenantScopedIPs(t *testing.T) {
 	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
 	setupMediaRouteSQLite(t)
 
@@ -390,6 +390,16 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsArray(t *testing.T) {
 	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
 	defer shutdown()
 
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_tenant_white (tenant_id, ip, enable) VALUES (?, ?, ?)`,
+		"1",
+		"192.0.2.10",
+		1,
+	); err != nil {
+		t.Fatalf("insert tenant whitelist fixture: %v", err)
+	}
+
 	response := doMediaRouteRequest(
 		t,
 		http.MethodPost,
@@ -400,12 +410,15 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsArray(t *testing.T) {
 	if response.status != http.StatusOK {
 		t.Fatalf("expected whitelist IP route to pass, got status=%d body=%s", response.status, response.body)
 	}
-	var ips []string
-	if err := json.Unmarshal([]byte(response.body), &ips); err != nil {
-		t.Fatalf("expected raw JSON array response, got body=%s err=%v", response.body, err)
+	var out mediaopenv1.TenantWhiteIPsByTokenRes
+	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+		t.Fatalf("expected tenant-scoped JSON response, got body=%s err=%v", response.body, err)
 	}
-	if len(ips) != 0 {
-		t.Fatalf("expected empty whitelist IP array without rows, got %#v", ips)
+	if out.TenantId != "1" {
+		t.Fatalf("expected mock token tenant ID 1, got %q", out.TenantId)
+	}
+	if len(out.Ips) != 1 || out.Ips[0] != "192.0.2.10" {
+		t.Fatalf("expected enabled tenant whitelist IPs, got %#v", out.Ips)
 	}
 	if authCalls.Load() != 0 {
 		t.Fatalf("expected mediaopen whitelist route to avoid host Auth, got %d calls", authCalls.Load())

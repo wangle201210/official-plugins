@@ -78,7 +78,7 @@ type Service interface {
 	// DeleteTenantWhite deletes one tenant whitelist entry.
 	DeleteTenantWhite(ctx context.Context, tenantID string, ip string) (*TenantWhiteMutationOutput, error)
 	// ListTenantWhiteIPsByToken validates a user token, resolves its tenant, and returns enabled whitelist IPs.
-	ListTenantWhiteIPsByToken(ctx context.Context, in TenantWhiteIPsByTokenInput) ([]string, error)
+	ListTenantWhiteIPsByToken(ctx context.Context, in TenantWhiteIPsByTokenInput) (*TenantWhiteIPsByTokenOutput, error)
 	// ListNodes returns paged media nodes.
 	ListNodes(ctx context.Context, in ListNodesInput) (*ListNodesOutput, error)
 	// GetNode returns one media node by node number.

@@ -13,16 +13,19 @@ import (
 
 // TenantWhiteIPsByToken returns enabled tenant whitelist IPs for the token owner.
 func (c *ControllerV1) TenantWhiteIPsByToken(ctx context.Context, req *v1.TenantWhiteIPsByTokenReq) (res *v1.TenantWhiteIPsByTokenRes, err error) {
-	ips, err := c.mediaSvc.ListTenantWhiteIPsByToken(ctx, mediasvc.TenantWhiteIPsByTokenInput{
+	out, err := c.mediaSvc.ListTenantWhiteIPsByToken(ctx, mediasvc.TenantWhiteIPsByTokenInput{
 		Token: req.Token,
 	})
 	if err != nil {
 		return nil, err
 	}
+	res = &v1.TenantWhiteIPsByTokenRes{
+		TenantId: out.TenantId,
+		Ips:      out.Ips,
+	}
 	if request := g.RequestFromCtx(ctx); request != nil {
-		request.Response.WriteJson(ips)
+		request.Response.WriteJson(res)
 		return nil, nil
 	}
-	out := v1.TenantWhiteIPsByTokenRes(ips)
-	return &out, nil
+	return res, nil
 }

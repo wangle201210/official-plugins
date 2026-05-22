@@ -55,6 +55,12 @@ type TenantWhiteIPsByTokenInput struct {
 	Token string // Token is the required token request field.
 }
 
+// TenantWhiteIPsByTokenOutput defines the tenant-scoped whitelist IP lookup result.
+type TenantWhiteIPsByTokenOutput struct {
+	TenantId string   // TenantId is the token owner's Tieta tenant ID.
+	Ips      []string // Ips contains enabled whitelist addresses for the tenant.
+}
+
 // TenantWhiteMutationOutput defines tenant whitelist mutation result.
 type TenantWhiteMutationOutput struct {
 	TenantId string // TenantId is the media tenant ID.
@@ -218,7 +224,7 @@ func (s *serviceImpl) DeleteTenantWhite(ctx context.Context, tenantID string, ip
 }
 
 // ListTenantWhiteIPsByToken validates a user token and returns enabled whitelist IPs for its tenant.
-func (s *serviceImpl) ListTenantWhiteIPsByToken(ctx context.Context, in TenantWhiteIPsByTokenInput) ([]string, error) {
+func (s *serviceImpl) ListTenantWhiteIPsByToken(ctx context.Context, in TenantWhiteIPsByTokenInput) (*TenantWhiteIPsByTokenOutput, error) {
 	if err := validateMediaTablesReady(ctx); err != nil {
 		return nil, err
 	}
@@ -253,7 +259,7 @@ func (s *serviceImpl) ListTenantWhiteIPsByToken(ctx context.Context, in TenantWh
 			ips = append(ips, ip)
 		}
 	}
-	return ips, nil
+	return &TenantWhiteIPsByTokenOutput{TenantId: tenantID, Ips: ips}, nil
 }
 
 // tenantWhiteExists reports whether one tenant whitelist natural key exists.
