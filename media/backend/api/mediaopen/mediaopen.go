@@ -16,4 +16,6 @@ type IMediaopenV1 interface {
 	DelRouteData(ctx context.Context, req *v1.DelRouteDataReq) (res *v1.DelRouteDataRes, err error)
 	UserDeviceStrategyByToken(ctx context.Context, req *v1.UserDeviceStrategyByTokenReq) (res *v1.UserDeviceStrategyByTokenRes, err error)
 	TenantWhiteIPsByToken(ctx context.Context, req *v1.TenantWhiteIPsByTokenReq) (res *v1.TenantWhiteIPsByTokenRes, err error)
+	GetStreamAliasByAlias(ctx context.Context, req *v1.GetStreamAliasByAliasReq) (res *v1.GetStreamAliasByAliasRes, err error)
+	ListAllNodes(ctx context.Context, req *v1.ListAllNodesReq) (res *v1.ListAllNodesRes, err error)
 }

@@ -124,10 +124,8 @@ type ResolveStrategyByTokenOutput struct {
 
 // UserDeviceStrategyByTokenOutput defines the HotGo-compatible token and device strategy response.
 type UserDeviceStrategyByTokenOutput struct {
-	UserInfo   *TietaUser          // UserInfo is the Tieta user returned by token validation.
-	HasAccess  bool                // HasAccess reports Tieta tenant-device authorization result.
-	StrategyId uint64              // StrategyId is the matched strategy ID.
-	Strategy   *StrategyInfoOutput // Strategy is the matched compatibility strategy payload.
+	UserInfo *TietaUser          // UserInfo is the Tieta user returned by token validation.
+	Strategy *StrategyInfoOutput // Strategy is the matched compatibility strategy payload.
 }
 
 // StrategyInfoOutput defines the compatibility strategy payload with one content field.
@@ -427,11 +425,9 @@ func (s *serviceImpl) UserDeviceStrategyByToken(
 		return nil, err
 	}
 	out := &UserDeviceStrategyByTokenOutput{
-		UserInfo:  resolved.UserInfo,
-		HasAccess: resolved.HasAccess,
+		UserInfo: resolved.UserInfo,
 	}
 	if resolved.HasAccess && resolved.StrategyId > 0 {
-		out.StrategyId = uint64(resolved.StrategyId)
 		out.Strategy = &StrategyInfoOutput{
 			Id:              uint64(resolved.StrategyId),
 			Name:            resolved.StrategyName,

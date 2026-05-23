@@ -61,6 +61,8 @@ type Service interface {
 	ListAliases(ctx context.Context, in ListAliasesInput) (*ListAliasesOutput, error)
 	// GetAlias returns one stream alias by ID.
 	GetAlias(ctx context.Context, id int64) (*AliasOutput, error)
+	// GetAliasByAlias returns one stream alias by alias value.
+	GetAliasByAlias(ctx context.Context, alias string) (*AliasOutput, error)
 	// CreateAlias creates one stream alias.
 	CreateAlias(ctx context.Context, in AliasMutationInput) (int64, error)
 	// UpdateAlias updates one stream alias.
@@ -81,6 +83,8 @@ type Service interface {
 	ListTenantWhiteIPsByToken(ctx context.Context, in TenantWhiteIPsByTokenInput) (*TenantWhiteIPsByTokenOutput, error)
 	// ListNodes returns paged media nodes.
 	ListNodes(ctx context.Context, in ListNodesInput) (*ListNodesOutput, error)
+	// ListAllNodes returns all media nodes without pagination.
+	ListAllNodes(ctx context.Context) ([]*NodeOutput, error)
 	// GetNode returns one media node by node number.
 	GetNode(ctx context.Context, nodeNum int) (*NodeOutput, error)
 	// CreateNode creates one media node.

@@ -19,10 +19,8 @@ func (c *ControllerV1) UserDeviceStrategyByToken(ctx context.Context, req *v1.Us
 		return nil, err
 	}
 	return &v1.UserDeviceStrategyByTokenRes{
-		UserInfo:   buildCompatTietaUserInfo(out.UserInfo),
-		HasAccess:  out.HasAccess,
-		StrategyId: out.StrategyId,
-		Strategy:   buildCompatStrategyInfo(out.Strategy),
+		UserInfo: buildCompatTietaUserInfo(out.UserInfo),
+		Strategy: buildCompatStrategyInfo(out.Strategy),
 	}, nil
 }
 

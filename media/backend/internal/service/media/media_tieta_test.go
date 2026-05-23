@@ -173,7 +173,7 @@ func TestUserDeviceStrategyByTokenReturnsStrategyContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve HotGo-compatible strategy by token: %v", err)
 	}
-	if !out.HasAccess || out.StrategyId != uint64(strategyID) {
+	if out.Strategy == nil || out.Strategy.Id != uint64(strategyID) {
 		t.Fatalf("unexpected compatibility output: %+v", out)
 	}
 	if out.UserInfo == nil || out.UserInfo.TenantId != "tenant-a" {
@@ -181,6 +181,32 @@ func TestUserDeviceStrategyByTokenReturnsStrategyContent(t *testing.T) {
 	}
 	if out.Strategy == nil || out.Strategy.StrategyContent != "record:\n  enabled: true\n" {
 		t.Fatalf("expected strategy content field, got %+v", out.Strategy)
+	}
+}
+
+// TestUserDeviceStrategyByTokenReturnsEmptyStrategyWithoutAccess verifies denied device permission hides strategy details.
+func TestUserDeviceStrategyByTokenReturnsEmptyStrategyWithoutAccess(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
+		user:      &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"},
+		hasAccess: false,
+	})
+	defer restoreTietaClient()
+
+	insertTestStrategy(t, ctx, "全局策略", int(SwitchOn), int(SwitchOn))
+	out, err := newTestMediaService(t).UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
+		Token:    "token-value",
+		DeviceId: "34020000001320000001",
+	})
+	if err != nil {
+		t.Fatalf("resolve HotGo-compatible strategy by denied token: %v", err)
+	}
+	if out.UserInfo == nil || out.UserInfo.TenantId != "tenant-a" {
+		t.Fatalf("expected Tieta user info, got %+v", out.UserInfo)
+	}
+	if out.Strategy != nil {
+		t.Fatalf("expected empty strategy without device access, got %+v", out.Strategy)
 	}
 }
 

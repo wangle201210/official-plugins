@@ -425,6 +425,119 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsTenantScopedIPs(t *testing.T
 	}
 }
 
+// TestMediaOpenRoutesGetStreamAliasByAliasReturnsConfig verifies the public alias lookup returns one config by alias.
+func TestMediaOpenRoutesGetStreamAliasByAliasReturnsConfig(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+	setupMediaRouteSQLite(t)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_stream_alias (alias, auto_remove, stream_path, device_id, channel_id) VALUES (?, ?, ?, ?, ?)`,
+		"retail-east",
+		1,
+		"live/retail-east",
+		"34020000001320000001",
+		"34020000001320000002",
+	); err != nil {
+		t.Fatalf("insert stream alias fixture: %v", err)
+	}
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/stream-aliases/by-alias?alias=retail-east",
+		"",
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected stream alias route to pass, got status=%d body=%s", response.status, response.body)
+	}
+	var out mediaopenv1.GetStreamAliasByAliasRes
+	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+		t.Fatalf("expected alias JSON response, got body=%s err=%v", response.body, err)
+	}
+	if out.Alias != "retail-east" || out.StreamPath != "live/retail-east" || out.AutoRemove != 1 {
+		t.Fatalf("unexpected alias config: %+v", out)
+	}
+	if out.DeviceId != "34020000001320000001" || out.ChannelId != "34020000001320000002" {
+		t.Fatalf("expected device channel config, got %+v", out)
+	}
+}
+
+// TestMediaOpenRoutesListAllNodesReturnsUnpagedData verifies the public node route returns every node.
+func TestMediaOpenRoutesListAllNodesReturnsUnpagedData(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+	setupMediaRouteSQLite(t)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_node (node_num, name, qn_url, basic_url, dn_url, creator_id, updater_id) VALUES
+			(2, '节点二', 'https://qn2.example.com', 'https://basic2.example.com', 'https://dn2.example.com', 1, 2),
+			(1, '节点一', 'https://qn1.example.com', 'https://basic1.example.com', 'https://dn1.example.com', 1, 2)`,
+	); err != nil {
+		t.Fatalf("insert node fixtures: %v", err)
+	}
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/nodes/all",
+		"",
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected all-node route to pass, got status=%d body=%s", response.status, response.body)
+	}
+	var out mediaopenv1.ListAllNodesRes
+	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+		t.Fatalf("expected node JSON response, got body=%s err=%v", response.body, err)
+	}
+	if len(out.List) != 2 {
+		t.Fatalf("expected unpaged full node list, got %+v", out.List)
+	}
+	if out.List[0].NodeNum != 1 || out.List[1].NodeNum != 2 {
+		t.Fatalf("expected nodes ordered by node number, got %+v", out.List)
+	}
+}
+
+// TestMediaOpenRoutesUserDeviceStrategyResponseOmitsAccessFlags verifies the public strategy response is narrowed.
+func TestMediaOpenRoutesUserDeviceStrategyResponseOmitsAccessFlags(t *testing.T) {
+	responseType := reflect.TypeOf(mediaopenv1.UserDeviceStrategyByTokenRes{})
+	if _, ok := responseType.FieldByName("HasAccess"); ok {
+		t.Fatal("expected UserDeviceStrategyByTokenRes to omit HasAccess")
+	}
+	if _, ok := responseType.FieldByName("StrategyId"); ok {
+		t.Fatal("expected UserDeviceStrategyByTokenRes to omit top-level StrategyId")
+	}
+	if _, ok := responseType.FieldByName("Strategy"); !ok {
+		t.Fatal("expected UserDeviceStrategyByTokenRes to keep Strategy")
+	}
+}
+
 // TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken verifies the public whitelist route requires token input.
 func TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken(t *testing.T) {
 	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
@@ -487,6 +600,8 @@ func TestMediaOpenRequestDTOsDeclarePublicAccess(t *testing.T) {
 		mediaopenv1.DelRouteDataReq{},
 		mediaopenv1.UserDeviceStrategyByTokenReq{},
 		mediaopenv1.TenantWhiteIPsByTokenReq{},
+		mediaopenv1.GetStreamAliasByAliasReq{},
+		mediaopenv1.ListAllNodesReq{},
 	}
 	for _, request := range requests {
 		reqType := reflect.TypeOf(request)
@@ -797,10 +912,29 @@ func setupMediaRouteSQLite(t *testing.T) {
 		`CREATE TABLE media_strategy_tenant (tenant_id TEXT PRIMARY KEY, strategy_id INTEGER NOT NULL)`,
 		`CREATE TABLE media_strategy_device_tenant (tenant_id TEXT NOT NULL, device_id TEXT NOT NULL, strategy_id INTEGER NOT NULL, PRIMARY KEY (tenant_id, device_id))`,
 		`CREATE TABLE media_device_node (device_id TEXT NOT NULL, channel_id TEXT NOT NULL, node_num INTEGER NOT NULL)`,
-		`CREATE TABLE media_node (id INTEGER PRIMARY KEY AUTOINCREMENT)`,
+		`CREATE TABLE media_node (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			node_num INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			qn_url TEXT NOT NULL,
+			basic_url TEXT NOT NULL,
+			dn_url TEXT NOT NULL,
+			creator_id INTEGER,
+			create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updater_id INTEGER,
+			update_time TEXT
+		)`,
 		`CREATE TABLE media_tenant_stream_config (tenant_id TEXT PRIMARY KEY)`,
 		`CREATE TABLE media_tenant_white (tenant_id TEXT NOT NULL, ip TEXT NOT NULL, enable INTEGER NOT NULL, PRIMARY KEY (tenant_id, ip))`,
-		`CREATE TABLE media_stream_alias (id INTEGER PRIMARY KEY AUTOINCREMENT)`,
+		`CREATE TABLE media_stream_alias (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			alias TEXT NOT NULL,
+			auto_remove INTEGER NOT NULL DEFAULT 0,
+			stream_path TEXT NOT NULL DEFAULT '',
+			device_id TEXT NOT NULL,
+			channel_id TEXT NOT NULL,
+			create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 	for _, statement := range statements {
 		if _, err := g.DB().Exec(context.Background(), statement); err != nil {

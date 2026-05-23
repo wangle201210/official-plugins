@@ -101,6 +101,29 @@ func (s *serviceImpl) GetAlias(ctx context.Context, id int64) (*AliasOutput, err
 	return buildAliasOutput(record), nil
 }
 
+// GetAliasByAlias returns one stream alias by alias value.
+func (s *serviceImpl) GetAliasByAlias(ctx context.Context, alias string) (*AliasOutput, error) {
+	if err := validateMediaTablesReady(ctx); err != nil {
+		return nil, err
+	}
+	normalizedAlias := strings.TrimSpace(alias)
+	if normalizedAlias == "" {
+		return nil, bizerr.NewCode(CodeMediaAliasRequired)
+	}
+
+	var record *aliasEntity
+	err := dao.MediaStreamAlias.Ctx(ctx).
+		Where(do.MediaStreamAlias{Alias: normalizedAlias}).
+		Scan(&record)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaAliasDetailQueryFailed)
+	}
+	if record == nil {
+		return nil, bizerr.NewCode(CodeMediaAliasNotFound)
+	}
+	return buildAliasOutput(record), nil
+}
+
 // CreateAlias creates one stream alias.
 func (s *serviceImpl) CreateAlias(ctx context.Context, in AliasMutationInput) (int64, error) {
 	if err := validateMediaTablesReady(ctx); err != nil {

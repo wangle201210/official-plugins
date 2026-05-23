@@ -14,10 +14,8 @@ type UserDeviceStrategyByTokenReq struct {
 
 // UserDeviceStrategyByTokenRes defines the HotGo-compatible response for resolving one device strategy by token.
 type UserDeviceStrategyByTokenRes struct {
-	UserInfo   *TietaUserInfo `json:"userInfo" dc:"铁塔用户信息"`
-	HasAccess  bool           `json:"hasAccess" dc:"是否有权限访问该设备" eg:"true"`
-	StrategyId uint64         `json:"strategyId" dc:"策略ID" eg:"1"`
-	Strategy   *StrategyInfo  `json:"strategy" dc:"策略详情"`
+	UserInfo *TietaUserInfo `json:"userInfo" dc:"铁塔用户信息"`
+	Strategy *StrategyInfo  `json:"strategy" dc:"策略详情；无设备权限或无匹配策略时为空"`
 }
 
 // TietaUserInfo defines the HotGo-compatible Tieta identity projection returned by token validation.

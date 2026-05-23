@@ -179,6 +179,27 @@ func (s *serviceImpl) ListNodes(ctx context.Context, in ListNodesInput) (*ListNo
 	return &ListNodesOutput{List: list, Total: total}, nil
 }
 
+// ListAllNodes returns all media nodes without pagination.
+func (s *serviceImpl) ListAllNodes(ctx context.Context) ([]*NodeOutput, error) {
+	if err := validateMediaTablesReady(ctx); err != nil {
+		return nil, err
+	}
+
+	items := make([]*nodeEntity, 0)
+	err := dao.MediaNode.Ctx(ctx).
+		OrderAsc(dao.MediaNode.Columns().NodeNum).
+		Scan(&items)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaNodeListQueryFailed)
+	}
+
+	list := make([]*NodeOutput, 0, len(items))
+	for _, item := range items {
+		list = append(list, buildNodeOutput(item))
+	}
+	return list, nil
+}
+
 // GetNode returns one media node by node number.
 func (s *serviceImpl) GetNode(ctx context.Context, nodeNum int) (*NodeOutput, error) {
 	record, err := s.getNodeEntity(ctx, nodeNum)
