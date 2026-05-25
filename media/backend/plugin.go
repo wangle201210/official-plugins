@@ -62,6 +62,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	}
 	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
 		mediaRegisterCommonMiddlewares(group, middlewares)
+		mediaRegisterAPIDocRoutes(group, mediaSvc)
 		group.Middleware(mediaInnerAPIAuthMiddleware(configSvc))
 		group.Bind(publicController)
 	})

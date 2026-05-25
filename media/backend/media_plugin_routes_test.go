@@ -621,6 +621,135 @@ func TestMediaOpenRequestDTOsDeclarePublicAccess(t *testing.T) {
 	}
 }
 
+// TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes verifies the plugin-owned
+// documentation endpoint does not depend on lina-core's global API document.
+func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/media/openapi.json",
+		"",
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected media OpenAPI route to return 200, got status=%d body=%s", response.status, response.body)
+	}
+
+	var document struct {
+		OpenAPI    string `json:"openapi"`
+		Components struct {
+			SecuritySchemes map[string]struct {
+				Type string `json:"type"`
+				Name string `json:"name"`
+				In   string `json:"in"`
+			} `json:"securitySchemes"`
+		} `json:"components"`
+		Security []map[string][]string `json:"security"`
+		Paths    map[string]map[string]struct {
+			Summary  string                `json:"summary"`
+			Security []map[string][]string `json:"security"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal([]byte(response.body), &document); err != nil {
+		t.Fatalf("decode media OpenAPI document: %v\nbody=%s", err, response.body)
+	}
+	if document.OpenAPI == "" {
+		t.Fatal("expected OpenAPI version to be present")
+	}
+	if _, ok := document.Components.SecuritySchemes["BearerAuth"]; !ok {
+		t.Fatalf("expected media OpenAPI document to publish BearerAuth security scheme")
+	}
+	innerScheme, ok := document.Components.SecuritySchemes["InnerApiKeyAuth"]
+	if !ok {
+		t.Fatalf("expected media OpenAPI document to publish InnerApiKeyAuth security scheme")
+	}
+	if innerScheme.Type != "apiKey" || innerScheme.Name != mediaInnerAPIKeyHeader || innerScheme.In != "header" {
+		t.Fatalf("expected InnerApiKeyAuth header scheme, got %+v", innerScheme)
+	}
+	if _, ok := document.Paths["/api/v1/media/strategies"]; !ok {
+		t.Fatalf("expected media management routes in media OpenAPI document")
+	}
+	if _, ok := document.Paths["/api/v1/strategy/userDeviceStrategyByToken"]; !ok {
+		t.Fatalf("expected mediaopen routes in media OpenAPI document")
+	}
+	if _, ok := document.Paths["/api/v1/water/preview"]; ok {
+		t.Fatalf("expected media OpenAPI document to exclude water routes")
+	}
+	if _, ok := document.Paths["/api/v1/user"]; ok {
+		t.Fatalf("expected media OpenAPI document to exclude core routes")
+	}
+
+	strategyOperation := document.Paths["/api/v1/media/strategies"]["get"]
+	if len(strategyOperation.Security) != 0 {
+		t.Fatalf("expected media management route to inherit document BearerAuth, got %+v", strategyOperation.Security)
+	}
+	mediaOpenOperation := document.Paths["/api/v1/strategy/userDeviceStrategyByToken"]["post"]
+	if len(mediaOpenOperation.Security) != 1 {
+		t.Fatalf("expected mediaopen route to declare one security requirement, got %+v", mediaOpenOperation.Security)
+	}
+	if _, ok := mediaOpenOperation.Security[0]["InnerApiKeyAuth"]; !ok {
+		t.Fatalf("expected mediaopen route to require InnerApiKeyAuth, got %+v", mediaOpenOperation.Security)
+	}
+}
+
+// TestMediaPluginAPIDocsPageLoadsMediaDocument verifies the plugin-owned
+// Stoplight page points to the plugin-owned OpenAPI JSON document.
+func TestMediaPluginAPIDocsPageLoadsMediaDocument(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/media/apidocs.html?token=jwt-token&innerApiKey=media",
+		"",
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected media apidocs page to return 200, got status=%d body=%s", response.status, response.body)
+	}
+
+	requiredFragments := []string{
+		`document.createElement('elements-api')`,
+		`/api/v1/media/openapi.json`,
+		`/stoplight/web-components.min.js`,
+		`TryIt_securitySchemeValues`,
+		`BearerAuth`,
+		`InnerApiKeyAuth`,
+	}
+	for _, fragment := range requiredFragments {
+		if !strings.Contains(response.body, fragment) {
+			t.Fatalf("expected media apidocs page to contain %q", fragment)
+		}
+	}
+	if strings.Contains(response.body, `'/api.json?`) || strings.Contains(response.body, `"/api.json?`) {
+		t.Fatalf("expected media apidocs page to avoid host-wide /api.json")
+	}
+}
+
 // TestMediaManagementRoutesPreferHostAuth verifies management routes try the LinaPro host chain first.
 func TestMediaManagementRoutesPreferHostAuth(t *testing.T) {
 	setMediaRouteTietaMock(t, true)
