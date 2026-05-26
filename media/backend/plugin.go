@@ -52,6 +52,9 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	}
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
+	if err = mediaRegisterHostAPIDocBlock(registrar.GlobalMiddlewares()); err != nil {
+		return err
+	}
 	publicController, err := mediaopencontroller.NewV1(mediaSvc)
 	if err != nil {
 		return err

@@ -750,6 +750,44 @@ func TestMediaPluginAPIDocsPageLoadsMediaDocument(t *testing.T) {
 	}
 }
 
+// TestMediaPluginBlocksHostAPIDocsPage verifies the media plugin can disable
+// the host-wide Stoplight HTML page without touching lina-core code.
+func TestMediaPluginBlocksHostAPIDocsPage(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+mediaHostAPIDocsPagePath,
+		"",
+	)
+	if response.status != http.StatusNotFound {
+		t.Fatalf("expected host-wide apidocs page to return 404, got status=%d body=%s", response.status, response.body)
+	}
+
+	mediaResponse := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/media/apidocs.html",
+		"",
+	)
+	if mediaResponse.status != http.StatusOK {
+		t.Fatalf("expected media apidocs page to stay available, got status=%d body=%s", mediaResponse.status, mediaResponse.body)
+	}
+}
+
 // TestMediaManagementRoutesPreferHostAuth verifies management routes try the LinaPro host chain first.
 func TestMediaManagementRoutesPreferHostAuth(t *testing.T) {
 	setMediaRouteTietaMock(t, true)

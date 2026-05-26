@@ -13,6 +13,8 @@ import (
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
+const mediaHostAPIDocsPagePath = "/stoplight/apidocs.html"
+
 // mediaAPIDocsHTML renders the plugin-scoped Stoplight page and keeps it
 // pointed at the media-only OpenAPI document instead of the host-wide document.
 const mediaAPIDocsHTML = `<!DOCTYPE html>
@@ -77,6 +79,18 @@ const mediaAPIDocsHTML = `<!DOCTYPE html>
   <script src="/stoplight/web-components.min.js"></script>
 </body>
 </html>`
+
+// mediaRegisterHostAPIDocBlock blocks the host-wide Stoplight HTML page while
+// leaving shared Stoplight static assets available for the media-owned page.
+func mediaRegisterHostAPIDocBlock(registrar pluginhost.GlobalMiddlewareRegistrar) error {
+	if registrar == nil {
+		return nil
+	}
+	return registrar.Bind(pluginhost.MiddlewareScope(mediaHostAPIDocsPagePath), func(r *ghttp.Request) {
+		r.Response.WriteStatus(http.StatusNotFound)
+		r.ExitAll()
+	})
+}
 
 // mediaRegisterAPIDocRoutes binds the media-only OpenAPI JSON endpoint and page.
 func mediaRegisterAPIDocRoutes(group pluginhost.RouteGroup, mediaSvc mediasvc.Service) {
