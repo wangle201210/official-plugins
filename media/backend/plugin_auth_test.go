@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/contract"
 )
 
 // mediaStaticBizCtx returns one fixed plugin-visible context for auth helper tests.

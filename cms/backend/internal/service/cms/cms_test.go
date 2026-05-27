@@ -19,8 +19,8 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/dialect"
-	"lina-core/pkg/pluginservice/bizctx"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/bizctx"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-cms/backend/internal/dao"
 	"lina-plugin-cms/backend/internal/model/do"
 )
@@ -787,11 +787,11 @@ func setupSQLiteCMSDB(t *testing.T, ctx context.Context) {
 	}
 }
 
-// loadCMSStarterContent executes the normal installation starter seed data.
+// loadCMSStarterContent executes the optional starter sample data.
 func loadCMSStarterContent(t *testing.T, ctx context.Context) {
 	t.Helper()
 
-	executeCMSManifestSQLFile(t, ctx, "sql", "003-cms-starter-content.sql")
+	executeCMSManifestSQLFile(t, ctx, "sql", "mock-data", "002-cms-starter-content.sql")
 }
 
 // loadCMSMockData executes the reference-site mock data against the isolated

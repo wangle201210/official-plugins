@@ -12,10 +12,10 @@
 - 流别名增删查改
 - 节点、设备节点与租户流配置增删查改
 - 租户白名单增删查改
-- mediaopen 策略鉴权接口：`POST /api/v1/strategy/userDeviceStrategyByToken`
-- mediaopen 流别名配置接口：`GET /api/v1/stream-aliases/by-alias?alias=<alias>`
-- mediaopen 全量节点配置接口：`GET /api/v1/nodes/all`
-- HotGo 兼容路由记忆接口：`POST /api/v1/route/set`、`POST /api/v1/route/get` 和 `POST /api/v1/route/del`
+- `mediaopen`策略鉴权接口：`GET /api/v1/strategies/user-device?token=<token>&deviceId=<deviceId>`
+- `mediaopen`流别名配置接口：`GET /api/v1/stream-aliases/by-alias?alias=<alias>`
+- `mediaopen`全量节点配置接口：`GET /api/v1/nodes/all`
+- HotGo 兼容路由记忆接口：`PUT /api/v1/route-memories/{deviceCode}/{channelCode}`、`GET /api/v1/route-memories/{deviceCode}/{channelCode}`和`DELETE /api/v1/route-memories/{deviceCode}/{channelCode}`
 
 ## 配置说明
 

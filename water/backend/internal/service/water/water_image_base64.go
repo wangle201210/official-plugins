@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -56,6 +57,20 @@ func ensurePNGDataURL(input []byte) (string, error) {
 		return "", bizerr.WrapCode(err, CodeWaterImageEncodeFailed)
 	}
 	return encodePNGDataURL(buf.Bytes()), nil
+}
+
+// ensureJPEGBytes converts any decodable input image into JPEG bytes for the
+// migrated HotGo C pipeline, whose public entrypoint only accepts JPEG input.
+func ensureJPEGBytes(input []byte) ([]byte, error) {
+	img, _, err := image.Decode(bytes.NewReader(input))
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeWaterImageDecodeFailed)
+	}
+	var buf bytes.Buffer
+	if err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 95}); err != nil {
+		return nil, bizerr.WrapCode(err, CodeWaterImageEncodeFailed)
+	}
+	return buf.Bytes(), nil
 }
 
 // base64ToMD5Pic stores a base64 image in the same MD5 path layout used by HotGo.

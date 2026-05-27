@@ -37,9 +37,9 @@ type NodeOutput struct {
 	BasicUrl   string // BasicUrl is the basic platform gateway URL.
 	DnUrl      string // DnUrl is the district gateway URL.
 	CreatorId  int    // CreatorId is the creator user ID.
-	CreateTime string // CreateTime is the formatted creation time.
+	CreateTime *int64 // CreateTime is the Unix timestamp in milliseconds.
 	UpdaterId  int    // UpdaterId is the last updater user ID.
-	UpdateTime string // UpdateTime is the formatted update time.
+	UpdateTime *int64 // UpdateTime is the Unix timestamp in milliseconds.
 }
 
 // NodeMutationInput defines media node create/update input.
@@ -112,9 +112,9 @@ type TenantStreamConfigOutput struct {
 	NodeName      string // NodeName is the linked node name.
 	Enable        int    // Enable marks whether the config is active.
 	CreatorId     int    // CreatorId is the creator user ID.
-	CreateTime    string // CreateTime is the formatted creation time.
+	CreateTime    *int64 // CreateTime is the Unix timestamp in milliseconds.
 	UpdaterId     int    // UpdaterId is the last updater user ID.
-	UpdateTime    string // UpdateTime is the formatted update time.
+	UpdateTime    *int64 // UpdateTime is the Unix timestamp in milliseconds.
 }
 
 // TenantStreamConfigMutationInput defines tenant stream config create/update input.

@@ -16,6 +16,6 @@ type LinkListReq struct {
 
 // LinkListRes defines the response for listing CMS friendly links.
 type LinkListRes struct {
-	List  []*LinkItem `json:"list" dc:"Friendly link list"`
+	List  []*LinkItem `json:"list" dc:"Friendly link list" eg:"[]"`
 	Total int         `json:"total" dc:"Total number of links" eg:"20"`
 }

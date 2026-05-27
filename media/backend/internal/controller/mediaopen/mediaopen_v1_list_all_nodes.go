@@ -5,7 +5,6 @@ package mediaopen
 import (
 	"context"
 
-	"lina-core/pkg/apitime"
 	"lina-plugin-media/backend/api/mediaopen/v1"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
@@ -36,8 +35,8 @@ func nodeOutputToPublicInfo(out *mediasvc.NodeOutput) *v1.NodeInfo {
 		BasicUrl:   out.BasicUrl,
 		DnUrl:      out.DnUrl,
 		CreatorId:  out.CreatorId,
-		CreateTime: apitime.MilliFromString(out.CreateTime),
+		CreateTime: out.CreateTime,
 		UpdaterId:  out.UpdaterId,
-		UpdateTime: apitime.MilliFromString(out.UpdateTime),
+		UpdateTime: out.UpdateTime,
 	}
 }

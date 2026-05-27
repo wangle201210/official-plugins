@@ -18,6 +18,6 @@ type ArticleListReq struct {
 
 // ArticleListRes defines the response for listing CMS articles.
 type ArticleListRes struct {
-	List  []*ArticleItem `json:"list" dc:"Article list"`
+	List  []*ArticleItem `json:"list" dc:"Article list" eg:"[]"`
 	Total int            `json:"total" dc:"Total number of articles" eg:"20"`
 }

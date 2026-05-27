@@ -33,8 +33,8 @@ func toAPISite(item *cmssvc.SiteItem) *v1.SiteItem {
 		ShowMessages: item.ShowMessages,
 		CreatedBy:    item.CreatedBy,
 		UpdatedBy:    item.UpdatedBy,
-		CreatedAt:    item.CreatedAt,
-		UpdatedAt:    item.UpdatedAt,
+		CreatedAt:    toAPITimeMillis(item.CreatedAt),
+		UpdatedAt:    toAPITimeMillis(item.UpdatedAt),
 	}
 }
 
@@ -93,8 +93,8 @@ func toAPICategory(item *cmssvc.CategoryItem) *v1.CategoryItem {
 		Status:          item.Status,
 		CreatedBy:       item.CreatedBy,
 		UpdatedBy:       item.UpdatedBy,
-		CreatedAt:       item.CreatedAt,
-		UpdatedAt:       item.UpdatedAt,
+		CreatedAt:       toAPITimeMillis(item.CreatedAt),
+		UpdatedAt:       toAPITimeMillis(item.UpdatedAt),
 		Children:        children,
 	}
 }
@@ -133,11 +133,11 @@ func toAPIArticle(item *cmssvc.ArticleItem) *v1.ArticleItem {
 		IsTop:        item.IsTop,
 		IsRecommend:  item.IsRecommend,
 		Views:        item.Views,
-		PublishedAt:  item.PublishedAt,
+		PublishedAt:  toAPITimeMillis(item.PublishedAt),
 		CreatedBy:    item.CreatedBy,
 		UpdatedBy:    item.UpdatedBy,
-		CreatedAt:    item.CreatedAt,
-		UpdatedAt:    item.UpdatedAt,
+		CreatedAt:    toAPITimeMillis(item.CreatedAt),
+		UpdatedAt:    toAPITimeMillis(item.UpdatedAt),
 	}
 }
 
@@ -167,8 +167,8 @@ func toAPIMessage(item *cmssvc.MessageItem) *v1.MessageItem {
 		UserAgent: item.UserAgent,
 		CreatedBy: item.CreatedBy,
 		UpdatedBy: item.UpdatedBy,
-		CreatedAt: item.CreatedAt,
-		UpdatedAt: item.UpdatedAt,
+		CreatedAt: toAPITimeMillis(item.CreatedAt),
+		UpdatedAt: toAPITimeMillis(item.UpdatedAt),
 	}
 }
 
@@ -198,8 +198,8 @@ func toAPILinks(list []*cmssvc.LinkItem) []*v1.LinkItem {
 			Status:    item.Status,
 			CreatedBy: item.CreatedBy,
 			UpdatedBy: item.UpdatedBy,
-			CreatedAt: item.CreatedAt,
-			UpdatedAt: item.UpdatedAt,
+			CreatedAt: toAPITimeMillis(item.CreatedAt),
+			UpdatedAt: toAPITimeMillis(item.UpdatedAt),
 		})
 	}
 	return items
@@ -223,8 +223,8 @@ func toAPISlides(list []*cmssvc.SlideItem) []*v1.SlideItem {
 			Status:    item.Status,
 			CreatedBy: item.CreatedBy,
 			UpdatedBy: item.UpdatedBy,
-			CreatedAt: item.CreatedAt,
-			UpdatedAt: item.UpdatedAt,
+			CreatedAt: toAPITimeMillis(item.CreatedAt),
+			UpdatedAt: toAPITimeMillis(item.UpdatedAt),
 		})
 	}
 	return items

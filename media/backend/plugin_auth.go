@@ -13,8 +13,8 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/pluginhost"
-	"lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/pluginhost"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 

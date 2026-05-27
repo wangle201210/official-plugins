@@ -16,6 +16,6 @@ type SlideListReq struct {
 
 // SlideListRes defines the response for listing CMS slides.
 type SlideListRes struct {
-	List  []*SlideItem `json:"list" dc:"Slide list"`
+	List  []*SlideItem `json:"list" dc:"Slide list" eg:"[]"`
 	Total int          `json:"total" dc:"Total number of slides" eg:"20"`
 }

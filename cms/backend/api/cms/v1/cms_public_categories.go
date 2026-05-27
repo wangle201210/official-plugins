@@ -11,5 +11,5 @@ type PublicCategoryListReq struct {
 
 // PublicCategoryListRes defines the public response for reading enabled category tree.
 type PublicCategoryListRes struct {
-	List []*CategoryItem `json:"list" dc:"Enabled category tree"`
+	List []*CategoryItem `json:"list" dc:"Enabled category tree" eg:"[]"`
 }

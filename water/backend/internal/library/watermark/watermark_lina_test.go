@@ -3,6 +3,7 @@
 package watermark
 
 import (
+	"image"
 	"os"
 	"strings"
 	"testing"
@@ -36,6 +37,15 @@ func TestMigratedHotGoWatermarkLibraryProducesJpeg(t *testing.T) {
 	}
 	if string(output[:2]) != "\xff\xd8" {
 		t.Fatalf("expected JPEG output from migrated library, got header %x", output[:2])
+	}
+}
+
+// TestWatermarkOutputBufferSizeHandlesTinyInputs verifies small compressed
+// images still receive enough output space after watermark filters expand them.
+func TestWatermarkOutputBufferSizeHandlesTinyInputs(t *testing.T) {
+	got := watermarkOutputBufferSize(1024, image.Rect(0, 0, 120, 80))
+	if got != minWatermarkOutputSize {
+		t.Fatalf("expected minimum output size %d, got %d", minWatermarkOutputSize, got)
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	mediaplugin "lina-plugin-media"
 	mediacontroller "lina-plugin-media/backend/internal/controller/media"
 	mediaopencontroller "lina-plugin-media/backend/internal/controller/mediaopen"
@@ -34,7 +34,7 @@ func init() {
 // registerRoutes binds mediaopen routes through InnerApiAuth and management
 // routes through the media-scoped LinaPro/Tieta dual-auth chain.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
+	hostServices := registrar.Services()
 	if hostServices == nil || hostServices.BizCtx() == nil {
 		return gerror.New("media routes require host bizctx service")
 	}

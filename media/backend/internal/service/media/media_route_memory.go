@@ -11,7 +11,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/contract"
 )
 
 // Route memory cache constants.

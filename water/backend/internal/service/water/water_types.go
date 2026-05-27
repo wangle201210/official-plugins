@@ -68,8 +68,8 @@ type TaskSnapshot struct {
 	Source       StrategySource // Source is the matched strategy source.
 	SourceLabel  string         // SourceLabel is the Chinese source label.
 	Image        string         // Image is the output PNG data URL.
-	CreatedAt    string         // CreatedAt is the formatted creation time.
-	UpdatedAt    string         // UpdatedAt is the formatted update time.
+	CreatedAt    int64          // CreatedAt is the Unix timestamp in milliseconds.
+	UpdatedAt    int64          // UpdatedAt is the Unix timestamp in milliseconds.
 	DurationMs   int64          // DurationMs is the processing duration in milliseconds.
 }
 

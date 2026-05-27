@@ -14,12 +14,9 @@ public HTML rendering APIs.
 - Vben management page embedded through the plugin runtime
 - Plugin-owned E2E tests under `hack/tests`
 
-Normal plugin installation loads starter content from
-`manifest/sql/003-cms-starter-content.sql`. A new CMS installation therefore
-already includes the reference site settings, category tree, slides, friendly
-links, rich article bodies, and three visible approved visitor messages. The
-optional `manifest/sql/mock-data/` files remain local reset data for validation
-scenarios.
+Normal plugin installation only loads schema and governance resources. Starter
+site content lives under `manifest/sql/mock-data/` so demo content is opt-in for
+local validation and explicit runtime sample loading.
 
 After reviewing the starter content, administrators can use the CMS management
 page's `Clear Data` action to remove CMS categories, articles, tags, slides,
@@ -30,8 +27,8 @@ owned by the host file module rather than the CMS plugin.
 
 Administrators can also use `Load Sample Data` to clear the current CMS
 business content and reload the packaged starter site from
-`manifest/sql/003-cms-starter-content.sql`. This is intended for returning a
-reviewed or emptied demo site to the delivered sample state.
+`manifest/sql/mock-data/002-cms-starter-content.sql`. This is intended for
+returning a reviewed or emptied demo site to the delivered sample state.
 
 ## Root Domain OpenResty Proxy
 

@@ -18,5 +18,5 @@ type GetAliasRes struct {
 	StreamPath string `json:"streamPath" dc:"真实流路径" eg:"live/camera-01"`
 	DeviceId   string `json:"deviceId" dc:"设备ID" eg:"34020000001320000001"`
 	ChannelId  string `json:"channelId" dc:"设备通道ID" eg:"34020000001320000001"`
-	CreateTime string `json:"createTime" dc:"创建时间" eg:"2026-05-13 10:00:00"`
+	CreateTime *int64 `json:"createTime" dc:"创建时间，Unix timestamp in milliseconds" eg:"1778733600000"`
 }

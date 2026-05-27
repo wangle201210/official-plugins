@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"lina-core/pkg/pluginservice/bizctx"
+	"lina-core/pkg/plugin/capability/bizctx"
 )
 
 // TestRouteMemoryUsesDeviceChannelKeyAndTwelveHourTTL verifies route memory lifecycle behavior.

@@ -12,5 +12,5 @@ type CategoryListReq struct {
 
 // CategoryListRes defines the response for listing CMS categories.
 type CategoryListRes struct {
-	List []*CategoryItem `json:"list" dc:"Category tree"`
+	List []*CategoryItem `json:"list" dc:"Category tree" eg:"[]"`
 }

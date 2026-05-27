@@ -15,6 +15,6 @@ type MessageListReq struct {
 
 // MessageListRes defines the response for listing visitor messages.
 type MessageListRes struct {
-	List  []*MessageItem `json:"list" dc:"Visitor message list"`
+	List  []*MessageItem `json:"list" dc:"Visitor message list" eg:"[]"`
 	Total int            `json:"total" dc:"Total number of messages" eg:"20"`
 }

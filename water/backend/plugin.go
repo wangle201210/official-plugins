@@ -6,7 +6,8 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
+	mediastrategy "lina-plugin-media/backend/provider/strategy"
 	waterplugin "lina-plugin-water"
 	watercontroller "lina-plugin-water/backend/internal/controller/water"
 	watersvc "lina-plugin-water/backend/internal/service/water"
@@ -32,13 +33,17 @@ func init() {
 
 // registerRoutes binds water routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
-	if hostServices == nil || hostServices.Cache() == nil {
-		return gerror.New("water routes require host cache service")
+	hostServices := registrar.Services()
+	if hostServices == nil || hostServices.BizCtx() == nil || hostServices.Cache() == nil {
+		return gerror.New("water routes require host bizctx and cache services")
 	}
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
-	waterSvc, err := watersvc.New(hostServices.Cache())
+	strategyResolver, err := mediastrategy.NewResolver(hostServices.BizCtx(), hostServices.Cache())
+	if err != nil {
+		return err
+	}
+	waterSvc, err := watersvc.New(hostServices.Cache(), strategyResolver)
 	if err != nil {
 		return err
 	}

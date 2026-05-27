@@ -11,7 +11,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/pluginservice/bizctx"
+	"lina-core/pkg/plugin/capability/bizctx"
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )

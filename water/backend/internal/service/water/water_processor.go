@@ -17,14 +17,14 @@ import (
 )
 
 // processSnapshot resolves strategy and returns one processed image result.
-func processSnapshot(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error) {
+func (s *serviceImpl) processSnapshot(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error) {
 	start := time.Now()
 	deviceID := strings.TrimSpace(in.DeviceId)
 	if deviceID == "" {
 		deviceID = strings.TrimSpace(in.DeviceCode)
 	}
 
-	strategy, err := ResolveStrategy(ctx, in.Tenant, deviceID)
+	strategy, err := s.resolveStrategy(ctx, in.Tenant, deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,11 @@ func processSnapshot(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, e
 		return skippedProcessOutputWithStrategy(inputImage, strategy, start)
 	}
 
-	output, err := watermark.DrawWatermarkJpeg(ctx, inputImage, cfg.ToWatermarkConfig())
+	jpegInput, err := ensureJPEGBytes(inputImage)
+	if err != nil {
+		return nil, err
+	}
+	output, err := watermark.DrawWatermarkJpeg(ctx, jpegInput, cfg.ToWatermarkConfig())
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeWaterImageDrawFailed)
 	}

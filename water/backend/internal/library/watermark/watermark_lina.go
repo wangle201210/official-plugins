@@ -19,6 +19,15 @@ import (
 	"unsafe"
 )
 
+const (
+	// minWatermarkOutputSize keeps small JPEG inputs from under-allocating the
+	// output buffer after text and overlay filters increase encoded size.
+	minWatermarkOutputSize = 2 * 1024 * 1024
+	// maxWatermarkOutputSize preserves the legacy upper bound used by the
+	// migrated HotGo adapter to avoid unbounded FFmpeg output allocation.
+	maxWatermarkOutputSize = 50 * 1024 * 1024
+)
+
 // DrawWatermarkJpeg invokes the migrated HotGo FFmpeg/C watermark pipeline for JPEG bytes.
 func DrawWatermarkJpeg(_ context.Context, input []byte, config WatermarkConfig) ([]byte, error) {
 	if len(input) == 0 {
@@ -42,10 +51,7 @@ func DrawWatermarkJpeg(_ context.Context, input []byte, config WatermarkConfig) 
 		bufferPool.Put(outputBuf)
 	}()
 
-	outputSize := inputSize * 2
-	if outputSize > 50*1024*1024 {
-		outputSize = 50 * 1024 * 1024
-	}
+	outputSize := watermarkOutputBufferSize(inputSize, bounds)
 	if cap(outputBuf) < outputSize {
 		outputBuf = make([]byte, 0, outputSize)
 	}
@@ -67,4 +73,29 @@ func DrawWatermarkJpeg(_ context.Context, input []byte, config WatermarkConfig) 
 	actualOutput := make([]byte, cOutputSize)
 	copy(actualOutput, outputBuf[:cOutputSize])
 	return actualOutput, nil
+}
+
+// watermarkOutputBufferSize estimates the FFmpeg output buffer size from both
+// encoded input size and pixel count because tiny highly-compressed inputs can
+// expand after watermark filters are applied.
+func watermarkOutputBufferSize(inputSize int, bounds image.Rectangle) int {
+	size := inputSize * 4
+	if inputSize > maxWatermarkOutputSize/4 {
+		size = maxWatermarkOutputSize
+	}
+	pixelSize := int64(bounds.Dx()) * int64(bounds.Dy()) * 4
+	if pixelSize > int64(size) {
+		if pixelSize > int64(maxWatermarkOutputSize) {
+			size = maxWatermarkOutputSize
+		} else {
+			size = int(pixelSize)
+		}
+	}
+	if size < minWatermarkOutputSize {
+		size = minWatermarkOutputSize
+	}
+	if size > maxWatermarkOutputSize {
+		size = maxWatermarkOutputSize
+	}
+	return size
 }

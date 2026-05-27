@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/contract"
 )
 
 // taskStoreCache records host cache writes for task-store tests.

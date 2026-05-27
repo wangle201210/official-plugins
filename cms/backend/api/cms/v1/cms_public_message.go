@@ -27,6 +27,6 @@ type PublicMessageListReq struct {
 
 // PublicMessageListRes defines the public approved visitor-message list response.
 type PublicMessageListRes struct {
-	List  []*PublicMessageItem `json:"list" dc:"Approved visitor messages"`
+	List  []*PublicMessageItem `json:"list" dc:"Approved visitor messages" eg:"[]"`
 	Total int                  `json:"total" dc:"Total approved visitor messages" eg:"1"`
 }

@@ -15,7 +15,7 @@ type PublicArticleListReq struct {
 
 // PublicArticleListRes defines the public response for reading published articles.
 type PublicArticleListRes struct {
-	List  []*ArticleItem `json:"list" dc:"Published article list"`
+	List  []*ArticleItem `json:"list" dc:"Published article list" eg:"[]"`
 	Total int            `json:"total" dc:"Total number of published articles" eg:"20"`
 }
 

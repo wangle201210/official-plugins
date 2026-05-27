@@ -20,16 +20,16 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcfg"
 
-	"lina-core/pkg/pluginhost"
-	"lina-core/pkg/pluginservice/bizctx"
-	pluginconfig "lina-core/pkg/pluginservice/config"
-	"lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/bizctx"
+	pluginconfig "lina-core/pkg/plugin/capability/config"
+	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/pluginhost"
 	mediaopenv1 "lina-plugin-media/backend/api/mediaopen/v1"
 )
 
 // mediaRouteHostServices publishes only the host services required by media route registration.
 type mediaRouteHostServices struct {
-	pluginhost.HostServices
+	pluginhost.Services
 	bizCtx contract.BizCtxService
 	cache  contract.CacheService
 	config contract.ConfigService
@@ -127,6 +127,10 @@ type mediaRouteHTTPResponse struct {
 	body   string
 }
 
+// mediaRouteConfigContent carries the plugin-scoped route-test configuration
+// into ephemeral registrar construction while each test still owns cleanup.
+var mediaRouteConfigContent atomic.Value
+
 // TestMediaOpenRoutesUseInnerAPIAuth verifies mediaopen routes use the HotGo-compatible inner API key gate.
 func TestMediaOpenRoutesUseInnerAPIAuth(t *testing.T) {
 	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
@@ -158,9 +162,9 @@ func TestMediaOpenRoutesUseInnerAPIAuth(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/route-memories/34020000001320000001/34020000001320000002",
+		"",
 		map[string]string{mediaInnerAPIKeyHeader: "media"},
 	)
 	if response.status != http.StatusOK {
@@ -210,9 +214,9 @@ func TestMediaOpenRoutesExposeOnlyHotGoTokenStrategyEndpoint(t *testing.T) {
 
 	compatResponse := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/strategy/userDeviceStrategyByToken",
-		`{}`,
+		http.MethodGet,
+		baseURL+"/api/v1/strategies/user-device?token=token-value&deviceId=34020000001320000001",
+		"",
 		map[string]string{mediaInnerAPIKeyHeader: "media"},
 	)
 	if compatResponse.status == http.StatusNotFound {
@@ -249,9 +253,9 @@ func TestMediaOpenRoutesRejectMissingInnerAPIKey(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/route-memories/34020000001320000001/34020000001320000002",
+		"",
 	)
 	if response.status != http.StatusUnauthorized {
 		t.Fatalf("expected missing inner API key to fail, got status=%d body=%s", response.status, response.body)
@@ -284,9 +288,9 @@ func TestMediaOpenRoutesRejectInvalidInnerAPIKey(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/route-memories/34020000001320000001/34020000001320000002",
+		"",
 		map[string]string{mediaInnerAPIKeyHeader: "wrong"},
 	)
 	if response.status != http.StatusUnauthorized {
@@ -320,9 +324,9 @@ func TestMediaOpenRoutesUseDefaultInnerAPIKey(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/route-memories/34020000001320000001/34020000001320000002",
+		"",
 		map[string]string{mediaInnerAPIKeyHeader: mediaInnerAPIKeyDefault},
 	)
 	if response.status != http.StatusOK {
@@ -356,9 +360,9 @@ func TestMediaOpenRoutesAllowWhenInnerAPIKeyExplicitlyBlank(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/route/get",
-		`{"deviceCode":"34020000001320000001","channelCode":"34020000001320000002"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/route-memories/34020000001320000001/34020000001320000002",
+		"",
 	)
 	if response.status != http.StatusOK {
 		t.Fatalf("expected explicitly blank inner API key to preserve compatibility, got status=%d body=%s", response.status, response.body)
@@ -402,9 +406,9 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsTenantScopedIPs(t *testing.T
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
-		baseURL+"/api/v1/tenant-whites/ips",
-		`{"token":"1"}`,
+		http.MethodGet,
+		baseURL+"/api/v1/tenant-whites/ips?token=1",
+		"",
 		map[string]string{mediaInnerAPIKeyHeader: "media"},
 	)
 	if response.status != http.StatusOK {
@@ -556,9 +560,9 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken(t *testing.T) {
 
 	response := doMediaRouteRequest(
 		t,
-		http.MethodPost,
+		http.MethodGet,
 		baseURL+"/api/v1/tenant-whites/ips",
-		`{}`,
+		"",
 		map[string]string{mediaInnerAPIKeyHeader: "media"},
 	)
 	if !strings.Contains(response.body, "token") {
@@ -570,8 +574,8 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken(t *testing.T) {
 func TestTenantWhiteIPsByTokenReqOnlyExposesRequiredToken(t *testing.T) {
 	reqType := reflect.TypeOf(mediaopenv1.TenantWhiteIPsByTokenReq{})
 	metaField := reqType.Field(0)
-	if !strings.Contains(string(metaField.Tag), `method:"post"`) {
-		t.Fatalf("expected TenantWhiteIPsByTokenReq to use POST, got tag=%s", metaField.Tag)
+	if !strings.Contains(string(metaField.Tag), `method:"get"`) {
+		t.Fatalf("expected TenantWhiteIPsByTokenReq to use GET, got tag=%s", metaField.Tag)
 	}
 	if !strings.Contains(string(metaField.Tag), `access:"public"`) {
 		t.Fatalf("expected TenantWhiteIPsByTokenReq to declare public access, got tag=%s", metaField.Tag)
@@ -682,7 +686,7 @@ func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
 	if _, ok := document.Paths["/api/v1/media/strategies"]; !ok {
 		t.Fatalf("expected media management routes in media OpenAPI document")
 	}
-	if _, ok := document.Paths["/api/v1/strategy/userDeviceStrategyByToken"]; !ok {
+	if _, ok := document.Paths["/api/v1/strategies/user-device"]; !ok {
 		t.Fatalf("expected mediaopen routes in media OpenAPI document")
 	}
 	if _, ok := document.Paths["/api/v1/water/preview"]; ok {
@@ -696,7 +700,7 @@ func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
 	if len(strategyOperation.Security) != 0 {
 		t.Fatalf("expected media management route to inherit document BearerAuth, got %+v", strategyOperation.Security)
 	}
-	mediaOpenOperation := document.Paths["/api/v1/strategy/userDeviceStrategyByToken"]["post"]
+	mediaOpenOperation := document.Paths["/api/v1/strategies/user-device"]["get"]
 	if len(mediaOpenOperation.Security) != 1 {
 		t.Fatalf("expected mediaopen route to declare one security requirement, got %+v", mediaOpenOperation.Security)
 	}
@@ -1006,9 +1010,12 @@ innerapi:
 	}
 	cfg := g.Cfg()
 	previous := cfg.GetAdapter()
+	previousContent, _ := mediaRouteConfigContent.Load().(string)
+	mediaRouteConfigContent.Store(content)
 	cfg.SetAdapter(adapter)
 	t.Cleanup(func() {
 		cfg.SetAdapter(previous)
+		mediaRouteConfigContent.Store(previousContent)
 	})
 }
 
@@ -1024,10 +1031,14 @@ func startMediaRouteTestServer(t *testing.T, middlewares pluginhost.RouteMiddlew
 	server := g.Server(fmt.Sprintf("media-route-test-%d", time.Now().UnixNano()))
 	server.SetDumpRouterMap(false)
 	server.SetPort(0)
+	configFactory := pluginconfig.NewFactory(t.TempDir(), t.TempDir())
+	if content, _ := mediaRouteConfigContent.Load().(string); strings.TrimSpace(content) != "" {
+		configFactory = configFactory.WithArtifactConfig(pluginID, []byte(content))
+	}
 	hostServices := &mediaRouteHostServices{
 		bizCtx: bizctx.New(nil),
 		cache:  newMediaRouteCache(),
-		config: pluginconfig.New(),
+		config: configFactory.ForPlugin(pluginID),
 	}
 	server.Group("/", func(group *ghttp.RouterGroup) {
 		registrar := pluginhost.NewHTTPRegistrar(

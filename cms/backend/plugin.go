@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	cmsplugin "lina-plugin-cms"
 	cmscontroller "lina-plugin-cms/backend/internal/controller/cms"
 	cmssvc "lina-plugin-cms/backend/internal/service/cms"
@@ -41,7 +41,7 @@ func init() {
 func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error {
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
-	hostServices := registrar.HostServices()
+	hostServices := registrar.Services()
 	if hostServices == nil || hostServices.BizCtx() == nil {
 		return gerror.New("cms routes require host bizctx service")
 	}

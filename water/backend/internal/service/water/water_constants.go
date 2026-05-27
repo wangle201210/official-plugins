@@ -37,8 +37,6 @@ const (
 )
 
 const (
-	// switchOn is the enabled value used by media_strategy.enable and media_strategy.global.
-	switchOn = 1
 	// defaultTaskQueueCapacity caps queued asynchronous tasks.
 	defaultTaskQueueCapacity = 1024
 	// defaultConsumerCount is used when water.consumerCount is not configured.

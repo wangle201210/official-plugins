@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/contract"
 )
 
 // Service defines the media plugin service contract.

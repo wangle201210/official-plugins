@@ -1,5 +1,5 @@
 import { expect, test } from "@host-tests/fixtures/auth";
-import { config } from "@host-tests/fixtures/config";
+import { config, workspacePath } from "@host-tests/fixtures/config";
 import { ensureSourcePluginEnabled } from "@host-tests/fixtures/plugin";
 import { LoginPage } from "@host-tests/pages/LoginPage";
 import {
@@ -1280,20 +1280,14 @@ test.describe("TC-1 media plugin owned E2E discovery", () => {
 
     try {
       const loginPage = new LoginPage(page);
-      await page.goto("/#/auth/login");
-      await loginPage.usernameInput.waitFor({ state: "visible" });
+      await loginPage.goto();
       await loginPage.login(config.adminUser, config.adminPass);
       await page.waitForURL((url) => !url.hash.includes("/auth/login"), {
         timeout: 15000,
       });
       await waitForRouteReady(page, 15000);
 
-      await page.evaluate(() => {
-        window.location.hash = "#/media";
-      });
-      await page.waitForURL((url) => url.hash === "#/media", {
-        timeout: 15000,
-      });
+      await page.goto(workspacePath("/media"), { waitUntil: "domcontentloaded" });
       await waitForRouteReady(page, 15000);
 
       await expect(page.getByTestId("media-management-page")).toBeVisible();

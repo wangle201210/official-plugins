@@ -50,7 +50,7 @@ func (s *serviceImpl) Preview(ctx context.Context, in PreviewInput) (*ProcessOut
 		return nil, err
 	}
 	start := time.Now()
-	output, err := processSnapshot(ctx, SubmitSnapInput{
+	output, err := s.processSnapshot(ctx, SubmitSnapInput{
 		Tenant:      normalized.Tenant,
 		DeviceId:    normalized.DeviceId,
 		DeviceCode:  normalized.DeviceCode,

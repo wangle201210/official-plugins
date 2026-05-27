@@ -8,7 +8,7 @@ import (
 
 	"github.com/gogf/gf/v2/net/ghttp"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	mediaapidoc "lina-plugin-media/backend/internal/apidoc"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )

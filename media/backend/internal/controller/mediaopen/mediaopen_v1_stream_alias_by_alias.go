@@ -5,7 +5,6 @@ package mediaopen
 import (
 	"context"
 
-	"lina-core/pkg/apitime"
 	"lina-plugin-media/backend/api/mediaopen/v1"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
@@ -31,6 +30,6 @@ func aliasOutputToPublicConfig(out *mediasvc.AliasOutput) *v1.GetStreamAliasByAl
 		StreamPath: out.StreamPath,
 		DeviceId:   out.DeviceId,
 		ChannelId:  out.ChannelId,
-		CreateTime: apitime.MilliFromString(out.CreateTime),
+		CreateTime: out.CreateTime,
 	}
 }

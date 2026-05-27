@@ -9,10 +9,8 @@ import (
 )
 
 var (
-	// CodeWaterMediaTableCheckFailed reports that media table inspection failed.
-	CodeWaterMediaTableCheckFailed = bizerr.MustDefine("WATER_MEDIA_TABLE_CHECK_FAILED", "检测媒体策略表失败", gcode.CodeInternalError)
-	// CodeWaterMediaTableNotInstalled reports that required media tables are missing.
-	CodeWaterMediaTableNotInstalled = bizerr.MustDefine("WATER_MEDIA_TABLE_NOT_INSTALLED", "媒体策略表不存在，请先安装媒体插件", gcode.CodeNotFound)
+	// CodeWaterMediaResolverUnavailable reports that media strategy provider is not configured.
+	CodeWaterMediaResolverUnavailable = bizerr.MustDefine("WATER_MEDIA_RESOLVER_UNAVAILABLE", "媒体策略解析服务不可用", gcode.CodeInternalError)
 	// CodeWaterTenantRequired reports that the media tenant ID is missing.
 	CodeWaterTenantRequired = bizerr.MustDefine("WATER_TENANT_REQUIRED", "媒体租户ID不能为空", gcode.CodeInvalidParameter)
 	// CodeWaterImageRequired reports that the input image is missing.
@@ -23,8 +21,6 @@ var (
 	CodeWaterTaskCacheFailed = bizerr.MustDefine("WATER_TASK_CACHE_FAILED", "水印任务状态缓存失败", gcode.CodeInternalError)
 	// CodeWaterTaskQueueFull reports that the in-memory task queue is full.
 	CodeWaterTaskQueueFull = bizerr.MustDefine("WATER_TASK_QUEUE_FULL", "水印任务队列已满，请稍后再试", gcode.CodeInvalidOperation)
-	// CodeWaterStrategyQueryFailed reports that media strategy query failed.
-	CodeWaterStrategyQueryFailed = bizerr.MustDefine("WATER_STRATEGY_QUERY_FAILED", "查询媒体策略失败", gcode.CodeInternalError)
 	// CodeWaterStrategyParseFailed reports that the matched strategy YAML cannot be parsed.
 	CodeWaterStrategyParseFailed = bizerr.MustDefine("WATER_STRATEGY_PARSE_FAILED", "解析水印策略失败", gcode.CodeInvalidParameter)
 	// CodeWaterImageBase64Invalid reports that image base64 text is invalid.

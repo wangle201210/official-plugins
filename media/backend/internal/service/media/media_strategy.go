@@ -38,8 +38,8 @@ type StrategyOutput struct {
 	Enable     int    // Enable marks whether the strategy is enabled.
 	CreatorId  int    // CreatorId is the creator user ID.
 	UpdaterId  int    // UpdaterId is the last updater user ID.
-	CreateTime string // CreateTime is the formatted creation time.
-	UpdateTime string // UpdateTime is the formatted update time.
+	CreateTime *int64 // CreateTime is the Unix timestamp in milliseconds.
+	UpdateTime *int64 // UpdateTime is the Unix timestamp in milliseconds.
 }
 
 // StrategyMutationInput defines strategy create/update input.

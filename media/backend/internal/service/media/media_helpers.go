@@ -63,12 +63,13 @@ func (s *serviceImpl) currentActorID(ctx context.Context) int64 {
 	return int64(current.UserID)
 }
 
-// formatTime formats one optional GoFrame time value for API output.
-func formatTime(value *gtime.Time) string {
+// formatTime converts one optional GoFrame time value into a Unix millisecond timestamp.
+func formatTime(value *gtime.Time) *int64 {
 	if value == nil {
-		return ""
+		return nil
 	}
-	return value.String()
+	millis := value.TimestampMilli()
+	return &millis
 }
 
 // validateMediaTablesReady verifies plugin-owned tables exist before business operations continue.

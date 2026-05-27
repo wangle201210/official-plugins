@@ -26,7 +26,7 @@ type TenantWhiteListItem struct {
 	Description string `json:"description" dc:"白名单描述" eg:"总部出口"`
 	Enable      int    `json:"enable" dc:"1开启，0关闭" eg:"1"`
 	CreatorId   int    `json:"creatorId" dc:"创建人ID" eg:"1"`
-	CreateTime  string `json:"createTime" dc:"创建时间" eg:"2026-05-13 10:00:00"`
+	CreateTime  *int64 `json:"createTime" dc:"创建时间，Unix timestamp in milliseconds" eg:"1778733600000"`
 	UpdaterId   int    `json:"updaterId" dc:"修改人ID" eg:"1"`
-	UpdateTime  string `json:"updateTime" dc:"修改时间" eg:"2026-05-13 10:00:00"`
+	UpdateTime  *int64 `json:"updateTime" dc:"修改时间，Unix timestamp in milliseconds" eg:"1778733600000"`
 }

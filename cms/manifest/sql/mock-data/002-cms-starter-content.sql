@@ -1,10 +1,9 @@
--- 003: CMS plugin starter site content
--- 003：CMS 插件默认站点内容
+-- 002: CMS plugin optional starter site content
+-- 002：CMS 插件可选默认站点内容
 --
--- This starter dataset is part of normal plugin installation. It gives a newly
--- installed CMS plugin a usable public site without requiring optional mock
--- data. The statements are idempotent and avoid deleting or replacing rows
--- that operators have already maintained after installation.
+-- This starter dataset is optional mock data for local validation and the
+-- runtime "Load Sample Data" action. The statements are idempotent and avoid
+-- deleting or replacing rows that operators have already maintained.
 
 INSERT INTO plugin_cms_site ("site_key", "name", "logo", "weixin", "domain", "slogan", "keywords", "description", "icp", "contact", "phone", "email", "address", "status", "show_messages", "created_at", "updated_at")
 SELECT 'default', '启明先进材料产业研究院', '/static/logo.svg', '/static/wechat.jpg', 'www.advanced-materials-demo.com', '启明先进材料产业研究院', '启明先进材料产业研究院', '启明先进材料产业研究院', '', '贾老师', '0731-88886666', 'admin@advanced-materials-demo.com', '示范区科创园先进材料公共服务中心', 1, 1, '2026-05-09 13:37:35', '2026-05-09 13:37:35'

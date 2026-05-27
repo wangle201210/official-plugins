@@ -33,7 +33,7 @@ type AliasOutput struct {
 	StreamPath string // StreamPath is the real stream path.
 	DeviceId   string // DeviceId is the related device code.
 	ChannelId  string // ChannelId is the related channel code.
-	CreateTime string // CreateTime is the formatted creation time.
+	CreateTime *int64 // CreateTime is the Unix timestamp in milliseconds.
 }
 
 // AliasMutationInput defines stream alias create/update input.

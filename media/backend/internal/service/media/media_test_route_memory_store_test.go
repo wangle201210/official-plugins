@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/capability/contract"
 )
 
 // memoryRouteMemoryCache records route-memory host cache operations in memory for service tests.

@@ -5,8 +5,7 @@ package water
 import (
 	"context"
 	"encoding/json"
-
-	"github.com/gogf/gf/v2/os/gtime"
+	"time"
 
 	"lina-core/pkg/bizerr"
 )
@@ -28,7 +27,7 @@ func newTaskStore(cache taskCache) *taskStore {
 
 // create inserts one queued task snapshot.
 func (s *taskStore) create(ctx context.Context, taskID string, in SubmitSnapInput) error {
-	now := gtime.Now().String()
+	now := time.Now().UnixMilli()
 	record := &taskRecord{
 		TaskSnapshot: TaskSnapshot{
 			TaskId:      taskID,
@@ -52,7 +51,7 @@ func (s *taskStore) update(ctx context.Context, taskID string, mutate func(recor
 		return err
 	}
 	mutate(record)
-	record.UpdatedAt = gtime.Now().String()
+	record.UpdatedAt = time.Now().UnixMilli()
 	return s.save(ctx, record)
 }
 

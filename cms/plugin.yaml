@@ -1,147 +1,157 @@
 id: cms
-name: 内容管理-CMS
+name: Content - CMS
 version: v0.1.0
 type: source
 scope_nature: platform_only
 supports_multi_tenant: false
 default_install_mode: global
-description: 提供站点配置、栏目、内容、留言和公开内容 API 的官方源码 CMS 插件
+description: Official source CMS plugin for site settings, categories, articles, messages, and public content APIs.
 author: linapro
 license: Apache-2.0
+i18n:
+  enabled: true
+  default: en-US
+  locales:
+    - locale: en-US
+      nativeName: English
+    - locale: zh-CN
+      nativeName: 简体中文
+    - locale: zh-TW
+      nativeName: 繁體中文
 menus:
   - key: plugin:cms:workspace
     parent_key: content
-    name: CMS 内容站点
+    name: CMS
     path: /cms
     component: system/plugin/dynamic-page
     perms: cms:workspace:view
     icon: lucide:panels-top-left
     type: M
     sort: 10
-    remark: CMS 插件管理入口
+    remark: CMS plugin management entry.
   - key: plugin:cms:site:edit
     parent_key: plugin:cms:workspace
-    name: 站点配置维护
+    name: Update Site
     perms: cms:site:edit
     type: B
     sort: 1
   - key: plugin:cms:site:purge
     parent_key: plugin:cms:workspace
-    name: 站点数据清空
+    name: Clear Site Data
     perms: cms:site:purge
     type: B
     sort: 20
   - key: plugin:cms:site:sample
     parent_key: plugin:cms:workspace
-    name: 加载示例数据
+    name: Load Sample Data
     perms: cms:site:sample
     type: B
     sort: 21
   - key: plugin:cms:category:query
     parent_key: plugin:cms:workspace
-    name: 栏目查询
+    name: Query Categories
     perms: cms:category:query
     type: B
     sort: 2
   - key: plugin:cms:category:add
     parent_key: plugin:cms:workspace
-    name: 栏目新增
+    name: Create Category
     perms: cms:category:add
     type: B
     sort: 3
   - key: plugin:cms:category:edit
     parent_key: plugin:cms:workspace
-    name: 栏目修改
+    name: Update Category
     perms: cms:category:edit
     type: B
     sort: 4
   - key: plugin:cms:category:remove
     parent_key: plugin:cms:workspace
-    name: 栏目删除
+    name: Delete Category
     perms: cms:category:remove
     type: B
     sort: 5
   - key: plugin:cms:article:query
     parent_key: plugin:cms:workspace
-    name: 内容查询
+    name: Query Articles
     perms: cms:article:query
     type: B
     sort: 6
   - key: plugin:cms:article:add
     parent_key: plugin:cms:workspace
-    name: 内容新增
+    name: Create Article
     perms: cms:article:add
     type: B
     sort: 7
   - key: plugin:cms:article:edit
     parent_key: plugin:cms:workspace
-    name: 内容修改
+    name: Update Article
     perms: cms:article:edit
     type: B
     sort: 8
   - key: plugin:cms:article:remove
     parent_key: plugin:cms:workspace
-    name: 内容删除
+    name: Delete Article
     perms: cms:article:remove
     type: B
     sort: 9
   - key: plugin:cms:slide:query
     parent_key: plugin:cms:workspace
-    name: 轮播图查询
+    name: Query Slides
     perms: cms:slide:query
     type: B
     sort: 10
   - key: plugin:cms:slide:add
     parent_key: plugin:cms:workspace
-    name: 轮播图新增
+    name: Create Slide
     perms: cms:slide:add
     type: B
     sort: 11
   - key: plugin:cms:slide:edit
     parent_key: plugin:cms:workspace
-    name: 轮播图修改
+    name: Update Slide
     perms: cms:slide:edit
     type: B
     sort: 12
   - key: plugin:cms:slide:remove
     parent_key: plugin:cms:workspace
-    name: 轮播图删除
+    name: Delete Slide
     perms: cms:slide:remove
     type: B
     sort: 13
   - key: plugin:cms:link:query
     parent_key: plugin:cms:workspace
-    name: 友情链接查询
+    name: Query Friendly Links
     perms: cms:link:query
     type: B
     sort: 14
   - key: plugin:cms:link:add
     parent_key: plugin:cms:workspace
-    name: 友情链接新增
+    name: Create Friendly Link
     perms: cms:link:add
     type: B
     sort: 15
   - key: plugin:cms:link:edit
     parent_key: plugin:cms:workspace
-    name: 友情链接修改
+    name: Update Friendly Link
     perms: cms:link:edit
     type: B
     sort: 16
   - key: plugin:cms:link:remove
     parent_key: plugin:cms:workspace
-    name: 友情链接删除
+    name: Delete Friendly Link
     perms: cms:link:remove
     type: B
     sort: 17
   - key: plugin:cms:message:query
     parent_key: plugin:cms:workspace
-    name: 留言查询
+    name: Query Messages
     perms: cms:message:query
     type: B
     sort: 18
   - key: plugin:cms:message:edit
     parent_key: plugin:cms:workspace
-    name: 留言审核
+    name: Moderate Message
     perms: cms:message:edit
     type: B
     sort: 19

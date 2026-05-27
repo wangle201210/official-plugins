@@ -12,10 +12,10 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 - Stream alias CRUD
 - Node, device-node, and tenant stream config CRUD
 - Tenant whitelist CRUD
-- Mediaopen strategy authorization API: `POST /api/v1/strategy/userDeviceStrategyByToken`
+- Mediaopen strategy authorization API: `GET /api/v1/strategies/user-device?token=<token>&deviceId=<deviceId>`
 - Mediaopen stream alias config API: `GET /api/v1/stream-aliases/by-alias?alias=<alias>`
 - Mediaopen full node config API: `GET /api/v1/nodes/all`
-- HotGo-compatible route memory APIs: `POST /api/v1/route/set`, `POST /api/v1/route/get`, and `POST /api/v1/route/del`
+- HotGo-compatible route memory APIs: `PUT /api/v1/route-memories/{deviceCode}/{channelCode}`, `GET /api/v1/route-memories/{deviceCode}/{channelCode}`, and `DELETE /api/v1/route-memories/{deviceCode}/{channelCode}`
 
 ## Configuration
 

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"strings"
@@ -32,6 +33,21 @@ func TestEnsurePNGDataURL(t *testing.T) {
 	}
 	if _, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(dataURL, prefix)); err != nil {
 		t.Fatalf("expected valid base64 output: %v", err)
+	}
+}
+
+// TestEnsureJPEGBytesConvertsPNG verifies PNG input is normalized before the
+// migrated HotGo JPEG-only rendering pipeline is invoked.
+func TestEnsureJPEGBytesConvertsPNG(t *testing.T) {
+	content, err := ensureJPEGBytes(testPNGBytes(t))
+	if err != nil {
+		t.Fatalf("ensure jpeg bytes failed: %v", err)
+	}
+	if _, err = jpeg.Decode(bytes.NewReader(content)); err != nil {
+		t.Fatalf("expected jpeg output to decode: %v", err)
+	}
+	if bytes.HasPrefix(content, []byte("\x89PNG")) {
+		t.Fatal("expected converted jpeg bytes, got png header")
 	}
 }
 

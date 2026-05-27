@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UserDeviceStrategyByTokenReq defines the HotGo-compatible request for resolving one device strategy by token.
 type UserDeviceStrategyByTokenReq struct {
-	g.Meta      `path:"/strategy/userDeviceStrategyByToken" method:"post" tags:"媒体鉴权" summary:"通过铁塔 token 和设备ID查询媒体策略" dc:"兼容 HotGo Token+DeviceId 策略查询接口，使用铁塔 token 换取租户身份并校验租户设备权限。" access:"public"`
+	g.Meta      `path:"/strategies/user-device" method:"get" tags:"媒体鉴权" summary:"通过铁塔 token 和设备ID查询媒体策略" dc:"兼容 HotGo Token+DeviceId 策略查询接口，使用铁塔 token 换取租户身份并校验租户设备权限。" access:"public"`
 	InnerApiKey string `json:"X-Inner-Api-Key" in:"header" dc:"内部接口API Key；默认值media；显式配置innerapi.apiKey为空时可不传" eg:"media"`
 	Token       string `json:"token" v:"required#Token不能为空" dc:"铁塔用户 token，直接传 token 原值" eg:"token-value"`
 	DeviceId    string `json:"deviceId" v:"required#设备ID不能为空" dc:"设备国标编号" eg:"34020000001320000001"`
@@ -14,8 +14,8 @@ type UserDeviceStrategyByTokenReq struct {
 
 // UserDeviceStrategyByTokenRes defines the HotGo-compatible response for resolving one device strategy by token.
 type UserDeviceStrategyByTokenRes struct {
-	UserInfo *TietaUserInfo `json:"userInfo" dc:"铁塔用户信息"`
-	Strategy *StrategyInfo  `json:"strategy" dc:"策略详情；无设备权限或无匹配策略时为空"`
+	UserInfo *TietaUserInfo `json:"userInfo" dc:"铁塔用户信息" eg:"{}"`
+	Strategy *StrategyInfo  `json:"strategy" dc:"策略详情；无设备权限或无匹配策略时为空" eg:"{}"`
 }
 
 // TietaUserInfo defines the HotGo-compatible Tieta identity projection returned by token validation.

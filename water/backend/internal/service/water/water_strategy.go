@@ -9,64 +9,14 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"lina-core/pkg/bizerr"
-	"lina-plugin-water/backend/internal/dao"
+	mediastrategy "lina-plugin-media/backend/provider/strategy"
 	"lina-plugin-water/backend/internal/library/watermark"
-	"lina-plugin-water/backend/internal/model/do"
-	entitymodel "lina-plugin-water/backend/internal/model/entity"
 )
-
-// strategyEntity reuses the plugin-local generated media strategy entity.
-type strategyEntity = entitymodel.MediaStrategy
 
 // strategyYAML is a tolerant projection of media strategy YAML.
 type strategyYAML struct {
 	Watermark       *watermarkConfig `json:"watermark" yaml:"watermark"` // Watermark is the nested Lina strategy node.
 	watermarkConfig `yaml:",inline"` // Inline fields keep hotgo root-level strategy compatibility.
-}
-
-// ResolveStrategy resolves one effective media strategy for watermark processing.
-func ResolveStrategy(ctx context.Context, tenantID string, deviceID string) (*resolvedStrategy, error) {
-	if err := validateMediaTablesReady(ctx); err != nil {
-		return nil, err
-	}
-	tenantID = strings.TrimSpace(tenantID)
-	deviceID = strings.TrimSpace(deviceID)
-
-	if tenantID != "" && deviceID != "" {
-		strategy, err := strategyFromTenantDeviceBinding(ctx, tenantID, deviceID)
-		if err != nil {
-			return nil, err
-		}
-		if strategy != nil {
-			return buildResolvedStrategy(StrategySourceTenantDevice, strategy), nil
-		}
-	}
-	if deviceID != "" {
-		strategy, err := strategyFromDeviceBinding(ctx, deviceID)
-		if err != nil {
-			return nil, err
-		}
-		if strategy != nil {
-			return buildResolvedStrategy(StrategySourceDevice, strategy), nil
-		}
-	}
-	if tenantID != "" {
-		strategy, err := strategyFromTenantBinding(ctx, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		if strategy != nil {
-			return buildResolvedStrategy(StrategySourceTenant, strategy), nil
-		}
-	}
-	strategy, err := globalStrategy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if strategy != nil {
-		return buildResolvedStrategy(StrategySourceGlobal, strategy), nil
-	}
-	return buildResolvedStrategy(StrategySourceNone, nil), nil
 }
 
 // parseWatermarkStrategy parses watermark configuration from strategy YAML.
@@ -94,111 +44,58 @@ func parseWatermarkStrategy(strategyBody string) (*watermarkConfig, error) {
 	return &normalized, nil
 }
 
-// validateMediaTablesReady verifies the media-owned shared strategy tables exist.
-func validateMediaTablesReady(ctx context.Context) error {
-	tableNames := []string{
-		dao.MediaStrategy.Table(),
-		dao.MediaStrategyDevice.Table(),
-		dao.MediaStrategyDeviceTenant.Table(),
-		dao.MediaStrategyTenant.Table(),
+// resolveStrategy delegates effective media strategy lookup to the media plugin provider.
+func (s *serviceImpl) resolveStrategy(ctx context.Context, tenantID string, deviceID string) (*resolvedStrategy, error) {
+	if s == nil || s.strategyResolver == nil {
+		return nil, bizerr.NewCode(CodeWaterMediaResolverUnavailable)
 	}
-	for _, tableName := range tableNames {
-		fields, err := dao.MediaStrategy.DB().TableFields(ctx, tableName)
-		if err != nil {
-			return bizerr.WrapCode(err, CodeWaterMediaTableCheckFailed)
-		}
-		if len(fields) == 0 {
-			return bizerr.NewCode(CodeWaterMediaTableNotInstalled)
-		}
-	}
-	return nil
-}
-
-// strategyFromTenantDeviceBinding returns the enabled strategy bound to a tenant-device pair.
-func strategyFromTenantDeviceBinding(ctx context.Context, tenantID string, deviceID string) (*strategyEntity, error) {
-	var binding *entitymodel.MediaStrategyDeviceTenant
-	err := dao.MediaStrategyDeviceTenant.Ctx(ctx).
-		Where(do.MediaStrategyDeviceTenant{TenantId: tenantID, DeviceId: deviceID}).
-		Scan(&binding)
+	strategy, err := s.strategyResolver.ResolveStrategy(ctx, mediastrategy.ResolveStrategyInput{
+		TenantId: strings.TrimSpace(tenantID),
+		DeviceId: strings.TrimSpace(deviceID),
+	})
 	if err != nil {
-		return nil, bizerr.WrapCode(err, CodeWaterStrategyQueryFailed)
+		return nil, err
 	}
-	if binding == nil {
-		return nil, nil
-	}
-	return enabledStrategyByID(ctx, binding.StrategyId)
+	return buildResolvedStrategy(strategy), nil
 }
 
-// strategyFromDeviceBinding returns the enabled strategy bound to a device.
-func strategyFromDeviceBinding(ctx context.Context, deviceID string) (*strategyEntity, error) {
-	var binding *entitymodel.MediaStrategyDevice
-	err := dao.MediaStrategyDevice.Ctx(ctx).
-		Where(do.MediaStrategyDevice{DeviceId: deviceID}).
-		Scan(&binding)
-	if err != nil {
-		return nil, bizerr.WrapCode(err, CodeWaterStrategyQueryFailed)
+// buildResolvedStrategy converts the media provider output into service output.
+func buildResolvedStrategy(strategy *mediastrategy.ResolveStrategyOutput) *resolvedStrategy {
+	source := StrategySourceNone
+	if strategy != nil {
+		source = normalizeStrategySource(strategy.Source)
 	}
-	if binding == nil {
-		return nil, nil
+	sourceLabel := strategySourceLabel(source)
+	if strategy != nil && strings.TrimSpace(strategy.SourceLabel) != "" {
+		sourceLabel = strings.TrimSpace(strategy.SourceLabel)
 	}
-	return enabledStrategyByID(ctx, binding.StrategyId)
-}
-
-// strategyFromTenantBinding returns the enabled strategy bound to a tenant.
-func strategyFromTenantBinding(ctx context.Context, tenantID string) (*strategyEntity, error) {
-	var binding *entitymodel.MediaStrategyTenant
-	err := dao.MediaStrategyTenant.Ctx(ctx).
-		Where(do.MediaStrategyTenant{TenantId: tenantID}).
-		Scan(&binding)
-	if err != nil {
-		return nil, bizerr.WrapCode(err, CodeWaterStrategyQueryFailed)
-	}
-	if binding == nil {
-		return nil, nil
-	}
-	return enabledStrategyByID(ctx, binding.StrategyId)
-}
-
-// globalStrategy returns the enabled global strategy.
-func globalStrategy(ctx context.Context) (*strategyEntity, error) {
-	var strategy *strategyEntity
-	err := dao.MediaStrategy.Ctx(ctx).
-		Where(dao.MediaStrategy.Columns().Global, switchOn).
-		Where(dao.MediaStrategy.Columns().Enable, switchOn).
-		OrderDesc(dao.MediaStrategy.Columns().Id).
-		Scan(&strategy)
-	if err != nil {
-		return nil, bizerr.WrapCode(err, CodeWaterStrategyQueryFailed)
-	}
-	return strategy, nil
-}
-
-// enabledStrategyByID returns one enabled strategy by ID.
-func enabledStrategyByID(ctx context.Context, id int64) (*strategyEntity, error) {
-	var strategy *strategyEntity
-	err := dao.MediaStrategy.Ctx(ctx).
-		Where(dao.MediaStrategy.Columns().Enable, switchOn).
-		Where(do.MediaStrategy{Id: id}).
-		Scan(&strategy)
-	if err != nil {
-		return nil, bizerr.WrapCode(err, CodeWaterStrategyQueryFailed)
-	}
-	return strategy, nil
-}
-
-// buildResolvedStrategy converts a strategy source and entity into service output.
-func buildResolvedStrategy(source StrategySource, strategy *strategyEntity) *resolvedStrategy {
 	out := &resolvedStrategy{
-		Matched:     strategy != nil,
+		Matched:     strategy != nil && strategy.Matched,
 		Source:      source,
-		SourceLabel: strategySourceLabel(source),
+		SourceLabel: sourceLabel,
 	}
 	if strategy != nil {
-		out.StrategyId = strategy.Id
-		out.StrategyName = strategy.Name
+		out.StrategyId = strategy.StrategyId
+		out.StrategyName = strategy.StrategyName
 		out.Strategy = strategy.Strategy
 	}
 	return out
+}
+
+// normalizeStrategySource constrains media source text to water's known enum values.
+func normalizeStrategySource(source string) StrategySource {
+	switch StrategySource(strings.TrimSpace(source)) {
+	case StrategySourceTenantDevice:
+		return StrategySourceTenantDevice
+	case StrategySourceDevice:
+		return StrategySourceDevice
+	case StrategySourceTenant:
+		return StrategySourceTenant
+	case StrategySourceGlobal:
+		return StrategySourceGlobal
+	default:
+		return StrategySourceNone
+	}
 }
 
 // strategySourceLabel returns the Chinese label for one strategy source.

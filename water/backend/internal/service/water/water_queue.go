@@ -26,15 +26,17 @@ type watermarkTask struct {
 // taskQueue owns worker startup and queued task delivery.
 type taskQueue struct {
 	store     *taskStore
+	processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)
 	tasks     chan *watermarkTask
 	startOnce sync.Once
 }
 
 // newTaskQueue creates one task queue with lazy workers.
-func newTaskQueue(store *taskStore) *taskQueue {
+func newTaskQueue(store *taskStore, processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)) *taskQueue {
 	return &taskQueue{
-		store: store,
-		tasks: make(chan *watermarkTask, defaultTaskQueueCapacity),
+		store:     store,
+		processor: processor,
+		tasks:     make(chan *watermarkTask, defaultTaskQueueCapacity),
 	}
 }
 
@@ -81,6 +83,19 @@ func (q *taskQueue) consume(rootCtx context.Context, consumerID int) {
 func (q *taskQueue) processTask(consumerID int, task *watermarkTask) {
 	start := time.Now()
 	ctx := task.ctx
+	if q == nil || q.processor == nil {
+		logger.Errorf(ctx, "消费者 %d: 水印处理器未初始化 %s", consumerID, task.id)
+		if updateErr := q.store.update(ctx, task.id, func(record *taskRecord) {
+			record.Status = TaskStatusFailed
+			record.Success = false
+			record.Message = "处理失败"
+			record.Error = "water processor is not initialized"
+			record.DurationMs = time.Since(start).Milliseconds()
+		}); updateErr != nil {
+			logger.Errorf(ctx, "消费者 %d: 更新水印任务失败状态失败 %s: %v", consumerID, task.id, updateErr)
+		}
+		return
+	}
 	logger.Infof(ctx, "消费者 %d 开始处理水印任务: %s", consumerID, task.id)
 	if err := q.store.update(ctx, task.id, func(record *taskRecord) {
 		record.Status = TaskStatusProcessing
@@ -89,7 +104,7 @@ func (q *taskQueue) processTask(consumerID int, task *watermarkTask) {
 		logger.Errorf(ctx, "消费者 %d: 更新水印任务处理中状态失败 %s: %v", consumerID, task.id, err)
 	}
 
-	output, err := processSnapshot(ctx, task.request)
+	output, err := q.processor(ctx, task.request)
 	if err != nil {
 		logger.Errorf(ctx, "消费者 %d: 水印任务失败 %s: %v", consumerID, task.id, err)
 		if updateErr := q.store.update(ctx, task.id, func(record *taskRecord) {

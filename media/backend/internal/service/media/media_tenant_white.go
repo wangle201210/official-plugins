@@ -37,9 +37,9 @@ type TenantWhiteOutput struct {
 	Description string // Description is the whitelist description.
 	Enable      int    // Enable marks whether the whitelist entry is active.
 	CreatorId   int    // CreatorId is the creator user ID.
-	CreateTime  string // CreateTime is the formatted creation time.
+	CreateTime  *int64 // CreateTime is the Unix timestamp in milliseconds.
 	UpdaterId   int    // UpdaterId is the last updater user ID.
-	UpdateTime  string // UpdateTime is the formatted update time.
+	UpdateTime  *int64 // UpdateTime is the Unix timestamp in milliseconds.
 }
 
 // TenantWhiteMutationInput defines tenant whitelist create/update input.
