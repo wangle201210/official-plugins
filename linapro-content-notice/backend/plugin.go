@@ -36,32 +36,41 @@ func init() {
 
 // registerRoutes binds notice-management routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	routes := registrar.Routes()
-	middlewares := routes.Middlewares()
-	hostServices := registrar.HostServices()
+	var (
+		routes       = registrar.Routes()
+		middlewares  = routes.Middlewares()
+		hostServices = registrar.HostServices()
+	)
 	if hostServices == nil ||
 		hostServices.BizCtx() == nil ||
 		hostServices.Notify() == nil ||
 		hostServices.TenantFilter() == nil {
 		return gerror.New("linapro-content-notice routes require host bizctx, notify, and tenant-filter services")
 	}
-	noticeSvc := noticesvc.New(hostServices.BizCtx(), hostServices.Notify(), hostServices.TenantFilter())
-	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
-		group.Middleware(
-			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
-			middlewares.CORS(),
-			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
-		)
-		group.Group("/", func(group pluginhost.RouteGroup) {
+	noticeSvc := noticesvc.New(
+		hostServices.BizCtx(),
+		hostServices.Notify(),
+		hostServices.TenantFilter(),
+	)
+	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
+		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				middlewares.NeverDoneCtx(),
+				middlewares.HandlerResponse(),
+				middlewares.CORS(),
+				middlewares.RequestBodyLimit(),
+				middlewares.Ctx(),
 			)
-			group.Bind(noticecontroller.NewV1(noticeSvc))
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(noticecontroller.NewV1(noticeSvc))
+			})
 		})
 	})
+
 	return nil
 }

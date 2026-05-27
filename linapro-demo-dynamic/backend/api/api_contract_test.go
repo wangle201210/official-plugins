@@ -31,6 +31,17 @@ func TestDemoDynamicAPIDTOFilesAvoidLegacyNames(t *testing.T) {
 	assertNoLegacyDTOFiles(t, demoDynamicPluginRoot(t))
 }
 
+// TestDemoDynamicAPIDTOsKeepVersionPrefixInRouteGroup ensures DTO paths stay resource-local.
+func TestDemoDynamicAPIDTOsKeepVersionPrefixInRouteGroup(t *testing.T) {
+	assertNoAPIDTOPathPrefix(t, demoDynamicPluginRoot(t), "/api/v1")
+}
+
+// TestDemoDynamicAPIPackagesDoNotDeclareRouteGroupPrefix ensures route groups
+// stay in backend route registration instead of generated API files.
+func TestDemoDynamicAPIPackagesDoNotDeclareRouteGroupPrefix(t *testing.T) {
+	assertNoRouteGroupPrefixConst(t, demoDynamicPluginRoot(t))
+}
+
 // TestDemoDynamicAPIDocI18NDoesNotReferenceRemovedDTOFields keeps apidoc translations aligned with DTOs.
 func TestDemoDynamicAPIDocI18NDoesNotReferenceRemovedDTOFields(t *testing.T) {
 	assertAPIDocI18NExcludesTokens(t, demoDynamicPluginRoot(t), removedAPIDocTokens())
@@ -99,6 +110,54 @@ func assertNoLegacyDTOFiles(t *testing.T, root string) {
 	}
 }
 
+// assertNoAPIDTOPathPrefix rejects version prefixes that belong to route groups.
+func assertNoAPIDTOPathPrefix(t *testing.T, root string, forbiddenPrefix string) {
+	t.Helper()
+
+	for _, file := range collectAPIFiles(t, root) {
+		parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ParseComments)
+		if err != nil {
+			t.Fatalf("parse %s: %v", file, err)
+		}
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			field, ok := node.(*ast.Field)
+			if !ok || field == nil || field.Tag == nil || len(field.Names) != 0 {
+				return true
+			}
+			tagValue := strings.Trim(field.Tag.Value, "`")
+			pathValue := readStructTagValue(tagValue, "path")
+			if strings.HasPrefix(pathValue, forbiddenPrefix) {
+				t.Fatalf("dynamic plugin API DTO path in %s must not include route group prefix %s: %s", slashPath(root, file), forbiddenPrefix, pathValue)
+			}
+			return true
+		})
+	}
+}
+
+// assertNoRouteGroupPrefixConst rejects manual route group constants in API packages.
+func assertNoRouteGroupPrefixConst(t *testing.T, root string) {
+	t.Helper()
+
+	for _, file := range collectAPIFiles(t, root) {
+		parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.ParseComments)
+		if err != nil {
+			t.Fatalf("parse %s: %v", file, err)
+		}
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			spec, ok := node.(*ast.ValueSpec)
+			if !ok {
+				return true
+			}
+			for _, name := range spec.Names {
+				if name != nil && name.Name == "RouteGroupPrefix" {
+					t.Fatalf("plugin API file %s must not declare RouteGroupPrefix; use backend RegisterRoutes instead", slashPath(root, file))
+				}
+			}
+			return true
+		})
+	}
+}
+
 // assertAPIDocI18NExcludesTokens verifies plugin apidoc bundles no longer reference removed DTO names or fields.
 func assertAPIDocI18NExcludesTokens(t *testing.T, root string, tokens []string) {
 	t.Helper()
@@ -140,6 +199,24 @@ func collectAPIFiles(t *testing.T, root string) []string {
 		t.Fatalf("walk plugin API files: %v", err)
 	}
 	return files
+}
+
+// readStructTagValue extracts one raw struct-tag key value without requiring a reflect.StructTag.
+func readStructTagValue(tagValue string, key string) string {
+	prefix := key + ":\""
+	index := strings.Index(tagValue, prefix)
+	if index < 0 {
+		return ""
+	}
+	valueStart := index + len(prefix)
+	cursor := valueStart
+	for cursor < len(tagValue) {
+		if tagValue[cursor] == '"' && tagValue[cursor-1] != '\\' {
+			return tagValue[valueStart:cursor]
+		}
+		cursor++
+	}
+	return ""
 }
 
 // collectAPIDocI18NFiles lists plugin apidoc translation JSON files.

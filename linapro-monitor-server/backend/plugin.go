@@ -68,23 +68,27 @@ func init() {
 
 // registerRoutes binds server-monitor query routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	routes := registrar.Routes()
-	middlewares := routes.Middlewares()
-	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
-		group.Middleware(
-			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
-			middlewares.CORS(),
-			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
-		)
-		group.Group("/", func(group pluginhost.RouteGroup) {
+	var (
+		routes      = registrar.Routes()
+		middlewares = routes.Middlewares()
+	)
+	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
+		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				middlewares.NeverDoneCtx(),
+				middlewares.HandlerResponse(),
+				middlewares.CORS(),
+				middlewares.RequestBodyLimit(),
+				middlewares.Ctx(),
 			)
-			group.Bind(servercontroller.NewV1(sharedMonitorSvc))
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(servercontroller.NewV1(sharedMonitorSvc))
+			})
 		})
 	})
 	return nil

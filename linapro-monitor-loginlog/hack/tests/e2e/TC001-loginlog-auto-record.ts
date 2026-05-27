@@ -1,7 +1,7 @@
 import { test, expect } from '@host-tests/fixtures/auth';
 import { ensureSourcePluginEnabled } from '@host-tests/fixtures/plugin';
 import { LoginPage } from '@host-tests/pages/LoginPage';
-import { config } from '@host-tests/fixtures/config';
+import { config, workspacePath } from '@host-tests/fixtures/config';
 import { waitForRouteReady } from '@host-tests/support/ui';
 
 test.describe('TC001 登录日志自动记录', () => {
@@ -13,7 +13,7 @@ test.describe('TC001 登录日志自动记录', () => {
     // The adminPage fixture already logged in, so a login log should exist
     const responsePromise = adminPage.waitForResponse(
       (res) =>
-        res.url().includes('/api/v1/loginlog') &&
+        res.url().includes('/x/linapro-monitor-loginlog/api/v1/loginlog') &&
         res.request().method() === 'GET' &&
         res.status() === 200,
       { timeout: 15000 },
@@ -51,12 +51,12 @@ test.describe('TC001 登录日志自动记录', () => {
       // Navigate to login log page.
       const responsePromise = page.waitForResponse(
         (res) =>
-          res.url().includes('/api/v1/loginlog') &&
+          res.url().includes('/x/linapro-monitor-loginlog/api/v1/loginlog') &&
           res.request().method() === 'GET' &&
           res.status() === 200,
         { timeout: 15000 },
       );
-      await page.goto('/monitor/loginlog');
+      await page.goto(workspacePath('/monitor/loginlog'));
       await responsePromise;
       await waitForRouteReady(page);
 

@@ -26,6 +26,13 @@ supports_multi_tenant: true
 # 默认安装模式枚举。可选值：`global` 表示全局统一安装启用；`tenant_scoped` 表示按租户独立启用或禁用。
 default_install_mode: tenant_scoped
 
+# Declared public static assets hosted under /x-assets/{plugin-id}/{version}/...
+# 声明式公开静态资源目录，由宿主托管到 /x-assets/{plugin-id}/{version}/...
+public_assets:
+  - source: frontend/pages
+    mount: /
+    index: index.html
+
 # Plugin description summarizing the capability boundary.
 # 插件说明，概述插件的能力边界。
 description: 提供独立的 dynamic wasm 插件样例，演示左侧菜单内嵌页面、插件自有 SQL 表 CRUD 与独立静态页面跳转
@@ -213,7 +220,7 @@ menus:
     name: 动态插件示例
     # Hosted static asset entry path for the dynamic plugin.
     # 动态插件静态资源托管入口路径。
-    path: /plugin-assets/linapro-demo-dynamic/v0.1.0/mount.js
+    path: /x-assets/linapro-demo-dynamic/v0.1.0/mount.js
     # Menu render component; the dynamic page shell hosts plugin pages.
     # 菜单渲染组件，动态页壳用于承载插件页面。
     component: system/plugin/dynamic-page

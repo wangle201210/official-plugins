@@ -1,0 +1,43 @@
+.buildpath
+.hgignore.swp
+.project
+.orig
+.swp
+.tmp/
+.idea/
+.settings/
+.vscode/
+**/.DS_Store
+assets/
+!.github/assets/
+!.github/assets/linapro-logo.webp
+.aiprompt.zh.md
+.codex/config.toml
+.github/codex/*
+!.github/codex/
+!.github/codex/config.template.toml
+!.github/codex/auth.template.json
+.github/codex/auth.json
+temp/
+.agents/skills/goframe-v2/
+
+# CodeBuddy plans
+.codebuddy/plan/
+
+# Frontend
+**/node_modules/
+**/dist/
+**/dist.zip
+**/.turbo/
+
+# Testing
+.playwright-cli/
+.playwright-mcp/
+playwright-report/
+test-results/
+*.tar.zst
+
+# Build artifacts
+*.exe
+*.test
+*.out

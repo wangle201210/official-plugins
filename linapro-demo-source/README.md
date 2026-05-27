@@ -40,11 +40,15 @@ linapro-demo-source/
 
 `plugin.yaml` keeps the plugin metadata, menu declarations, and button permissions. Pages and SQL assets still follow directory conventions instead of being duplicated in metadata.
 
+`plugin.yaml` does not declare source-plugin HTTP routes. Workspace navigation still comes from `menus`, while backend routes are registered by plugin code.
+
 ## Backend Integration
 
 - implement backend entry points under `backend/`
 - keep service logic under `backend/internal/service/`
 - keep plugin-local ORM codegen output under `backend/internal/dao` and `backend/internal/model/{do,entity}` when the plugin accesses database tables
+- register plugin APIs under `registrar.Routes().APIPrefix()`, which resolves to `/x/linapro-demo-source`; the sample appends `/api/v1` as its own route convention
+- keep public pages, portals, static routes, or plugin-owned fallback handlers on non-reserved paths instead of putting them under `/x`
 - register install, upgrade, disable, uninstall, tenant, and install-mode lifecycle callbacks through the source-plugin registration entry used by the host build
 - keep plugin-owned cleanup logic in the plugin service so uninstall can optionally purge files before uninstall SQL drops the table
 
@@ -53,6 +57,12 @@ linapro-demo-source/
 - front-end pages are discovered from the plugin's `frontend/` directory according to repository conventions
 - the sample page keeps the existing summary card and adds a `VXE` grid plus modal form for record CRUD
 - the uninstall choice is surfaced by the host plugin-management page, not by the plugin page itself
+
+## Public Assets
+
+Source plugins may declare public static asset directories in `plugin.yaml` `public_assets`. Declared files are served from `/x-assets/{plugin-id}/{version}/...`, but this sample keeps its workbench page under the normal `frontend/pages/` discovery flow and does not require host-served public assets.
+
+Do not use `/plugin-assets`; that legacy path is not supported.
 
 ## SQL Conventions
 

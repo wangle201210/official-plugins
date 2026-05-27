@@ -82,6 +82,16 @@ The host and source plugins are intentionally decoupled through stable seams ins
 - The host publishes stable capability seams for optional collaboration, such as auth events, audit events, org capability access, and plugin lifecycle hooks.
 - Plugin-owned tables, menus, pages, hooks, and cron jobs live in the plugin directory and are installed or removed through the plugin lifecycle.
 
+## HTTP Routes and Public Assets
+
+Source-plugin HTTP routes are implementation details registered by plugin backend code. Do not declare public routes, portal routes, workspace API routes, or route groups in `plugin.yaml`.
+
+Use `registrar.Routes().APIPrefix()` for source-plugin APIs. The returned prefix is `/x/{plugin-id}`; this plugin-owned namespace is mandatory, while segments after it are plugin-defined route content. A plugin may choose conventional paths such as `/api/v1`, `/api/v2`, or `/interface/m1` under that prefix. Source plugins may still register non-reserved public routes such as `/`, `/portal/*`, or `/assets/*` for pages, portals, static resources, or plugin-managed fallback handlers.
+
+`plugin.yaml` `menus` remains the source of truth for management workspace navigation and permissions. Registering an HTTP route does not create menus, permission nodes, `OpenAPI` entries, or workspace route metadata.
+
+Source plugins and dynamic plugins may declare public static asset directories through `plugin.yaml` `public_assets`. The host serves only declared public assets from `/x-assets/{plugin-id}/{version}/...`, and treats each declaration as the plugin author's explicit publication boundary. Declarations must stay inside the plugin-owned resource set; traversal, absolute paths, URLs, wildcard paths, overlapping mounts, and symlink escapes are rejected. 
+
 ## Source Plugin Development Flow
 
 1. Create `apps/lina-plugins/<plugin-id>/`.

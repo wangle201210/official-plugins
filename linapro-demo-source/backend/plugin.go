@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/gogf/gf/v2/net/ghttp"
 
 	"lina-core/pkg/logger"
 	"lina-core/pkg/pluginhost"
@@ -220,47 +221,65 @@ func logSourceInstallModeLifecycle(
 // middleware directory so plugin traffic follows the same governance chain as
 // host-owned APIs.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
+	var (
+		routes       = registrar.Routes()
+		middlewares  = routes.Middlewares()
+		hostServices = registrar.HostServices()
+	)
 	if hostServices == nil || hostServices.I18n() == nil || hostServices.TenantFilter() == nil {
 		return gerror.New("linapro-demo-source routes require host i18n and tenant-filter services")
 	}
 	demoSvc := demosvc.New(hostServices.I18n(), hostServices.TenantFilter())
-	var (
-		routes         = registrar.Routes()
-		middlewares    = routes.Middlewares()
-		demoController = democtrl.NewV1(demoSvc)
-	)
-	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
+	demoController := democtrl.NewV1(demoSvc)
+	routes.Group("/portal/linapro-demo-source", func(group pluginhost.RouteGroup) {
 		group.Middleware(
 			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
 			middlewares.CORS(),
 			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
 		)
-
-		group.Group("/", func(group pluginhost.RouteGroup) {
-			group.Bind(demoController.Ping)
-		})
-
-		group.Group("/", func(group pluginhost.RouteGroup) {
+		group.GET("/ping", servePortalPing)
+	})
+	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
+		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				middlewares.NeverDoneCtx(),
+				middlewares.HandlerResponse(),
+				middlewares.CORS(),
+				middlewares.RequestBodyLimit(),
+				middlewares.Ctx(),
 			)
-			group.Bind(
-				demoController.Summary,
-				demoController.ListRecords,
-				demoController.GetRecord,
-				demoController.CreateRecord,
-				demoController.UpdateRecord,
-				demoController.DeleteRecord,
-				demoController.DownloadAttachment,
-			)
+
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Bind(demoController.Ping)
+			})
+
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(
+					demoController.Summary,
+					demoController.ListRecords,
+					demoController.GetRecord,
+					demoController.CreateRecord,
+					demoController.UpdateRecord,
+					demoController.DeleteRecord,
+					demoController.DownloadAttachment,
+				)
+			})
 		})
 	})
 	return nil
+}
+
+// servePortalPing returns a plugin-owned public route response outside the
+// reserved /x API namespace so route-boundary E2E can verify host fallback
+// does not claim source-plugin public paths.
+func servePortalPing(request *ghttp.Request) {
+	request.Response.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	request.Response.Write("linapro-demo-source-public-pong")
 }
 
 // registerBuiltinCrons contributes one plugin-owned builtin scheduled job so

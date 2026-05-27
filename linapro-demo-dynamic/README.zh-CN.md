@@ -40,7 +40,22 @@ make wasm p=linapro-demo-dynamic
 
 ## 后端契约
 
-该样例通过动态插件公共前缀暴露受治理路由，并将业务逻辑保留在 `backend/internal/service/` 中。
+该样例通过`/x/linapro-demo-dynamic/api/v1`暴露受治理路由，并将业务逻辑保留在`backend/internal/service/`中。宿主只强制`/x/{pluginId}`前缀；本示例在`backend/plugin.go`中通过`RegisterRoutes`声明`/api/v1/...`作为自身路由分组。
+
+`backend/api/`下的 API DTO 文件只保留资源本地路径，不负责维护路由分组前缀。后续如需增加新的分组，可新增独立 API 包，例如`backend/api/dynamic/v2`或`backend/api/dynamic/interface/m1`，DTO 仍只写包内资源路径，然后在`RegisterRoutes`中新增绑定，例如`registrar.Group("/api/v2", "dynamic/v2")`或`registrar.Group("/interface/m1", "dynamic/interface/m1")`。宿主最终会发布为`/x/linapro-demo-dynamic/api/v2/...`或`/x/linapro-demo-dynamic/interface/m1/...`。
+
+## 公开资源
+
+该样例在`plugin.yaml`中声明了`public_assets`：
+
+```yaml
+public_assets:
+  - source: frontend/pages
+    mount: /
+    index: index.html
+```
+
+只有匹配该声明的文件会通过`/x-assets/linapro-demo-dynamic/v0.1.0/...`提供访问。访问挂载目录本身时，`index`指定默认文件；未配置时默认使用`index.html`。管理工作台菜单仍使用`system/plugin/dynamic-page`，并把`/x-assets/.../mount.js`地址作为托管资源传入；它不会直接把`/x-assets/...`作为工作台路由本身。
 
 ## 宿主服务
 

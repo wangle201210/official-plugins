@@ -40,11 +40,15 @@ linapro-demo-source/
 
 `plugin.yaml` 负责保存插件元数据、菜单声明和按钮权限。页面与 `SQL` 资源仍然通过目录约定发现，而不是在元数据中重复维护。
 
+`plugin.yaml`不声明源码插件`HTTP`路由。工作台导航仍来自`menus`，后端路由由插件代码注册。
+
 ## 后端接入
 
 - 在 `backend/` 中实现插件后端入口
 - 将业务逻辑保留在 `backend/internal/service/` 下
 - 插件访问数据库时，将本地 ORM 生成工件维护在 `backend/internal/dao` 与 `backend/internal/model/{do,entity}` 下
+- 将插件`API`注册到`registrar.Routes().APIPrefix()`下，该前缀会解析为`/x/linapro-demo-source`；示例插件自行追加`/api/v1`作为自身路由约定
+- 公开页面、门户、静态资源路由或插件自管 fallback handler 应使用非保留路径，不要放在`/x`下
 - 通过宿主构建使用的源码插件注册入口显式接线安装、升级、禁用、卸载、租户和安装模式生命周期回调
 - 将插件自有清理逻辑保留在插件服务中，便于在卸载 `SQL` 删除表之前按需清理附件文件
 
@@ -53,6 +57,12 @@ linapro-demo-source/
 - 前端页面会按照仓库约定从插件的 `frontend/` 目录中自动发现
 - 示例页保留原有摘要卡片，并新增 `VXE` 表格与弹窗表单来维护示例记录
 - 卸载时是否清理数据的选择由宿主插件管理页提供，而不是插件页面自行实现
+
+## 公开资源
+
+源码插件可以在`plugin.yaml`的`public_assets`中声明公开静态资源目录。声明后的文件会通过`/x-assets/{plugin-id}/{version}/...`提供访问，但本样例的工作台页面仍走常规`frontend/pages/`发现流程，不需要宿主托管公开资源。
+
+不要使用`/plugin-assets`，该旧路径不再支持。
 
 ## SQL 约定
 

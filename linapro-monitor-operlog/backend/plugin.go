@@ -37,7 +37,11 @@ func init() {
 
 // registerRoutes binds operation-log governance routes and audit middleware through the published host HTTP registrars.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
+	var (
+		routes       = registrar.Routes()
+		middlewares  = routes.Middlewares()
+		hostServices = registrar.HostServices()
+	)
 	if hostServices == nil ||
 		hostServices.APIDoc() == nil ||
 		hostServices.BizCtx() == nil ||
@@ -52,25 +56,23 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 
-	var (
-		routes      = registrar.Routes()
-		middlewares = routes.Middlewares()
-	)
-	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
-		group.Middleware(
-			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
-			middlewares.CORS(),
-			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
-		)
-		group.Group("/", func(group pluginhost.RouteGroup) {
+	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
+		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				middlewares.NeverDoneCtx(),
+				middlewares.HandlerResponse(),
+				middlewares.CORS(),
+				middlewares.RequestBodyLimit(),
+				middlewares.Ctx(),
 			)
-			group.Bind(operlogcontroller.NewV1(operLogSvc))
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(operlogcontroller.NewV1(operLogSvc))
+			})
 		})
 	})
 	return nil

@@ -149,10 +149,9 @@ func (s *serviceImpl) resolveAuditRouteMetadata(request *ghttp.Request) auditRou
 		metadata.routePath = dynamicMetadata.PublicPath
 	}
 	if strings.TrimSpace(metadata.routePath) != "" {
-		// The route doc key is rebuilt from the final public path/method so later
-		// display logic can reuse apidoc i18n resources regardless of whether the
-		// request came from a static route or a dynamic plugin route.
-		metadata.routeDocKey = hostapidoc.BuildOperationKeyFromPath(metadata.routePath, metadata.routeMethod)
+		// Dynamic routes use their final public path and method as the stable
+		// apidoc key source because route method + path is already unique.
+		metadata.routeDocKey = hostapidoc.BuildDynamicOperationKey(metadata.routePath, metadata.routeMethod)
 	}
 	if dynamicMetadata.ResponseBody != "" {
 		// Dynamic route responses are written by the bridge dispatcher as raw

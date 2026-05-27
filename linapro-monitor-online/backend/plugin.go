@@ -36,28 +36,32 @@ func init() {
 
 // registerRoutes binds online-user governance routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
+	var (
+		routes       = registrar.Routes()
+		middlewares  = routes.Middlewares()
+		hostServices = registrar.HostServices()
+	)
 	if hostServices == nil || hostServices.Session() == nil {
 		return gerror.New("linapro-monitor-online routes require host session service")
 	}
 	monitorSvc := monitorsvc.New(hostServices.Session())
-	routes := registrar.Routes()
-	middlewares := routes.Middlewares()
-	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
-		group.Middleware(
-			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
-			middlewares.CORS(),
-			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
-		)
-		group.Group("/", func(group pluginhost.RouteGroup) {
+	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
+		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				middlewares.NeverDoneCtx(),
+				middlewares.HandlerResponse(),
+				middlewares.CORS(),
+				middlewares.RequestBodyLimit(),
+				middlewares.Ctx(),
 			)
-			group.Bind(monitorcontroller.NewV1(monitorSvc))
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(monitorcontroller.NewV1(monitorSvc))
+			})
 		})
 	})
 	return nil

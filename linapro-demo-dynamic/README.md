@@ -40,7 +40,22 @@ The runtime artifact is written to `temp/output/linapro-demo-dynamic.wasm`.
 
 ## Backend Contract
 
-The sample exposes governed routes under the dynamic plugin public prefix and keeps business logic inside `backend/internal/service/`.
+The sample exposes governed routes under `/x/linapro-demo-dynamic/api/v1` and keeps business logic inside `backend/internal/service/`. The host requires only `/x/{pluginId}`; this sample keeps `/api/v1/...` as its own route group by declaring it in `backend/plugin.go` through `RegisterRoutes`.
+
+API DTO files under `backend/api/` stay resource-local and do not own route group prefixes. To add another group, create a separate API package such as `backend/api/dynamic/v2` or `backend/api/dynamic/interface/m1`, keep DTO paths local to that package, and add another `RegisterRoutes` binding such as `registrar.Group("/api/v2", "dynamic/v2")` or `registrar.Group("/interface/m1", "dynamic/interface/m1")`. The host will publish them as `/x/linapro-demo-dynamic/api/v2/...` or `/x/linapro-demo-dynamic/interface/m1/...`.
+
+## Public Assets
+
+The sample declares `public_assets` in `plugin.yaml`:
+
+```yaml
+public_assets:
+  - source: frontend/pages
+    mount: /
+    index: index.html
+```
+
+Only files matching that declaration are served from `/x-assets/linapro-demo-dynamic/v0.1.0/...`. When the mount directory itself is requested, `index` selects the default file and falls back to `index.html` when omitted. The management workspace menu continues to use `system/plugin/dynamic-page` and passes the `/x-assets/.../mount.js` URL as the hosted resource; it does not use `/x-assets/...` as the workbench route itself.
 
 ## Host Services
 

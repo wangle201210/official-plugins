@@ -1,15 +1,17 @@
 import { test, expect } from '@host-tests/fixtures/auth';
 import { ensureSourcePluginEnabled } from '@host-tests/fixtures/plugin';
-import { config } from '@host-tests/fixtures/config';
+import { config, pluginApiPath, workspacePath } from '@host-tests/fixtures/config';
 import { LoginPage } from '@host-tests/pages/LoginPage';
 
-const API_BASE = `${config.baseURL}/api/v1`;
+const PLUGIN_ID = 'linapro-content-notice';
+const HOST_API_BASE = config.apiBaseURL.replace(/\/$/, '');
+const PLUGIN_API_BASE = `${config.publicBaseURL.replace(/\/$/, '')}${pluginApiPath(PLUGIN_ID)}`;
 
 async function apiLogin(
   username: string,
   password: string,
 ): Promise<string> {
-  const resp = await fetch(`${API_BASE}/auth/login`, {
+  const resp = await fetch(`${HOST_API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -20,14 +22,14 @@ async function apiLogin(
 }
 
 async function apiClearMessages(token: string): Promise<void> {
-  await fetch(`${API_BASE}/user/message/clear`, {
+  await fetch(`${HOST_API_BASE}/user/message/clear`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 async function apiUnreadCount(token: string): Promise<number> {
-  const resp = await fetch(`${API_BASE}/user/message/count`, {
+  const resp = await fetch(`${HOST_API_BASE}/user/message/count`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await resp.json();
@@ -48,7 +50,7 @@ test.describe('TC002 用户消息列表页面', () => {
       await loginPage.goto();
       await loginPage.loginAndWaitForRedirect('user001', config.adminPass);
 
-      await page.goto('/system/message');
+      await page.goto(workspacePath('/system/message'));
       await page.waitForLoadState('networkidle');
 
       const card = page.locator('.ant-card');
@@ -72,7 +74,7 @@ test.describe('TC002 用户消息列表页面', () => {
     await apiClearMessages(userToken);
 
     const title = `消息列表测试_${Date.now()}`;
-    const resp = await fetch(`${API_BASE}/notice`, {
+    const resp = await fetch(`${PLUGIN_API_BASE}/notice`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -101,7 +103,7 @@ test.describe('TC002 用户消息列表页面', () => {
       await loginPage.goto();
       await loginPage.loginAndWaitForRedirect('user001', config.adminPass);
 
-      await page.goto('/system/message');
+      await page.goto(workspacePath('/system/message'));
       await page.waitForLoadState('networkidle');
 
       const card = page.locator('.ant-card');
@@ -111,7 +113,7 @@ test.describe('TC002 用户消息列表页面', () => {
         timeout: 10_000,
       });
     } finally {
-      await fetch(`${API_BASE}/notice/${noticeId}`, {
+      await fetch(`${PLUGIN_API_BASE}/notice/${noticeId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${adminToken}` },
       });

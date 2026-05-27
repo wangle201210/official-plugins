@@ -15,6 +15,7 @@ import {
 } from "@host-tests/support/api/job";
 import type { Page } from "@host-tests/support/playwright";
 import { LoginPage } from "@host-tests/pages/LoginPage";
+import { workspacePath } from "@host-tests/fixtures/config";
 import {
   execPgSQL,
   pgEscapeLiteral,
@@ -34,6 +35,7 @@ import {
   revokeTenantPermissionGrants,
   selectTenant,
   switchTenant,
+  tenantCoreApiPath,
   type TenantUserGrant,
   updateUserPrimaryTenant,
   expect,
@@ -786,7 +788,9 @@ export async function scenarioTC0178() {
       await api.get("menu"),
     );
     assertTenantManagementButtonPermissions(menuData.list);
-    await expectSuccess(await api.get("platform/tenants?pageNum=1&pageSize=1"));
+    await expectSuccess(
+      await api.get(tenantCoreApiPath("platform/tenants?pageNum=1&pageSize=1")),
+    );
     const accessibleMenus = await getAccessibleMenus(api);
     const routesByPath = new Map(
       flattenAccessibleMenus(accessibleMenus.list).map((item) => [
@@ -813,22 +817,24 @@ export async function scenarioTC0179() {
   await withAdmin(async ({ api, suffix }) => {
     await withTenant(api, suffix, "tc179", async (tenant) => {
       const detail = await expectSuccess<{ id: number; code: string }>(
-        await api.get(`platform/tenants/${tenant.id}`),
+        await api.get(tenantCoreApiPath(`platform/tenants/${tenant.id}`)),
       );
       expect(detail.code).toBe(tenant.code);
       await expectBusinessError(
-        await api.post("platform/tenants", {
+        await api.post(tenantCoreApiPath("platform/tenants"), {
           data: { code: tenant.code, name: "Duplicate" },
         }),
       );
       await expectSuccess(
-        await api.put(`platform/tenants/${tenant.id}`, {
+        await api.put(tenantCoreApiPath(`platform/tenants/${tenant.id}`), {
           data: { name: `${tenant.name} updated` },
         }),
       );
-      await expectSuccess(await api.delete(`platform/tenants/${tenant.id}`));
+      await expectSuccess(
+        await api.delete(tenantCoreApiPath(`platform/tenants/${tenant.id}`)),
+      );
       await expectBusinessError(
-        await api.post("platform/tenants", {
+        await api.post(tenantCoreApiPath("platform/tenants"), {
           data: { code: tenant.code, name: "Tombstone" },
         }),
       );
@@ -842,7 +848,7 @@ export async function scenarioTC0180() {
       const user = await addTenantUser(api, suffix, "tc180_user", tenant.id);
       try {
         await expectSuccess(
-          await api.put(`platform/tenants/${tenant.id}/status`, {
+          await api.put(tenantCoreApiPath(`platform/tenants/${tenant.id}/status`), {
             data: { status: "suspended" },
           }),
         );
@@ -852,7 +858,7 @@ export async function scenarioTC0180() {
           }),
         );
         await expectSuccess(
-          await api.put(`platform/tenants/${tenant.id}/status`, {
+          await api.put(tenantCoreApiPath(`platform/tenants/${tenant.id}/status`), {
             data: { status: "active" },
           }),
         );
@@ -869,7 +875,7 @@ export async function scenarioTC0181() {
   await withAdmin(async ({ api, suffix }) => {
     await withTenant(api, suffix, "tc181", async (tenant) => {
       await expectBusinessError(
-        await api.put(`platform/tenants/${tenant.id}/status`, {
+        await api.put(tenantCoreApiPath(`platform/tenants/${tenant.id}/status`), {
           data: { status: "archived" },
         }),
       );
@@ -884,7 +890,9 @@ export async function scenarioTC0181() {
 export async function scenarioTC0182() {
   await withAdmin(async ({ api, suffix }) => {
     await withTenant(api, suffix, "tc182", async (tenant) => {
-      await expectSuccess(await api.delete(`platform/tenants/${tenant.id}`));
+      await expectSuccess(
+        await api.delete(tenantCoreApiPath(`platform/tenants/${tenant.id}`)),
+      );
       const deleted = scalarNumber(
         `SELECT COUNT(1) FROM plugin_linapro_tenant_core_tenant WHERE id = ${tenant.id} AND deleted_at IS NOT NULL;`,
       );
@@ -974,7 +982,7 @@ export async function scenarioTC0186() {
         actingUserId: number;
         isImpersonated: boolean;
       }>(
-        await api.post(`platform/tenants/${tenant.id}/impersonate`, {
+        await api.post(tenantCoreApiPath(`platform/tenants/${tenant.id}/impersonate`), {
           data: { reason: "TC001" },
         }),
       );
@@ -1000,7 +1008,7 @@ export async function scenarioTC0186() {
         ),
       ).toBeGreaterThan(0);
       await expectSuccess(
-        await api.post(`platform/tenants/${tenant.id}/end-impersonate`, {
+        await api.post(tenantCoreApiPath(`platform/tenants/${tenant.id}/end-impersonate`), {
           headers: { Authorization: `Bearer ${out.token}` },
         }),
       );
@@ -1369,7 +1377,7 @@ export async function scenarioTC0199() {
   await withAdmin(async ({ api }) => {
     expectBuiltInResolverPolicyRemainsCodeOwned();
     await expectBusinessError(
-      await api.post("platform/tenants", {
+      await api.post(tenantCoreApiPath("platform/tenants"), {
         data: { code: "www", name: "Reserved" },
       }),
     );
@@ -1460,7 +1468,7 @@ export async function scenarioTC0204() {
         tenantId: number;
         isImpersonated: boolean;
       }>(
-        await api.post(`platform/tenants/${tenant.id}/impersonate`, {
+        await api.post(tenantCoreApiPath(`platform/tenants/${tenant.id}/impersonate`), {
           data: { reason: "TC007 override" },
         }),
       );
@@ -1482,7 +1490,7 @@ export async function scenarioTC0204() {
         const tenantApi = await createTenantApiContext(token);
         try {
           await expectBusinessError(
-            await tenantApi.post("auth/switch-tenant", {
+            await tenantApi.post(tenantCoreApiPath("auth/switch-tenant"), {
               data: { tenantId: 999999 },
             }),
           );
@@ -1519,7 +1527,9 @@ export async function scenarioTC0207() {
     const plugin = pluginRow("linapro-tenant-core");
     expect(plugin.scopeNature).toBe("platform_only");
     expect(plugin.installMode).toBe("global");
-    await expectBusinessError(await api.get("tenant/plugins"));
+    await expectBusinessError(
+      await api.get(tenantCoreApiPath("tenant/plugins")),
+    );
   });
 }
 
@@ -1534,10 +1544,12 @@ export async function scenarioTC0208() {
       try {
         const list = await expectSuccess<{
           list: Array<{ id: string; tenantEnabled: number }>;
-        }>(await tenantPlugin.api.get("tenant/plugins"));
+        }>(await tenantPlugin.api.get(tenantCoreApiPath("tenant/plugins")));
         expect(list.list.map((item) => item.id)).toContain("linapro-monitor-loginlog");
         await expectSuccess(
-          await tenantPlugin.api.post("tenant/plugins/linapro-monitor-loginlog/enable"),
+          await tenantPlugin.api.post(
+            tenantCoreApiPath("tenant/plugins/linapro-monitor-loginlog/enable"),
+          ),
         );
         expect(
           scalarNumber(
@@ -1546,7 +1558,7 @@ export async function scenarioTC0208() {
         ).toBe(1);
         await expectSuccess(
           await tenantPlugin.api.post(
-            "tenant/plugins/linapro-monitor-loginlog/disable",
+            tenantCoreApiPath("tenant/plugins/linapro-monitor-loginlog/disable"),
           ),
         );
         expect(
@@ -1670,7 +1682,9 @@ export async function scenarioTC0239() {
         const tenantApi = await createTenantApiContext(token);
         try {
           await expectBusinessErrorCode(
-            await tenantApi.get("platform/tenants?pageNum=1&pageSize=10"),
+            await tenantApi.get(
+              tenantCoreApiPath("platform/tenants?pageNum=1&pageSize=10"),
+            ),
             "MULTI_TENANT_PLATFORM_PERMISSION_REQUIRED",
           );
           const tree = await expectSuccess<RoleMenuTreeResponse>(
@@ -2022,7 +2036,7 @@ export async function scenarioTC0242(page: Page) {
           });
           await loginTenantUserInBrowser(page, user.username);
 
-          await page.goto("/system/config");
+          await page.goto(workspacePath("/system/config"));
           await waitForRouteReady(page, 15000);
           await expect(page.getByText(configKey, { exact: false })).toBeVisible({
             timeout: 15000,
@@ -2031,7 +2045,7 @@ export async function scenarioTC0242(page: Page) {
             0,
           );
 
-          await page.goto("/system/dict");
+          await page.goto(workspacePath("/system/dict"));
           await waitForRouteReady(page, 15000);
           await expect(page.getByText(dictType, { exact: false })).toBeVisible({
             timeout: 15000,
@@ -2080,7 +2094,9 @@ export async function scenarioTC0211() {
 export async function scenarioTC0212() {
   await withAdmin(async ({ api, suffix }) => {
     await withTenant(api, suffix, "tc212", async (tenant) => {
-      await expectSuccess(await api.delete(`platform/tenants/${tenant.id}`));
+      await expectSuccess(
+        await api.delete(tenantCoreApiPath(`platform/tenants/${tenant.id}`)),
+      );
       expect(tableExists("plugin_linapro_tenant_core_event_outbox")).toBeFalsy();
     });
   });
@@ -2137,7 +2153,7 @@ export async function scenarioTC0214() {
     const tenantB = await createNamedTenant(api, suffix, "tc214-b");
     try {
       const tenants = await expectSuccess<{ list: Array<{ id: number }> }>(
-        await api.get("platform/tenants?pageNum=1&pageSize=100"),
+        await api.get(tenantCoreApiPath("platform/tenants?pageNum=1&pageSize=100")),
       );
       expect(tenants.list.map((tenant) => tenant.id)).toEqual(
         expect.arrayContaining([tenantA.id, tenantB.id]),
@@ -2155,7 +2171,7 @@ export async function scenarioTC0215() {
     await ensurePluginInstalledAndEnabled(api, "linapro-monitor-operlog");
     await withTenant(api, suffix, "tc215", async (tenant) => {
       await expectSuccess(
-        await api.post(`platform/tenants/${tenant.id}/impersonate`, {
+        await api.post(tenantCoreApiPath(`platform/tenants/${tenant.id}/impersonate`), {
           data: { reason: "TC003" },
         }),
       );

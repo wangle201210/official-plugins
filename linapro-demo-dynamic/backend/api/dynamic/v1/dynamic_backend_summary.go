@@ -14,7 +14,7 @@ type BackendSummaryReq struct {
 type BackendSummaryRes struct {
 	Message       string  `json:"message" dc:"Dynamic plugin backend execution instructions, describing the path and method of processing the current request through the Wasm bridge runtime" eg:"This backend example is executed through the linapro-demo-dynamic Wasm bridge runtime."`
 	PluginID      string  `json:"pluginId" dc:"The unique identifier of the dynamic plugin currently executing the request" eg:"linapro-demo-dynamic"`
-	PublicPath    string  `json:"publicPath" dc:"The currently hit host's public routing path" eg:"/x/linapro-demo-dynamic/backend-summary"`
+	PublicPath    string  `json:"publicPath" dc:"The currently hit host's public routing path" eg:"/x/linapro-demo-dynamic/api/v1/backend-summary"`
 	Access        string  `json:"access" dc:"The current access level of dynamic routing: login=requires login public=anonymous accessible" eg:"login"`
 	Permission    string  `json:"permission" dc:"The permission identifier of the current dynamic route; an empty string for anonymous routing" eg:"linapro-demo-dynamic:backend:view"`
 	Authenticated bool    `json:"authenticated" dc:"Whether the current request has host authentication identity: true=authenticated false=anonymous" eg:"true"`

@@ -91,7 +91,11 @@ func newLifecyclePrecondition() (*lifecycleprecondition.Checker, error) {
 
 // registerRoutes binds linapro-tenant-core routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
+	var (
+		routes       = registrar.Routes()
+		middlewares  = routes.Middlewares()
+		hostServices = registrar.HostServices()
+	)
 	if hostServices == nil ||
 		hostServices.Auth() == nil ||
 		hostServices.BizCtx() == nil ||
@@ -112,35 +116,35 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	pkgtenantcap.RegisterProvider(providerSvc)
 	var (
 		impersonateSvc = impersonate.New(hostServices.BizCtx(), hostServices.Config(), tenantSvc)
-		routes         = registrar.Routes()
-		middlewares    = routes.Middlewares()
+		authCtrl       = authcontroller.NewV1(hostServices.Auth(), membershipSvc, providerSvc)
 	)
-	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
-		authCtrl := authcontroller.NewV1(hostServices.Auth(), membershipSvc, providerSvc)
-		group.Middleware(
-			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
-			middlewares.CORS(),
-			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
-		)
-		group.Group("/", func(group pluginhost.RouteGroup) {
-			group.Bind(
-				authCtrl.SelectTenant,
-			)
-		})
-		group.Group("/", func(group pluginhost.RouteGroup) {
+	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
+		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				middlewares.NeverDoneCtx(),
+				middlewares.HandlerResponse(),
+				middlewares.CORS(),
+				middlewares.RequestBodyLimit(),
+				middlewares.Ctx(),
 			)
-			group.Bind(
-				authCtrl.LoginTenants,
-				authCtrl.SwitchTenant,
-				platformcontroller.NewV1(tenantSvc, impersonateSvc),
-				tenantcontroller.NewV1(tenantPluginSvc),
-			)
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Bind(
+					authCtrl.SelectTenant,
+				)
+			})
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(
+					authCtrl.LoginTenants,
+					authCtrl.SwitchTenant,
+					platformcontroller.NewV1(tenantSvc, impersonateSvc),
+					tenantcontroller.NewV1(tenantPluginSvc),
+				)
+			})
 		})
 	})
 	return nil

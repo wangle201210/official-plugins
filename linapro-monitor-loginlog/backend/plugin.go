@@ -57,28 +57,32 @@ func init() {
 
 // registerRoutes binds login-log governance routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
+	var (
+		routes       = registrar.Routes()
+		middlewares  = routes.Middlewares()
+		hostServices = registrar.HostServices()
+	)
 	if hostServices == nil || hostServices.I18n() == nil || hostServices.TenantFilter() == nil {
 		return gerror.New("linapro-monitor-loginlog routes require host i18n and tenant-filter services")
 	}
 	loginLogSvc := loginlogsvc.New(hostServices.I18n(), hostServices.TenantFilter())
-	routes := registrar.Routes()
-	middlewares := routes.Middlewares()
-	routes.Group("/api/v1", func(group pluginhost.RouteGroup) {
-		group.Middleware(
-			middlewares.NeverDoneCtx(),
-			middlewares.HandlerResponse(),
-			middlewares.CORS(),
-			middlewares.RequestBodyLimit(),
-			middlewares.Ctx(),
-		)
-		group.Group("/", func(group pluginhost.RouteGroup) {
+	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
+		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				middlewares.NeverDoneCtx(),
+				middlewares.HandlerResponse(),
+				middlewares.CORS(),
+				middlewares.RequestBodyLimit(),
+				middlewares.Ctx(),
 			)
-			group.Bind(loginlogcontroller.NewV1(loginLogSvc))
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(loginlogcontroller.NewV1(loginLogSvc))
+			})
 		})
 	})
 	return nil
