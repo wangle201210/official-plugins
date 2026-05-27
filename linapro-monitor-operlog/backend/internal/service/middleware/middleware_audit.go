@@ -13,8 +13,8 @@ import (
 	"github.com/gogf/gf/v2/os/grpool"
 
 	"lina-core/pkg/logger"
-	"lina-core/pkg/pluginhost"
-	hostapidoc "lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/pluginhost"
+	hostapidoc "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-monitor-operlog/backend/internal/model/operlogtype"
 	operlogsvc "lina-plugin-linapro-monitor-operlog/backend/internal/service/operlog"
 )

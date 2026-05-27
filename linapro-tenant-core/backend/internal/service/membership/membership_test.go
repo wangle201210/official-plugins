@@ -11,8 +11,8 @@ import (
 
 	"lina-core/pkg/bizerr"
 	_ "lina-core/pkg/dbdriver"
-	plugincontract "lina-core/pkg/pluginservice/contract"
-	pkgtenantcap "lina-core/pkg/tenantcap"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-plugin-linapro-tenant-core/backend/internal/model/do"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/shared"
 )
@@ -431,9 +431,9 @@ func TestReplaceUserTenantAssignmentsCanClearPlatformUserMembership(t *testing.T
 		}
 	})
 
-	err := New(membershipTestBizCtxService{}).ReplaceUserTenantAssignments(ctx, int(userID), &pkgtenantcap.UserTenantAssignmentPlan{
+	err := New(membershipTestBizCtxService{}).ReplaceUserTenantAssignments(ctx, int(userID), &tenantcap.UserTenantAssignmentPlan{
 		ShouldReplace: true,
-		PrimaryTenant: pkgtenantcap.PLATFORM,
+		PrimaryTenant: tenantcap.PLATFORM,
 	})
 	if err != nil {
 		t.Fatalf("clear platform user memberships failed: %v", err)
@@ -478,13 +478,13 @@ func TestReplaceUserTenantAssignmentsDefaultMultiModeAllowsMultipleTenants(t *te
 	})
 
 	svc := New(membershipTestBizCtxService{})
-	err := svc.ReplaceUserTenantAssignments(ctx, int(userID), &pkgtenantcap.UserTenantAssignmentPlan{
-		TenantIDs: []pkgtenantcap.TenantID{
-			pkgtenantcap.TenantID(tenantAID),
-			pkgtenantcap.TenantID(tenantBID),
+	err := svc.ReplaceUserTenantAssignments(ctx, int(userID), &tenantcap.UserTenantAssignmentPlan{
+		TenantIDs: []tenantcap.TenantID{
+			tenantcap.TenantID(tenantAID),
+			tenantcap.TenantID(tenantBID),
 		},
 		ShouldReplace: true,
-		PrimaryTenant: pkgtenantcap.TenantID(tenantAID),
+		PrimaryTenant: tenantcap.TenantID(tenantAID),
 	})
 	if err != nil {
 		t.Fatalf("default multi-cardinality replacement failed: %v", err)

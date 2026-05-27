@@ -7,8 +7,8 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
-	pkgtenantcap "lina-core/pkg/tenantcap"
+	"lina-core/pkg/plugin/capability/tenantcap"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 )
 
 // Service defines tenant membership operations and the host user-scope provider seam.
@@ -39,19 +39,19 @@ type Service interface {
 	ApplyUserTenantScope(ctx context.Context, model *gdb.Model, userIDColumn string) (*gdb.Model, bool, error)
 	// ApplyUserTenantFilter constrains platform user-list rows to a requested tenant.
 	// It returns the possibly modified model, whether a filter was applied, and errors.
-	ApplyUserTenantFilter(ctx context.Context, model *gdb.Model, userIDColumn string, tenantID pkgtenantcap.TenantID) (*gdb.Model, bool, error)
+	ApplyUserTenantFilter(ctx context.Context, model *gdb.Model, userIDColumn string, tenantID tenantcap.TenantID) (*gdb.Model, bool, error)
 	// ListUserTenantProjections returns tenant ownership labels for visible users
 	// without changing host user data or i18n resources.
-	ListUserTenantProjections(ctx context.Context, userIDs []int) (map[int]*pkgtenantcap.UserTenantProjection, error)
+	ListUserTenantProjections(ctx context.Context, userIDs []int) (map[int]*tenantcap.UserTenantProjection, error)
 	// ResolveUserTenantAssignment validates requested memberships and returns a
 	// host write plan. It does not persist changes itself.
-	ResolveUserTenantAssignment(ctx context.Context, requested []pkgtenantcap.TenantID, mode pkgtenantcap.UserTenantAssignmentMode) (*pkgtenantcap.UserTenantAssignmentPlan, error)
+	ResolveUserTenantAssignment(ctx context.Context, requested []tenantcap.TenantID, mode tenantcap.UserTenantAssignmentMode) (*tenantcap.UserTenantAssignmentPlan, error)
 	// ReplaceUserTenantAssignments rewrites one user's active tenant ownership rows
 	// from a previously resolved plan and returns business/database errors.
-	ReplaceUserTenantAssignments(ctx context.Context, userID int, plan *pkgtenantcap.UserTenantAssignmentPlan) error
+	ReplaceUserTenantAssignments(ctx context.Context, userID int, plan *tenantcap.UserTenantAssignmentPlan) error
 	// EnsureUsersInTenant verifies every user has active membership in the tenant,
 	// returning a business error when any requested user is outside scope.
-	EnsureUsersInTenant(ctx context.Context, userIDs []int, tenantID pkgtenantcap.TenantID) error
+	EnsureUsersInTenant(ctx context.Context, userIDs []int, tenantID tenantcap.TenantID) error
 	// ValidateStartupConsistency returns user-membership startup consistency failures.
 	// It is read-only and returns database errors separately from warning strings.
 	ValidateStartupConsistency(ctx context.Context) ([]string, error)

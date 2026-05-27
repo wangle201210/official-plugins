@@ -11,7 +11,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 
 	_ "lina-core/pkg/dbdriver"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-tenant-core/backend/internal/dao"
 	"lina-plugin-linapro-tenant-core/backend/internal/model/do"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/shared"

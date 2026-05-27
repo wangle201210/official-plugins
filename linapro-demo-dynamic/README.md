@@ -7,7 +7,7 @@
 - one menu entry rendered inside the default management workspace
 - one standalone static page that does not depend on the host UI framework
 - demo backend routes executed through the dynamic plugin bridge
-- governed access to `runtime`, `storage`, `network`, and `data` host services
+- governed access to `runtime`, `storage`, `network`, and `data` host services through `pkg/plugin/capability/guest`
 - source-compatible `Before*` precondition handlers and `After*` notification handlers are auto-discovered from backend controller methods, then write runtime debug logs for lifecycle flow inspection
 
 ## Directory Layout
@@ -67,6 +67,8 @@ The sample requests the following host services in `plugin.yaml`:
 - `data`
 
 These declarations are reviewed and authorized by the host during plugin lifecycle operations.
+
+Guest business host-service clients are imported from `lina-core/pkg/plugin/capability/guest`. The `pluginbridge` root package is only used by the sample's bridge files for protocol envelopes, route dispatch, lifecycle contracts, cron contracts, and response helpers.
 
 ## Lifecycle Logging
 

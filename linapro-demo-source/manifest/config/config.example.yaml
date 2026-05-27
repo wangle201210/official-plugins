@@ -1,0 +1,4 @@
+# Runtime configuration template for linapro-demo-source.
+demo:
+  greeting: Hello from source plugin
+  featureEnabled: true

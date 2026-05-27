@@ -6,14 +6,14 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	hostorgcap "lina-core/pkg/orgcap"
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/capability/orgcap"
+	"lina-core/pkg/plugin/pluginhost"
 	orgcenter "lina-plugin-linapro-org-core"
 	deptcontroller "lina-plugin-linapro-org-core/backend/internal/controller/dept"
 	postcontroller "lina-plugin-linapro-org-core/backend/internal/controller/post"
+	"lina-plugin-linapro-org-core/backend/internal/provider/orgcapadapter"
 	deptsvc "lina-plugin-linapro-org-core/backend/internal/service/dept"
 	postsvc "lina-plugin-linapro-org-core/backend/internal/service/post"
-	"lina-plugin-linapro-org-core/backend/provider/orgcapadapter"
 )
 
 // linapro-org-core plugin constants.
@@ -26,6 +26,9 @@ const (
 func init() {
 	plugin := pluginhost.NewSourcePlugin(pluginID)
 	plugin.Assets().UseEmbeddedFiles(orgcenter.EmbeddedFiles)
+	if err := orgcap.Provide(pluginID, provideOrg); err != nil {
+		panic(err)
+	}
 	if err := plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,
 		pluginhost.CallbackExecutionModeBlocking,
@@ -38,19 +41,27 @@ func init() {
 	}
 }
 
+// provideOrg creates the linapro-org-core organization capability adapter from
+// host-published services during framework capability activation.
+func provideOrg(_ context.Context, env orgcap.ProviderEnv) (orgcap.Provider, error) {
+	if env.TenantFilter == nil {
+		return nil, gerror.New("linapro-org-core provider requires host tenant-filter service")
+	}
+	return orgcapadapter.New(env.TenantFilter), nil
+}
+
 // registerRoutes binds department and post management routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	var (
-		routes       = registrar.Routes()
-		middlewares  = routes.Middlewares()
-		hostServices = registrar.HostServices()
+		routes      = registrar.Routes()
+		middlewares = routes.Middlewares()
+		services    = registrar.Services()
 	)
-	if hostServices == nil || hostServices.I18n() == nil || hostServices.TenantFilter() == nil {
+	if services == nil || services.I18n() == nil || services.TenantFilter() == nil {
 		return gerror.New("linapro-org-core routes require host i18n and tenant-filter services")
 	}
-	hostorgcap.RegisterProvider(orgcapadapter.New(hostServices.TenantFilter()))
-	deptSvc := deptsvc.New(hostServices.TenantFilter())
-	postSvc := postsvc.New(hostServices.I18n(), hostServices.TenantFilter())
+	deptSvc := deptsvc.New(services.TenantFilter())
+	postSvc := postsvc.New(services.I18n(), services.TenantFilter())
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(

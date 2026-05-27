@@ -6,7 +6,7 @@
 package auth
 
 import (
-	pluginauth "lina-core/pkg/pluginservice/contract"
+	pluginauth "lina-core/pkg/plugin/capability/contract"
 	authapi "lina-plugin-linapro-tenant-core/backend/api/auth"
 	v1 "lina-plugin-linapro-tenant-core/backend/api/auth/v1"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/membership"

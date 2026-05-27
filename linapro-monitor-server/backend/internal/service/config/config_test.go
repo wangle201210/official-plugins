@@ -8,20 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gcfg"
-
-	configsvc "lina-core/pkg/pluginservice/config"
+	configsvc "lina-core/pkg/plugin/capability/config"
+	"lina-core/pkg/plugin/capability/contract"
 )
 
 // TestLoadUsesDefaultsWhenUnset verifies monitor config defaults when config is absent.
 func TestLoadUsesDefaultsWhenUnset(t *testing.T) {
-	setTestConfigAdapter(t, `
+	cfg, err := Load(context.Background(), newTestConfigService(t, `
 server:
   address: ":9120"
-`)
-
-	cfg, err := Load(context.Background(), configsvc.New())
+`))
 	if err != nil {
 		t.Fatalf("load monitor config: %v", err)
 	}
@@ -35,13 +31,11 @@ server:
 
 // TestLoadUsesConfiguredValues verifies configured monitor values override defaults.
 func TestLoadUsesConfiguredValues(t *testing.T) {
-	setTestConfigAdapter(t, `
+	cfg, err := Load(context.Background(), newTestConfigService(t, `
 monitor:
   interval: 45s
   retentionMultiplier: 8
-`)
-
-	cfg, err := Load(context.Background(), configsvc.New())
+`))
 	if err != nil {
 		t.Fatalf("load monitor config: %v", err)
 	}
@@ -55,12 +49,10 @@ monitor:
 
 // TestLoadReturnsErrorForInvalidDuration verifies invalid duration strings fail config loading.
 func TestLoadReturnsErrorForInvalidDuration(t *testing.T) {
-	setTestConfigAdapter(t, `
+	_, err := Load(context.Background(), newTestConfigService(t, `
 monitor:
   interval: invalid
-`)
-
-	_, err := Load(context.Background(), configsvc.New())
+`))
 	if err == nil {
 		t.Fatal("expected invalid duration error")
 	}
@@ -71,12 +63,10 @@ monitor:
 
 // TestLoadRejectsSubSecondInterval verifies monitor interval lower bound validation.
 func TestLoadRejectsSubSecondInterval(t *testing.T) {
-	setTestConfigAdapter(t, `
+	_, err := Load(context.Background(), newTestConfigService(t, `
 monitor:
   interval: 500ms
-`)
-
-	_, err := Load(context.Background(), configsvc.New())
+`))
 	if err == nil {
 		t.Fatal("expected sub-second interval error")
 	}
@@ -87,12 +77,10 @@ monitor:
 
 // TestLoadRejectsFractionalSecondInterval verifies monitor interval alignment validation.
 func TestLoadRejectsFractionalSecondInterval(t *testing.T) {
-	setTestConfigAdapter(t, `
+	_, err := Load(context.Background(), newTestConfigService(t, `
 monitor:
   interval: 1500ms
-`)
-
-	_, err := Load(context.Background(), configsvc.New())
+`))
 	if err == nil {
 		t.Fatal("expected fractional-second interval error")
 	}
@@ -101,19 +89,11 @@ monitor:
 	}
 }
 
-// setTestConfigAdapter swaps the process config adapter for one test case.
-func setTestConfigAdapter(t *testing.T, content string) {
+// newTestConfigService builds a scoped plugin config reader from artifact content.
+func newTestConfigService(t *testing.T, content string) contract.ConfigService {
 	t.Helper()
 
-	adapter, err := gcfg.NewAdapterContent(content)
-	if err != nil {
-		t.Fatalf("create content adapter: %v", err)
-	}
-
-	originalAdapter := g.Cfg().GetAdapter()
-	g.Cfg().SetAdapter(adapter)
-
-	t.Cleanup(func() {
-		g.Cfg().SetAdapter(originalAdapter)
-	})
+	return configsvc.NewFactory(t.TempDir(), t.TempDir()).
+		WithArtifactConfig("linapro-monitor-server", []byte(content)).
+		ForPlugin("linapro-monitor-server")
 }

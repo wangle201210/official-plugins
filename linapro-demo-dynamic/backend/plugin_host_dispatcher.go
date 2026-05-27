@@ -8,18 +8,20 @@
 package backend
 
 import (
-	"lina-core/pkg/pluginbridge"
 	"lina-plugin-linapro-demo-dynamic/backend/internal/controller/dynamic"
+
+	bridgeguest "lina-core/pkg/plugin/pluginbridge/guest"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // guestRouteDispatcher is the host-build reflected bridge dispatcher for
 // ordinary Go tests. Runtime Wasm builds use the generated dispatcher.
-var guestRouteDispatcher = pluginbridge.MustNewGuestControllerRouteDispatcher(dynamic.New())
+var guestRouteDispatcher = bridgeguest.MustNewGuestControllerRouteDispatcher(dynamic.New())
 
 // HandleRequest dispatches bridge requests to the matching dynamic controller
 // method using the build-time RequestType contract.
 func HandleRequest(
-	request *pluginbridge.BridgeRequestEnvelopeV1,
-) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
+	request *protocol.BridgeRequestEnvelopeV1,
+) (*protocol.BridgeResponseEnvelopeV1, error) {
 	return guestRouteDispatcher.HandleRequest(request)
 }

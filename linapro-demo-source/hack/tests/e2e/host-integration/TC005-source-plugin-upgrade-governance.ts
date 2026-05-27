@@ -143,12 +143,11 @@ async function restoreOriginalPluginState(
 
 test.describe('TC-1 源码插件升级治理', () => {
   test('TC-1a~b: 源码发现更高版本后保持旧生效版本，未显式升级前不自动切换', async ({
-    adminContext,
+    authenticatedPage,
   }) => {
     test.setTimeout(120000);
 
-    const adminPage = await adminContext.newPage();
-    const pluginPage = new DemoSourcePage(adminPage);
+    const pluginPage = new DemoSourcePage(authenticatedPage);
     const adminApi = await createAdminApiContext();
     const originalManifestContent = readFileSync(pluginManifestPath, 'utf8');
     const { originalVersion, upgradedContent, upgradedVersion } =
@@ -209,7 +208,6 @@ test.describe('TC-1 源码插件升级治理', () => {
         );
       } finally {
         await adminApi.dispose();
-        await adminPage.close();
       }
     }
   });

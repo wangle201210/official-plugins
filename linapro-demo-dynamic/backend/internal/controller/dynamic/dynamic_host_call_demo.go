@@ -6,9 +6,11 @@ import (
 	"context"
 	"strings"
 
-	"lina-core/pkg/pluginbridge"
-	"lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
+	v1 "lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
 	dynamicservice "lina-plugin-linapro-demo-dynamic/backend/internal/service/dynamic"
+
+	bridgeguest "lina-core/pkg/plugin/pluginbridge/guest"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // HostCallDemo demonstrates unified host service capabilities including runtime,
@@ -18,7 +20,8 @@ func (c *Controller) HostCallDemo(
 	req *v1.HostCallDemoReq,
 ) (res *v1.HostCallDemoRes, err error) {
 	payload, err := c.dynamicSvc.BuildHostCallDemoPayload(
-		buildHostCallDemoRouteInput(pluginbridge.RequestEnvelopeFromContext(ctx), req),
+		ctx,
+		buildHostCallDemoRouteInput(bridgeguest.RequestEnvelopeFromContext(ctx), req),
 	)
 	if err != nil {
 		return nil, err
@@ -54,6 +57,41 @@ func (c *Controller) HostCallDemo(
 			Updated:    payload.Data.Updated,
 			Deleted:    payload.Data.Deleted,
 		},
+		Config: &v1.HostCallDemoConfigRes{
+			Plugin: &v1.HostCallDemoPluginConfigRes{
+				Greeting:            payload.Config.Plugin.Greeting,
+				GreetingFound:       payload.Config.Plugin.GreetingFound,
+				FeatureEnabled:      payload.Config.Plugin.FeatureEnabled,
+				FeatureEnabledFound: payload.Config.Plugin.FeatureEnabledFound,
+			},
+			HostConfig: &v1.HostCallDemoHostConfigRes{
+				WorkspaceBasePath:      payload.Config.HostConfig.WorkspaceBasePath,
+				WorkspaceBasePathFound: payload.Config.HostConfig.WorkspaceBasePathFound,
+				I18nDefault:            payload.Config.HostConfig.I18nDefault,
+				I18nDefaultFound:       payload.Config.HostConfig.I18nDefaultFound,
+				I18nEnabled:            payload.Config.HostConfig.I18nEnabled,
+				I18nEnabledFound:       payload.Config.HostConfig.I18nEnabledFound,
+			},
+		},
+		Org: &v1.HostCallDemoOrgRes{
+			Available:            payload.Org.Available,
+			CapabilityID:         payload.Org.CapabilityID,
+			ActiveProvider:       payload.Org.ActiveProvider,
+			Reason:               payload.Org.Reason,
+			AssignmentCount:      payload.Org.AssignmentCount,
+			CurrentUserDeptCount: payload.Org.CurrentUserDeptCount,
+			CurrentUserPostCount: payload.Org.CurrentUserPostCount,
+		},
+		Tenant: &v1.HostCallDemoTenantRes{
+			Available:       payload.Tenant.Available,
+			CapabilityID:    payload.Tenant.CapabilityID,
+			ActiveProvider:  payload.Tenant.ActiveProvider,
+			Reason:          payload.Tenant.Reason,
+			CurrentTenantID: payload.Tenant.CurrentTenantID,
+			PlatformBypass:  payload.Tenant.PlatformBypass,
+			UserTenantCount: payload.Tenant.UserTenantCount,
+			Visible:         payload.Tenant.Visible,
+		},
 		Message: payload.Message,
 	}, nil
 }
@@ -61,7 +99,7 @@ func (c *Controller) HostCallDemo(
 // buildHostCallDemoRouteInput extracts host-call demo metadata and flags from
 // the bridge request envelope.
 func buildHostCallDemoRouteInput(
-	request *pluginbridge.BridgeRequestEnvelopeV1,
+	request *protocol.BridgeRequestEnvelopeV1,
 	req *v1.HostCallDemoReq,
 ) *dynamicservice.HostCallDemoInput {
 	input := &dynamicservice.HostCallDemoInput{}
@@ -82,6 +120,7 @@ func buildHostCallDemoRouteInput(
 	}
 	if request.Identity != nil {
 		input.Username = strings.TrimSpace(request.Identity.Username)
+		input.UserID = int(request.Identity.UserID)
 	}
 	return input
 }

@@ -12,8 +12,8 @@ import (
 
 	"lina-core/pkg/bizerr"
 	_ "lina-core/pkg/dbdriver"
-	pluginbizctx "lina-core/pkg/pluginservice/bizctx"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	pluginbizctx "lina-core/pkg/plugin/capability/bizctx"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/resolverconfig"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/shared"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/tenantplugin"

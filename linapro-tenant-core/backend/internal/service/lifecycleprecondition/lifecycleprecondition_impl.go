@@ -7,7 +7,7 @@ package lifecycleprecondition
 import (
 	"context"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 )
 
 // BeforeUninstall rejects data-preserving uninstall while tenants exist.

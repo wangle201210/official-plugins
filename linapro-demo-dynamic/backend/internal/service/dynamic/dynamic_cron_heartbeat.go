@@ -3,7 +3,7 @@
 
 package dynamicservice
 
-import "lina-core/pkg/pluginbridge"
+import "lina-core/pkg/plugin/pluginbridge/protocol"
 
 const (
 	cronHeartbeatStateKey = "cron_heartbeat_count"
@@ -32,7 +32,7 @@ func (s *serviceImpl) BuildCronHeartbeatPayload() (*cronHeartbeatPayload, error)
 		return nil, err
 	}
 	if err = s.runtimeSvc.Log(
-		int(pluginbridge.LogLevelInfo),
+		int(protocol.LogLevelInfo),
 		"declared cron heartbeat executed",
 		nil,
 	); err != nil {

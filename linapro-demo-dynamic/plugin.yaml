@@ -78,17 +78,12 @@ dependencies:
       # Dependency plugin semantic-version range.
       # 依赖插件语义化版本范围。
       version: ">=0.1.0"
-      # Hard dependencies block lifecycle when unsatisfied.
-      # 硬依赖不满足时会阻断生命周期。
-      required: true
-      # `auto` lets the host install this discovered dependency before the target plugin.
-      # `auto` 表示宿主可在安装目标插件前自动安装该已发现依赖。
-      install: auto
 
 # Host service declaration list for requested host services, methods, and resource boundaries.
 # 插件宿主服务声明列表，用于申请调用宿主 service、method 与资源边界。
 hostServices:
-  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`; `runtime` provides logging, state, and runtime information capabilities.
+  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`;
+  # `runtime` provides logging, state, and runtime information capabilities.
   # 宿主服务枚举。可选值：`runtime`、`cron`、`storage`、`network`、`data`；`runtime` 提供日志、状态和运行时信息能力。
   - service: runtime
     # Requested method set for this host service.
@@ -115,7 +110,8 @@ hostServices:
       # Reads the current host node identifier.
       # 读取当前宿主节点标识。
       - info.node
-  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`; `cron` registers built-in scheduled jobs from dynamic plugins.
+  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`;
+  # `cron` registers built-in scheduled jobs from dynamic plugins.
   # 宿主服务枚举。可选值：`runtime`、`cron`、`storage`、`network`、`data`；`cron` 用于注册动态插件内置定时任务。
   - service: cron
     # Requested method set for this host service.
@@ -124,7 +120,8 @@ hostServices:
       # Registers a plugin scheduled job.
       # 注册插件定时任务。
       - register
-  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`; `storage` accesses plugin-isolated storage objects.
+  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`;
+  # `storage` accesses plugin-isolated storage objects.
   # 宿主服务枚举。可选值：`runtime`、`cron`、`storage`、`network`、`data`；`storage` 用于访问插件隔离存储对象。
   - service: storage
     # Requested method set for this host service.
@@ -157,7 +154,8 @@ hostServices:
         # Example record attachment object prefix.
         # 示例记录附件对象前缀。
         - demo-record-files/
-  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`; `network` performs governed outbound network requests.
+  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`;
+  # `network` performs governed outbound network requests.
   # 宿主服务枚举。可选值：`runtime`、`cron`、`storage`、`network`、`data`；`network` 用于发起受治理的外部网络请求。
   - service: network
     # Requested method set for this host service.
@@ -172,7 +170,8 @@ hostServices:
       # Allowed URL or URL pattern.
       # 允许访问的 URL 或 URL pattern。
       - url: https://example.com
-  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`; `data` accesses authorized database tables.
+  # Host service enum. Allowed values: `runtime`, `cron`, `storage`, `network`, and `data`;
+  # `data` accesses authorized database tables.
   # 宿主服务枚举。可选值：`runtime`、`cron`、`storage`、`network`、`data`；`data` 用于访问被授权的数据表。
   - service: data
     # Requested method set for this host service.
@@ -208,13 +207,49 @@ hostServices:
         # Dynamic plugin demo record table.
         # 动态插件示例记录表。
         - plugin_linapro_demo_dynamic_record
-
+  # Host service enum. `config` reads this plugin's own runtime config through config.get only.
+  # 宿主服务枚举。`config` 仅通过 config.get 读取当前插件自己的运行期配置。
+  - service: config
+    methods:
+      - get
+  # Host service enum. `hostConfig` reads whitelisted public host config keys through get.
+  # 宿主服务枚举。`hostConfig` 仅通过 get 读取白名单内的宿主公开配置。
+  - service: hostConfig
+    methods:
+      - get
+    resources:
+      keys:
+        - workspace.basePath
+        - i18n.default
+        - i18n.enabled
+  # Host service enum. `org` reads host organization capability projections for the current user.
+  # 宿主服务枚举。`org` 用于读取当前用户相关的宿主组织能力投影。
+  - service: org
+    methods:
+      - status
+      - available
+      - user_dept_assignments.list
+      - user_dept_ids.get
+      - user_post_ids.get
+  # Host service enum. `tenant` reads and validates tenant capability context for the current user.
+  # 宿主服务枚举。`tenant` 用于读取并校验当前用户相关的租户能力上下文。
+  - service: tenant
+    methods:
+      - status
+      - available
+      - current
+      - platform_bypass
+      - visible.ensure
+      - user_tenants.list
 # Plugin menu declaration list; the host syncs menus, button permissions, and route entries from it.
 # 插件菜单声明列表，宿主按该列表同步菜单、按钮权限和路由入口。
 menus:
   # Unique menu key; it must use the `plugin:<plugin-id>:<menu-key>` format.
   # 菜单唯一键，必须使用 `plugin:<plugin-id>:<menu-key>` 格式。
   - key: plugin:linapro-demo-dynamic:main-entry
+    # Parent menu key pointing to the host extension center catalog.
+    # 父级菜单键，指向宿主扩展中心目录。
+    parent_key: extension
     # Menu display name.
     # 菜单显示名称。
     name: 动态插件示例
@@ -235,7 +270,7 @@ menus:
     type: M
     # Menu sort order; lower values appear earlier.
     # 菜单排序值，数值越小越靠前。
-    sort: -1
+    sort: 3
     # Route query parameters used to declare dynamic plugin mount mode and page parameters.
     # 路由查询参数，用于声明动态插件挂载模式等页面参数。
     query:

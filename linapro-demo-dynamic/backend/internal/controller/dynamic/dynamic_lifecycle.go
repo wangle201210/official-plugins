@@ -1,193 +1,129 @@
-// This file implements lifecycle callback handlers for the dynamic sample plugin.
+// This file implements typed lifecycle callback handlers for the dynamic sample plugin.
 
 package dynamic
 
 import (
-	"encoding/json"
+	"context"
 	"strings"
 
-	"lina-core/pkg/pluginbridge"
+	v1 "lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
 	dynamicservice "lina-plugin-linapro-demo-dynamic/backend/internal/service/dynamic"
+
+	bridgeguest "lina-core/pkg/plugin/pluginbridge/guest"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // BeforeInstall logs the dynamic plugin install precondition.
-func (c *Controller) BeforeInstall(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) BeforeInstall(ctx context.Context, req *v1.BeforeInstallReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // AfterInstall logs the dynamic plugin post-install notification.
-func (c *Controller) AfterInstall(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) AfterInstall(ctx context.Context, req *v1.AfterInstallReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // BeforeUpgrade logs the dynamic plugin upgrade precondition.
-func (c *Controller) BeforeUpgrade(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) BeforeUpgrade(ctx context.Context, req *v1.BeforeUpgradeReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // Upgrade logs the dynamic plugin upgrade execution callback.
-func (c *Controller) Upgrade(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) Upgrade(ctx context.Context, req *v1.UpgradeReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // AfterUpgrade logs the dynamic plugin post-upgrade notification.
-func (c *Controller) AfterUpgrade(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) AfterUpgrade(ctx context.Context, req *v1.AfterUpgradeReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // BeforeDisable logs the dynamic plugin disable precondition.
-func (c *Controller) BeforeDisable(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) BeforeDisable(ctx context.Context, req *v1.BeforeDisableReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // AfterDisable logs the dynamic plugin post-disable notification.
-func (c *Controller) AfterDisable(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) AfterDisable(ctx context.Context, req *v1.AfterDisableReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // BeforeUninstall logs the dynamic plugin uninstall precondition.
-func (c *Controller) BeforeUninstall(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) BeforeUninstall(ctx context.Context, req *v1.BeforeUninstallReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // Uninstall logs the dynamic plugin uninstall cleanup callback.
-func (c *Controller) Uninstall(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) Uninstall(ctx context.Context, req *v1.UninstallReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // AfterUninstall logs the dynamic plugin post-uninstall notification.
-func (c *Controller) AfterUninstall(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) AfterUninstall(ctx context.Context, req *v1.AfterUninstallReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // BeforeTenantDisable logs the dynamic plugin tenant-disable precondition.
-func (c *Controller) BeforeTenantDisable(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) BeforeTenantDisable(ctx context.Context, req *v1.BeforeTenantDisableReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // AfterTenantDisable logs the dynamic plugin post-tenant-disable notification.
-func (c *Controller) AfterTenantDisable(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) AfterTenantDisable(ctx context.Context, req *v1.AfterTenantDisableReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // BeforeTenantDelete logs the dynamic plugin tenant-delete precondition.
-func (c *Controller) BeforeTenantDelete(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) BeforeTenantDelete(ctx context.Context, req *v1.BeforeTenantDeleteReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // AfterTenantDelete logs the dynamic plugin post-tenant-delete notification.
-func (c *Controller) AfterTenantDelete(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) AfterTenantDelete(ctx context.Context, req *v1.AfterTenantDeleteReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // BeforeInstallModeChange logs the dynamic plugin install-mode change precondition.
-func (c *Controller) BeforeInstallModeChange(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) BeforeInstallModeChange(ctx context.Context, req *v1.BeforeInstallModeChangeReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // AfterInstallModeChange logs the dynamic plugin post-install-mode-change notification.
-func (c *Controller) AfterInstallModeChange(request *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	return c.runLifecycleDebugHook(request)
+func (c *Controller) AfterInstallModeChange(ctx context.Context, req *v1.AfterInstallModeChangeReq) (*v1.LifecycleDecisionRes, error) {
+	return c.runLifecycleDebugHook(ctx, req)
 }
 
 // runLifecycleDebugHook logs one dynamic lifecycle request and allows the host
 // lifecycle operation to continue.
 func (c *Controller) runLifecycleDebugHook(
-	request *pluginbridge.BridgeRequestEnvelopeV1,
-) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
-	input, err := buildLifecycleDebugInput(request)
-	if err != nil {
+	ctx context.Context,
+	req *protocol.LifecycleRequest,
+) (*v1.LifecycleDecisionRes, error) {
+	input := buildLifecycleDebugInput(ctx, req)
+	if err := c.dynamicSvc.RunLifecycleDebugHook(input); err != nil {
 		return nil, err
 	}
-	if err = c.dynamicSvc.RunLifecycleDebugHook(input); err != nil {
-		return nil, err
-	}
-	return pluginbridge.WriteJSON(200, &pluginbridge.LifecycleDecision{OK: true})
+	return &v1.LifecycleDecisionRes{OK: true}, nil
 }
 
-// buildLifecycleDebugInput converts a bridge lifecycle request into the service input.
-func buildLifecycleDebugInput(request *pluginbridge.BridgeRequestEnvelopeV1) (*dynamicservice.LifecycleDebugInput, error) {
+// buildLifecycleDebugInput converts a typed lifecycle request into the service input.
+func buildLifecycleDebugInput(ctx context.Context, req *protocol.LifecycleRequest) *dynamicservice.LifecycleDebugInput {
 	input := &dynamicservice.LifecycleDebugInput{}
-	if request == nil {
-		return input, nil
+	if envelope := bridgeguest.RequestEnvelopeFromContext(ctx); envelope != nil {
+		input.PluginID = strings.TrimSpace(envelope.PluginID)
 	}
-	input.PluginID = strings.TrimSpace(request.PluginID)
-	if request.Request == nil || len(request.Request.Body) == 0 {
-		return input, nil
+	if req == nil {
+		return input
 	}
-	body := &pluginbridge.LifecycleRequest{}
-	if err := json.Unmarshal(request.Request.Body, body); err != nil {
-		return nil, err
+	if strings.TrimSpace(req.PluginID) != "" {
+		input.PluginID = strings.TrimSpace(req.PluginID)
 	}
-	if strings.TrimSpace(body.PluginID) != "" {
-		input.PluginID = strings.TrimSpace(body.PluginID)
-	}
-	input.Operation = lifecycleOperationFromRequest(request, body)
-	input.FromVersion = strings.TrimSpace(body.FromVersion)
-	input.ToVersion = strings.TrimSpace(body.ToVersion)
-	input.TenantID = body.TenantID
-	input.FromMode = strings.TrimSpace(body.FromMode)
-	input.ToMode = strings.TrimSpace(body.ToMode)
-	input.PurgeStorageData = body.PurgeStorageData
-	return input, nil
-}
-
-// lifecycleOperationFromRequest resolves the source lifecycle operation from
-// request body first and route metadata second so generated dispatchers can
-// preserve operation context even when callers omit the optional body field.
-func lifecycleOperationFromRequest(
-	request *pluginbridge.BridgeRequestEnvelopeV1,
-	body *pluginbridge.LifecycleRequest,
-) string {
-	if body != nil {
-		if operation := strings.TrimSpace(body.Operation); operation != "" {
-			return operation
-		}
-	}
-	if request == nil || request.Route == nil {
-		return ""
-	}
-	requestType := strings.TrimSuffix(strings.TrimSpace(request.Route.RequestType), "Req")
-	if pluginbridge.IsSupportedLifecycleOperation(requestType) {
-		return requestType
-	}
-	internalPath := strings.TrimPrefix(
-		normalizeLifecycleInternalPath(request.Route.InternalPath),
-		"/__lifecycle/",
-	)
-	operation := lifecyclePathSegmentToOperation(internalPath)
-	if pluginbridge.IsSupportedLifecycleOperation(operation) {
-		return operation
-	}
-	return ""
-}
-
-// normalizeLifecycleInternalPath returns a slash-prefixed path with redundant
-// surrounding whitespace removed.
-func normalizeLifecycleInternalPath(value string) string {
-	trimmedValue := strings.TrimSpace(value)
-	if trimmedValue == "" {
-		return ""
-	}
-	if !strings.HasPrefix(trimmedValue, "/") {
-		return "/" + trimmedValue
-	}
-	return trimmedValue
-}
-
-// lifecyclePathSegmentToOperation converts a kebab-case lifecycle path segment
-// into the source-compatible operation name.
-func lifecyclePathSegmentToOperation(segment string) string {
-	parts := strings.Split(strings.Trim(strings.TrimSpace(segment), "/"), "-")
-	var builder strings.Builder
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		builder.WriteString(strings.ToUpper(part[:1]))
-		if len(part) > 1 {
-			builder.WriteString(part[1:])
-		}
-	}
-	return builder.String()
+	input.Operation = strings.TrimSpace(req.Operation)
+	input.FromVersion = strings.TrimSpace(req.FromVersion)
+	input.ToVersion = strings.TrimSpace(req.ToVersion)
+	input.TenantID = req.TenantID
+	input.FromMode = strings.TrimSpace(req.FromMode)
+	input.ToMode = strings.TrimSpace(req.ToMode)
+	input.PurgeStorageData = req.PurgeStorageData
+	return input
 }

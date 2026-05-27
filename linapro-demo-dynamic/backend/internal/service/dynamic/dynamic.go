@@ -3,9 +3,12 @@
 package dynamicservice
 
 import (
-	"lina-core/pkg/plugindb"
+	"context"
 
-	"lina-core/pkg/pluginbridge"
+	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/orgcap"
+	"lina-core/pkg/plugin/capability/tenantcap"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // Service defines the dynamic service contract.
@@ -27,7 +30,7 @@ type Service interface {
 	BuildDemoRecordAttachmentDownload(recordID string) (*demoRecordAttachmentDownloadPayload, error)
 	// BuildHostCallDemoPayload executes the host service demo and returns the
 	// response payload.
-	BuildHostCallDemoPayload(input *HostCallDemoInput) (*hostCallDemoPayload, error)
+	BuildHostCallDemoPayload(ctx context.Context, input *HostCallDemoInput) (*hostCallDemoPayload, error)
 	// RegisterCrons publishes all built-in cron declarations for host-side
 	// discovery.
 	RegisterCrons() error
@@ -63,47 +66,105 @@ type runtimeHostService interface {
 // sample service.
 type storageHostService interface {
 	// Put writes one governed storage object.
-	Put(objectPath string, body []byte, contentType string, overwrite bool) (*pluginbridge.HostServiceStorageObject, error)
+	Put(objectPath string, body []byte, contentType string, overwrite bool) (*protocol.HostServiceStorageObject, error)
 	// Get reads one governed storage object.
-	Get(objectPath string) ([]byte, *pluginbridge.HostServiceStorageObject, bool, error)
+	Get(objectPath string) ([]byte, *protocol.HostServiceStorageObject, bool, error)
 	// Delete removes one governed storage object.
 	Delete(objectPath string) error
 	// List lists governed storage objects under one prefix.
-	List(prefix string, limit uint32) ([]*pluginbridge.HostServiceStorageObject, error)
+	List(prefix string, limit uint32) ([]*protocol.HostServiceStorageObject, error)
 	// Stat reads metadata for one governed storage object.
-	Stat(objectPath string) (*pluginbridge.HostServiceStorageObject, bool, error)
+	Stat(objectPath string) (*protocol.HostServiceStorageObject, bool, error)
 }
 
 // networkHostService abstracts guest outbound HTTP host-call helpers used by
 // the sample service.
 type networkHostService interface {
-	// Request executes one governed outbound HTTP request through the host.
-	Request(targetURL string, request *pluginbridge.HostServiceNetworkRequest) (*pluginbridge.HostServiceNetworkResponse, error)
+	// Request executes one governed outbound network request through the host.
+	Request(targetURL string, request *protocol.HostServiceNetworkRequest) (*protocol.HostServiceNetworkResponse, error)
 }
 
 // cronHostService abstracts guest cron registration host-call helpers used by
 // the sample service.
 type cronHostService interface {
 	// Register submits one built-in cron declaration for host-side discovery.
-	Register(contract *pluginbridge.CronContract) error
+	Register(contract *protocol.CronContract) error
+}
+
+// configHostService abstracts guest plugin-config host-call helpers used by
+// the sample service.
+type configHostService interface {
+	// String reads one plugin-owned runtime config value as a string.
+	String(key string) (string, bool, error)
+	// Bool reads one plugin-owned runtime config value as a bool.
+	Bool(key string) (bool, bool, error)
+}
+
+// hostConfigHostService abstracts whitelisted public host config reads used
+// by the sample service.
+type hostConfigHostService interface {
+	// String reads one whitelisted public host config value as a string.
+	String(key string) (string, bool, error)
+	// Bool reads one whitelisted public host config value as a bool.
+	Bool(key string) (bool, bool, error)
+}
+
+// orgHostService abstracts guest organization capability calls used by the
+// sample service.
+type orgHostService interface {
+	// Status returns the current organization capability activation state.
+	Status(ctx context.Context) (contract.CapabilityStatus, error)
+	// Available reports whether the organization capability has an active provider.
+	Available(ctx context.Context) (bool, error)
+	// ListUserDeptAssignments returns user-to-department projections for the provided users.
+	ListUserDeptAssignments(ctx context.Context, userIDs []int) (map[int]*orgcap.UserDeptAssignment, error)
+	// GetUserDeptIDs returns one user's department identifiers.
+	GetUserDeptIDs(ctx context.Context, userID int) ([]int, error)
+	// GetUserPostIDs returns one user's post identifiers.
+	GetUserPostIDs(ctx context.Context, userID int) ([]int, error)
+}
+
+// tenantHostService abstracts guest tenant capability calls used by the sample
+// service.
+type tenantHostService interface {
+	// Status returns the current tenant capability activation state.
+	Status(ctx context.Context) (contract.CapabilityStatus, error)
+	// Available reports whether the tenant capability has an active provider.
+	Available(ctx context.Context) (bool, error)
+	// Current returns the current request tenant.
+	Current(ctx context.Context) (tenantcap.TenantID, error)
+	// PlatformBypass reports whether the current request may bypass tenant filtering.
+	PlatformBypass(ctx context.Context) (bool, error)
+	// EnsureTenantVisible validates that the current user can access tenantID.
+	EnsureTenantVisible(ctx context.Context, tenantID tenantcap.TenantID) error
+	// ListUserTenants returns active tenants visible to one user.
+	ListUserTenants(ctx context.Context, userID int) ([]tenantcap.TenantInfo, error)
 }
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	runtimeSvc runtimeHostService
-	storageSvc storageHostService
-	httpSvc    networkHostService
-	cronSvc    cronHostService
-	dataSvc    *plugindb.DB
+	runtimeSvc    runtimeHostService
+	storageSvc    storageHostService
+	networkSvc    networkHostService
+	cronSvc       cronHostService
+	configSvc     configHostService
+	hostConfigSvc hostConfigHostService
+	orgSvc        orgHostService
+	tenantSvc     tenantHostService
+	dataSvc       dataService
 }
 
 // New creates and returns a new dynamic plugin backend service.
 func New() Service {
 	return &serviceImpl{
-		runtimeSvc: newRuntimeHostService(),
-		storageSvc: newStorageHostService(),
-		httpSvc:    newNetworkHostService(),
-		cronSvc:    newCronHostService(),
-		dataSvc:    plugindb.Open(),
+		runtimeSvc:    newRuntimeHostService(),
+		storageSvc:    newStorageHostService(),
+		networkSvc:    newNetworkHostService(),
+		cronSvc:       newCronHostService(),
+		configSvc:     newConfigHostService(),
+		hostConfigSvc: newHostConfigHostService(),
+		orgSvc:        newOrgHostService(),
+		tenantSvc:     newTenantHostService(),
+		dataSvc:       newDataService(),
 	}
 }

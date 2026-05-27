@@ -5,6 +5,7 @@ import { rmSync } from "node:fs";
 import path from "node:path";
 
 import { test, expect } from '@host-tests/fixtures/auth';
+import { config } from '@host-tests/fixtures/config';
 import { DemoDynamicPage } from '../../pages/DemoDynamicPage';
 import {
   createAdminApiContext,
@@ -24,12 +25,9 @@ import {
 import { waitForRouteReady } from '@host-tests/support/ui';
 
 const pluginID = "linapro-demo-dynamic";
+const pluginMenuNamePattern = /Dynamic Plugin Demo|动态插件示例/u;
 const recordTable = "plugin_linapro_demo_dynamic_record";
-const publicBaseURL =
-  process.env.E2E_PUBLIC_BASE_URL ??
-  (
-    process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:8080/api/v1/"
-  ).replace(/\/api\/v1\/?$/, "");
+const publicBaseURL = config.publicBaseURL;
 const repoRoot = path.resolve(process.cwd(), "../..");
 const legacyRuntimeArtifactPath = path.join(
   repoRoot,
@@ -74,7 +72,7 @@ function cleanupRuntimePluginData() {
 async function ensurePluginInstalledAndEnabled() {
   const plugin = await getPlugin(adminApi, pluginID);
   if (plugin.installed !== 1) {
-    await installPlugin(adminApi, pluginID);
+    await installPlugin(adminApi, pluginID, { installMode: "global" });
   }
 
   const refreshedPlugin = await getPlugin(adminApi, pluginID);
@@ -265,7 +263,7 @@ test.describe("TC003 英文运行时页面巡检", () => {
     const pluginPage = new DemoDynamicPage(adminPage);
 
     await mainLayout.switchLanguage("English");
-    await pluginPage.clickSidebarMenuItem("Dynamic Plugin Demo");
+    await pluginPage.clickSidebarMenuItem(pluginMenuNamePattern);
     await waitForRouteReady(adminPage);
 
     await expect(pluginPage.pluginDemoDynamicTitle()).toHaveText(

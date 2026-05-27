@@ -4,15 +4,17 @@
 package dynamic
 
 import (
-	"lina-core/pkg/pluginbridge"
 	dynamicservice "lina-plugin-linapro-demo-dynamic/backend/internal/service/dynamic"
+
+	bridgeguest "lina-core/pkg/plugin/pluginbridge/guest"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // dynamicErrorClassifier maps dynamic sample business errors to normalized
 // bridge responses. BindJSON sentinels are handled by pluginbridge itself.
-var dynamicErrorClassifier = pluginbridge.NewErrorClassifier(
-	pluginbridge.NewErrorCase(dynamicservice.IsDemoRecordInvalidInput, pluginbridge.NewBadRequestResponse),
-	pluginbridge.NewErrorCase(dynamicservice.IsDemoRecordNotFound, pluginbridge.NewNotFoundResponse),
+var dynamicErrorClassifier = bridgeguest.NewErrorClassifier(
+	bridgeguest.NewErrorCase(dynamicservice.IsDemoRecordInvalidInput, protocol.NewBadRequestResponse),
+	bridgeguest.NewErrorCase(dynamicservice.IsDemoRecordNotFound, protocol.NewNotFoundResponse),
 )
 
 // wrapDynamicError converts one dynamic sample business error into a
@@ -22,5 +24,5 @@ func wrapDynamicError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return pluginbridge.NewResponseError(dynamicErrorClassifier.Classify(err))
+	return bridgeguest.NewResponseError(dynamicErrorClassifier.Classify(err))
 }

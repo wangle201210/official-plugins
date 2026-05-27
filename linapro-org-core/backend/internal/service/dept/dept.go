@@ -6,7 +6,7 @@ package dept
 import (
 	"context"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	entitymodel "lina-plugin-linapro-org-core/backend/internal/model/entity"
 )
 

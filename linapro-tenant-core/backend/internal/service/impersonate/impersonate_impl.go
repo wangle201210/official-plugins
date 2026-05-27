@@ -8,16 +8,13 @@ package impersonate
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
-	"github.com/gogf/gf/v2/util/guid"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/mssola/useragent"
 
-	"lina-core/pkg/authtoken"
 	"lina-core/pkg/bizerr"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/shared"
 )
 
@@ -52,30 +49,17 @@ func (s *serviceImpl) Start(ctx context.Context, in StartInput) (*StartOutput, e
 	if user == nil {
 		return nil, bizerr.NewCode(CodeImpersonationPermissionDenied)
 	}
-	secret, ttl, err := s.tokenConfig(ctx)
-	if err != nil {
-		return nil, err
+	if s.authSvc == nil {
+		return nil, bizerr.NewCode(CodeImpersonationTokenUnavailable)
 	}
-	tokenID := guid.S()
-	token, err := s.tokenSigner.Sign(secret, ttl, user, in.TenantID, tokenID)
+	tokenOut, err := s.authSvc.IssueImpersonationToken(ctx, plugincontract.ImpersonationTokenIssueInput{
+		ActingUserID: int(actingUserID),
+		TenantID:     int(in.TenantID),
+	})
 	if err != nil {
 		return nil, err
 	}
 	client := clientInfoFromCtx(ctx)
-	now := time.Now()
-	if err = s.createOnlineSession(ctx, onlineSessionData{
-		TokenID:        tokenID,
-		UserID:         actingUserID,
-		Username:       user.Username,
-		IP:             client.IP,
-		Browser:        client.Browser,
-		OS:             client.OS,
-		LoginTime:      &now,
-		LastActiveTime: &now,
-		TenantID:       in.TenantID,
-	}); err != nil {
-		return nil, err
-	}
 	if err = s.writeAuditLogs(ctx, auditInput{
 		TenantID:     in.TenantID,
 		ActingUserID: actingUserID,
@@ -86,9 +70,9 @@ func (s *serviceImpl) Start(ctx context.Context, in StartInput) (*StartOutput, e
 		return nil, err
 	}
 	return &StartOutput{
-		Token:          token,
-		TenantID:       in.TenantID,
-		ActingUserID:   actingUserID,
+		Token:          tokenOut.AccessToken,
+		TenantID:       int64(tokenOut.TenantID),
+		ActingUserID:   int64(tokenOut.ActingUserID),
 		IsImpersonated: true,
 	}, nil
 }
@@ -99,86 +83,13 @@ func (s *serviceImpl) Stop(ctx context.Context, in StopInput) error {
 	if tokenString == "" {
 		return bizerr.NewCode(CodeImpersonationTokenInvalid)
 	}
-	secret, _, err := s.tokenConfig(ctx)
-	if err != nil {
-		return err
+	if s.authSvc == nil {
+		return bizerr.NewCode(CodeImpersonationTokenUnavailable)
 	}
-	claims, err := s.tokenSigner.Parse(secret, tokenString)
-	if err != nil {
-		return err
-	}
-	if claims == nil || !claims.IsImpersonation || claims.TokenId == "" {
-		return bizerr.NewCode(CodeImpersonationTokenInvalid)
-	}
-	if in.TenantID > 0 && int64(claims.TenantId) != in.TenantID {
-		return bizerr.NewCode(CodeImpersonationTokenInvalid)
-	}
-	_, err = shared.Model(ctx, "sys_online_session").
-		Where("tenant_id", claims.TenantId).
-		Where("token_id", claims.TokenId).
-		Delete()
-	return err
-}
-
-// Sign signs one compatible impersonation JWT.
-func (jwtTokenSigner) Sign(secret string, ttl time.Duration, user *userRow, tenantID int64, tokenID string) (string, error) {
-	if strings.TrimSpace(secret) == "" || user == nil {
-		return "", bizerr.NewCode(CodeImpersonationTokenUnavailable)
-	}
-	now := time.Now()
-	claims := tokenClaims{
-		TokenId:         tokenID,
-		TokenType:       authtoken.KindAccess,
-		UserId:          int(user.Id),
-		Username:        user.Username,
-		Status:          user.Status,
-		TenantId:        int(tenantID),
-		IsImpersonation: true,
-		ActingUserId:    int(user.Id),
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
-			IssuedAt:  jwt.NewNumericDate(now),
-		},
-	}
-	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
-	if err != nil {
-		return "", err
-	}
-	return signed, nil
-}
-
-// Parse parses one compatible impersonation JWT.
-func (jwtTokenSigner) Parse(secret string, tokenString string) (*tokenClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secret), nil
+	return s.authSvc.RevokeImpersonationToken(ctx, plugincontract.ImpersonationTokenRevokeInput{
+		BearerToken: tokenString,
+		TenantID:    int(in.TenantID),
 	})
-	if err != nil {
-		return nil, bizerr.NewCode(CodeImpersonationTokenInvalid)
-	}
-	claims, ok := token.Claims.(*tokenClaims)
-	if !ok || !token.Valid {
-		return nil, bizerr.NewCode(CodeImpersonationTokenInvalid)
-	}
-	return claims, nil
-}
-
-// tokenConfig reads signing configuration from the host-published config service.
-func (s *serviceImpl) tokenConfig(ctx context.Context) (string, time.Duration, error) {
-	secret, err := s.configSvc.String(ctx, "jwt.secret", "")
-	if err != nil {
-		return "", 0, err
-	}
-	if strings.TrimSpace(secret) == "" {
-		return "", 0, bizerr.NewCode(CodeImpersonationTokenUnavailable)
-	}
-	ttl, err := s.configSvc.Duration(ctx, "jwt.expire", 24*time.Hour)
-	if err != nil {
-		return "", 0, err
-	}
-	if ttl <= 0 {
-		ttl = 24 * time.Hour
-	}
-	return secret, ttl, nil
 }
 
 // currentUser returns the current platform user projection.
@@ -203,12 +114,6 @@ func (s *serviceImpl) isPlatformAdmin(ctx context.Context, userID int64) (bool, 
 		return false, err
 	}
 	return count > 0, nil
-}
-
-// createOnlineSession creates the session row required by host middleware.
-func (s *serviceImpl) createOnlineSession(ctx context.Context, data onlineSessionData) error {
-	_, err := shared.Model(ctx, "sys_online_session").Data(data).Insert()
-	return err
 }
 
 // writeAuditLogs writes optional login and operation log rows when monitor tables exist.

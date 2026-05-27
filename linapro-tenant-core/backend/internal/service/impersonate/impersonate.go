@@ -3,11 +3,8 @@ package impersonate
 
 import (
 	"context"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	tenantsvc "lina-plugin-linapro-tenant-core/backend/internal/service/tenant"
 )
 
@@ -28,23 +25,21 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	bizCtxSvc   plugincontract.BizCtxService
-	configSvc   plugincontract.ConfigService
-	tenantSvc   tenantsvc.Service
-	tokenSigner tokenSigner
+	authSvc   plugincontract.AuthService
+	bizCtxSvc plugincontract.BizCtxService
+	tenantSvc tenantsvc.Service
 }
 
 // New creates and returns an impersonation service.
 func New(
+	authSvc plugincontract.AuthService,
 	bizCtxSvc plugincontract.BizCtxService,
-	configSvc plugincontract.ConfigService,
 	tenantSvc tenantsvc.Service,
 ) Service {
 	return &serviceImpl{
-		bizCtxSvc:   bizCtxSvc,
-		configSvc:   configSvc,
-		tenantSvc:   tenantSvc,
-		tokenSigner: jwtTokenSigner{},
+		authSvc:   authSvc,
+		bizCtxSvc: bizCtxSvc,
+		tenantSvc: tenantSvc,
 	}
 }
 
@@ -75,46 +70,21 @@ type userRow struct {
 	Status   int    `json:"status" orm:"status"`
 }
 
-// tokenClaims mirrors the host JWT claim shape consumed by middleware.
-type tokenClaims struct {
-	TokenId         string `json:"tokenId"`
-	TokenType       string `json:"tokenType"`
-	UserId          int    `json:"userId"`
-	Username        string `json:"username"`
-	Status          int    `json:"status"`
-	TenantId        int    `json:"tenantId"`
-	IsImpersonation bool   `json:"isImpersonation"`
-	ActingUserId    int    `json:"actingUserId"`
-	jwt.RegisteredClaims
+// platformRoleData is a typed insert payload for sys_role.
+type platformRoleData struct {
+	TenantID  int64  `orm:"tenant_id"`
+	Name      string `orm:"name"`
+	Key       string `orm:"key"`
+	Sort      int    `orm:"sort"`
+	DataScope int    `orm:"data_scope"`
+	Status    int    `orm:"status"`
 }
 
-// tokenSigner signs and parses compatible host JWT tokens.
-type tokenSigner interface {
-	// Sign issues a tenant-bound impersonation token for the target user. It
-	// returns signing errors when the secret, duration, or claims cannot produce
-	// a host-compatible JWT.
-	Sign(secret string, ttl time.Duration, user *userRow, tenantID int64, tokenID string) (string, error)
-	// Parse validates an impersonation token and returns its claims. It returns
-	// parsing or signature errors so callers can reject invalid or expired
-	// bearer credentials.
-	Parse(secret string, tokenString string) (*tokenClaims, error)
-}
-
-// jwtTokenSigner signs HS256 JWT tokens compatible with the host auth service.
-type jwtTokenSigner struct{}
-
-// onlineSessionData is a typed insert payload for sys_online_session.
-type onlineSessionData struct {
-	TokenID        string     `orm:"token_id"`
-	UserID         int64      `orm:"user_id"`
-	Username       string     `orm:"username"`
-	DeptName       string     `orm:"dept_name"`
-	IP             string     `orm:"ip"`
-	Browser        string     `orm:"browser"`
-	OS             string     `orm:"os"`
-	LoginTime      *time.Time `orm:"login_time"`
-	LastActiveTime *time.Time `orm:"last_active_time"`
-	TenantID       int64      `orm:"tenant_id"`
+// platformUserRoleData is a typed insert payload for sys_user_role.
+type platformUserRoleData struct {
+	TenantID int64 `orm:"tenant_id"`
+	UserID   int64 `orm:"user_id"`
+	RoleID   int64 `orm:"role_id"`
 }
 
 // loginLogData is a typed insert payload for plugin_linapro_monitor_loginlog.

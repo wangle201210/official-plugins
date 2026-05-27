@@ -7,7 +7,7 @@ package notice
 import (
 	"context"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 )
 
 // Plugin-local notify category codes. The host notify service treats category

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"lina-core/pkg/bizerr"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 )
 
 // TestStartRejectsNonPlatformBypassBeforeRoleLookup verifies the impersonation

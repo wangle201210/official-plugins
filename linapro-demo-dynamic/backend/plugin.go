@@ -5,7 +5,7 @@ package backend
 import (
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginbridge"
+	bridgeguest "lina-core/pkg/plugin/pluginbridge/guest"
 )
 
 // dynamicAPIV1GroupPrefix is the demo plugin-owned API route group prefix.
@@ -36,7 +36,7 @@ const dynamicAPIV1GroupPrefix = "/api/v1"
 // path，例如 path:"/backend-summary"，会在构建期组合成
 // "/api/v1/backend-summary"；宿主运行时再把它暴露到最终公开路径
 // "/x/{pluginId}" 下。
-func RegisterRoutes(registrar pluginbridge.DynamicRouteRegistrar) error {
+func RegisterRoutes(registrar bridgeguest.DynamicRouteRegistrar) error {
 	if registrar == nil {
 		return gerror.New("linapro-demo-dynamic route registrar is required")
 	}

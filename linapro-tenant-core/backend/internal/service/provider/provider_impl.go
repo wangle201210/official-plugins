@@ -11,7 +11,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/net/ghttp"
 
-	pkgtenantcap "lina-core/pkg/tenantcap"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-plugin-linapro-tenant-core/backend/internal/dao"
 	"lina-plugin-linapro-tenant-core/backend/internal/model/do"
 	"lina-plugin-linapro-tenant-core/backend/internal/model/entity"
@@ -20,7 +20,7 @@ import (
 )
 
 // ResolveTenant resolves a tenant from request metadata.
-func (p *Provider) ResolveTenant(ctx context.Context, request *ghttp.Request) (*pkgtenantcap.ResolverResult, error) {
+func (p *Provider) ResolveTenant(ctx context.Context, request *ghttp.Request) (*tenantcap.ResolverResult, error) {
 	config, err := p.resolverConfigSvc.Get(ctx)
 	if err != nil {
 		return nil, err
@@ -29,8 +29,8 @@ func (p *Provider) ResolveTenant(ctx context.Context, request *ghttp.Request) (*
 	if err != nil {
 		return nil, err
 	}
-	return &pkgtenantcap.ResolverResult{
-		TenantID:        pkgtenantcap.TenantID(result.TenantID),
+	return &tenantcap.ResolverResult{
+		TenantID:        tenantcap.TenantID(result.TenantID),
 		Matched:         true,
 		ActingAsTenant:  result.ActingAsTenant,
 		IsImpersonation: result.ActingAsTenant,
@@ -38,24 +38,24 @@ func (p *Provider) ResolveTenant(ctx context.Context, request *ghttp.Request) (*
 }
 
 // ValidateUserInTenant validates one user belongs to one tenant.
-func (p *Provider) ValidateUserInTenant(ctx context.Context, userID int, tenantID pkgtenantcap.TenantID) error {
+func (p *Provider) ValidateUserInTenant(ctx context.Context, userID int, tenantID tenantcap.TenantID) error {
 	_, err := p.membershipSvc.GetByUserAndTenant(ctx, int64(userID), int64(tenantID))
 	return err
 }
 
 // ListUserTenants returns tenant options for one user.
-func (p *Provider) ListUserTenants(ctx context.Context, userID int) ([]pkgtenantcap.TenantInfo, error) {
+func (p *Provider) ListUserTenants(ctx context.Context, userID int) ([]tenantcap.TenantInfo, error) {
 	tenants, err := p.membershipSvc.ListUserTenants(ctx, int64(userID))
 	if err != nil {
 		return nil, err
 	}
-	result := make([]pkgtenantcap.TenantInfo, 0, len(tenants))
+	result := make([]tenantcap.TenantInfo, 0, len(tenants))
 	for _, item := range tenants {
 		if item == nil {
 			continue
 		}
-		result = append(result, pkgtenantcap.TenantInfo{
-			ID:     pkgtenantcap.TenantID(item.Id),
+		result = append(result, tenantcap.TenantInfo{
+			ID:     tenantcap.TenantID(item.Id),
 			Code:   item.Code,
 			Name:   item.Name,
 			Status: item.Status,
@@ -65,7 +65,7 @@ func (p *Provider) ListUserTenants(ctx context.Context, userID int) ([]pkgtenant
 }
 
 // SwitchTenant validates one user can switch to a target tenant.
-func (p *Provider) SwitchTenant(ctx context.Context, userID int, target pkgtenantcap.TenantID) error {
+func (p *Provider) SwitchTenant(ctx context.Context, userID int, target tenantcap.TenantID) error {
 	return p.ValidateUserInTenant(ctx, userID, target)
 }
 
@@ -83,7 +83,7 @@ func (p *Provider) ApplyUserTenantFilter(
 	ctx context.Context,
 	model *gdb.Model,
 	userIDColumn string,
-	tenantID pkgtenantcap.TenantID,
+	tenantID tenantcap.TenantID,
 ) (*gdb.Model, bool, error) {
 	return p.membershipSvc.ApplyUserTenantFilter(ctx, model, userIDColumn, tenantID)
 }
@@ -92,16 +92,16 @@ func (p *Provider) ApplyUserTenantFilter(
 func (p *Provider) ListUserTenantProjections(
 	ctx context.Context,
 	userIDs []int,
-) (map[int]*pkgtenantcap.UserTenantProjection, error) {
+) (map[int]*tenantcap.UserTenantProjection, error) {
 	return p.membershipSvc.ListUserTenantProjections(ctx, userIDs)
 }
 
 // ResolveUserTenantAssignment validates requested memberships and returns a host write plan.
 func (p *Provider) ResolveUserTenantAssignment(
 	ctx context.Context,
-	requested []pkgtenantcap.TenantID,
-	mode pkgtenantcap.UserTenantAssignmentMode,
-) (*pkgtenantcap.UserTenantAssignmentPlan, error) {
+	requested []tenantcap.TenantID,
+	mode tenantcap.UserTenantAssignmentMode,
+) (*tenantcap.UserTenantAssignmentPlan, error) {
 	return p.membershipSvc.ResolveUserTenantAssignment(ctx, requested, mode)
 }
 
@@ -109,13 +109,13 @@ func (p *Provider) ResolveUserTenantAssignment(
 func (p *Provider) ReplaceUserTenantAssignments(
 	ctx context.Context,
 	userID int,
-	plan *pkgtenantcap.UserTenantAssignmentPlan,
+	plan *tenantcap.UserTenantAssignmentPlan,
 ) error {
 	return p.membershipSvc.ReplaceUserTenantAssignments(ctx, userID, plan)
 }
 
 // EnsureUsersInTenant verifies every user has active membership in the tenant.
-func (p *Provider) EnsureUsersInTenant(ctx context.Context, userIDs []int, tenantID pkgtenantcap.TenantID) error {
+func (p *Provider) EnsureUsersInTenant(ctx context.Context, userIDs []int, tenantID tenantcap.TenantID) error {
 	return p.membershipSvc.EnsureUsersInTenant(ctx, userIDs, tenantID)
 }
 

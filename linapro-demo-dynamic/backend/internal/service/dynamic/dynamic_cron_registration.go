@@ -3,7 +3,7 @@
 
 package dynamicservice
 
-import "lina-core/pkg/pluginbridge"
+import "lina-core/pkg/plugin/pluginbridge/protocol"
 
 // Cron heartbeat declaration constants define the built-in cron contract
 // exported by the dynamic sample plugin.
@@ -19,16 +19,17 @@ const (
 // RegisterCrons publishes all built-in cron declarations for host-side
 // discovery.
 func (s *serviceImpl) RegisterCrons() error {
-	return s.cronSvc.Register(&pluginbridge.CronContract{
+	return s.cronSvc.Register(&protocol.CronContract{
 		Name:           cronHeartbeatName,
 		DisplayName:    cronHeartbeatDisplayName,
 		Description:    cronHeartbeatDesc,
 		Pattern:        cronHeartbeatPattern,
-		Timezone:       pluginbridge.DefaultCronContractTimezone,
-		Scope:          pluginbridge.CronScopeAllNode,
-		Concurrency:    pluginbridge.CronConcurrencySingleton,
+		Timezone:       protocol.DefaultCronContractTimezone,
+		Scope:          protocol.CronScopeAllNode,
+		Concurrency:    protocol.CronConcurrencySingleton,
 		MaxConcurrency: 1,
 		TimeoutSeconds: cronHeartbeatTimeout,
+		RequestType:    "CronHeartbeatReq",
 		InternalPath:   cronHeartbeatPath,
 	})
 }

@@ -2,7 +2,7 @@
 
 package dynamicservice
 
-import "lina-core/pkg/pluginbridge"
+import "lina-core/pkg/plugin/pluginbridge/protocol"
 
 // RunLifecycleDebugHook logs one lifecycle callback invocation and allows the
 // host operation to continue.
@@ -11,7 +11,7 @@ func (s *serviceImpl) RunLifecycleDebugHook(input *LifecycleDebugInput) error {
 		input = &LifecycleDebugInput{}
 	}
 	return s.runtimeSvc.Log(
-		int(pluginbridge.LogLevelInfo),
+		int(protocol.LogLevelInfo),
 		"linapro-demo-dynamic lifecycle callback invoked",
 		nil,
 	)

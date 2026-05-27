@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	democontrolplugin "lina-plugin-linapro-ops-demo-guard"
 	middlewaresvc "lina-plugin-linapro-ops-demo-guard/backend/internal/service/middleware"
 )
@@ -47,10 +47,10 @@ func beforeInstall(_ context.Context, input pluginhost.SourcePluginLifecycleInpu
 // registerGlobalMiddleware binds the demo read-only guard into the host-wide
 // system request chain published to source plugins.
 func registerGlobalMiddleware(_ context.Context, registrar pluginhost.HTTPRegistrar) error {
-	hostServices := registrar.HostServices()
-	if hostServices == nil || hostServices.I18n() == nil || hostServices.PluginState() == nil {
+	services := registrar.Services()
+	if services == nil || services.I18n() == nil || services.PluginState() == nil {
 		return gerror.New("linapro-ops-demo-guard middleware requires host i18n and plugin-state services")
 	}
-	guardSvc := middlewaresvc.New(hostServices.I18n(), hostServices.PluginState())
+	guardSvc := middlewaresvc.New(services.I18n(), services.PluginState())
 	return registrar.GlobalMiddlewares().Bind("/*", guardSvc.Guard)
 }

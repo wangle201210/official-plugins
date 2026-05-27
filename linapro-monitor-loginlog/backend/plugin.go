@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	monitorloginlogplugin "lina-plugin-linapro-monitor-loginlog"
 	loginlogcontroller "lina-plugin-linapro-monitor-loginlog/backend/internal/controller/loginlog"
 	loginlogsvc "lina-plugin-linapro-monitor-loginlog/backend/internal/service/loginlog"
@@ -58,14 +58,14 @@ func init() {
 // registerRoutes binds login-log governance routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	var (
-		routes       = registrar.Routes()
-		middlewares  = routes.Middlewares()
-		hostServices = registrar.HostServices()
+		routes      = registrar.Routes()
+		middlewares = routes.Middlewares()
+		services    = registrar.Services()
 	)
-	if hostServices == nil || hostServices.I18n() == nil || hostServices.TenantFilter() == nil {
+	if services == nil || services.I18n() == nil || services.TenantFilter() == nil {
 		return gerror.New("linapro-monitor-loginlog routes require host i18n and tenant-filter services")
 	}
-	loginLogSvc := loginlogsvc.New(hostServices.I18n(), hostServices.TenantFilter())
+	loginLogSvc := loginlogsvc.New(services.I18n(), services.TenantFilter())
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
@@ -90,8 +90,8 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 
 // handleAuthEvent persists one host authentication lifecycle event into the login-log table owned by this plugin.
 func handleAuthEvent(ctx context.Context, payload pluginhost.HookPayload) error {
-	hostServices := payload.HostServices()
-	if hostServices == nil || hostServices.I18n() == nil || hostServices.TenantFilter() == nil {
+	services := payload.Services()
+	if services == nil || services.I18n() == nil || services.TenantFilter() == nil {
 		return gerror.New("linapro-monitor-loginlog hook requires host i18n and tenant-filter services")
 	}
 	values := payload.Values()
@@ -101,7 +101,7 @@ func handleAuthEvent(ctx context.Context, payload pluginhost.HookPayload) error 
 		message = pluginhost.HookPayloadStringValue(values, pluginhost.HookPayloadKeyMessage)
 	}
 
-	return loginlogsvc.New(hostServices.I18n(), hostServices.TenantFilter()).Create(ctx, loginlogsvc.CreateInput{
+	return loginlogsvc.New(services.I18n(), services.TenantFilter()).Create(ctx, loginlogsvc.CreateInput{
 		UserName: pluginhost.HookPayloadStringValue(values, pluginhost.HookPayloadKeyUserName),
 		Status:   status,
 		Ip:       pluginhost.HookPayloadStringValue(values, pluginhost.HookPayloadKeyIP),

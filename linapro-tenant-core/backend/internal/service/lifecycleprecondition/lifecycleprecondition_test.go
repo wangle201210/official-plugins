@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 )
 
 // TestPreconditionRejectsSuspendedTenantBeforePluginRemoval verifies non-deleted

@@ -26,9 +26,7 @@ export type MultiTenantFixtures = {
   multiTenantMode: MultiTenantMode;
 };
 
-const apiBaseURL =
-  process.env.E2E_API_BASE_URL ??
-  new URL("/api/v1/", config.baseURL).toString();
+const apiBaseURL = config.apiBaseURL;
 const tenantCorePluginID = "linapro-tenant-core";
 const tenantCoreApiBaseURL = `${config.publicBaseURL.replace(/\/$/, "")}/x/${tenantCorePluginID}/api/v1/`;
 

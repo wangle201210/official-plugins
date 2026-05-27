@@ -38,6 +38,7 @@ type DemoRecordMutationInput struct {
 type HostCallDemoInput struct {
 	PluginID    string
 	Username    string
+	UserID      int
 	RequestID   string
 	RoutePath   string
 	SkipNetwork bool
@@ -46,12 +47,12 @@ type HostCallDemoInput struct {
 // LifecycleDebugInput defines one lifecycle callback invocation published by
 // the host before or after lifecycle side effects run.
 type LifecycleDebugInput struct {
-	PluginID    string
-	Operation   string
-	FromVersion string
-	ToVersion   string
-	TenantID    int
-	FromMode    string
-	ToMode      string
+	PluginID         string
+	Operation        string
+	FromVersion      string
+	ToVersion        string
+	TenantID         int
+	FromMode         string
+	ToMode           string
 	PurgeStorageData bool
 }

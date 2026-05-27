@@ -9,7 +9,7 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"lina-core/pkg/logger"
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	plugindemosource "lina-plugin-linapro-demo-source"
 	democtrl "lina-plugin-linapro-demo-source/backend/internal/controller/demo"
 	demosvc "lina-plugin-linapro-demo-source/backend/internal/service/demo"
@@ -34,13 +34,15 @@ func init() {
 	if err := registerLifecycleDebugHandlers(plugin); err != nil {
 		panic(err)
 	}
-	if err := plugin.Lifecycle().RegisterUninstallHandler(func(ctx context.Context, input pluginhost.SourcePluginUninstallInput) error {
-		logSourceUninstallLifecycle(ctx, "Uninstall", input)
-		if !input.PurgeStorageData() {
-			return nil
-		}
-		return demosvc.PurgeStorageData(ctx)
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterUninstallHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginUninstallInput) error {
+			logSourceUninstallLifecycle(ctx, pluginhost.LifecycleHookUninstall, input)
+			if !input.PurgeStorageData() {
+				return nil
+			}
+			return demosvc.PurgeStorageData(ctx)
+		},
+	); err != nil {
 		panic(err)
 	}
 	if err := plugin.HTTP().RegisterRoutes(
@@ -65,115 +67,145 @@ func init() {
 // registerLifecycleDebugHandlers wires source-plugin lifecycle callbacks for
 // demonstrating the host lifecycle flow in development logs.
 func registerLifecycleDebugHandlers(plugin pluginhost.SourcePlugin) error {
-	if err := plugin.Lifecycle().RegisterBeforeInstallHandler(func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) (bool, string, error) {
-		logSourceLifecycle(ctx, "BeforeInstall", input)
-		return true, "", nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterBeforeInstallHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) (bool, string, error) {
+			logSourceLifecycle(ctx, pluginhost.LifecycleHookBeforeInstall, input)
+			return true, "", nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterAfterInstallHandler(func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) error {
-		logSourceLifecycle(ctx, "AfterInstall", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterAfterInstallHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) error {
+			logSourceLifecycle(ctx, pluginhost.LifecycleHookAfterInstall, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterBeforeUpgradeHandler(func(ctx context.Context, input pluginhost.SourcePluginUpgradeInput) (bool, string, error) {
-		logSourceUpgradeLifecycle(ctx, "BeforeUpgrade", input)
-		return true, "", nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterBeforeUpgradeHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginUpgradeInput) (bool, string, error) {
+			logSourceUpgradeLifecycle(ctx, pluginhost.LifecycleHookBeforeUpgrade, input)
+			return true, "", nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterUpgradeHandler(func(ctx context.Context, input pluginhost.SourcePluginUpgradeInput) error {
-		logSourceUpgradeLifecycle(ctx, "Upgrade", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterUpgradeHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginUpgradeInput) error {
+			logSourceUpgradeLifecycle(ctx, pluginhost.LifecycleHookUpgrade, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterAfterUpgradeHandler(func(ctx context.Context, input pluginhost.SourcePluginUpgradeInput) error {
-		logSourceUpgradeLifecycle(ctx, "AfterUpgrade", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterAfterUpgradeHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginUpgradeInput) error {
+			logSourceUpgradeLifecycle(ctx, pluginhost.LifecycleHookAfterUpgrade, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterBeforeDisableHandler(func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) (bool, string, error) {
-		logSourceLifecycle(ctx, "BeforeDisable", input)
-		return true, "", nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterBeforeDisableHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) (bool, string, error) {
+			logSourceLifecycle(ctx, pluginhost.LifecycleHookBeforeDisable, input)
+			return true, "", nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterAfterDisableHandler(func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) error {
-		logSourceLifecycle(ctx, "AfterDisable", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterAfterDisableHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) error {
+			logSourceLifecycle(ctx, pluginhost.LifecycleHookAfterDisable, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterBeforeUninstallHandler(func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) (bool, string, error) {
-		logSourceLifecycle(ctx, "BeforeUninstall", input)
-		return true, "", nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterBeforeUninstallHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) (bool, string, error) {
+			logSourceLifecycle(ctx, pluginhost.LifecycleHookBeforeUninstall, input)
+			return true, "", nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterAfterUninstallHandler(func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) error {
-		logSourceLifecycle(ctx, "AfterUninstall", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterAfterUninstallHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginLifecycleInput) error {
+			logSourceLifecycle(ctx, pluginhost.LifecycleHookAfterUninstall, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterBeforeTenantDisableHandler(func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) (bool, string, error) {
-		logSourceTenantLifecycle(ctx, "BeforeTenantDisable", input)
-		return true, "", nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterBeforeTenantDisableHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) (bool, string, error) {
+			logSourceTenantLifecycle(ctx, pluginhost.LifecycleHookBeforeTenantDisable, input)
+			return true, "", nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterAfterTenantDisableHandler(func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) error {
-		logSourceTenantLifecycle(ctx, "AfterTenantDisable", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterAfterTenantDisableHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) error {
+			logSourceTenantLifecycle(ctx, pluginhost.LifecycleHookAfterTenantDisable, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterBeforeTenantDeleteHandler(func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) (bool, string, error) {
-		logSourceTenantLifecycle(ctx, "BeforeTenantDelete", input)
-		return true, "", nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterBeforeTenantDeleteHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) (bool, string, error) {
+			logSourceTenantLifecycle(ctx, pluginhost.LifecycleHookBeforeTenantDelete, input)
+			return true, "", nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterAfterTenantDeleteHandler(func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) error {
-		logSourceTenantLifecycle(ctx, "AfterTenantDelete", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterAfterTenantDeleteHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginTenantLifecycleInput) error {
+			logSourceTenantLifecycle(ctx, pluginhost.LifecycleHookAfterTenantDelete, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterBeforeInstallModeChangeHandler(func(ctx context.Context, input pluginhost.SourcePluginInstallModeChangeInput) (bool, string, error) {
-		logSourceInstallModeLifecycle(ctx, "BeforeInstallModeChange", input)
-		return true, "", nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterBeforeInstallModeChangeHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginInstallModeChangeInput) (bool, string, error) {
+			logSourceInstallModeLifecycle(ctx, pluginhost.LifecycleHookBeforeInstallModeChange, input)
+			return true, "", nil
+		},
+	); err != nil {
 		return err
 	}
-	if err := plugin.Lifecycle().RegisterAfterInstallModeChangeHandler(func(ctx context.Context, input pluginhost.SourcePluginInstallModeChangeInput) error {
-		logSourceInstallModeLifecycle(ctx, "AfterInstallModeChange", input)
-		return nil
-	}); err != nil {
+	if err := plugin.Lifecycle().RegisterAfterInstallModeChangeHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginInstallModeChangeInput) error {
+			logSourceInstallModeLifecycle(ctx, pluginhost.LifecycleHookAfterInstallModeChange, input)
+			return nil
+		},
+	); err != nil {
 		return err
 	}
 	return nil
 }
 
 // logSourceLifecycle logs a generic source-plugin lifecycle callback.
-func logSourceLifecycle(ctx context.Context, operation string, input pluginhost.SourcePluginLifecycleInput) {
+func logSourceLifecycle(ctx context.Context, operation pluginhost.LifecycleHook, input pluginhost.SourcePluginLifecycleInput) {
 	logger.Infof(
 		ctx,
 		"linapro-demo-source lifecycle operation=%s plugin=%s",
-		operation,
+		operation.String(),
 		input.PluginID(),
 	)
 }
 
 // logSourceUpgradeLifecycle logs an upgrade-related source-plugin lifecycle callback.
-func logSourceUpgradeLifecycle(ctx context.Context, operation string, input pluginhost.SourcePluginUpgradeInput) {
+func logSourceUpgradeLifecycle(ctx context.Context, operation pluginhost.LifecycleHook, input pluginhost.SourcePluginUpgradeInput) {
 	logger.Infof(
 		ctx,
 		"linapro-demo-source lifecycle operation=%s plugin=%s fromVersion=%s toVersion=%s",
-		operation,
+		operation.String(),
 		input.PluginID(),
 		input.FromVersion(),
 		input.ToVersion(),
@@ -181,22 +213,30 @@ func logSourceUpgradeLifecycle(ctx context.Context, operation string, input plug
 }
 
 // logSourceUninstallLifecycle logs the source-plugin uninstall cleanup callback.
-func logSourceUninstallLifecycle(ctx context.Context, operation string, input pluginhost.SourcePluginUninstallInput) {
+func logSourceUninstallLifecycle(
+	ctx context.Context,
+	operation pluginhost.LifecycleHook,
+	input pluginhost.SourcePluginUninstallInput,
+) {
 	logger.Infof(
 		ctx,
 		"linapro-demo-source lifecycle operation=%s plugin=%s purgeStorageData=%s",
-		operation,
+		operation.String(),
 		input.PluginID(),
 		strconv.FormatBool(input.PurgeStorageData()),
 	)
 }
 
 // logSourceTenantLifecycle logs a tenant-scoped source-plugin lifecycle callback.
-func logSourceTenantLifecycle(ctx context.Context, operation string, input pluginhost.SourcePluginTenantLifecycleInput) {
+func logSourceTenantLifecycle(
+	ctx context.Context,
+	operation pluginhost.LifecycleHook,
+	input pluginhost.SourcePluginTenantLifecycleInput,
+) {
 	logger.Infof(
 		ctx,
 		"linapro-demo-source lifecycle operation=%s tenantId=%d",
-		operation,
+		operation.String(),
 		input.TenantID(),
 	)
 }
@@ -204,13 +244,13 @@ func logSourceTenantLifecycle(ctx context.Context, operation string, input plugi
 // logSourceInstallModeLifecycle logs an install-mode source-plugin lifecycle callback.
 func logSourceInstallModeLifecycle(
 	ctx context.Context,
-	operation string,
+	operation pluginhost.LifecycleHook,
 	input pluginhost.SourcePluginInstallModeChangeInput,
 ) {
 	logger.Infof(
 		ctx,
 		"linapro-demo-source lifecycle operation=%s plugin=%s fromMode=%s toMode=%s",
-		operation,
+		operation.String(),
 		input.PluginID(),
 		input.FromMode(),
 		input.ToMode(),
@@ -222,14 +262,14 @@ func logSourceInstallModeLifecycle(
 // host-owned APIs.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	var (
-		routes       = registrar.Routes()
-		middlewares  = routes.Middlewares()
-		hostServices = registrar.HostServices()
+		routes      = registrar.Routes()
+		middlewares = routes.Middlewares()
+		services    = registrar.Services()
 	)
-	if hostServices == nil || hostServices.I18n() == nil || hostServices.TenantFilter() == nil {
+	if services == nil || services.I18n() == nil || services.TenantFilter() == nil {
 		return gerror.New("linapro-demo-source routes require host i18n and tenant-filter services")
 	}
-	demoSvc := demosvc.New(hostServices.I18n(), hostServices.TenantFilter())
+	demoSvc := demosvc.New(services.I18n(), services.TenantFilter())
 	demoController := democtrl.NewV1(demoSvc)
 	routes.Group("/portal/linapro-demo-source", func(group pluginhost.RouteGroup) {
 		group.Middleware(

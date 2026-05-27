@@ -9,7 +9,7 @@ import type {
 import { request as playwrightRequest } from '@host-tests/support/playwright';
 
 import { test, expect } from '@host-tests/fixtures/auth';
-import { config } from '@host-tests/fixtures/config';
+import { config, workspacePath } from '@host-tests/fixtures/config';
 import {
   ensureSourcePluginEnabled,
   ensureSourcePluginUninstalled,
@@ -17,8 +17,7 @@ import {
 import { LoginPage } from '@host-tests/pages/LoginPage';
 import { execPgSQL, pgEscapeLiteral } from '@host-tests/support/postgres';
 
-const apiBaseURL =
-  process.env.E2E_API_BASE_URL ?? 'http://127.0.0.1:8080/api/v1/';
+const apiBaseURL = config.apiBaseURL;
 
 function unwrapApiData(payload: any) {
   if (payload && typeof payload === 'object' && 'data' in payload) {
@@ -167,7 +166,7 @@ test.describe('TC-1 宿主与监控插件边界回归', () => {
           response.status() === 200,
         { timeout: 15000 },
       );
-      await page.goto('/system/user');
+      await page.goto(workspacePath('/system/user'));
       await userListResponse;
       await expect(page.locator('.vxe-table')).toBeVisible({ timeout: 10000 });
       await expect(page.locator('.vxe-body--row').first()).toBeVisible();

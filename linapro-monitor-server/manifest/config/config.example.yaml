@@ -1,0 +1,6 @@
+# Runtime configuration template for linapro-monitor-server.
+monitor:
+  # Metrics collection interval.
+  interval: 1m
+  # Cleanup retention multiplier. The cleanup threshold is interval * retentionMultiplier.
+  retentionMultiplier: 5

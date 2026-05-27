@@ -6,7 +6,7 @@ package monitor
 import (
 	"context"
 
-	sessionsvc "lina-core/pkg/pluginservice/contract"
+	sessionsvc "lina-core/pkg/plugin/capability/contract"
 )
 
 // Service defines online-session read and revocation operations backed by the host session seam.

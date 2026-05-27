@@ -17,7 +17,7 @@ import (
 	"lina-core/pkg/apitime"
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-demo-source/backend/internal/dao"
 	"lina-plugin-linapro-demo-source/backend/internal/model/do"
 	entitymodel "lina-plugin-linapro-demo-source/backend/internal/model/entity"

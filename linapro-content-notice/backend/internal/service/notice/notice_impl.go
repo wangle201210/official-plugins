@@ -11,7 +11,7 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-content-notice/backend/internal/dao"
 	"lina-plugin-linapro-content-notice/backend/internal/model/do"
 	entitymodel "lina-plugin-linapro-content-notice/backend/internal/model/entity"

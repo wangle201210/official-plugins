@@ -7,7 +7,7 @@ package loginlog
 import (
 	"context"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	entitymodel "lina-plugin-linapro-monitor-loginlog/backend/internal/model/entity"
 )
 

@@ -41,3 +41,7 @@ test-results/
 *.exe
 *.test
 *.out
+
+# Plugin-local runtime config
+**/manifest/config/config.yaml
+!**/manifest/config/config.example.yaml

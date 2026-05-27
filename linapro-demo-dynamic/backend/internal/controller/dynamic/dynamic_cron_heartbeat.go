@@ -2,14 +2,24 @@
 
 package dynamic
 
-import "lina-core/pkg/pluginbridge"
+import (
+	"context"
+
+	v1 "lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
+)
 
 // CronHeartbeat executes the declared cron heartbeat task for the dynamic
 // sample plugin.
-func (c *Controller) CronHeartbeat(_ *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
+func (c *Controller) CronHeartbeat(
+	_ context.Context,
+	_ *v1.CronHeartbeatReq,
+) (*v1.CronHeartbeatRes, error) {
 	payload, err := c.dynamicSvc.BuildCronHeartbeatPayload()
 	if err != nil {
 		return nil, err
 	}
-	return pluginbridge.WriteJSON(200, payload)
+	return &v1.CronHeartbeatRes{
+		Count:   payload.Count,
+		Message: payload.Message,
+	}, nil
 }

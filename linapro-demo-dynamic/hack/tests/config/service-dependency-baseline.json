@@ -5,7 +5,7 @@
     {
       "path": "apps/lina-plugins/linapro-demo-dynamic/backend/internal/controller/dynamic/dynamic.go",
       "maxCalls": 1,
-      "reason": "dynamic plugin demo guest-side construction boundary; no host service adapter or host runtime service is created."
+      "reason": "dynamic plugin demo guest-side construction boundary; no host service adapter or host config service is created."
     },
     {
       "path": "apps/lina-plugins/linapro-demo-dynamic/backend/plugin.go",

@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/net/ghttp"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/membership"
 )
 

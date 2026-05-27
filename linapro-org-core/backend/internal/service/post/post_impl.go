@@ -17,7 +17,7 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/excelutil"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-org-core/backend/internal/dao"
 	"lina-plugin-linapro-org-core/backend/internal/model/do"
 )

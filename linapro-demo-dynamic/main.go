@@ -1,12 +1,14 @@
 package main
 
 import (
-	"lina-core/pkg/pluginbridge"
 	dynamicbackend "lina-plugin-linapro-demo-dynamic/backend"
+
+	bridgeguest "lina-core/pkg/plugin/pluginbridge/guest"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // guestRuntime owns the wasm guest bridge buffers and request execution helpers.
-var guestRuntime = pluginbridge.NewGuestRuntime(dynamicbackend.HandleRequest)
+var guestRuntime = bridgeguest.NewGuestRuntime(dynamicbackend.HandleRequest)
 
 //go:wasmexport lina_dynamic_route_alloc
 func linaDynamicRouteAlloc(size uint32) uint32 {
@@ -17,7 +19,7 @@ func linaDynamicRouteAlloc(size uint32) uint32 {
 func linaDynamicRouteExecute(size uint32) uint64 {
 	responsePointer, responseLength, err := guestRuntime.Execute(size)
 	if err != nil {
-		fallback, _ := pluginbridge.EncodeResponseEnvelope(pluginbridge.NewInternalErrorResponse(err.Error()))
+		fallback, _ := protocol.EncodeResponseEnvelope(protocol.NewInternalErrorResponse(err.Error()))
 		responsePointer, responseLength, _ = guestRuntime.ExposeResponseBuffer(fallback)
 	}
 	return uint64(responsePointer)<<32 | uint64(responseLength)

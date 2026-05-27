@@ -23,8 +23,7 @@ import {
   queryPgScalar,
 } from '@host-tests/support/postgres';
 
-const apiBaseURL =
-  process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:8080/api/v1/";
+const apiBaseURL = config.apiBaseURL;
 const demoControlPluginID = "linapro-ops-demo-guard";
 const pluginID = "linapro-demo-source";
 const pluginMenuName = "源码插件示例";
@@ -108,7 +107,11 @@ async function syncPlugins(adminApi: APIRequestContext) {
 }
 
 async function installPlugin(adminApi: APIRequestContext, id = pluginID) {
-  const response = await adminApi.post(`plugins/${id}/install`);
+  const response = await adminApi.post(`plugins/${id}/install`, {
+    data: {
+      installMode: "global",
+    },
+  });
   assertOk(response, `安装插件失败: ${id}`);
 }
 

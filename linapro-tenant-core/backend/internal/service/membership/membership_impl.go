@@ -12,7 +12,7 @@ import (
 	"github.com/gogf/gf/v2/util/gconv"
 
 	"lina-core/pkg/bizerr"
-	pkgtenantcap "lina-core/pkg/tenantcap"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-plugin-linapro-tenant-core/backend/internal/dao"
 	"lina-plugin-linapro-tenant-core/backend/internal/model/do"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/shared"
@@ -40,7 +40,7 @@ func (s *serviceImpl) List(ctx context.Context, in ListInput) (*ListOutput, erro
 // Add adds a user to one tenant.
 func (s *serviceImpl) Add(ctx context.Context, in AddInput) (int64, error) {
 	in.TenantID = s.effectiveTenantID(ctx, in.TenantID)
-	if err := s.ensureUserCanJoinTenant(ctx, in.UserID, []pkgtenantcap.TenantID{pkgtenantcap.TenantID(in.TenantID)}); err != nil {
+	if err := s.ensureUserCanJoinTenant(ctx, in.UserID, []tenantcap.TenantID{tenantcap.TenantID(in.TenantID)}); err != nil {
 		return 0, err
 	}
 	if err := s.ensureTenantAcceptsMembership(ctx, in.TenantID); err != nil {
@@ -180,11 +180,11 @@ func (s *serviceImpl) ApplyUserTenantFilter(
 	ctx context.Context,
 	model *gdb.Model,
 	userIDColumn string,
-	tenantID pkgtenantcap.TenantID,
+	tenantID tenantcap.TenantID,
 ) (*gdb.Model, bool, error) {
 	bizCtx := s.bizCtxSvc.Current(ctx)
 	if model == nil ||
-		tenantID <= pkgtenantcap.PLATFORM ||
+		tenantID <= tenantcap.PLATFORM ||
 		bizCtx.TenantID != int(shared.PlatformTenantID) {
 		return model, false, nil
 	}
@@ -195,8 +195,8 @@ func (s *serviceImpl) ApplyUserTenantFilter(
 func (s *serviceImpl) ListUserTenantProjections(
 	ctx context.Context,
 	userIDs []int,
-) (map[int]*pkgtenantcap.UserTenantProjection, error) {
-	result := make(map[int]*pkgtenantcap.UserTenantProjection)
+) (map[int]*tenantcap.UserTenantProjection, error) {
+	result := make(map[int]*tenantcap.UserTenantProjection)
 	if len(userIDs) == 0 {
 		return result, nil
 	}
@@ -222,10 +222,10 @@ func (s *serviceImpl) ListUserTenantProjections(
 		}
 		item := result[row.UserID]
 		if item == nil {
-			item = &pkgtenantcap.UserTenantProjection{}
+			item = &tenantcap.UserTenantProjection{}
 			result[row.UserID] = item
 		}
-		item.TenantIDs = append(item.TenantIDs, pkgtenantcap.TenantID(row.TenantID))
+		item.TenantIDs = append(item.TenantIDs, tenantcap.TenantID(row.TenantID))
 		item.TenantNames = append(item.TenantNames, row.TenantName)
 	}
 	return result, nil
@@ -234,28 +234,28 @@ func (s *serviceImpl) ListUserTenantProjections(
 // ResolveUserTenantAssignment validates requested memberships and returns a host write plan.
 func (s *serviceImpl) ResolveUserTenantAssignment(
 	ctx context.Context,
-	requested []pkgtenantcap.TenantID,
-	mode pkgtenantcap.UserTenantAssignmentMode,
-) (*pkgtenantcap.UserTenantAssignmentPlan, error) {
+	requested []tenantcap.TenantID,
+	mode tenantcap.UserTenantAssignmentMode,
+) (*tenantcap.UserTenantAssignmentPlan, error) {
 	normalized := normalizeTenantIDs(requested)
 	bizCtx := s.bizCtxSvc.Current(ctx)
 	currentTenantID := int64(bizCtx.TenantID)
 	if currentTenantID > shared.PlatformTenantID {
-		if mode == pkgtenantcap.UserTenantAssignmentUpdate {
-			return &pkgtenantcap.UserTenantAssignmentPlan{}, nil
+		if mode == tenantcap.UserTenantAssignmentUpdate {
+			return &tenantcap.UserTenantAssignmentPlan{}, nil
 		}
-		return &pkgtenantcap.UserTenantAssignmentPlan{
-			TenantIDs:     []pkgtenantcap.TenantID{pkgtenantcap.TenantID(currentTenantID)},
+		return &tenantcap.UserTenantAssignmentPlan{
+			TenantIDs:     []tenantcap.TenantID{tenantcap.TenantID(currentTenantID)},
 			ShouldReplace: true,
-			PrimaryTenant: pkgtenantcap.TenantID(currentTenantID),
+			PrimaryTenant: tenantcap.TenantID(currentTenantID),
 		}, nil
 	}
 	if err := s.ensureTenantIDsAcceptMembership(ctx, normalized); err != nil {
 		return nil, err
 	}
-	return &pkgtenantcap.UserTenantAssignmentPlan{
+	return &tenantcap.UserTenantAssignmentPlan{
 		TenantIDs:     normalized,
-		ShouldReplace: mode == pkgtenantcap.UserTenantAssignmentUpdate || len(normalized) > 0,
+		ShouldReplace: mode == tenantcap.UserTenantAssignmentUpdate || len(normalized) > 0,
 		PrimaryTenant: firstTenantIDOrPlatform(normalized),
 	}, nil
 }
@@ -264,7 +264,7 @@ func (s *serviceImpl) ResolveUserTenantAssignment(
 func (s *serviceImpl) ReplaceUserTenantAssignments(
 	ctx context.Context,
 	userID int,
-	plan *pkgtenantcap.UserTenantAssignmentPlan,
+	plan *tenantcap.UserTenantAssignmentPlan,
 ) error {
 	if userID <= 0 || plan == nil {
 		return nil
@@ -308,10 +308,10 @@ func (s *serviceImpl) ReplaceUserTenantAssignments(
 func (s *serviceImpl) EnsureUsersInTenant(
 	ctx context.Context,
 	userIDs []int,
-	tenantID pkgtenantcap.TenantID,
+	tenantID tenantcap.TenantID,
 ) error {
 	normalized := normalizeUserIDs(userIDs)
-	if len(normalized) == 0 || tenantID <= pkgtenantcap.PLATFORM {
+	if len(normalized) == 0 || tenantID <= tenantcap.PLATFORM {
 		return nil
 	}
 	count, err := activeMembershipUserModel(ctx, int64(tenantID)).WhereIn("user_id", normalized).Count()
@@ -319,7 +319,7 @@ func (s *serviceImpl) EnsureUsersInTenant(
 		return err
 	}
 	if count != len(normalized) {
-		return bizerr.NewCode(pkgtenantcap.CodeTenantForbidden, bizerr.P("tenantId", int(tenantID)))
+		return bizerr.NewCode(tenantcap.CodeTenantForbidden, bizerr.P("tenantId", int(tenantID)))
 	}
 	return nil
 }
@@ -366,7 +366,7 @@ func (s *serviceImpl) getVisible(ctx context.Context, id int64, tenantID int64) 
 func (s *serviceImpl) ensureUserCanJoinTenant(
 	ctx context.Context,
 	userID int64,
-	replacementTenantIDs []pkgtenantcap.TenantID,
+	replacementTenantIDs []tenantcap.TenantID,
 ) error {
 	var user *sysUserTenantRow
 	if err := shared.Model(ctx, shared.TableSysUser).Fields("id", "tenant_id").Where("id", userID).Scan(&user); err != nil {
@@ -402,7 +402,7 @@ func (s *serviceImpl) ensureTenantAcceptsMembership(ctx context.Context, tenantI
 }
 
 // ensureTenantIDsAcceptMembership verifies all requested tenant IDs are active.
-func (s *serviceImpl) ensureTenantIDsAcceptMembership(ctx context.Context, tenantIDs []pkgtenantcap.TenantID) error {
+func (s *serviceImpl) ensureTenantIDsAcceptMembership(ctx context.Context, tenantIDs []tenantcap.TenantID) error {
 	for _, tenantID := range tenantIDs {
 		if err := s.ensureTenantAcceptsMembership(ctx, int64(tenantID)); err != nil {
 			return err
@@ -466,11 +466,11 @@ func activeMembershipUserModel(ctx context.Context, tenantID int64) *gdb.Model {
 }
 
 // normalizeTenantIDs returns positive unique tenant IDs while preserving order.
-func normalizeTenantIDs(tenantIDs []pkgtenantcap.TenantID) []pkgtenantcap.TenantID {
-	normalized := make([]pkgtenantcap.TenantID, 0, len(tenantIDs))
-	seen := make(map[pkgtenantcap.TenantID]struct{}, len(tenantIDs))
+func normalizeTenantIDs(tenantIDs []tenantcap.TenantID) []tenantcap.TenantID {
+	normalized := make([]tenantcap.TenantID, 0, len(tenantIDs))
+	seen := make(map[tenantcap.TenantID]struct{}, len(tenantIDs))
 	for _, tenantID := range tenantIDs {
-		if tenantID <= pkgtenantcap.PLATFORM {
+		if tenantID <= tenantcap.PLATFORM {
 			continue
 		}
 		if _, ok := seen[tenantID]; ok {
@@ -483,9 +483,9 @@ func normalizeTenantIDs(tenantIDs []pkgtenantcap.TenantID) []pkgtenantcap.Tenant
 }
 
 // firstTenantIDOrPlatform returns the primary tenant for host sys_user writes.
-func firstTenantIDOrPlatform(tenantIDs []pkgtenantcap.TenantID) pkgtenantcap.TenantID {
+func firstTenantIDOrPlatform(tenantIDs []tenantcap.TenantID) tenantcap.TenantID {
 	if len(tenantIDs) == 0 {
-		return pkgtenantcap.PLATFORM
+		return tenantcap.PLATFORM
 	}
 	return tenantIDs[0]
 }

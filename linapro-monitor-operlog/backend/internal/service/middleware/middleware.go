@@ -5,7 +5,7 @@ package middleware
 import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	operlogsvc "lina-plugin-linapro-monitor-operlog/backend/internal/service/operlog"
 )
 

@@ -6,9 +6,11 @@ import (
 	"context"
 	"strings"
 
-	"lina-core/pkg/pluginbridge"
-	"lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
+	v1 "lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
 	dynamicservice "lina-plugin-linapro-demo-dynamic/backend/internal/service/dynamic"
+
+	bridgeguest "lina-core/pkg/plugin/pluginbridge/guest"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // BackendSummary returns plugin bridge execution summary including plugin
@@ -18,12 +20,12 @@ func (c *Controller) BackendSummary(
 	_ *v1.BackendSummaryReq,
 ) (res *v1.BackendSummaryRes, err error) {
 	payload := c.dynamicSvc.BuildBackendSummaryPayload(
-		buildBackendSummaryRouteInput(pluginbridge.RequestEnvelopeFromContext(ctx)),
+		buildBackendSummaryRouteInput(bridgeguest.RequestEnvelopeFromContext(ctx)),
 	)
-	if err = pluginbridge.SetResponseHeader(ctx, "X-Lina-Plugin-Bridge", "linapro-demo-dynamic"); err != nil {
+	if err = bridgeguest.SetResponseHeader(ctx, "X-Lina-Plugin-Bridge", "linapro-demo-dynamic"); err != nil {
 		return nil, err
 	}
-	if err = pluginbridge.SetResponseHeader(ctx, "X-Lina-Plugin-Middleware", "backend-summary"); err != nil {
+	if err = bridgeguest.SetResponseHeader(ctx, "X-Lina-Plugin-Middleware", "backend-summary"); err != nil {
 		return nil, err
 	}
 	return &v1.BackendSummaryRes{
@@ -40,7 +42,7 @@ func (c *Controller) BackendSummary(
 
 // buildBackendSummaryRouteInput extracts backend summary route metadata and
 // identity context from the bridge request.
-func buildBackendSummaryRouteInput(request *pluginbridge.BridgeRequestEnvelopeV1) *dynamicservice.BackendSummaryInput {
+func buildBackendSummaryRouteInput(request *protocol.BridgeRequestEnvelopeV1) *dynamicservice.BackendSummaryInput {
 	input := &dynamicservice.BackendSummaryInput{}
 	if request == nil {
 		return input

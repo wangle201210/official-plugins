@@ -7,7 +7,7 @@ package operlog
 import (
 	"context"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	entitymodel "lina-plugin-linapro-monitor-operlog/backend/internal/model/entity"
 	"lina-plugin-linapro-monitor-operlog/backend/internal/model/operlogtype"
 )

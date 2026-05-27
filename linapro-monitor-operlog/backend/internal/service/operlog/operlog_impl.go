@@ -18,7 +18,7 @@ import (
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/excelutil"
 	"lina-core/pkg/gdbutil"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-monitor-operlog/backend/internal/dao"
 	"lina-plugin-linapro-monitor-operlog/backend/internal/model/do"
 	"lina-plugin-linapro-monitor-operlog/backend/internal/model/operlogtype"

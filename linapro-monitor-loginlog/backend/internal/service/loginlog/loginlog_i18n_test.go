@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 )
 
 // fakeI18nService provides deterministic runtime translations for unit tests.

@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	middlewaresvc "lina-plugin-linapro-ops-demo-guard/backend/internal/service/middleware"
 )
 

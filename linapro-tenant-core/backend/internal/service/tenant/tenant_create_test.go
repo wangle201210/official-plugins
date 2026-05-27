@@ -8,7 +8,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginservice/bizctx"
+	"lina-core/pkg/plugin/capability/bizctx"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/resolverconfig"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/shared"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/tenantplugin"

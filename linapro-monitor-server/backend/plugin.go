@@ -7,7 +7,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	monitorserverplugin "lina-plugin-linapro-monitor-server"
 	servercontroller "lina-plugin-linapro-monitor-server/backend/internal/controller/monitor"
 	monitorconfig "lina-plugin-linapro-monitor-server/backend/internal/service/config"
@@ -96,11 +96,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 
 // registerBuiltinCrons contributes managed cron definitions for server-monitor collection and cleanup.
 func registerBuiltinCrons(ctx context.Context, registrar pluginhost.CronRegistrar) error {
-	hostServices := registrar.HostServices()
-	if hostServices == nil || hostServices.Config() == nil {
+	services := registrar.Services()
+	if services == nil || services.Config() == nil {
 		return gerror.New("linapro-monitor-server cron requires host config service")
 	}
-	monitorCfg, err := monitorconfig.Load(ctx, hostServices.Config())
+	monitorCfg, err := monitorconfig.Load(ctx, services.Config())
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func registerBuiltinCrons(ctx context.Context, registrar pluginhost.CronRegistra
 		serviceMonitorCleanupDisplayName,
 		serviceMonitorCleanupDescription,
 		func(ctx context.Context) error {
-			return cleanupSnapshots(ctx, registrar, sharedMonitorSvc)
+			return cleanupSnapshots(ctx, registrar.IsPrimaryNode(), services, sharedMonitorSvc)
 		},
 	)
 }
@@ -143,16 +143,20 @@ func collectSnapshot(ctx context.Context, monitorSvc monitorsvc.Service) error {
 }
 
 // cleanupSnapshots removes expired monitoring snapshots.
-func cleanupSnapshots(ctx context.Context, registrar pluginhost.CronRegistrar, monitorSvc monitorsvc.Service) error {
-	if registrar != nil && !registrar.IsPrimaryNode() {
+func cleanupSnapshots(
+	ctx context.Context,
+	primaryNode bool,
+	services pluginhost.Services,
+	monitorSvc monitorsvc.Service,
+) error {
+	if !primaryNode {
 		return nil
 	}
 
-	hostServices := registrar.HostServices()
-	if hostServices == nil || hostServices.Config() == nil {
+	if services == nil || services.Config() == nil {
 		return gerror.New("linapro-monitor-server cleanup requires host config service")
 	}
-	monitorCfg, err := monitorconfig.Load(ctx, hostServices.Config())
+	monitorCfg, err := monitorconfig.Load(ctx, services.Config())
 	if err != nil {
 		return err
 	}

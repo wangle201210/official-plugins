@@ -6,7 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
+	"lina-core/pkg/plugin/pluginhost"
 	contentnotice "lina-plugin-linapro-content-notice"
 	noticecontroller "lina-plugin-linapro-content-notice/backend/internal/controller/notice"
 	noticesvc "lina-plugin-linapro-content-notice/backend/internal/service/notice"
@@ -37,20 +37,20 @@ func init() {
 // registerRoutes binds notice-management routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	var (
-		routes       = registrar.Routes()
-		middlewares  = routes.Middlewares()
-		hostServices = registrar.HostServices()
+		routes      = registrar.Routes()
+		middlewares = routes.Middlewares()
+		services    = registrar.Services()
 	)
-	if hostServices == nil ||
-		hostServices.BizCtx() == nil ||
-		hostServices.Notify() == nil ||
-		hostServices.TenantFilter() == nil {
+	if services == nil ||
+		services.BizCtx() == nil ||
+		services.Notify() == nil ||
+		services.TenantFilter() == nil {
 		return gerror.New("linapro-content-notice routes require host bizctx, notify, and tenant-filter services")
 	}
 	noticeSvc := noticesvc.New(
-		hostServices.BizCtx(),
-		hostServices.Notify(),
-		hostServices.TenantFilter(),
+		services.BizCtx(),
+		services.Notify(),
+		services.TenantFilter(),
 	)
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {

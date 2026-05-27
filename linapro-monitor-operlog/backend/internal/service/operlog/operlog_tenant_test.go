@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	plugincontract "lina-core/pkg/pluginservice/contract"
-	tenantfilter "lina-core/pkg/pluginservice/tenantfilter"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
+	tenantfilter "lina-core/pkg/plugin/capability/tenantfilter"
 )
 
 // testBizCtxService returns one configured plugin-visible context snapshot.

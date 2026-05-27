@@ -8,7 +8,7 @@ package monitor
 import (
 	"context"
 
-	sessionsvc "lina-core/pkg/pluginservice/contract"
+	sessionsvc "lina-core/pkg/plugin/capability/contract"
 )
 
 // List returns one paginated online-user list.

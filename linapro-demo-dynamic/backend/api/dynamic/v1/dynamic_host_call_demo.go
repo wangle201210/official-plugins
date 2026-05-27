@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/util/gmeta"
 
 // HostCallDemoReq is the request for invoking the host call demo endpoint.
 type HostCallDemoReq struct {
-	gmeta.Meta  `path:"/host-call-demo" method:"post" tags:"Dynamic Plugin Demo" summary:"Host calling capability demonstration" dc:"Demonstrate dynamic plugin calls to runtime, storage, network, and data capabilities through the unified host service model. The endpoint writes runtime logs, reads and writes isolated plugin storage, accesses governed upstreams, and performs structured CRUD on authorized data tables. Passing skipNetwork=1 skips external network requests for offline verification." access:"login" permission:"linapro-demo-dynamic:backend:view" operLog:"other"`
+	gmeta.Meta  `path:"/host-call-demo" method:"post" tags:"Dynamic Plugin Demo" summary:"Host calling capability demonstration" dc:"Demonstrate dynamic plugin calls to runtime, storage, network, data, plugin config, public host config, organization, and tenant capabilities through the unified host service model. The endpoint writes runtime logs, reads and writes isolated plugin storage, accesses governed upstreams, performs structured CRUD on authorized data tables, reads plugin-owned config keys, reads whitelisted public host config keys, and reads current organization and tenant projections. Passing skipNetwork=1 skips external network requests for offline verification." access:"login" permission:"linapro-demo-dynamic:backend:view" operLog:"other"`
 	SkipNetwork bool `json:"skipNetwork" dc:"Whether to skip external network requests: true=skip false=normal access, default is false when omitted" eg:"false"`
 }
 
@@ -18,7 +18,10 @@ type HostCallDemoRes struct {
 	Storage    *HostCallDemoStorageRes `json:"storage" dc:"storage hosting service executive summary" eg:"{\"pathPrefix\":\"host-call-demo/\",\"objectPath\":\"host-call-demo/demo.json\",\"stored\":true,\"listedCount\":1,\"deleted\":true}"`
 	Network    *HostCallDemoNetworkRes `json:"network" dc:"network hosting service executive summary" eg:"{\"url\":\"https://example.com\",\"skipped\":false,\"statusCode\":200,\"contentType\":\"text/html\"}"`
 	Data       *HostCallDemoDataRes    `json:"data" dc:"data host service executive summary" eg:"{\"table\":\"sys_plugin_node_state\",\"recordKey\":\"101\",\"listTotal\":1,\"countTotal\":1,\"updated\":true,\"deleted\":true}"`
-	Message    string                  `json:"message" dc:"Host call demonstration information" eg:"Host service demo executed through runtime, storage, network, and data services."`
+	Config     *HostCallDemoConfigRes  `json:"config" dc:"Plugin config and whitelisted public host config read summary" eg:"{\"plugin\":{\"greeting\":\"Hello from dynamic plugin\",\"greetingFound\":true,\"featureEnabled\":true,\"featureEnabledFound\":true},\"hostConfig\":{\"workspaceBasePath\":\"/opt/linapro\",\"workspaceBasePathFound\":true,\"i18nDefault\":\"zh-CN\",\"i18nDefaultFound\":true,\"i18nEnabled\":true,\"i18nEnabledFound\":true}}"`
+	Org        *HostCallDemoOrgRes     `json:"org" dc:"Organization capability host service read summary" eg:"{\"available\":true,\"capabilityId\":\"framework.org.v1\",\"activeProvider\":\"linapro-org-core\",\"assignmentCount\":1,\"currentUserDeptCount\":1,\"currentUserPostCount\":2}"`
+	Tenant     *HostCallDemoTenantRes  `json:"tenant" dc:"Tenant capability host service read summary" eg:"{\"available\":true,\"capabilityId\":\"framework.tenant.v1\",\"activeProvider\":\"linapro-tenant-core\",\"currentTenantId\":1,\"platformBypass\":false,\"userTenantCount\":1,\"visible\":true}"`
+	Message    string                  `json:"message" dc:"Host call demonstration information" eg:"Host service demo executed through runtime, storage, network, data, config, hostConfig, org, and tenant services."`
 }
 
 // HostCallDemoRuntimeRes describes runtime service results.
@@ -55,4 +58,51 @@ type HostCallDemoDataRes struct {
 	CountTotal int    `json:"countTotal" dc:"The total number geted by executing count query based on the same filter conditions" eg:"1"`
 	Updated    bool   `json:"updated" dc:"Whether the update is successfully completed and the updated record is read back" eg:"true"`
 	Deleted    bool   `json:"deleted" dc:"Whether the temporary record was successfully deleted" eg:"true"`
+}
+
+// HostCallDemoConfigRes describes plugin config and public host config reads.
+type HostCallDemoConfigRes struct {
+	Plugin     *HostCallDemoPluginConfigRes `json:"plugin" dc:"Plugin-owned runtime config values read through the config host service" eg:"{\"greeting\":\"Hello from dynamic plugin\",\"greetingFound\":true,\"featureEnabled\":true,\"featureEnabledFound\":true}"`
+	HostConfig *HostCallDemoHostConfigRes   `json:"hostConfig" dc:"Whitelisted public host config values read through the hostConfig host service" eg:"{\"workspaceBasePath\":\"/opt/linapro\",\"workspaceBasePathFound\":true,\"i18nDefault\":\"zh-CN\",\"i18nDefaultFound\":true,\"i18nEnabled\":true,\"i18nEnabledFound\":true}"`
+}
+
+// HostCallDemoPluginConfigRes describes plugin-owned config values.
+type HostCallDemoPluginConfigRes struct {
+	Greeting            string `json:"greeting" dc:"The demo.greeting value read from the plugin runtime config.yaml file" eg:"Hello from dynamic plugin"`
+	GreetingFound       bool   `json:"greetingFound" dc:"Whether demo.greeting exists in the plugin runtime config source" eg:"true"`
+	FeatureEnabled      bool   `json:"featureEnabled" dc:"The demo.featureEnabled value read from the plugin runtime config.yaml file" eg:"true"`
+	FeatureEnabledFound bool   `json:"featureEnabledFound" dc:"Whether demo.featureEnabled exists in the plugin runtime config source" eg:"true"`
+}
+
+// HostCallDemoHostConfigRes describes public host config values.
+type HostCallDemoHostConfigRes struct {
+	WorkspaceBasePath      string `json:"workspaceBasePath" dc:"The whitelisted host workspace.basePath config value" eg:"/opt/linapro"`
+	WorkspaceBasePathFound bool   `json:"workspaceBasePathFound" dc:"Whether workspace.basePath exists in the public host config view" eg:"true"`
+	I18nDefault            string `json:"i18nDefault" dc:"The whitelisted host i18n.default config value" eg:"zh-CN"`
+	I18nDefaultFound       bool   `json:"i18nDefaultFound" dc:"Whether i18n.default exists in the public host config view" eg:"true"`
+	I18nEnabled            bool   `json:"i18nEnabled" dc:"The whitelisted host i18n.enabled config value" eg:"true"`
+	I18nEnabledFound       bool   `json:"i18nEnabledFound" dc:"Whether i18n.enabled exists in the public host config view" eg:"true"`
+}
+
+// HostCallDemoOrgRes describes organization capability results.
+type HostCallDemoOrgRes struct {
+	Available            bool   `json:"available" dc:"Whether the organization capability currently has an active provider" eg:"true"`
+	CapabilityID         string `json:"capabilityId" dc:"The organization capability identifier reported by the host" eg:"framework.org.v1"`
+	ActiveProvider       string `json:"activeProvider" dc:"The active organization provider plugin identifier, empty when unavailable" eg:"linapro-org-core"`
+	Reason               string `json:"reason" dc:"Diagnostic reason returned by the host when the organization capability is unavailable" eg:""`
+	AssignmentCount      int    `json:"assignmentCount" dc:"Number of department assignment projections returned for the current user" eg:"1"`
+	CurrentUserDeptCount int    `json:"currentUserDeptCount" dc:"Number of department IDs returned for the current user" eg:"1"`
+	CurrentUserPostCount int    `json:"currentUserPostCount" dc:"Number of post IDs returned for the current user" eg:"2"`
+}
+
+// HostCallDemoTenantRes describes tenant capability results.
+type HostCallDemoTenantRes struct {
+	Available       bool   `json:"available" dc:"Whether the tenant capability currently has an active provider" eg:"true"`
+	CapabilityID    string `json:"capabilityId" dc:"The tenant capability identifier reported by the host" eg:"framework.tenant.v1"`
+	ActiveProvider  string `json:"activeProvider" dc:"The active tenant provider plugin identifier, empty when unavailable" eg:"linapro-tenant-core"`
+	Reason          string `json:"reason" dc:"Diagnostic reason returned by the host when the tenant capability is unavailable" eg:""`
+	CurrentTenantID int    `json:"currentTenantId" dc:"The current request tenant identifier returned by the tenant host service" eg:"1"`
+	PlatformBypass  bool   `json:"platformBypass" dc:"Whether the current request may bypass tenant filtering" eg:"false"`
+	UserTenantCount int    `json:"userTenantCount" dc:"Number of active tenants visible to the current user" eg:"1"`
+	Visible         bool   `json:"visible" dc:"Whether the current tenant passed the tenant visibility check" eg:"true"`
 }

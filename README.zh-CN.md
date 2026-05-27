@@ -1,34 +1,57 @@
 # LinaPro 插件目录
 
-`official-plugins` 是 LinaPro 官方源码插件工作区。
+`apps/lina-plugins/`是 LinaPro 的一方插件工作区。
 
-挂载到主仓库 `linapro` 后，该工作区位于 `apps/lina-plugins/`。
+LinaPro 将`apps/lina-core`定位为稳定的全栈框架宿主。宿主保留通用框架能力、治理能力和插件扩展接缝；业务模块、运维页面、演示能力和可选领域能力放在本目录以插件形式交付。这样可以保持宿主可复用，并避免核心契约绑定到某个具体管理工作台页面。
 
-在当前开源阶段，宿主只保留稳定的核心基础能力，例如用户管理、角色管理、菜单管理、字典管理、参数设置、文件管理、任务调度、插件治理和开发支持；非核心业务能力通过 `apps/lina-plugins/<plugin-id>/` 下的源码插件交付。
+当前工作区同时包含随宿主编译的源码插件，以及一个用于运行时交付参考的动态`WASM`插件示例。
 
-## 这里包含什么
+## 插件清单
 
-当前目录下包含以下参考内容：
+| 插件 | 类型 | 作用域 | 安装模式 | 能力边界 |
+|------|------|--------|----------|----------|
+| `linapro-tenant-core` | `source` | `platform_only` | `global` | 租户主体、成员关系、租户解析与租户生命周期治理 |
+| `linapro-org-core` | `source` | `tenant_aware` | `global` | 部门管理与岗位管理 |
+| `linapro-content-notice` | `source` | `tenant_aware` | `tenant_scoped` | 通知公告管理 |
+| `linapro-monitor-online` | `source` | `tenant_aware` | `tenant_scoped` | 在线用户查询与强制下线治理 |
+| `linapro-monitor-server` | `source` | `platform_only` | `global` | 服务监控采集、清理与查询 |
+| `linapro-monitor-operlog` | `source` | `tenant_aware` | `tenant_scoped` | 操作日志持久化与治理页面 |
+| `linapro-monitor-loginlog` | `source` | `tenant_aware` | `tenant_scoped` | 登录日志持久化与治理页面 |
+| `linapro-ops-demo-guard` | `source` | `tenant_aware` | `global` | 演示环境只读保护与全局写操作拦截 |
+| `linapro-demo-source` | `source` | `tenant_aware` | `tenant_scoped` | 源码插件菜单页面、公开路由和受保护路由示例 |
+| `linapro-demo-dynamic` | `dynamic` | `tenant_aware` | `tenant_scoped` | 动态`WASM`插件示例，演示菜单内嵌页面、插件自有`SQL`表`CRUD`和独立静态页面 |
 
-- `linapro-demo-source`：源码插件目录结构与开发方式样例
-- `linapro-demo-dynamic`：动态 WASM 插件结构与生命周期样例
-- 官方源码插件：通过显式接线编译进宿主的一方业务插件
+根目录`go.mod`和`lina-plugins.go`负责接线随宿主编译的源码插件。`linapro-demo-dynamic`不作为源码插件接线，它是`WASM`构建与运行时生命周期流程的参考插件。
 
-## 作为 Submodule 使用
+## 工作区文件
 
-主仓库 `linapro` 会通过如下命令把本仓库挂载到 `apps/lina-plugins`：
+| 路径 | 用途 |
+|------|------|
+| `go.mod` | 用于源码插件编译检查的本地`Go`工作区模块 |
+| `lina-plugins.go` | 宿主编译用的源码插件显式导入注册表 |
+| `Makefile` | 动态插件构建入口；`make wasm p=<plugin-id>`会委托给`linactl wasm` |
+| `package.json` | 源码插件包的前端工作区元数据 |
+| `<plugin-id>/plugin.yaml` | 插件清单，包含元数据、菜单、安装模式、`i18n`、资产、依赖和宿主服务声明 |
+| `<plugin-id>/README.md` | 插件级英文说明 |
+| `<plugin-id>/README.zh-CN.md` | 插件级中文说明 |
+
+## 仓库挂载
+
+主仓库`linapro`会把本工作区作为`Git submodule`挂载到`apps/lina-plugins`：
 
 ```bash
 git submodule update --init --recursive
 ```
 
-在已经检出的 `linapro` 工作区里做本地 submodule 管理时，SSH 远端地址为：
+当前配置的 SSH 远端地址为：
 
 ```text
 git@github.com:linaproai/official-plugins.git
 ```
 
-## 官方源码插件列表
+## 插件目录契约
+
+每个插件目录都由插件自己拥有。生命周期资源、前端页面、后端代码、`SQL`资产、`i18n`资源和测试都应保留在`apps/lina-plugins/<plugin-id>/`内。
 
 当前仓库内置以下一方源码插件：
 
@@ -48,76 +71,98 @@ git@github.com:linaproai/official-plugins.git
 ```text
 apps/lina-plugins/<plugin-id>/
   backend/
-    api/                插件 API DTO 与路由契约
+    api/                  API DTO、路由契约与元数据
     internal/
-      controller/       插件 HTTP 控制器
-      service/          插件业务服务
-      dao/              插件存在数据库访问时生成的本地 DAO 工件
-      model/do/         插件存在数据库访问时生成的本地 DO 工件
-      model/entity/     插件存在数据库访问时生成的本地实体工件
-    hack/config.yaml    插件本地 GoFrame codegen 配置
-    plugin.go           插件后端注册入口
-  frontend/pages/       由宿主菜单挂载的插件页面
-  manifest/sql/         插件自有安装 SQL 资源
-  manifest/sql/mock-data/ 插件自有可选`mock`/演示 SQL 资源
-  manifest/sql/uninstall/ 插件自有卸载 SQL 资源
-  hack/tests/e2e/       可选的插件自有 E2E TC 用例
-  hack/tests/pages/     可选的插件自有 E2E 页面对象
-  hack/tests/support/   可选的插件自有 E2E helper
-  plugin.yaml           插件清单
-  plugin_embed.go       嵌入资源注册入口
-  README.md             英文说明
-  README.zh-CN.md       中文说明
+      controller/         插件请求处理与响应投影
+      service/            插件业务编排与领域逻辑
+      dao/                插件存在数据库访问时生成的本地 DAO 工件
+      model/do/           插件存在数据库访问时生成的本地 DO 工件
+      model/entity/       插件存在数据库访问时生成的本地实体工件
+    hack/config.yaml      存在 DAO 生成时的插件本地 GoFrame codegen 配置
+    plugin.go             后端注册、路由注册、生命周期入口或动态桥接入口
+  frontend/pages/         插件自有页面或公开静态资产
+  manifest/
+    sql/                  安装 SQL 资产
+    sql/mock-data/        可选 mock 或演示 SQL 资产
+    sql/uninstall/        可选卸载 SQL 资产
+    i18n/<locale>/        插件 i18n 资源
+  hack/tests/             可选的插件自有 E2E 用例、页面对象和 helper
+  go.mod                  插件本地 Go 模块
+  plugin.yaml             插件清单
+  plugin_embed.go         嵌入资产注册入口
+  README.md               英文说明
+  README.zh-CN.md         中文说明
 ```
 
-`backend/internal/service/` 是源码插件业务 `service` 的唯一合法目录，禁止再创建 `backend/service/`。
+`backend/internal/service/`是插件业务服务的唯一合法目录，禁止创建`backend/service/`。动态插件保持同样的`backend/api/`、`backend/plugin.go`、`backend/internal/controller/`和`backend/internal/service/`结构；桥接文件只负责适配`WASM`与`pluginbridge`协议。`guest`业务能力 client 必须来自`lina-core/pkg/plugin/capability/guest`，不得从`pluginbridge`根包获取。
+
+## 源码插件
+
+源码插件通过显式注册随`apps/lina-core`编译。它们适合需要随宿主构建交付、但仍不应进入宿主核心领域的一方框架能力。
+
+源码插件开发规则：
+
+1. 创建或更新`apps/lina-plugins/<plugin-id>/`。
+2. 在`plugin.yaml`和`manifest/`中维护插件元数据、菜单、页面挂载、生命周期资源、`SQL`资产和`i18n`资产。
+3. 后端实现保留在`backend/`下，业务逻辑放在`backend/internal/service/`中。
+4. 前端页面放在`frontend/pages/`下，或通过`plugin.yaml`的`public_assets`声明公开资产目录。
+5. 当插件必须编译进宿主时，在`apps/lina-plugins/lina-plugins.go`中显式注册。
+
+## 动态插件
+
+动态插件以运行时托管的`WASM`产物交付。`linapro-demo-dynamic/`是上传、安装、启用、停用、卸载、`hostServices`、公开静态资产和通过受治理宿主服务访问插件自有数据的参考实现。
+
+构建全部动态插件，或通过`p=<plugin-id>`构建单个插件：
+
+```bash
+make -C apps/lina-plugins wasm
+make -C apps/lina-plugins wasm p=linapro-demo-dynamic
+```
+
+动态插件必须在`plugin.yaml`中声明`type: dynamic`，使用`main.go`和`go.mod`作为`guest`构建入口，通过`hostServices`描述运行时能力和资源边界，并从`lina-core/pkg/plugin/capability/guest`导入 runtime、storage、data、cache、config、notify、cron 等业务宿主服务 client。
 
 ## 宿主与插件边界
 
-当前源码插件方案强调通过稳定接缝解耦，而不是在宿主里散落大量 `if pluginEnabled` 判断。
+宿主拥有稳定的框架表面和一级目录骨架，例如`dashboard`、`platform`、`org`、`content`、`monitor`、`setting`、`scheduler`、`extension`和`developer`。插件通过`plugin.yaml`的`parent_key`自主选择挂载点；宿主只在同步时解析声明的父级，并拒绝缺失父级以避免孤儿菜单树。
 
-- 宿主拥有稳定的一级目录骨架，例如 `dashboard`、`iam`、`setting`、`scheduler`、`extension`、`developer`。
-- 插件通过自身 `plugin.yaml` 的 `parent_key` 自主选择菜单挂载点；宿主只在同步时解析该父级菜单记录，并拒绝缺失父级以避免产生孤儿菜单树。
-- 官方插件的预期菜单位置由各插件自己的 `plugin.yaml` 维护；宿主不硬编码官方插件 ID，也不强制绑定特定父级目录。
-- 宿主对插件发布稳定能力接缝，例如认证事件、审计事件、组织能力接口和插件生命周期 Hook。
-- 插件自有的数据表、菜单、页面、Hook 和定时任务都保留在插件目录内，并通过插件生命周期完成安装与卸载。
+插件自有的数据表、菜单、页面、Hook、定时任务、公开资产和生命周期资源都保留在插件目录内。宿主代码应依赖稳定的插件服务接缝和公开包，而不是硬编码插件专属页面结构或菜单装配细节。
 
-## HTTP 路由与公开资源
+## 路由与公开资产
 
-源码插件的`HTTP`路由是插件后端代码注册的实现细节。不要在`plugin.yaml`中声明公开路由、门户路由、工作台`API`路由或路由分组。
+源码插件的`HTTP`路由由插件后端代码注册。不要在`plugin.yaml`中声明公开路由、门户路由、工作台`API`路由或路由分组。
 
-源码插件`API`应使用`registrar.Routes().APIPrefix()`。该方法返回`/x/{plugin-id}`；这个插件自有命名空间是强制边界，其后的路径段由插件自行定义。插件可以在该前缀下选择`/api/v1`、`/api/v2`或`/interface/m1`等习惯性路径。源码插件仍可注册非保留公开路由，例如`/`、`/portal/*`或`/assets/*`，用于页面、门户、静态资源或插件自管的 fallback handler。
+源码插件`API`应使用`registrar.Routes().APIPrefix()`。该方法返回`/x/{plugin-id}`，其后的路径段由插件自行定义，例如`/api/v1`、`/api/v2`或`/interface/m1`。
 
-`plugin.yaml`的`menus`仍然是管理工作台导航与权限的事实来源。注册`HTTP`路由不会自动创建菜单、权限节点、`OpenAPI`条目或工作台路由元数据。
+`plugin.yaml`的`menus`是管理工作台导航与权限的事实来源。注册`HTTP`路由不会自动创建菜单、权限节点、`OpenAPI`条目或工作台路由元数据。
 
-源码插件和动态插件可以通过`plugin.yaml`的`public_assets`声明公开静态资源目录。宿主只会从`/x-assets/{plugin-id}/{version}/...`提供已声明的公开资源，并把每个声明视为插件作者的显式发布边界。声明必须留在插件自有资源集合内；包含路径穿越、绝对路径、`URL`、通配符、重叠挂载或符号链接逃逸的配置都会被拒绝。
+插件可以通过`plugin.yaml`的`public_assets`声明公开静态资产。宿主从`/x-assets/{plugin-id}/{version}/...`提供已声明资源，并把每个声明视为插件作者的发布边界。
 
-## 源码插件开发流程
+## 测试
 
-1. 创建 `apps/lina-plugins/<plugin-id>/`。
-2. 参考 `linapro-demo-source/` 的目录结构。
-3. 在 `plugin.yaml` 中声明清单、菜单、页面、SQL 资源与可选 Hook。
-4. 插件后端代码保留在插件目录中，业务逻辑统一放在 `backend/internal/service/` 下，并且只依赖宿主公开包。
-5. 在 `apps/lina-plugins/lina-plugins.go` 中做显式接线。
+插件自有 Playwright 覆盖应放在：
 
-## 插件自有 E2E 测试
+```text
+apps/lina-plugins/<plugin-id>/hack/tests/e2e/
+apps/lina-plugins/<plugin-id>/hack/tests/pages/
+apps/lina-plugins/<plugin-id>/hack/tests/support/
+```
 
-源码插件应把插件专属 Playwright 覆盖放在 `apps/lina-plugins/<plugin-id>/hack/tests/e2e/` 下。
-插件页面对象和辅助 helper 应分别保留在同级的 `hack/tests/pages/` 与 `hack/tests/support/` 中。
-宿主测试运行器会通过通用 `plugins` 范围发现这些测试；单个插件也可以通过 `pnpm -C hack/tests test:module -- plugin:<plugin-id>` 直接运行，不需要为每个插件在执行清单里新增专属 scope。
+通过宿主测试运行器运行单个插件测试范围：
 
-## 源码插件版本升级
+```bash
+pnpm -C hack/tests test:module -- plugin:<plugin-id>
+```
 
-当某个源码插件已经在宿主中安装完成，而你又提升了它的 `plugin.yaml` 版本时，源码扫描不再自动替换当前生效版本。
+适用时使用插件本地`api_contract_test.go`和`Go package`测试完成后端契约检查。
 
-- 当前生效版本仍然固定在 `sys_plugin.version` 与 `release_id`。
-- 新发现的更高源码版本会写入一个 `prepared` 状态的 `sys_plugin_release`。
-- 在宿主允许启动前，必须通过受支持的插件工作区更新流程处理源码插件。
-- 如果跳过这一步，宿主启动会直接失败，并输出仍需处理的插件。
+## 版本升级
 
-## 动态插件说明
+当已安装源码插件提升`plugin.yaml`的`version`后，发现流程不会静默替换宿主当前生效版本。
 
-动态 WASM 插件仍然适用于运行时托管交付场景。如果插件需要通过上传、安装、启用、停用和卸载完成生命周期管理，请参考 `linapro-demo-dynamic/`。
+- 当前生效版本仍固定在`sys_plugin.version`和`release_id`。
+- 新发现的更高源码版本会写入一个`prepared`状态的`sys_plugin_release`。
+- 宿主继续启动前，必须通过受支持的插件工作区更新流程处理源码插件。
+- 如果跳过更新，启动会快速失败并报告仍需处理的插件。
 
 ## 参考入口
 

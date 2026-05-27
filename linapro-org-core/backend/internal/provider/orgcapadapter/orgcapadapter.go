@@ -1,5 +1,5 @@
-// Package orgcapadapter provides the linapro-org-core implementation of the
-// host organization-capability provider contract.
+// Package orgcapadapter adapts linapro-org-core services to the framework
+// organization capability provider contract.
 package orgcapadapter
 
 import (
@@ -8,8 +8,8 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 
-	"lina-core/pkg/orgcap"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/orgcap"
 	"lina-plugin-linapro-org-core/backend/internal/dao"
 	"lina-plugin-linapro-org-core/backend/internal/model/do"
 	entitymodel "lina-plugin-linapro-org-core/backend/internal/model/entity"
@@ -95,55 +95,6 @@ func (p *Provider) ListUserDeptAssignments(ctx context.Context, userIDs []int) (
 	return assignments, nil
 }
 
-// GetUserIDsByDept returns user IDs associated with the given department subtree.
-func (p *Provider) GetUserIDsByDept(ctx context.Context, deptID int) ([]int, error) {
-	deptIDs, err := p.deptSvc.DescendantDeptIDs(ctx, deptID)
-	if err != nil {
-		return nil, err
-	}
-
-	var userDepts []*entitymodel.UserDept
-	if err = p.tenantFilter.Apply(ctx, dao.UserDept.Ctx(ctx), "").
-		WhereIn(dao.UserDept.Columns().DeptId, deptIDs).
-		Scan(&userDepts); err != nil {
-		return nil, err
-	}
-
-	seen := make(map[int]struct{}, len(userDepts))
-	ids := make([]int, 0, len(userDepts))
-	for _, item := range userDepts {
-		if item == nil {
-			continue
-		}
-		if _, ok := seen[item.UserId]; ok {
-			continue
-		}
-		seen[item.UserId] = struct{}{}
-		ids = append(ids, item.UserId)
-	}
-	return ids, nil
-}
-
-// GetAllAssignedUserIDs returns all user IDs that currently hold department assignments.
-func (p *Provider) GetAllAssignedUserIDs(ctx context.Context) ([]int, error) {
-	var userDepts []*entitymodel.UserDept
-	if err := p.tenantFilter.Apply(ctx, dao.UserDept.Ctx(ctx), "").
-		Fields(dao.UserDept.Columns().UserId).
-		Distinct().
-		Scan(&userDepts); err != nil {
-		return nil, err
-	}
-
-	ids := make([]int, 0, len(userDepts))
-	for _, item := range userDepts {
-		if item == nil {
-			continue
-		}
-		ids = append(ids, item.UserId)
-	}
-	return ids, nil
-}
-
 // GetUserDeptInfo returns one user's department projection.
 func (p *Provider) GetUserDeptInfo(ctx context.Context, userID int) (int, string, error) {
 	var userDept *entitymodel.UserDept
@@ -223,6 +174,44 @@ func (p *Provider) BuildUserDeptScopeExists(
 		Where(fmt.Sprintf("%s = %s", qualifiedUserDeptColumn(cols.UserId), userIDColumn)).
 		WhereIn(cols.DeptId, deptIDs)
 	return subQuery, false, nil
+}
+
+// ApplyUserDeptFilter constrains user rows to one department subtree with a
+// correlated EXISTS query, avoiding high-cardinality user ID materialization.
+func (p *Provider) ApplyUserDeptFilter(
+	ctx context.Context,
+	model *gdb.Model,
+	userIDColumn string,
+	deptID int,
+) (*gdb.Model, bool, error) {
+	deptIDs, err := p.deptSvc.DescendantDeptIDs(ctx, deptID)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(deptIDs) == 0 {
+		return model, true, nil
+	}
+
+	cols := dao.UserDept.Columns()
+	subQuery := p.tenantFilter.Apply(ctx, dao.UserDept.Ctx(ctx), dao.UserDept.Table()).
+		Fields(cols.UserId).
+		Where(fmt.Sprintf("%s = %s", qualifiedUserDeptColumn(cols.UserId), userIDColumn)).
+		WhereIn(cols.DeptId, deptIDs)
+	return model.Where("EXISTS ?", subQuery), false, nil
+}
+
+// ApplyUserDeptUnassignedFilter constrains user rows to users without any
+// department assignment in the current tenant.
+func (p *Provider) ApplyUserDeptUnassignedFilter(
+	ctx context.Context,
+	model *gdb.Model,
+	userIDColumn string,
+) (*gdb.Model, bool, error) {
+	cols := dao.UserDept.Columns()
+	subQuery := p.tenantFilter.Apply(ctx, dao.UserDept.Ctx(ctx), dao.UserDept.Table()).
+		Fields(cols.UserId).
+		Where(fmt.Sprintf("%s = %s", qualifiedUserDeptColumn(cols.UserId), userIDColumn))
+	return model.WhereNotExists(subQuery), false, nil
 }
 
 // currentVisibleDeptIDs returns the current user's department IDs plus all

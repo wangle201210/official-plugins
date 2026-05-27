@@ -2,13 +2,20 @@
 
 package dynamic
 
-import "lina-core/pkg/pluginbridge"
+import (
+	"context"
+
+	v1 "lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
+)
 
 // RegisterCrons publishes the dynamic sample plugin's built-in cron
 // declarations for host-side discovery.
-func (c *Controller) RegisterCrons(_ *pluginbridge.BridgeRequestEnvelopeV1) (*pluginbridge.BridgeResponseEnvelopeV1, error) {
+func (c *Controller) RegisterCrons(
+	_ context.Context,
+	_ *v1.RegisterCronsReq,
+) (*v1.RegisterCronsRes, error) {
 	if err := c.dynamicSvc.RegisterCrons(); err != nil {
 		return nil, err
 	}
-	return pluginbridge.NewSuccessResponse(204, "text/plain; charset=utf-8", nil), nil
+	return &v1.RegisterCronsRes{}, nil
 }

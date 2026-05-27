@@ -18,8 +18,8 @@ import (
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/excelutil"
 	"lina-core/pkg/gdbutil"
-	"lina-core/pkg/pluginhost"
-	plugincontract "lina-core/pkg/pluginservice/contract"
+	"lina-core/pkg/plugin/pluginhost"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-monitor-loginlog/backend/internal/dao"
 	"lina-plugin-linapro-monitor-loginlog/backend/internal/model/do"
 )

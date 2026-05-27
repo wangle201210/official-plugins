@@ -5,7 +5,7 @@ package dynamic
 import (
 	"context"
 
-	"lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
+	v1 "lina-plugin-linapro-demo-dynamic/backend/api/dynamic/v1"
 )
 
 // DemoRecord returns one plugin-owned demo record detail.

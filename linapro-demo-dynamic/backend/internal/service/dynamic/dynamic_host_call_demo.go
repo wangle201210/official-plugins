@@ -4,6 +4,7 @@
 package dynamicservice
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -11,7 +12,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginbridge"
+	"lina-core/pkg/plugin/pluginbridge/protocol"
 )
 
 // Host-call demo constants define the governed keys, paths, and sample values
@@ -28,13 +29,18 @@ const (
 	hostCallDemoCurrentStateNew    = "pending"
 	hostCallDemoCurrentStateReady  = "running"
 	hostCallDemoAnonymousUser      = "anonymous"
-	hostCallDemoSummaryMessage     = "Host service demo executed through runtime, storage, network, and data services."
+	hostCallDemoSummaryMessage     = "Host service demo executed through runtime, storage, network, data, config, hostConfig, org, and tenant services."
 	hostCallDemoNetworkPreview     = 120
+	hostCallDemoPluginGreetingKey  = "demo.greeting"
+	hostCallDemoPluginFeatureKey   = "demo.featureEnabled"
+	hostCallDemoWorkspaceKey       = "workspace.basePath"
+	hostCallDemoI18nDefaultKey     = "i18n.default"
+	hostCallDemoI18nEnabledKey     = "i18n.enabled"
 )
 
 // BuildHostCallDemoPayload executes the host service demo and returns the
 // response payload.
-func (s *serviceImpl) BuildHostCallDemoPayload(input *HostCallDemoInput) (*hostCallDemoPayload, error) {
+func (s *serviceImpl) BuildHostCallDemoPayload(ctx context.Context, input *HostCallDemoInput) (*hostCallDemoPayload, error) {
 	nowValue, err := s.runtimeSvc.Now()
 	if err != nil {
 		return nil, err
@@ -48,7 +54,7 @@ func (s *serviceImpl) BuildHostCallDemoPayload(input *HostCallDemoInput) (*hostC
 		return nil, err
 	}
 	if err = s.runtimeSvc.Log(
-		int(pluginbridge.LogLevelInfo),
+		int(protocol.LogLevelInfo),
 		"host service demo invoked",
 		nil,
 	); err != nil {
@@ -72,6 +78,18 @@ func (s *serviceImpl) BuildHostCallDemoPayload(input *HostCallDemoInput) (*hostC
 	if err != nil {
 		return nil, err
 	}
+	configSummary, err := s.runHostCallDemoConfig()
+	if err != nil {
+		return nil, err
+	}
+	orgSummary, err := s.runHostCallDemoOrg(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	tenantSummary, err := s.runHostCallDemoTenant(ctx, input)
+	if err != nil {
+		return nil, err
+	}
 	networkSummary := s.runHostCallDemoNetwork(input, uuidValue)
 
 	return &hostCallDemoPayload{
@@ -85,6 +103,9 @@ func (s *serviceImpl) BuildHostCallDemoPayload(input *HostCallDemoInput) (*hostC
 		Storage: *storageSummary,
 		Network: *networkSummary,
 		Data:    *dataSummary,
+		Config:  *configSummary,
+		Org:     *orgSummary,
+		Tenant:  *tenantSummary,
 		Message: hostCallDemoSummaryMessage,
 	}, nil
 }
@@ -259,7 +280,7 @@ func (s *serviceImpl) runHostCallDemoNetwork(input *HostCallDemoInput, demoKey s
 		return result
 	}
 
-	response, err := s.httpSvc.Request(hostCallDemoNetworkURL, &pluginbridge.HostServiceNetworkRequest{
+	response, err := s.networkSvc.Request(hostCallDemoNetworkURL, &protocol.HostServiceNetworkRequest{
 		Method: hostCallDemoNetworkMethodGet,
 		Headers: map[string]string{
 			"x-request-id": hostCallDemoRequestID(input) + "-" + demoKey,
@@ -273,6 +294,151 @@ func (s *serviceImpl) runHostCallDemoNetwork(input *HostCallDemoInput, demoKey s
 	result.ContentType = response.ContentType
 	result.BodyPreview = buildHostCallDemoBodyPreview(response.Body)
 	return result
+}
+
+// runHostCallDemoConfig demonstrates reading plugin-owned config and
+// whitelisted public host config through dynamic-plugin host services.
+func (s *serviceImpl) runHostCallDemoConfig() (*hostCallDemoConfigPayload, error) {
+	if s.configSvc == nil {
+		return nil, gerror.New("config host service is unavailable")
+	}
+	if s.hostConfigSvc == nil {
+		return nil, gerror.New("host config host service is unavailable")
+	}
+
+	greeting, greetingFound, err := s.configSvc.String(hostCallDemoPluginGreetingKey)
+	if err != nil {
+		return nil, err
+	}
+	featureEnabled, featureEnabledFound, err := s.configSvc.Bool(hostCallDemoPluginFeatureKey)
+	if err != nil {
+		return nil, err
+	}
+	workspaceBasePath, workspaceBasePathFound, err := s.hostConfigSvc.String(hostCallDemoWorkspaceKey)
+	if err != nil {
+		return nil, err
+	}
+	i18nDefault, i18nDefaultFound, err := s.hostConfigSvc.String(hostCallDemoI18nDefaultKey)
+	if err != nil {
+		return nil, err
+	}
+	i18nEnabled, i18nEnabledFound, err := s.hostConfigSvc.Bool(hostCallDemoI18nEnabledKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &hostCallDemoConfigPayload{
+		Plugin: hostCallDemoPluginConfigPayload{
+			Greeting:            greeting,
+			GreetingFound:       greetingFound,
+			FeatureEnabled:      featureEnabled,
+			FeatureEnabledFound: featureEnabledFound,
+		},
+		HostConfig: hostCallDemoHostConfigPayload{
+			WorkspaceBasePath:      workspaceBasePath,
+			WorkspaceBasePathFound: workspaceBasePathFound,
+			I18nDefault:            i18nDefault,
+			I18nDefaultFound:       i18nDefaultFound,
+			I18nEnabled:            i18nEnabled,
+			I18nEnabledFound:       i18nEnabledFound,
+		},
+	}, nil
+}
+
+// runHostCallDemoOrg demonstrates read-only organization capability calls
+// through a dedicated dynamic-plugin host service.
+func (s *serviceImpl) runHostCallDemoOrg(ctx context.Context, input *HostCallDemoInput) (*hostCallDemoOrgPayload, error) {
+	if s.orgSvc == nil {
+		return nil, gerror.New("org host service is unavailable")
+	}
+
+	status, err := s.orgSvc.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	available, err := s.orgSvc.Available(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := &hostCallDemoOrgPayload{
+		Available:      available,
+		CapabilityID:   status.CapabilityID,
+		ActiveProvider: status.ActiveProvider,
+		Reason:         status.Reason,
+	}
+	userID := hostCallDemoUserID(input)
+	if userID <= 0 {
+		return payload, nil
+	}
+
+	assignments, err := s.orgSvc.ListUserDeptAssignments(ctx, []int{userID})
+	if err != nil {
+		return nil, err
+	}
+	payload.AssignmentCount = len(assignments)
+
+	deptIDs, err := s.orgSvc.GetUserDeptIDs(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	payload.CurrentUserDeptCount = len(deptIDs)
+
+	postIDs, err := s.orgSvc.GetUserPostIDs(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	payload.CurrentUserPostCount = len(postIDs)
+	return payload, nil
+}
+
+// runHostCallDemoTenant demonstrates tenant capability calls through a
+// dedicated dynamic-plugin host service.
+func (s *serviceImpl) runHostCallDemoTenant(ctx context.Context, input *HostCallDemoInput) (*hostCallDemoTenantPayload, error) {
+	if s.tenantSvc == nil {
+		return nil, gerror.New("tenant host service is unavailable")
+	}
+
+	status, err := s.tenantSvc.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	available, err := s.tenantSvc.Available(ctx)
+	if err != nil {
+		return nil, err
+	}
+	currentTenantID, err := s.tenantSvc.Current(ctx)
+	if err != nil {
+		return nil, err
+	}
+	platformBypass, err := s.tenantSvc.PlatformBypass(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.tenantSvc.EnsureTenantVisible(ctx, currentTenantID); err != nil {
+		return nil, err
+	}
+
+	payload := &hostCallDemoTenantPayload{
+		Available:       available,
+		CapabilityID:    status.CapabilityID,
+		ActiveProvider:  status.ActiveProvider,
+		Reason:          status.Reason,
+		CurrentTenantID: int(currentTenantID),
+		PlatformBypass:  platformBypass,
+		Visible:         true,
+	}
+	userID := hostCallDemoUserID(input)
+	if userID <= 0 {
+		return payload, nil
+	}
+
+	tenants, err := s.tenantSvc.ListUserTenants(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	payload.UserTenantCount = len(tenants)
+	return payload, nil
 }
 
 // hostCallDemoPluginID returns the normalized plugin identifier from the input.
@@ -298,6 +464,14 @@ func hostCallDemoRoutePath(input *HostCallDemoInput) string {
 		return ""
 	}
 	return strings.TrimSpace(input.RoutePath)
+}
+
+// hostCallDemoUserID returns the authenticated user identifier from the input.
+func hostCallDemoUserID(input *HostCallDemoInput) int {
+	if input == nil {
+		return 0
+	}
+	return input.UserID
 }
 
 // buildHostCallDemoBodyPreview truncates one response body to the configured

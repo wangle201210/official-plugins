@@ -6,12 +6,13 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/pluginhost"
-	pkgtenantcap "lina-core/pkg/tenantcap"
+	"lina-core/pkg/plugin/capability/tenantcap"
+	"lina-core/pkg/plugin/pluginhost"
 	multitenant "lina-plugin-linapro-tenant-core"
 	authcontroller "lina-plugin-linapro-tenant-core/backend/internal/controller/auth"
 	platformcontroller "lina-plugin-linapro-tenant-core/backend/internal/controller/platform"
 	tenantcontroller "lina-plugin-linapro-tenant-core/backend/internal/controller/tenant"
+	"lina-plugin-linapro-tenant-core/backend/internal/provider/tenantadapter"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/impersonate"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/lifecycleprecondition"
 	"lina-plugin-linapro-tenant-core/backend/internal/service/membership"
@@ -32,6 +33,9 @@ const (
 func init() {
 	plugin := pluginhost.NewSourcePlugin(pluginID)
 	plugin.Assets().UseEmbeddedFiles(multitenant.EmbeddedFiles)
+	if err := tenantcap.Provide(pluginID, provideTenant); err != nil {
+		panic(err)
+	}
 	if err := plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,
 		pluginhost.CallbackExecutionModeBlocking,
@@ -51,6 +55,15 @@ func init() {
 	if err := pluginhost.RegisterSourcePlugin(plugin); err != nil {
 		panic(err)
 	}
+}
+
+// provideTenant creates the linapro-tenant-core tenant capability adapter from
+// host-published services during framework capability activation.
+func provideTenant(_ context.Context, env tenantcap.ProviderEnv) (tenantcap.Provider, error) {
+	if env.BizCtx == nil {
+		return nil, gerror.New("linapro-tenant-core provider requires host bizctx service")
+	}
+	return tenantadapter.New(env.BizCtx, env.PluginLifecycle)
 }
 
 // beforeDisable enforces linapro-tenant-core plugin disable preconditions.
@@ -92,31 +105,29 @@ func newLifecyclePrecondition() (*lifecycleprecondition.Checker, error) {
 // registerRoutes binds linapro-tenant-core routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	var (
-		routes       = registrar.Routes()
-		middlewares  = routes.Middlewares()
-		hostServices = registrar.HostServices()
+		routes      = registrar.Routes()
+		middlewares = routes.Middlewares()
+		services    = registrar.Services()
 	)
-	if hostServices == nil ||
-		hostServices.Auth() == nil ||
-		hostServices.BizCtx() == nil ||
-		hostServices.Config() == nil {
-		return gerror.New("linapro-tenant-core routes require host auth, bizctx, and config services")
+	if services == nil ||
+		services.Auth() == nil ||
+		services.BizCtx() == nil {
+		return gerror.New("linapro-tenant-core routes require host auth and bizctx services")
 	}
 	var (
-		membershipSvc     = membership.New(hostServices.BizCtx())
+		membershipSvc     = membership.New(services.BizCtx())
 		resolverConfigSvc = resolverconfig.New()
-		tenantPluginSvc   = tenantplugin.New(hostServices.BizCtx(), hostServices.PluginLifecycle())
-		tenantSvc         = tenantsvc.New(hostServices.BizCtx(), resolverConfigSvc, tenantPluginSvc, hostServices.PluginLifecycle())
-		resolverSvc       = resolver.New(hostServices.BizCtx(), membershipSvc)
+		tenantPluginSvc   = tenantplugin.New(services.BizCtx(), services.PluginLifecycle())
+		tenantSvc         = tenantsvc.New(services.BizCtx(), resolverConfigSvc, tenantPluginSvc, services.PluginLifecycle())
+		resolverSvc       = resolver.New(services.BizCtx(), membershipSvc)
 	)
 	providerSvc, err := provider.New(membershipSvc, resolverSvc, resolverConfigSvc, tenantPluginSvc)
 	if err != nil {
 		return err
 	}
-	pkgtenantcap.RegisterProvider(providerSvc)
 	var (
-		impersonateSvc = impersonate.New(hostServices.BizCtx(), hostServices.Config(), tenantSvc)
-		authCtrl       = authcontroller.NewV1(hostServices.Auth(), membershipSvc, providerSvc)
+		impersonateSvc = impersonate.New(services.Auth(), services.BizCtx(), tenantSvc)
+		authCtrl       = authcontroller.NewV1(services.Auth(), membershipSvc, providerSvc)
 	)
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
