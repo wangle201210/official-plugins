@@ -1299,7 +1299,38 @@ test.describe("TC-1 media plugin owned E2E discovery", () => {
     }
   });
 
-  test("TC-1e: 媒体管理界面编辑回显和接口执行正确", async ({
+  test("TC-1e: media 独立接口文档页可渲染 Stoplight 内容", async ({
+    page,
+  }) => {
+    const pageErrors: Error[] = [];
+    const failedRequests: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error));
+    page.on("requestfailed", (request) => failedRequests.push(request.url()));
+
+    const openapiResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/v1/media/openapi.json") &&
+        response.request().method() === "GET" &&
+        response.status() === 200,
+      { timeout: 15000 },
+    );
+    await page.goto("/api/v1/media/apidocs.html", {
+      waitUntil: "domcontentloaded",
+    });
+    await openapiResponse;
+    await expect(page.locator("elements-api")).toBeVisible();
+    await expect(page.getByText("Media Plugin API").first()).toBeVisible({
+      timeout: 20000,
+    });
+    await expect(page.getByText("媒体管理").first()).toBeVisible();
+    await expectNoPageErrors(pageErrors);
+    expect(
+      failedRequests.filter((url) => !url.includes("favicon")),
+      "接口文档页不应存在静态资源加载失败",
+    ).toEqual([]);
+  });
+
+  test("TC-1f: 媒体管理界面编辑回显和接口执行正确", async ({
     adminPage,
   }) => {
     const api = await createAdminApiContext();

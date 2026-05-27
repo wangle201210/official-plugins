@@ -23,7 +23,7 @@ const mediaAPIDocsHTML = `<!DOCTYPE html>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Media API Documentation</title>
-  <link rel="stylesheet" href="/stoplight/styles.min.css" />
+  <link rel="stylesheet" href="/admin/stoplight/styles.min.css" />
   <style>
     html,
     body {
@@ -76,7 +76,7 @@ const mediaAPIDocsHTML = `<!DOCTYPE html>
       document.body.appendChild(apiElement);
     })();
   </script>
-  <script src="/stoplight/web-components.min.js"></script>
+  <script src="/admin/stoplight/web-components.min.js"></script>
 </body>
 </html>`
 

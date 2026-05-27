@@ -739,7 +739,8 @@ func TestMediaPluginAPIDocsPageLoadsMediaDocument(t *testing.T) {
 	requiredFragments := []string{
 		`document.createElement('elements-api')`,
 		`/api/v1/media/openapi.json`,
-		`/stoplight/web-components.min.js`,
+		`/admin/stoplight/web-components.min.js`,
+		`/admin/stoplight/styles.min.css`,
 		`TryIt_securitySchemeValues`,
 		`BearerAuth`,
 		`InnerApiKeyAuth`,
@@ -751,6 +752,10 @@ func TestMediaPluginAPIDocsPageLoadsMediaDocument(t *testing.T) {
 	}
 	if strings.Contains(response.body, `'/api.json?`) || strings.Contains(response.body, `"/api.json?`) {
 		t.Fatalf("expected media apidocs page to avoid host-wide /api.json")
+	}
+	if strings.Contains(response.body, `src="/stoplight/web-components.min.js"`) ||
+		strings.Contains(response.body, `href="/stoplight/styles.min.css"`) {
+		t.Fatalf("expected media apidocs page to use mounted admin stoplight static assets")
 	}
 }
 
