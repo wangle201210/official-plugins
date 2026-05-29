@@ -25,6 +25,7 @@ import {
 
 const apiBaseURL = config.apiBaseURL;
 const demoControlPluginID = "linapro-ops-demo-guard";
+const dynamicDependentPluginID = "linapro-demo-dynamic";
 const pluginID = "linapro-demo-source";
 const pluginMenuName = "源码插件示例";
 const pluginSummaryMessage =
@@ -348,9 +349,11 @@ test.describe("TC-1 源码插件生命周期", () => {
   test.beforeEach(async () => {
     resetPluginDemoSourceData();
     resetPluginRegistryRow(demoControlPluginID);
+    resetPluginRegistryRow(dynamicDependentPluginID);
     // `GET /plugins` re-syncs source manifests and refreshes the host-side
     // enabled snapshot. This lets the suite clear a previously enabled
-    // linapro-ops-demo-guard guard before the write-heavy lifecycle scenarios begin.
+    // linapro-ops-demo-guard guard and any dynamic reverse dependency before
+    // the write-heavy lifecycle scenarios begin.
     await listPlugins(adminApi!);
     resetPluginRegistryRow(pluginID);
     await syncPlugins(adminApi!);
