@@ -9,6 +9,7 @@ import {
   createAdminApiContext,
   disablePlugin,
   enablePlugin,
+  expectSuccess,
   getPlugin,
   installPlugin,
   syncPlugins,
@@ -61,10 +62,13 @@ async function ensurePluginInstalledAndEnabled() {
     await enablePlugin(adminApi, sourcePluginID);
   }
 
-  if (plugin.installed !== 1) {
-    await installPlugin(adminApi, pluginID, { installMode: "global" });
+  if (plugin.installed === 1) {
+    await forceUninstallPlugin(pluginID, false);
+    await syncPlugins(adminApi);
     plugin = await getPlugin(adminApi, pluginID);
   }
+  await installPlugin(adminApi, pluginID, { installMode: "global" });
+  plugin = await getPlugin(adminApi, pluginID);
   if (plugin.enabled !== 1) {
     await enablePlugin(adminApi, pluginID);
   }
@@ -74,28 +78,38 @@ async function restorePluginState() {
   let plugin = await getPlugin(adminApi, pluginID);
 
   if (originalInstalled !== 1) {
-    if (plugin.enabled === 1) {
-      await disablePlugin(adminApi, pluginID);
-      plugin = await getPlugin(adminApi, pluginID);
-    }
     if (plugin.installed === 1) {
-      await uninstallPlugin(adminApi, pluginID);
+      await forceUninstallPlugin(pluginID, true);
     }
     await restoreSourcePluginState();
     return;
   }
 
+  if (originalEnabled !== 1 && plugin.enabled === 1) {
+    await forceUninstallPlugin(pluginID, false);
+    await syncPlugins(adminApi);
+    plugin = await getPlugin(adminApi, pluginID);
+  }
   if (plugin.installed !== 1) {
     await installPlugin(adminApi, pluginID, { installMode: "global" });
     plugin = await getPlugin(adminApi, pluginID);
   }
   if (originalEnabled === 1 && plugin.enabled !== 1) {
     await enablePlugin(adminApi, pluginID);
-  } else if (originalEnabled !== 1 && plugin.enabled === 1) {
-    await disablePlugin(adminApi, pluginID);
   }
 
   await restoreSourcePluginState();
+}
+
+async function forceUninstallPlugin(pluginId: string, purgeStorageData: boolean) {
+  await expectSuccess(
+    await adminApi.delete(`plugins/${pluginId}`, {
+      params: {
+        force: true,
+        purgeStorageData: purgeStorageData ? 1 : 0,
+      },
+    }),
+  );
 }
 
 async function restoreSourcePluginState() {

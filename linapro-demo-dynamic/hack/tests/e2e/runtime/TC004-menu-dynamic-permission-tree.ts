@@ -80,12 +80,8 @@ async function ensurePluginInstalledAndEnabled() {
   originalInstalled = plugin.installed;
   originalEnabled = plugin.enabled;
 
-  if (plugin.enabled === 1) {
-    await disablePlugin(adminApi, pluginID);
-    plugin = await getPlugin(adminApi, pluginID);
-  }
   if (plugin.installed === 1) {
-    await uninstallPlugin(adminApi, pluginID);
+    await forceUninstallPlugin(pluginID, false);
   }
 
   sourcePlugin = await getPlugin(adminApi, sourcePluginID);
@@ -122,22 +118,21 @@ async function restorePluginState() {
   let plugin = await getPlugin(adminApi, pluginID);
 
   if (originalInstalled !== 1) {
-    if (plugin.enabled === 1) {
-      await disablePlugin(adminApi, pluginID);
-      plugin = await getPlugin(adminApi, pluginID);
-    }
     if (plugin.installed === 1) {
-      await uninstallPlugin(adminApi, pluginID);
+      await forceUninstallPlugin(pluginID, true);
     }
   } else {
+    if (originalEnabled !== 1 && plugin.enabled === 1) {
+      await forceUninstallPlugin(pluginID, false);
+      await syncPlugins(adminApi);
+      plugin = await getPlugin(adminApi, pluginID);
+    }
     if (plugin.installed !== 1) {
       await installPlugin(adminApi, pluginID, { installMode: 'global' });
       plugin = await getPlugin(adminApi, pluginID);
     }
     if (originalEnabled === 1 && plugin.enabled !== 1) {
       await enablePlugin(adminApi, pluginID);
-    } else if (originalEnabled !== 1 && plugin.enabled === 1) {
-      await disablePlugin(adminApi, pluginID);
     }
   }
 
@@ -161,6 +156,17 @@ async function restorePluginState() {
       await disablePlugin(adminApi, sourcePluginID);
     }
   }
+}
+
+async function forceUninstallPlugin(pluginId: string, purgeStorageData: boolean) {
+  await expectSuccess(
+    await adminApi.delete(`plugins/${pluginId}`, {
+      params: {
+        force: true,
+        purgeStorageData: purgeStorageData ? 1 : 0,
+      },
+    }),
+  );
 }
 
 test.describe('TC-4 Dynamic plugin permission menu tree regression', () => {
