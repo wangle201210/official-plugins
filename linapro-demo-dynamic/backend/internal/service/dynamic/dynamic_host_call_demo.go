@@ -18,24 +18,26 @@ import (
 // Host-call demo constants define the governed keys, paths, and sample values
 // used by the dynamic plugin host-service showcase.
 const (
-	hostCallDemoStateKey           = "host_call_demo_visit_count"
-	hostCallDemoStoragePath        = "host-call-demo/"
-	hostCallDemoStoragePrefix      = "host-call-demo"
-	hostCallDemoStorageContentType = "application/json"
-	hostCallDemoNetworkURL         = "https://example.com"
-	hostCallDemoNetworkMethodGet   = "GET"
-	hostCallDemoDataTable          = "sys_plugin_node_state"
-	hostCallDemoDesiredState       = "running"
-	hostCallDemoCurrentStateNew    = "pending"
-	hostCallDemoCurrentStateReady  = "running"
-	hostCallDemoAnonymousUser      = "anonymous"
-	hostCallDemoSummaryMessage     = "Host service demo executed through runtime, storage, network, data, config, hostConfig, org, and tenant services."
-	hostCallDemoNetworkPreview     = 120
-	hostCallDemoPluginGreetingKey  = "demo.greeting"
-	hostCallDemoPluginFeatureKey   = "demo.featureEnabled"
-	hostCallDemoWorkspaceKey       = "workspace.basePath"
-	hostCallDemoI18nDefaultKey     = "i18n.default"
-	hostCallDemoI18nEnabledKey     = "i18n.enabled"
+	hostCallDemoStateKey            = "host_call_demo_visit_count"
+	hostCallDemoStoragePath         = "host-call-demo/"
+	hostCallDemoStoragePrefix       = "host-call-demo"
+	hostCallDemoStorageContentType  = "application/json"
+	hostCallDemoNetworkURL          = "https://example.com"
+	hostCallDemoNetworkMethodGet    = "GET"
+	hostCallDemoDataTable           = "sys_plugin_node_state"
+	hostCallDemoDesiredState        = "running"
+	hostCallDemoCurrentStateNew     = "pending"
+	hostCallDemoCurrentStateReady   = "running"
+	hostCallDemoAnonymousUser       = "anonymous"
+	hostCallDemoSummaryMessage      = "Host service demo executed through runtime, storage, network, data, config, manifest, hostConfig, org, and tenant services."
+	hostCallDemoNetworkPreview      = 120
+	hostCallDemoPluginGreetingKey   = "demo.greeting"
+	hostCallDemoPluginFeatureKey    = "demo.featureEnabled"
+	hostCallDemoManifestConfigPath  = "config/config.yaml"
+	hostCallDemoManifestProfilePath = "config/profile.yaml"
+	hostCallDemoWorkspaceKey        = "workspace.basePath"
+	hostCallDemoI18nDefaultKey      = "i18n.default"
+	hostCallDemoI18nEnabledKey      = "i18n.enabled"
 )
 
 // BuildHostCallDemoPayload executes the host service demo and returns the
@@ -82,6 +84,10 @@ func (s *serviceImpl) BuildHostCallDemoPayload(ctx context.Context, input *HostC
 	if err != nil {
 		return nil, err
 	}
+	manifestSummary, err := s.runHostCallDemoManifest()
+	if err != nil {
+		return nil, err
+	}
 	orgSummary, err := s.runHostCallDemoOrg(ctx, input)
 	if err != nil {
 		return nil, err
@@ -100,14 +106,21 @@ func (s *serviceImpl) BuildHostCallDemoPayload(ctx context.Context, input *HostC
 			UUID: uuidValue,
 			Node: nodeValue,
 		},
-		Storage: *storageSummary,
-		Network: *networkSummary,
-		Data:    *dataSummary,
-		Config:  *configSummary,
-		Org:     *orgSummary,
-		Tenant:  *tenantSummary,
-		Message: hostCallDemoSummaryMessage,
+		Storage:  *storageSummary,
+		Network:  *networkSummary,
+		Data:     *dataSummary,
+		Config:   *configSummary,
+		Manifest: *manifestSummary,
+		Org:      *orgSummary,
+		Tenant:   *tenantSummary,
+		Message:  hostCallDemoSummaryMessage,
 	}, nil
+}
+
+// BuildManifestDemoPayload reads the explicitly authorized packaged manifest
+// resources and returns the manifest host-service demo payload.
+func (s *serviceImpl) BuildManifestDemoPayload() (*hostCallDemoManifestPayload, error) {
+	return s.runHostCallDemoManifest()
 }
 
 // parseHostCallDemoRuntimeNow converts the runtime.info.now host-service value
@@ -342,6 +355,35 @@ func (s *serviceImpl) runHostCallDemoConfig() (*hostCallDemoConfigPayload, error
 			I18nEnabled:            i18nEnabled,
 			I18nEnabledFound:       i18nEnabledFound,
 		},
+	}, nil
+}
+
+// runHostCallDemoManifest demonstrates reading the plugin's own packaged
+// manifest resources through explicitly authorized manifest.get paths.
+func (s *serviceImpl) runHostCallDemoManifest() (*hostCallDemoManifestPayload, error) {
+	if s.manifestSvc == nil {
+		return nil, gerror.New("manifest host service is unavailable")
+	}
+
+	profile := &hostCallDemoManifestProfile{}
+	profileFound, err := s.manifestSvc.Scan(hostCallDemoManifestProfilePath, "profile", profile)
+	if err != nil {
+		return nil, err
+	}
+	configText, configFound, err := s.manifestSvc.GetText(hostCallDemoManifestConfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &hostCallDemoManifestPayload{
+		ProfilePath:       hostCallDemoManifestProfilePath,
+		ProfileFound:      profileFound,
+		ProfileName:       profile.Name,
+		ProfileTier:       profile.Tier,
+		ProfileOwner:      profile.Owner,
+		ConfigPath:        hostCallDemoManifestConfigPath,
+		ConfigFound:       configFound,
+		ConfigBodyPreview: buildHostCallDemoBodyPreview([]byte(configText)),
 	}, nil
 }
 

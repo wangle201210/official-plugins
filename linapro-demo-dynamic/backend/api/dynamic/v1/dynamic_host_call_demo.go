@@ -6,22 +6,23 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // HostCallDemoReq is the request for invoking the host call demo endpoint.
 type HostCallDemoReq struct {
-	g.Meta      `path:"/host-call-demo" method:"post" tags:"Dynamic Plugin Demo" summary:"Host calling capability demonstration" dc:"Demonstrate dynamic plugin calls to runtime, storage, network, data, plugin config, public host config, organization, and tenant capabilities through the unified host service model. The endpoint writes runtime logs, reads and writes isolated plugin storage, accesses governed upstreams, performs structured CRUD on authorized data tables, reads plugin-owned config keys, reads whitelisted public host config keys, and reads current organization and tenant projections. Passing skipNetwork=1 skips external network requests for offline verification." access:"login" permission:"linapro-demo-dynamic:backend:view" operLog:"other"`
+	g.Meta      `path:"/host-call-demo" method:"post" tags:"Dynamic Plugin Demo" summary:"Host calling capability demonstration" dc:"Demonstrate dynamic plugin calls to runtime, storage, network, data, plugin config, packaged manifest resources, public host config, organization, and tenant capabilities through the unified host service model. The endpoint writes runtime logs, reads and writes isolated plugin storage, accesses governed upstreams, performs structured CRUD on authorized data tables, reads plugin-owned config keys, reads explicitly authorized manifest.get paths, reads whitelisted public host config keys, and reads current organization and tenant projections. Passing skipNetwork=1 skips external network requests for offline verification." access:"login" permission:"linapro-demo-dynamic:backend:view" operLog:"other"`
 	SkipNetwork bool `json:"skipNetwork" dc:"Whether to skip external network requests: true=skip false=normal access, default is false when omitted" eg:"false"`
 }
 
 // HostCallDemoRes is the response for the host call demo endpoint.
 type HostCallDemoRes struct {
-	VisitCount int                     `json:"visitCount" dc:"The current cumulative number of visits, implemented through the runtime.state host service to achieve persistent counting" eg:"1"`
-	PluginID   string                  `json:"pluginId" dc:"The unique identifier of the current plugin" eg:"linapro-demo-dynamic"`
-	Runtime    *HostCallDemoRuntimeRes `json:"runtime" dc:"Summary of basic information returned by the runtime hosting service" eg:"{\"now\":1776132000000,\"uuid\":\"0d63c6a3-ec9d-4e39-a14f-d9b165a21ef9\",\"node\":\"node-1\"}"`
-	Storage    *HostCallDemoStorageRes `json:"storage" dc:"storage hosting service executive summary" eg:"{\"pathPrefix\":\"host-call-demo/\",\"objectPath\":\"host-call-demo/demo.json\",\"stored\":true,\"listedCount\":1,\"deleted\":true}"`
-	Network    *HostCallDemoNetworkRes `json:"network" dc:"network hosting service executive summary" eg:"{\"url\":\"https://example.com\",\"skipped\":false,\"statusCode\":200,\"contentType\":\"text/html\"}"`
-	Data       *HostCallDemoDataRes    `json:"data" dc:"data host service executive summary" eg:"{\"table\":\"sys_plugin_node_state\",\"recordKey\":\"101\",\"listTotal\":1,\"countTotal\":1,\"updated\":true,\"deleted\":true}"`
-	Config     *HostCallDemoConfigRes  `json:"config" dc:"Plugin config and whitelisted public host config read summary" eg:"{\"plugin\":{\"greeting\":\"Hello from dynamic plugin\",\"greetingFound\":true,\"featureEnabled\":true,\"featureEnabledFound\":true},\"hostConfig\":{\"workspaceBasePath\":\"/opt/linapro\",\"workspaceBasePathFound\":true,\"i18nDefault\":\"zh-CN\",\"i18nDefaultFound\":true,\"i18nEnabled\":true,\"i18nEnabledFound\":true}}"`
-	Org        *HostCallDemoOrgRes     `json:"org" dc:"Organization capability host service read summary" eg:"{\"available\":true,\"capabilityId\":\"framework.org.v1\",\"activeProvider\":\"linapro-org-core\",\"assignmentCount\":1,\"currentUserDeptCount\":1,\"currentUserPostCount\":2}"`
-	Tenant     *HostCallDemoTenantRes  `json:"tenant" dc:"Tenant capability host service read summary" eg:"{\"available\":true,\"capabilityId\":\"framework.tenant.v1\",\"activeProvider\":\"linapro-tenant-core\",\"currentTenantId\":1,\"platformBypass\":false,\"userTenantCount\":1,\"visible\":true}"`
-	Message    string                  `json:"message" dc:"Host call demonstration information" eg:"Host service demo executed through runtime, storage, network, data, config, hostConfig, org, and tenant services."`
+	VisitCount int                      `json:"visitCount" dc:"The current cumulative number of visits, implemented through the runtime.state host service to achieve persistent counting" eg:"1"`
+	PluginID   string                   `json:"pluginId" dc:"The unique identifier of the current plugin" eg:"linapro-demo-dynamic"`
+	Runtime    *HostCallDemoRuntimeRes  `json:"runtime" dc:"Summary of basic information returned by the runtime hosting service" eg:"{\"now\":1776132000000,\"uuid\":\"0d63c6a3-ec9d-4e39-a14f-d9b165a21ef9\",\"node\":\"node-1\"}"`
+	Storage    *HostCallDemoStorageRes  `json:"storage" dc:"storage hosting service executive summary" eg:"{\"pathPrefix\":\"host-call-demo/\",\"objectPath\":\"host-call-demo/demo.json\",\"stored\":true,\"listedCount\":1,\"deleted\":true}"`
+	Network    *HostCallDemoNetworkRes  `json:"network" dc:"network hosting service executive summary" eg:"{\"url\":\"https://example.com\",\"skipped\":false,\"statusCode\":200,\"contentType\":\"text/html\"}"`
+	Data       *HostCallDemoDataRes     `json:"data" dc:"data host service executive summary" eg:"{\"table\":\"sys_plugin_node_state\",\"recordKey\":\"101\",\"listTotal\":1,\"countTotal\":1,\"updated\":true,\"deleted\":true}"`
+	Config     *HostCallDemoConfigRes   `json:"config" dc:"Plugin config and whitelisted public host config read summary" eg:"{\"plugin\":{\"greeting\":\"Hello from dynamic plugin\",\"greetingFound\":true,\"featureEnabled\":true,\"featureEnabledFound\":true},\"hostConfig\":{\"workspaceBasePath\":\"/opt/linapro\",\"workspaceBasePathFound\":true,\"i18nDefault\":\"zh-CN\",\"i18nDefaultFound\":true,\"i18nEnabled\":true,\"i18nEnabledFound\":true}}"`
+	Manifest   *HostCallDemoManifestRes `json:"manifest" dc:"Packaged manifest resource read summary for explicitly authorized manifest.get paths" eg:"{\"profilePath\":\"config/profile.yaml\",\"profileFound\":true,\"profileName\":\"demo-dynamic-profile\",\"profileTier\":\"sample\",\"profileOwner\":\"linapro\",\"configPath\":\"config/config.yaml\",\"configFound\":true,\"configBodyPreview\":\"demo:\\n  greeting: Hello from dynamic plugin\"}"`
+	Org        *HostCallDemoOrgRes      `json:"org" dc:"Organization capability host service read summary" eg:"{\"available\":true,\"capabilityId\":\"framework.org.v1\",\"activeProvider\":\"linapro-org-core\",\"assignmentCount\":1,\"currentUserDeptCount\":1,\"currentUserPostCount\":2}"`
+	Tenant     *HostCallDemoTenantRes   `json:"tenant" dc:"Tenant capability host service read summary" eg:"{\"available\":true,\"capabilityId\":\"framework.tenant.v1\",\"activeProvider\":\"linapro-tenant-core\",\"currentTenantId\":1,\"platformBypass\":false,\"userTenantCount\":1,\"visible\":true}"`
+	Message    string                   `json:"message" dc:"Host call demonstration information" eg:"Host service demo executed through runtime, storage, network, data, config, manifest, hostConfig, org, and tenant services."`
 }
 
 // HostCallDemoRuntimeRes describes runtime service results.
@@ -82,6 +83,18 @@ type HostCallDemoHostConfigRes struct {
 	I18nDefaultFound       bool   `json:"i18nDefaultFound" dc:"Whether i18n.default exists in the public host config view" eg:"true"`
 	I18nEnabled            bool   `json:"i18nEnabled" dc:"The whitelisted host i18n.enabled config value" eg:"true"`
 	I18nEnabledFound       bool   `json:"i18nEnabledFound" dc:"Whether i18n.enabled exists in the public host config view" eg:"true"`
+}
+
+// HostCallDemoManifestRes describes manifest resource read results.
+type HostCallDemoManifestRes struct {
+	ProfilePath       string `json:"profilePath" dc:"The explicitly authorized manifest.get path used to read the packaged profile resource" eg:"config/profile.yaml"`
+	ProfileFound      bool   `json:"profileFound" dc:"Whether config/profile.yaml was found through the manifest host service" eg:"true"`
+	ProfileName       string `json:"profileName" dc:"The profile.name value scanned from config/profile.yaml through the manifest host service" eg:"demo-dynamic-profile"`
+	ProfileTier       string `json:"profileTier" dc:"The profile.tier value scanned from config/profile.yaml through the manifest host service" eg:"sample"`
+	ProfileOwner      string `json:"profileOwner" dc:"The profile.owner value scanned from config/profile.yaml through the manifest host service" eg:"linapro"`
+	ConfigPath        string `json:"configPath" dc:"The explicitly authorized manifest.get path used to read the packaged config resource as raw text" eg:"config/config.yaml"`
+	ConfigFound       bool   `json:"configFound" dc:"Whether config/config.yaml was found through the manifest host service" eg:"true"`
+	ConfigBodyPreview string `json:"configBodyPreview" dc:"A bounded preview of the packaged config/config.yaml manifest resource body read through manifest.get" eg:"demo:\\n  greeting: Hello from dynamic plugin"`
 }
 
 // HostCallDemoOrgRes describes organization capability results.

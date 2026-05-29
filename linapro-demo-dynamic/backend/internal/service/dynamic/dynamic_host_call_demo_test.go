@@ -5,6 +5,7 @@ package dynamicservice
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"lina-core/pkg/plugin/capability/contract"
@@ -60,6 +61,39 @@ func (s *fakeHostConfigHostService) String(key string) (string, bool, error) {
 func (s *fakeHostConfigHostService) Bool(key string) (bool, bool, error) {
 	result := s.bools[key]
 	return result.value, result.found, nil
+}
+
+// fakeManifestHostService returns deterministic manifest resources for unit
+// tests.
+type fakeManifestHostService struct {
+	texts   map[string]manifestTextResult
+	profile hostCallDemoManifestProfile
+}
+
+// manifestTextResult stores one manifest text read result.
+type manifestTextResult struct {
+	value string
+	found bool
+}
+
+// GetText returns one configured fake manifest text resource.
+func (s *fakeManifestHostService) GetText(path string) (string, bool, error) {
+	result := s.texts[path]
+	return result.value, result.found, nil
+}
+
+// Scan copies the configured profile into the target for the expected profile
+// path and key.
+func (s *fakeManifestHostService) Scan(path string, key string, target any) (bool, error) {
+	if path != hostCallDemoManifestProfilePath || strings.TrimSpace(key) != "profile" {
+		return false, nil
+	}
+	profile, ok := target.(*hostCallDemoManifestProfile)
+	if !ok {
+		return false, nil
+	}
+	*profile = s.profile
+	return true, nil
 }
 
 // fakeOrgHostService returns deterministic organization capability values for
@@ -202,6 +236,46 @@ func TestRunHostCallDemoConfigReadsPluginAndHostConfigValues(t *testing.T) {
 	}
 	if !payload.HostConfig.I18nEnabledFound || !payload.HostConfig.I18nEnabled {
 		t.Fatalf("unexpected host i18n enabled payload: %#v", payload.HostConfig)
+	}
+}
+
+// TestRunHostCallDemoManifestReadsAuthorizedResources verifies the dynamic
+// demo reads only the manifest resources declared for the manifest host
+// service example.
+func TestRunHostCallDemoManifestReadsAuthorizedResources(t *testing.T) {
+	service := &serviceImpl{
+		manifestSvc: &fakeManifestHostService{
+			texts: map[string]manifestTextResult{
+				hostCallDemoManifestConfigPath: {
+					value: "demo:\n  greeting: Hello from test manifest config\n  featureEnabled: true\n",
+					found: true,
+				},
+			},
+			profile: hostCallDemoManifestProfile{
+				Name:  "demo-dynamic-profile",
+				Tier:  "sample",
+				Owner: "linapro",
+			},
+		},
+	}
+
+	payload, err := service.runHostCallDemoManifest()
+	if err != nil {
+		t.Fatalf("expected manifest demo to succeed, got error: %v", err)
+	}
+	if payload.ProfilePath != hostCallDemoManifestProfilePath || !payload.ProfileFound {
+		t.Fatalf("unexpected profile path/found payload: %#v", payload)
+	}
+	if payload.ProfileName != "demo-dynamic-profile" ||
+		payload.ProfileTier != "sample" ||
+		payload.ProfileOwner != "linapro" {
+		t.Fatalf("unexpected profile payload: %#v", payload)
+	}
+	if payload.ConfigPath != hostCallDemoManifestConfigPath || !payload.ConfigFound {
+		t.Fatalf("unexpected config path/found payload: %#v", payload)
+	}
+	if !strings.Contains(payload.ConfigBodyPreview, "Hello from test manifest config") {
+		t.Fatalf("unexpected config preview payload: %#v", payload)
 	}
 }
 

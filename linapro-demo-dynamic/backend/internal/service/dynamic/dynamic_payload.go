@@ -95,16 +95,17 @@ type demoRecordUpdateRecord struct {
 
 // hostCallDemoPayload defines the top-level host-service demo response.
 type hostCallDemoPayload struct {
-	VisitCount int                        `json:"visitCount"`
-	PluginID   string                     `json:"pluginId"`
-	Runtime    hostCallDemoRuntimePayload `json:"runtime"`
-	Storage    hostCallDemoStoragePayload `json:"storage"`
-	Network    hostCallDemoNetworkPayload `json:"network"`
-	Data       hostCallDemoDataPayload    `json:"data"`
-	Config     hostCallDemoConfigPayload  `json:"config"`
-	Org        hostCallDemoOrgPayload     `json:"org"`
-	Tenant     hostCallDemoTenantPayload  `json:"tenant"`
-	Message    string                     `json:"message"`
+	VisitCount int                         `json:"visitCount"`
+	PluginID   string                      `json:"pluginId"`
+	Runtime    hostCallDemoRuntimePayload  `json:"runtime"`
+	Storage    hostCallDemoStoragePayload  `json:"storage"`
+	Network    hostCallDemoNetworkPayload  `json:"network"`
+	Data       hostCallDemoDataPayload     `json:"data"`
+	Config     hostCallDemoConfigPayload   `json:"config"`
+	Manifest   hostCallDemoManifestPayload `json:"manifest"`
+	Org        hostCallDemoOrgPayload      `json:"org"`
+	Tenant     hostCallDemoTenantPayload   `json:"tenant"`
+	Message    string                      `json:"message"`
 }
 
 // hostCallDemoRuntimePayload summarizes runtime host-call results.
@@ -191,6 +192,27 @@ type hostCallDemoHostConfigPayload struct {
 	I18nDefaultFound       bool   `json:"i18nDefaultFound"`
 	I18nEnabled            bool   `json:"i18nEnabled"`
 	I18nEnabledFound       bool   `json:"i18nEnabledFound"`
+}
+
+// hostCallDemoManifestPayload summarizes manifest.get reads against
+// explicitly authorized packaged manifest resources.
+type hostCallDemoManifestPayload struct {
+	ProfilePath       string `json:"profilePath"`
+	ProfileFound      bool   `json:"profileFound"`
+	ProfileName       string `json:"profileName"`
+	ProfileTier       string `json:"profileTier"`
+	ProfileOwner      string `json:"profileOwner"`
+	ConfigPath        string `json:"configPath"`
+	ConfigFound       bool   `json:"configFound"`
+	ConfigBodyPreview string `json:"configBodyPreview"`
+}
+
+// hostCallDemoManifestProfile defines the profile manifest shape read from
+// manifest/config/profile.yaml.
+type hostCallDemoManifestProfile struct {
+	Name  string `json:"name" yaml:"name"`
+	Tier  string `json:"tier" yaml:"tier"`
+	Owner string `json:"owner" yaml:"owner"`
 }
 
 // hostCallDemoOrgPayload summarizes organization capability host-service reads.

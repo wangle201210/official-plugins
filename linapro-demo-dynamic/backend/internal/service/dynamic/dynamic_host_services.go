@@ -49,6 +49,12 @@ func newConfigHostService() configHostService {
 	return guestServices.Config()
 }
 
+// newManifestHostService returns the guest-side plugin manifest resource
+// client.
+func newManifestHostService() manifestHostService {
+	return guestServices.Manifest()
+}
+
 // newHostConfigHostService returns the guest-side public host config client.
 func newHostConfigHostService() hostConfigHostService {
 	return guestServices.HostConfig()

@@ -73,6 +73,16 @@ func (c *Controller) HostCallDemo(
 				I18nEnabledFound:       payload.Config.HostConfig.I18nEnabledFound,
 			},
 		},
+		Manifest: &v1.HostCallDemoManifestRes{
+			ProfilePath:       payload.Manifest.ProfilePath,
+			ProfileFound:      payload.Manifest.ProfileFound,
+			ProfileName:       payload.Manifest.ProfileName,
+			ProfileTier:       payload.Manifest.ProfileTier,
+			ProfileOwner:      payload.Manifest.ProfileOwner,
+			ConfigPath:        payload.Manifest.ConfigPath,
+			ConfigFound:       payload.Manifest.ConfigFound,
+			ConfigBodyPreview: payload.Manifest.ConfigBodyPreview,
+		},
 		Org: &v1.HostCallDemoOrgRes{
 			Available:            payload.Org.Available,
 			CapabilityID:         payload.Org.CapabilityID,

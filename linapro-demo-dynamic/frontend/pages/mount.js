@@ -347,6 +347,10 @@ function buildPageCopy(context) {
         "plugin.linapro-demo-dynamic.page.message.deleteRecordFailed",
         "Failed to delete the demo record",
       ),
+      fetchManifestDemoFailed: t(
+        "plugin.linapro-demo-dynamic.page.message.fetchManifestDemoFailed",
+        "Failed to load the manifest host service demo",
+      ),
     },
     modal: {
       attachmentFieldHint: t(
@@ -402,6 +406,60 @@ function buildPageCopy(context) {
       "plugin.linapro-demo-dynamic.page.panelTitle",
       "Current Validation Scope",
     ),
+    manifest: {
+      configPathLabel: t(
+        "plugin.linapro-demo-dynamic.page.manifest.configPathLabel",
+        "Config Path",
+      ),
+      configPreviewLabel: t(
+        "plugin.linapro-demo-dynamic.page.manifest.configPreviewLabel",
+        "Config Preview",
+      ),
+      emptyValue: t(
+        "plugin.linapro-demo-dynamic.page.manifest.emptyValue",
+        "Not returned",
+      ),
+      foundLabel: t(
+        "plugin.linapro-demo-dynamic.page.manifest.foundLabel",
+        "Found",
+      ),
+      loading: t(
+        "plugin.linapro-demo-dynamic.page.manifest.loading",
+        "Loading manifest host service demo...",
+      ),
+      missing: t(
+        "plugin.linapro-demo-dynamic.page.manifest.missing",
+        "Missing",
+      ),
+      profileNameLabel: t(
+        "plugin.linapro-demo-dynamic.page.manifest.profileNameLabel",
+        "Profile Name",
+      ),
+      profileOwnerLabel: t(
+        "plugin.linapro-demo-dynamic.page.manifest.profileOwnerLabel",
+        "Profile Owner",
+      ),
+      profilePathLabel: t(
+        "plugin.linapro-demo-dynamic.page.manifest.profilePathLabel",
+        "Profile Path",
+      ),
+      profileTierLabel: t(
+        "plugin.linapro-demo-dynamic.page.manifest.profileTierLabel",
+        "Profile Tier",
+      ),
+      reload: t(
+        "plugin.linapro-demo-dynamic.page.manifest.reload",
+        "Reload Manifest Demo",
+      ),
+      summary: t(
+        "plugin.linapro-demo-dynamic.page.manifest.summary",
+        "This panel calls the read-only manifest-demo endpoint, then displays values read through manifest.get from the two paths declared in plugin.yaml.",
+      ),
+      title: t(
+        "plugin.linapro-demo-dynamic.page.manifest.title",
+        "Manifest Host Service",
+      ),
+    },
     standaloneButton: t(
       "plugin.linapro-demo-dynamic.page.standaloneButton",
       "Open Standalone Page",
@@ -775,6 +833,109 @@ function ensureMountStyles(documentRef) {
       padding: 0 22px;
     }
 
+    .linapro-demo-dynamic-page__manifest {
+      display: grid;
+      gap: 16px;
+      margin: 18px 22px 0;
+      padding: 18px;
+      border-radius: 14px;
+      border: 1px solid rgba(22, 119, 255, 0.16);
+      background: linear-gradient(180deg, rgba(22, 119, 255, 0.06), rgba(255, 255, 255, 0.92));
+    }
+
+    .linapro-demo-dynamic-page__manifest-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .linapro-demo-dynamic-page__manifest-title {
+      margin: 0;
+      color: #0f172a;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .linapro-demo-dynamic-page__manifest-summary {
+      margin: 6px 0 0;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .linapro-demo-dynamic-page__manifest-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .linapro-demo-dynamic-page__manifest-item {
+      min-width: 0;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .linapro-demo-dynamic-page__manifest-label {
+      display: block;
+      margin-bottom: 4px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .linapro-demo-dynamic-page__manifest-value {
+      display: block;
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    .linapro-demo-dynamic-page__manifest-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: var(--dynamic-shell-success);
+      background: rgba(22, 121, 79, 0.1);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .linapro-demo-dynamic-page__manifest-status[data-found="false"] {
+      color: var(--dynamic-shell-danger);
+      background: rgba(198, 40, 40, 0.08);
+    }
+
+    .linapro-demo-dynamic-page__manifest-pre {
+      grid-column: 1 / -1;
+    }
+
+    .linapro-demo-dynamic-page__manifest-pre code {
+      display: block;
+      max-height: 96px;
+      overflow: auto;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .linapro-demo-dynamic-page__manifest-error {
+      color: var(--dynamic-shell-danger);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
     .linapro-demo-dynamic-page__feedback-item {
       margin: 12px 0 0;
       padding: 12px 14px;
@@ -1135,7 +1296,8 @@ function ensureMountStyles(documentRef) {
       }
 
       .linapro-demo-dynamic-page__panel-metrics,
-      .linapro-demo-dynamic-page__grid {
+      .linapro-demo-dynamic-page__grid,
+      .linapro-demo-dynamic-page__manifest-grid {
         grid-template-columns: 1fr;
       }
 
@@ -1275,6 +1437,9 @@ export function mount(context) {
     total: 0,
     successMessage: "",
     errorMessage: "",
+    manifestDemoLoading: false,
+    manifestDemo: null,
+    manifestDemoError: "",
     modalOpen: false,
     editingRecord: null,
     selectedFile: null,
@@ -1403,6 +1568,10 @@ export function mount(context) {
   const feedback = documentRef.createElement("div");
   feedback.className = "linapro-demo-dynamic-page__feedback";
 
+  const manifestPanel = documentRef.createElement("section");
+  manifestPanel.className = "linapro-demo-dynamic-page__manifest";
+  manifestPanel.setAttribute("data-testid", "linapro-demo-dynamic-manifest-demo");
+
   const tableWrap = documentRef.createElement("div");
   tableWrap.className = "linapro-demo-dynamic-page__table-wrap";
   tableWrap.setAttribute("data-testid", "linapro-demo-dynamic-record-grid");
@@ -1524,7 +1693,7 @@ export function mount(context) {
   modalMask.append(modal);
   modalMask.addEventListener("click", () => closeModal());
 
-  workspaceCard.append(workspaceHeader, feedback, tableWrap);
+  workspaceCard.append(workspaceHeader, feedback, manifestPanel, tableWrap);
   workspace.append(workspaceCard);
   shell.append(hero, featureGrid, workspace);
   root.append(shell, modalMask);
@@ -1567,8 +1736,164 @@ export function mount(context) {
   function updateActionState() {
     addButton.disabled = state.loading || state.submitting;
     reloadButton.disabled = state.loading || state.submitting;
+    const manifestReloadButton = manifestPanel.querySelector(
+      "[data-manifest-reload]",
+    );
+    if (manifestReloadButton) {
+      manifestReloadButton.disabled = state.manifestDemoLoading;
+    }
     submitButton.disabled = state.submitting;
     cancelButton.disabled = state.submitting;
+  }
+
+  function buildManifestItem(label, value, testId) {
+    const item = documentRef.createElement("div");
+    item.className = "linapro-demo-dynamic-page__manifest-item";
+    if (testId) {
+      item.setAttribute("data-testid", testId);
+    }
+
+    const labelNode = documentRef.createElement("span");
+    labelNode.className = "linapro-demo-dynamic-page__manifest-label";
+    labelNode.textContent = label;
+
+    const valueNode = documentRef.createElement("span");
+    valueNode.className = "linapro-demo-dynamic-page__manifest-value";
+    valueNode.textContent = value || pageCopy.manifest.emptyValue;
+
+    item.append(labelNode, valueNode);
+    return item;
+  }
+
+  function buildManifestFoundItem(label, found, testId) {
+    const item = documentRef.createElement("div");
+    item.className = "linapro-demo-dynamic-page__manifest-item";
+    if (testId) {
+      item.setAttribute("data-testid", testId);
+    }
+
+    const labelNode = documentRef.createElement("span");
+    labelNode.className = "linapro-demo-dynamic-page__manifest-label";
+    labelNode.textContent = label;
+
+    const status = documentRef.createElement("span");
+    status.className = "linapro-demo-dynamic-page__manifest-status";
+    status.setAttribute("data-found", found ? "true" : "false");
+    status.textContent = found
+      ? pageCopy.manifest.foundLabel
+      : pageCopy.manifest.missing;
+
+    item.append(labelNode, status);
+    return item;
+  }
+
+  function renderManifestDemo() {
+    manifestPanel.replaceChildren();
+
+    const header = documentRef.createElement("div");
+    header.className = "linapro-demo-dynamic-page__manifest-header";
+
+    const headingBlock = documentRef.createElement("div");
+    const title = documentRef.createElement("h3");
+    title.className = "linapro-demo-dynamic-page__manifest-title";
+    title.textContent = pageCopy.manifest.title;
+    const summary = documentRef.createElement("p");
+    summary.className = "linapro-demo-dynamic-page__manifest-summary";
+    summary.textContent = pageCopy.manifest.summary;
+    headingBlock.append(title, summary);
+
+    const reloadManifestButton = documentRef.createElement("button");
+    reloadManifestButton.type = "button";
+    reloadManifestButton.className = "linapro-demo-dynamic-page__ghost-button";
+    reloadManifestButton.setAttribute("data-manifest-reload", "true");
+    reloadManifestButton.setAttribute(
+      "data-testid",
+      "linapro-demo-dynamic-manifest-reload",
+    );
+    reloadManifestButton.textContent = pageCopy.manifest.reload;
+    reloadManifestButton.disabled = state.manifestDemoLoading;
+    reloadManifestButton.addEventListener("click", () => {
+      void fetchManifestDemo();
+    });
+
+    header.append(headingBlock, reloadManifestButton);
+    manifestPanel.append(header);
+
+    if (state.manifestDemoLoading && !state.manifestDemo) {
+      const loading = documentRef.createElement("div");
+      loading.className = "linapro-demo-dynamic-page__manifest-error";
+      loading.textContent = pageCopy.manifest.loading;
+      manifestPanel.append(loading);
+      return;
+    }
+
+    if (state.manifestDemoError) {
+      const error = documentRef.createElement("div");
+      error.className = "linapro-demo-dynamic-page__manifest-error";
+      error.setAttribute("data-testid", "linapro-demo-dynamic-manifest-error");
+      error.textContent = state.manifestDemoError;
+      manifestPanel.append(error);
+      return;
+    }
+
+    const manifest = state.manifestDemo || {};
+    const grid = documentRef.createElement("div");
+    grid.className = "linapro-demo-dynamic-page__manifest-grid";
+    grid.append(
+      buildManifestItem(
+        pageCopy.manifest.profilePathLabel,
+        manifest.profilePath,
+        "linapro-demo-dynamic-manifest-profile-path",
+      ),
+      buildManifestFoundItem(
+        pageCopy.manifest.profilePathLabel,
+        !!manifest.profileFound,
+        "linapro-demo-dynamic-manifest-profile-found",
+      ),
+      buildManifestItem(
+        pageCopy.manifest.profileNameLabel,
+        manifest.profileName,
+        "linapro-demo-dynamic-manifest-profile-name",
+      ),
+      buildManifestItem(
+        pageCopy.manifest.profileTierLabel,
+        manifest.profileTier,
+        "linapro-demo-dynamic-manifest-profile-tier",
+      ),
+      buildManifestItem(
+        pageCopy.manifest.profileOwnerLabel,
+        manifest.profileOwner,
+        "linapro-demo-dynamic-manifest-profile-owner",
+      ),
+      buildManifestFoundItem(
+        pageCopy.manifest.configPathLabel,
+        !!manifest.configFound,
+        "linapro-demo-dynamic-manifest-config-found",
+      ),
+      buildManifestItem(
+        pageCopy.manifest.configPathLabel,
+        manifest.configPath,
+        "linapro-demo-dynamic-manifest-config-path",
+      ),
+    );
+
+    const preview = documentRef.createElement("div");
+    preview.className =
+      "linapro-demo-dynamic-page__manifest-item linapro-demo-dynamic-page__manifest-pre";
+    preview.setAttribute(
+      "data-testid",
+      "linapro-demo-dynamic-manifest-config-preview",
+    );
+    const previewLabel = documentRef.createElement("span");
+    previewLabel.className = "linapro-demo-dynamic-page__manifest-label";
+    previewLabel.textContent = pageCopy.manifest.configPreviewLabel;
+    const previewCode = documentRef.createElement("code");
+    previewCode.textContent =
+      manifest.configBodyPreview || pageCopy.manifest.emptyValue;
+    preview.append(previewLabel, previewCode);
+    grid.append(preview);
+
+    manifestPanel.append(grid);
   }
 
   // getTotalPages derives the visible page count from the current total and
@@ -2012,6 +2337,40 @@ export function mount(context) {
     }
   }
 
+  async function fetchManifestDemo() {
+    if (state.destroyed) {
+      return;
+    }
+    state.manifestDemoLoading = true;
+    state.manifestDemoError = "";
+    renderManifestDemo();
+    updateActionState();
+
+    try {
+      const payload = await requestJSON(`${apiBasePath}/manifest-demo`);
+      if (state.destroyed) {
+        return;
+      }
+      state.manifestDemo = payload || null;
+    } catch (error) {
+      if (state.destroyed) {
+        return;
+      }
+      state.manifestDemo = null;
+      state.manifestDemoError =
+        error instanceof Error
+          ? error.message
+          : pageCopy.messages.fetchManifestDemoFailed;
+    } finally {
+      if (state.destroyed) {
+        return;
+      }
+      state.manifestDemoLoading = false;
+      renderManifestDemo();
+      updateActionState();
+    }
+  }
+
   async function buildMutationPayload() {
     const payload = {
       title: titleInput.value.trim(),
@@ -2154,9 +2513,11 @@ export function mount(context) {
   });
 
   renderFeedback();
+  renderManifestDemo();
   renderTable();
   renderModal();
   updateActionState();
+  void fetchManifestDemo();
   void fetchRecords();
 
   return {

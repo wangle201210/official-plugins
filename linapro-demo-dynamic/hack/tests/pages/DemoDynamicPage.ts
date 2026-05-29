@@ -27,6 +27,34 @@ export class DemoDynamicPage extends PluginPage {
     return this.page.getByTestId("linapro-demo-dynamic-record-add").first();
   }
 
+  pluginDemoDynamicManifestDemo(): Locator {
+    return this.page.getByTestId("linapro-demo-dynamic-manifest-demo").first();
+  }
+
+  pluginDemoDynamicManifestProfileName(): Locator {
+    return this.page
+      .getByTestId("linapro-demo-dynamic-manifest-profile-name")
+      .first();
+  }
+
+  pluginDemoDynamicManifestProfilePath(): Locator {
+    return this.page
+      .getByTestId("linapro-demo-dynamic-manifest-profile-path")
+      .first();
+  }
+
+  pluginDemoDynamicManifestConfigPath(): Locator {
+    return this.page
+      .getByTestId("linapro-demo-dynamic-manifest-config-path")
+      .first();
+  }
+
+  pluginDemoDynamicManifestConfigPreview(): Locator {
+    return this.page
+      .getByTestId("linapro-demo-dynamic-manifest-config-preview")
+      .first();
+  }
+
   pluginDemoDynamicRecordPagination(): Locator {
     return this.page
       .getByTestId("linapro-demo-dynamic-record-pagination")

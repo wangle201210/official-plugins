@@ -31,6 +31,9 @@ type Service interface {
 	// BuildHostCallDemoPayload executes the host service demo and returns the
 	// response payload.
 	BuildHostCallDemoPayload(ctx context.Context, input *HostCallDemoInput) (*hostCallDemoPayload, error)
+	// BuildManifestDemoPayload reads the explicitly authorized packaged
+	// manifest resources and returns the manifest host-service demo payload.
+	BuildManifestDemoPayload() (*hostCallDemoManifestPayload, error)
 	// RegisterCrons publishes all built-in cron declarations for host-side
 	// discovery.
 	RegisterCrons() error
@@ -100,6 +103,15 @@ type configHostService interface {
 	Bool(key string) (bool, bool, error)
 }
 
+// manifestHostService abstracts plugin-scoped packaged manifest resource
+// reads used by the sample service.
+type manifestHostService interface {
+	// GetText reads one packaged manifest resource as UTF-8 text.
+	GetText(path string) (string, bool, error)
+	// Scan decodes one YAML manifest resource or nested key into target.
+	Scan(path string, key string, target any) (bool, error)
+}
+
 // hostConfigHostService abstracts whitelisted public host config reads used
 // by the sample service.
 type hostConfigHostService interface {
@@ -148,6 +160,7 @@ type serviceImpl struct {
 	networkSvc    networkHostService
 	cronSvc       cronHostService
 	configSvc     configHostService
+	manifestSvc   manifestHostService
 	hostConfigSvc hostConfigHostService
 	orgSvc        orgHostService
 	tenantSvc     tenantHostService
@@ -162,6 +175,7 @@ func New() Service {
 		networkSvc:    newNetworkHostService(),
 		cronSvc:       newCronHostService(),
 		configSvc:     newConfigHostService(),
+		manifestSvc:   newManifestHostService(),
 		hostConfigSvc: newHostConfigHostService(),
 		orgSvc:        newOrgHostService(),
 		tenantSvc:     newTenantHostService(),

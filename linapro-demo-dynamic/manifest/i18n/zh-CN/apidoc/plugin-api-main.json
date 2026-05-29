@@ -231,12 +231,12 @@
                 }
               },
               "meta": {
-                "dc": "演示动态插件通过统一宿主服务模型调用运行时、存储、网络、数据、插件配置、宿主公开配置、组织和租户能力。该接口会写入运行时日志、读写隔离插件存储、访问受治理的上游地址，对授权数据表执行结构化 CRUD，读取插件自有配置键，读取白名单宿主公开配置键，并读取当前组织和租户投影。传入 skipNetwork=1 可跳过外部网络请求，便于离线验证。",
+                "dc": "演示动态插件通过统一宿主服务模型调用运行时、存储、网络、数据、插件配置、打包 manifest 资源、宿主公开配置、组织和租户能力。该接口会写入运行时日志、读写隔离插件存储、访问受治理的上游地址，对授权数据表执行结构化 CRUD，读取插件自有配置键，读取显式授权的 manifest.get 路径，读取白名单宿主公开配置键，并读取当前组织和租户投影。传入 skipNetwork=1 可跳过外部网络请求，便于离线验证。",
                 "summary": "宿主调用能力演示",
                 "tags": "动态插件示例"
               },
               "schema": {
-                "dc": "演示动态插件通过统一宿主服务模型调用运行时、存储、网络、数据、插件配置、宿主公开配置、组织和租户能力。该接口会写入运行时日志、读写隔离插件存储、访问受治理的上游地址，对授权数据表执行结构化 CRUD，读取插件自有配置键，读取白名单宿主公开配置键，并读取当前组织和租户投影。传入 skipNetwork=1 可跳过外部网络请求，便于离线验证。"
+                "dc": "演示动态插件通过统一宿主服务模型调用运行时、存储、网络、数据、插件配置、打包 manifest 资源、宿主公开配置、组织和租户能力。该接口会写入运行时日志、读写隔离插件存储、访问受治理的上游地址，对授权数据表执行结构化 CRUD，读取插件自有配置键，读取显式授权的 manifest.get 路径，读取白名单宿主公开配置键，并读取当前组织和租户投影。传入 skipNetwork=1 可跳过外部网络请求，便于离线验证。"
               }
             },
             "HostCallDemoConfigRes": {
@@ -280,6 +280,9 @@
                 },
                 "visitCount": {
                   "dc": "当前累计访问次数，通过 runtime.state 宿主服务实现持久化计数"
+                },
+                "manifest": {
+                  "dc": "显式授权 manifest.get 路径的打包 manifest 资源读取摘要"
                 }
               }
             },
@@ -438,6 +441,44 @@
               "schema": {
                 "dc": "更新 linapro-demo-dynamic 示例记录，并可选择替换或移除其附件，演示写入插件自有数据表和授权存储文件。"
               }
+            },
+            "HostCallDemoManifestRes": {
+              "fields": {
+                "profilePath": {
+                  "dc": "用于读取打包 profile 资源的显式授权 manifest.get 路径"
+                },
+                "profileFound": {
+                  "dc": "是否通过 manifest 宿主服务找到 config/profile.yaml"
+                },
+                "profileName": {
+                  "dc": "通过 manifest 宿主服务从 config/profile.yaml 扫描得到的 profile.name 值"
+                },
+                "profileTier": {
+                  "dc": "通过 manifest 宿主服务从 config/profile.yaml 扫描得到的 profile.tier 值"
+                },
+                "profileOwner": {
+                  "dc": "通过 manifest 宿主服务从 config/profile.yaml 扫描得到的 profile.owner 值"
+                },
+                "configPath": {
+                  "dc": "用于按原文读取打包配置资源的显式授权 manifest.get 路径"
+                },
+                "configFound": {
+                  "dc": "是否通过 manifest 宿主服务找到 config/config.yaml"
+                },
+                "configBodyPreview": {
+                  "dc": "通过 manifest.get 读取到的打包 config/config.yaml manifest 资源正文预览"
+                }
+              }
+            },
+            "ManifestDemoReq": {
+              "meta": {
+                "dc": "返回从 plugin.yaml 中显式授权的两个打包 manifest 资源读取到的值：config/profile.yaml 和 config/config.yaml。该只读接口演示从 service: manifest 声明到 manifest.get 使用的流程，不触发存储、数据或网络副作用。",
+                "summary": "查询 manifest 宿主服务演示",
+                "tags": "动态插件示例"
+              },
+              "schema": {
+                "dc": "返回从 plugin.yaml 中显式授权的两个打包 manifest 资源读取到的值：config/profile.yaml 和 config/config.yaml。该只读接口演示从 service: manifest 声明到 manifest.get 使用的流程，不触发存储、数据或网络副作用。"
+              }
             }
           }
         }
@@ -517,6 +558,24 @@
                     }
                   }
                 }
+              },
+              "manifest_demo": {
+                "meta": {
+                  "dc": "返回从 plugin.yaml 中显式授权的两个打包 manifest 资源读取到的值：config/profile.yaml 和 config/config.yaml。该只读接口演示从 service: manifest 声明到 manifest.get 使用的流程，不触发存储、数据或网络副作用。",
+                  "summary": "查询 manifest 宿主服务演示",
+                  "tags": "动态插件示例"
+                },
+                "responses": {
+                  "200": {
+                    "dc": "动态插件路由响应"
+                  },
+                  "500": {
+                    "dc": "动态插件路由执行失败"
+                  },
+                  "501": {
+                    "dc": "动态插件路由桥接不可执行"
+                  }
+                }
               }
             }
           }
@@ -544,7 +603,7 @@
               },
               "host_call_demo": {
                 "meta": {
-                  "dc": "演示动态插件通过统一宿主服务模型调用运行时、存储、网络、数据、插件配置和宿主公开配置能力。该接口会写入运行时日志、读写隔离插件存储、访问受治理的上游地址，对授权数据表执行结构化 CRUD，读取插件自有配置键，并读取白名单宿主公开配置键。传入 skipNetwork=1 可跳过外部网络请求，便于离线验证。",
+                  "dc": "演示动态插件通过统一宿主服务模型调用运行时、存储、网络、数据、插件配置、打包 manifest 资源、宿主公开配置、组织和租户能力。该接口会写入运行时日志、读写隔离插件存储、访问受治理的上游地址，对授权数据表执行结构化 CRUD，读取插件自有配置键，读取显式授权的 manifest.get 路径，读取白名单宿主公开配置键，并读取当前组织和租户投影。传入 skipNetwork=1 可跳过外部网络请求，便于离线验证。",
                   "summary": "宿主调用能力演示",
                   "tags": "动态插件示例"
                 },

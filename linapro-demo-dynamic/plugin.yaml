@@ -212,6 +212,17 @@ hostServices:
   - service: config
     methods:
       - get
+  # Host service enum. `manifest` reads this plugin's own packaged manifest resources as raw bytes.
+  # Paths are relative to the plugin `manifest/` root and do not replace config, SQL, or i18n lifecycle pipelines.
+  # 宿主服务枚举。`manifest` 用于读取当前插件自己打包的 manifest 原始资源。
+  # 路径相对当前插件的 `manifest/` 根目录，不替代配置、SQL 或 i18n 生命周期管线。
+  - service: manifest
+    methods:
+      - get
+    resources:
+      paths:
+        - config/config.yaml
+        - config/profile.yaml
   # Host service enum. `hostConfig` reads whitelisted public host config keys through get.
   # 宿主服务枚举。`hostConfig` 仅通过 get 读取白名单内的宿主公开配置。
   - service: hostConfig

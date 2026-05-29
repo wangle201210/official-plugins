@@ -51,7 +51,23 @@
           "recordUpdated": "Demo record updated",
           "requestFailed": "Request failed ({status})",
           "saveRecordFailed": "Failed to save the demo record",
-          "titleRequired": "Record title is required"
+          "titleRequired": "Record title is required",
+          "fetchManifestDemoFailed": "Failed to load the manifest host service demo"
+        },
+        "manifest": {
+          "configPathLabel": "Config Path",
+          "configPreviewLabel": "Config Preview",
+          "emptyValue": "Not returned",
+          "foundLabel": "Found",
+          "loading": "Loading manifest host service demo...",
+          "missing": "Missing",
+          "profileNameLabel": "Profile Name",
+          "profileOwnerLabel": "Profile Owner",
+          "profilePathLabel": "Profile Path",
+          "profileTierLabel": "Profile Tier",
+          "reload": "Reload Manifest Demo",
+          "summary": "This panel calls the read-only manifest-demo endpoint, then displays values read through manifest.get from the two paths declared in plugin.yaml.",
+          "title": "Manifest Host Service"
         },
         "metric": {
           "lifecycle": {

@@ -51,7 +51,23 @@
           "recordUpdated": "示例记录已更新",
           "requestFailed": "请求失败 ({status})",
           "saveRecordFailed": "示例记录保存失败",
-          "titleRequired": "记录标题不能为空"
+          "titleRequired": "记录标题不能为空",
+          "fetchManifestDemoFailed": "manifest 宿主服务演示加载失败"
+        },
+        "manifest": {
+          "configPathLabel": "配置路径",
+          "configPreviewLabel": "配置预览",
+          "emptyValue": "未返回",
+          "foundLabel": "已读取",
+          "loading": "正在加载 manifest 宿主服务演示...",
+          "missing": "未找到",
+          "profileNameLabel": "Profile 名称",
+          "profileOwnerLabel": "Profile 归属",
+          "profilePathLabel": "Profile 路径",
+          "profileTierLabel": "Profile 分层",
+          "reload": "刷新 Manifest 演示",
+          "summary": "该面板调用只读 manifest-demo 接口，并展示通过 manifest.get 从 plugin.yaml 声明的两个路径读取到的值。",
+          "title": "Manifest 宿主服务"
         },
         "metric": {
           "lifecycle": {
