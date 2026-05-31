@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { DeptTree } from './dept-client';
+import type { Dept, DeptTree } from './dept-client';
 
 import { computed, ref } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
+import { preferences } from '@vben/preferences';
+import { getPopupContainer } from '@vben/utils';
 
 import { message } from 'ant-design-vue';
 
@@ -30,6 +32,21 @@ interface DrawerProps {
   update: boolean;
 }
 
+type DeptSelectSource = Partial<Omit<DeptTree, 'children'>> &
+  Pick<Dept, 'id'> & {
+  children?: DeptSelectSource[];
+  name?: string;
+  parentId?: number;
+};
+
+type DeptSelectNode = Omit<DeptTree, 'children'> & {
+  children?: DeptSelectNode[];
+  fullName?: string;
+  parentId?: number;
+};
+
+const TOP_LEVEL_DEPT_ID = 0;
+const TOP_LEVEL_DEPT_LABEL_KEY = 'plugin.linapro-org-core.dept.tree.topLevelDept';
 const isUpdate = ref(false);
 const deptId = ref<number>(0);
 const title = computed(() =>
@@ -53,7 +70,7 @@ const [BasicForm, formApi] = useVbenForm({
 
 /** 为树节点添加 fullName（显示完整路径） */
 function addFullName(
-  tree: DeptTree[],
+  tree: DeptSelectNode[],
   parentPath = '',
   separator = ' / ',
 ) {
@@ -68,24 +85,82 @@ function addFullName(
   }
 }
 
+function normalizeDeptSelectTree(items: DeptSelectSource[]): DeptSelectNode[] {
+  if (items.some((item) => typeof item.parentId === 'number')) {
+    return buildDeptSelectTree(items);
+  }
+  return items.map((item) => ({
+    id: item.id,
+    label: item.label ?? item.name ?? '',
+    children: normalizeDeptSelectTree(item.children ?? []),
+  }));
+}
+
+function buildDeptSelectTree(items: DeptSelectSource[]): DeptSelectNode[] {
+  const nodeMap = new Map<number, DeptSelectNode>();
+  for (const item of items) {
+    nodeMap.set(item.id, {
+      id: item.id,
+      label: item.label ?? item.name ?? '',
+      parentId: item.parentId,
+      children: [],
+    });
+  }
+
+  const roots: DeptSelectNode[] = [];
+  for (const item of items) {
+    const node = nodeMap.get(item.id);
+    if (!node) {
+      continue;
+    }
+    const parentId = item.parentId ?? TOP_LEVEL_DEPT_ID;
+    const parent = parentId === TOP_LEVEL_DEPT_ID
+      ? undefined
+      : nodeMap.get(parentId);
+    if (parent) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+function topLevelDeptLabel() {
+  const translated = $t(TOP_LEVEL_DEPT_LABEL_KEY);
+  if (translated !== TOP_LEVEL_DEPT_LABEL_KEY) {
+    return translated;
+  }
+  return preferences.app.locale === 'en-US' ? 'Top-level Department' : '顶级部门';
+}
+
 /** 初始化部门树选择 */
 async function initDeptSelect(id?: number) {
-  let treeData: DeptTree[];
+  let rawTreeData: DeptSelectSource[];
   if (isUpdate.value && id) {
     // 编辑时排除自身及子节点
-    treeData = (await deptExclude(id)) || [];
+    rawTreeData = ((await deptExclude(id)) || []) as DeptSelectSource[];
   } else {
-    treeData = (await deptTree()) || [];
+    rawTreeData = ((await deptTree()) || []) as DeptSelectSource[];
   }
+  const selectableTree: DeptSelectNode[] = [
+    {
+      id: TOP_LEVEL_DEPT_ID,
+      label: topLevelDeptLabel(),
+      children: normalizeDeptSelectTree(rawTreeData),
+    },
+  ];
   // 添加完整路径名
-  addFullName(treeData);
+  addFullName(selectableTree);
   formApi.updateSchema([
     {
       componentProps: {
         fieldNames: { label: 'label', value: 'id' },
+        getPopupContainer,
         showSearch: true,
-        treeData,
+        treeData: selectableTree,
         treeDefaultExpandAll: true,
+        treeDefaultExpandedKeys: [TOP_LEVEL_DEPT_ID],
         treeLine: { showLeafIcon: false },
         treeNodeFilterProp: 'label',
         treeNodeLabelProp: 'fullName',
@@ -144,6 +219,8 @@ const [BasicDrawer, drawerApi] = useVbenDrawer({
         }
         await formApi.setValues(record);
       }
+    } else {
+      await formApi.setFieldValue('parentId', TOP_LEVEL_DEPT_ID);
     }
 
     // For new dept (no id or id used as parentId): load all users (deptId=0)
@@ -199,6 +276,7 @@ async function handleConfirm() {
 
 async function handleClosed() {
   await formApi.resetForm();
+  deptId.value = 0;
 }
 </script>
 

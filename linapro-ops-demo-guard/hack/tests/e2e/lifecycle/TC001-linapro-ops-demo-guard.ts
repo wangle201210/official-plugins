@@ -12,10 +12,12 @@ import { PluginPage } from '@host-tests/pages/PluginPage';
 const apiBaseURL = config.apiBaseURL;
 const publicBaseURL = config.publicBaseURL;
 const pluginID = "linapro-ops-demo-guard";
+const tenantCorePluginID = "linapro-tenant-core";
 const lifecyclePluginID = "linapro-demo-source";
 const demoControlMessage = "演示模式已开启，禁止执行写操作";
 const demoControlSkipReason =
   "requires linapro-ops-demo-guard to be installed and enabled";
+const tenantCoreApiBaseURL = `${publicBaseURL.replace(/\/$/, "")}/x/${tenantCorePluginID}/api/v1/`;
 
 type PluginListItem = {
   autoEnableManaged?: number;
@@ -85,6 +87,10 @@ async function loginDemoTenantUser(
     return null;
   }
   return unwrapApiData(payload) as TenantLoginResult;
+}
+
+function tenantCoreApiPath(pathName: string) {
+  return new URL(pathName.replace(/^\/+/, ""), tenantCoreApiBaseURL).toString();
 }
 
 async function fetchPlugin(
@@ -212,7 +218,7 @@ test.describe("TC-1 linapro-ops-demo-guard 全局只读保护", () => {
       const switchTargetTenant = tenants[1]!;
       const selectPayload = unwrapApiData(
         await expectApiOK(
-          await sessionApi.post("auth/select-tenant", {
+          await sessionApi.post(tenantCoreApiPath("auth/select-tenant"), {
             data: {
               preToken,
               tenantId: selectedTenant.id,
@@ -239,7 +245,6 @@ test.describe("TC-1 linapro-ops-demo-guard 全局只读保护", () => {
       const accessToken = refreshPayload.accessToken ?? "";
 
       const tenantApi = await playwrightRequest.newContext({
-        baseURL: apiBaseURL,
         extraHTTPHeaders: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -247,7 +252,7 @@ test.describe("TC-1 linapro-ops-demo-guard 全局只读保护", () => {
       try {
         const switchPayload = unwrapApiData(
           await expectApiOK(
-            await tenantApi.post("auth/switch-tenant", {
+            await tenantApi.post(tenantCoreApiPath("auth/switch-tenant"), {
               data: {
                 tenantId: switchTargetTenant.id,
               },

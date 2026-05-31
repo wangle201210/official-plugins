@@ -155,8 +155,8 @@ func TestGuardAllowsSessionWhitelist(t *testing.T) {
 	}{
 		{path: "/api/v1/auth/login", body: "login-ok"},
 		{path: "/api/v1/auth/refresh", body: "refresh-ok"},
-		{path: "/api/v1/auth/select-tenant", body: "select-tenant-ok"},
-		{path: "/api/v1/auth/switch-tenant", body: "switch-tenant-ok"},
+		{path: "/x/linapro-tenant-core/api/v1/auth/select-tenant", body: "tenant-core-select-tenant-ok"},
+		{path: "/x/linapro-tenant-core/api/v1/auth/switch-tenant", body: "tenant-core-switch-tenant-ok"},
 		{path: "/api/v1/auth/logout", body: "logout-ok"},
 	}
 	for _, item := range allowedRequests {
@@ -165,6 +165,38 @@ func TestGuardAllowsSessionWhitelist(t *testing.T) {
 			t.Fatalf("expected session whitelist %s to pass, got status=%d body=%q", item.path, response.status, response.body)
 		}
 	}
+}
+
+// TestGuardRejectsLegacyHostTenantSessionPaths verifies obsolete host tenant
+// auth paths are not kept as compatibility bypasses.
+func TestGuardRejectsLegacyHostTenantSessionPaths(t *testing.T) {
+	baseURL, shutdown := startDemoControlTestServer(t, true)
+	defer shutdown()
+
+	rejectedRequests := []string{
+		"/api/v1/auth/select-tenant",
+		"/api/v1/auth/switch-tenant",
+	}
+	for _, path := range rejectedRequests {
+		response := doDemoControlRequest(t, http.MethodPost, baseURL+path)
+		if response.status != http.StatusForbidden {
+			t.Fatalf("expected legacy host tenant session path %s to be rejected, got %d", path, response.status)
+		}
+		assertDemoControlRejectedResponse(t, response, http.MethodPost, path)
+	}
+}
+
+// TestGuardRejectsTenantCorePluginWritesOutsideSessionWhitelist verifies the
+// tenant-core plugin route whitelist does not become a general write bypass.
+func TestGuardRejectsTenantCorePluginWritesOutsideSessionWhitelist(t *testing.T) {
+	baseURL, shutdown := startDemoControlTestServer(t, true)
+	defer shutdown()
+
+	response := doDemoControlRequest(t, http.MethodPost, baseURL+"/x/linapro-tenant-core/api/v1/platform/tenants")
+	if response.status != http.StatusForbidden {
+		t.Fatalf("expected tenant-core platform POST to be rejected, got %d", response.status)
+	}
+	assertDemoControlRejectedResponse(t, response, http.MethodPost, "/x/linapro-tenant-core/api/v1/platform/tenants")
 }
 
 // TestGuardRejectsPluginManagementWriteRequests verifies demo mode blocks all
@@ -291,6 +323,17 @@ func startDemoControlTestServerWithReader(t *testing.T, reader EnablementReader)
 		})
 		group.ALL("/plugins/linapro-ops-demo-guard", func(request *ghttp.Request) {
 			request.Response.Write("linapro-ops-demo-guard-uninstall-ok")
+		})
+	})
+	server.Group("/x/linapro-tenant-core/api/v1", func(group *ghttp.RouterGroup) {
+		group.ALL("/auth/select-tenant", func(request *ghttp.Request) {
+			request.Response.Write("tenant-core-select-tenant-ok")
+		})
+		group.ALL("/auth/switch-tenant", func(request *ghttp.Request) {
+			request.Response.Write("tenant-core-switch-tenant-ok")
+		})
+		group.ALL("/platform/tenants", func(request *ghttp.Request) {
+			request.Response.Write("tenant-core-platform-tenants-ok")
 		})
 	})
 	server.BindHandler("/system/write", func(request *ghttp.Request) {

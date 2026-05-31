@@ -20,10 +20,10 @@ const (
 	demoControlAuthLogoutPath = "/api/v1/auth/logout"
 	// demoControlAuthRefreshPath refreshes the access token for an existing host session.
 	demoControlAuthRefreshPath = "/api/v1/auth/refresh"
-	// demoControlAuthSelectTenantPath exchanges a pre-login token for a tenant session.
-	demoControlAuthSelectTenantPath = "/api/v1/auth/select-tenant"
-	// demoControlAuthSwitchTenantPath reissues a session token for another tenant membership.
-	demoControlAuthSwitchTenantPath = "/api/v1/auth/switch-tenant"
+	// demoControlTenantCoreAuthSelectTenantPath exchanges a pre-login token through the tenant-core plugin route.
+	demoControlTenantCoreAuthSelectTenantPath = "/x/linapro-tenant-core/api/v1/auth/select-tenant"
+	// demoControlTenantCoreAuthSwitchTenantPath reissues a session token through the tenant-core plugin route.
+	demoControlTenantCoreAuthSwitchTenantPath = "/x/linapro-tenant-core/api/v1/auth/switch-tenant"
 )
 
 // demoControlErrorResponse defines the JSON payload returned for blocked demo writes.
@@ -105,8 +105,8 @@ func isDemoControlSessionWhitelist(method string, path string) bool {
 	case demoControlAuthLoginPath,
 		demoControlAuthLogoutPath,
 		demoControlAuthRefreshPath,
-		demoControlAuthSelectTenantPath,
-		demoControlAuthSwitchTenantPath:
+		demoControlTenantCoreAuthSelectTenantPath,
+		demoControlTenantCoreAuthSwitchTenantPath:
 		return true
 	default:
 		return false

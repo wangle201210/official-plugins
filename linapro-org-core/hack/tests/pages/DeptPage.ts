@@ -2,6 +2,7 @@ import type { Page } from '@host-tests/support/playwright';
 
 import {
   waitForBusyIndicatorsToClear,
+  closeDialogWithEscape,
   waitForConfirmOverlay,
   waitForDialogReady,
   waitForRouteReady,
@@ -11,10 +12,14 @@ import {
 export class DeptPage {
   constructor(private page: Page) {}
 
+  private topLevelDeptPattern =
+    /顶级部门|Top-level Department|plugin\.linapro-org-core\.dept\.tree\.topLevelDept/i;
+
   private resolveLocalizedLabel(label: string) {
     const labelMap: Record<string, RegExp> = {
       部门名称: /部门名称|Department Name|plugin\.linapro-org-core\.dept\.fields\.name/i,
       部门编码: /部门编码|Department Code|plugin\.linapro-org-core\.dept\.fields\.code/i,
+      上级部门: /上级部门|Parent Dept\.?|plugin\.linapro-org-core\.dept\.fields\.parentDept/i,
     };
     const localizedLabel = labelMap[label];
     if (localizedLabel) {
@@ -79,21 +84,23 @@ export class DeptPage {
 
   /** Create a root dept by clicking "新增" toolbar button */
   async createRootDept(name: string, opts?: { code?: string }) {
-    // Click the primary "新增" button in toolbar (not the row-level "新增" buttons)
-    await this.page
-      .locator('.vxe-grid--toolbar')
-      .getByRole('button', { name: /新\s*增/ })
-      .click();
+    await this.clickToolbarAdd();
 
     await waitForDialogReady(this.drawer);
 
+    await this.expectTopLevelParentSelected();
+
     // Fill dept name (first text input in drawer)
-    const nameInput = this.drawer.getByLabel('部门名称', { exact: true });
+    const nameInput = this.drawer.getByRole('textbox', {
+      name: /部门名称|Department Name|plugin\.linapro-org-core\.dept\.fields\.name/i,
+    });
     await nameInput.fill(name);
 
     // Fill dept code if provided.
     if (opts?.code) {
-      const codeInput = this.drawer.getByLabel('部门编码', { exact: true });
+      const codeInput = this.drawer.getByRole('textbox', {
+        name: /部门编码|Department Code|plugin\.linapro-org-core\.dept\.fields\.code/i,
+      });
       await codeInput.fill(opts.code);
     }
 
@@ -103,6 +110,44 @@ export class DeptPage {
       .click();
 
     await this.waitForDrawerSubmitToSettle();
+  }
+
+  /** Open the create drawer and assert the top-level department is selectable. */
+  async expectTopLevelParentOption() {
+    await this.clickToolbarAdd();
+
+    await waitForDialogReady(this.drawer);
+
+    await this.expectTopLevelParentSelected();
+    await this.closeDrawer();
+  }
+
+  private async clickToolbarAdd() {
+    const addButton = this.page
+      .locator('button.ant-btn-primary:not(.ant-btn-background-ghost)', {
+        hasText: /新\s*增|Add/i,
+      })
+      .first();
+    await addButton.waitFor({ state: 'visible', timeout: 10000 });
+    await addButton.click();
+  }
+
+  private async expectTopLevelParentSelected() {
+    const selected = this.drawer.getByText(this.topLevelDeptPattern).first();
+    await selected.waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  private async closeDrawer() {
+    const closeButton = this.drawer
+      .locator('.ant-drawer-close, .ant-modal-close')
+      .first();
+    if (await closeButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await closeButton.click();
+      await this.drawer.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+      await waitForBusyIndicatorsToClear(this.page);
+      return;
+    }
+    await closeDialogWithEscape(this.page, this.drawer);
   }
 
   /** Create a sub dept under the specified parent row */

@@ -21,7 +21,10 @@
         "placeholders": {
           "selectLeader": "请选择负责人"
         },
-        "tableTitle": "部门列表"
+        "tableTitle": "部门列表",
+        "tree": {
+          "topLevelDept": "顶级部门"
+        }
       },
       "description": "提供部门与岗位管理的官方源码插件",
       "name": "组织管理",

@@ -21,7 +21,10 @@
         "placeholders": {
           "selectLeader": "Please select a leader"
         },
-        "tableTitle": "Department List"
+        "tableTitle": "Department List",
+        "tree": {
+          "topLevelDept": "Top-level Department"
+        }
       },
       "description": "Official source plugin for department and position management.",
       "name": "Organization Management",
