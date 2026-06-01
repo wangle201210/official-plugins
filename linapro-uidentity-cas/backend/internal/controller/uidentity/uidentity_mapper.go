@@ -130,3 +130,17 @@ func toAPIWechatRebindState(out *uidentitysvc.WechatRebindStateOutput) *v1.UserW
 		ExpiredAt:   out.ExpiredAt,
 	}
 }
+
+func toAPIActivationWechatState(out *uidentitysvc.ActivationWechatStateOutput) *v1.ActivationWechatCallbackRes {
+	if out == nil {
+		return nil
+	}
+	return &v1.ActivationWechatCallbackRes{
+		State:       out.State,
+		Status:      out.Status,
+		Success:     out.Success,
+		RedirectUrl: out.RedirectURL,
+		ErrorCode:   out.ErrorCode,
+		Message:     out.Message,
+	}
+}

@@ -89,6 +89,8 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 			group.PUT("/uidentity/activations/{challengeId}/password", uidentityController.ActivationPassword)
 			group.PUT("/uidentity/activations/{challengeId}/phone", uidentityController.ActivationPhone)
 			group.PUT("/uidentity/activations/{challengeId}/wechat", uidentityController.ActivationWechat)
+			group.POST("/uidentity/activations/{challengeId}/wechat-states", uidentityController.ActivationWechatStateCreate)
+			group.POST("/uidentity/activations/wechat-callbacks", uidentityController.ActivationWechatCallback)
 			group.GET("/uidentity/activations/{challengeId}/state", uidentityController.ActivationState)
 			group.POST("/uidentity/users/union-id-lookups", uidentityController.UserUnionIDLookup)
 			group.POST("/uidentity/users/union-id-bindings", uidentityController.UserUnionIDBind)

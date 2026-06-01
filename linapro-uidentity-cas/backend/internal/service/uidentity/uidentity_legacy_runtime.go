@@ -39,6 +39,14 @@ const (
 	unionBindTTL  = 10 * time.Minute
 
 	configKeyUnionIDBindCallbackURL = "runtime.unionIdBindCallbackUrl"
+
+	activationWechatStatusPending     = "pending"
+	activationWechatStatusSuccess     = "success"
+	activationWechatStatusUnsupported = "unsupported"
+	activationWechatStatusFailed      = "failed"
+
+	configKeyActivationWechatAuthorizeURL = "runtime.activationWechatAuthorizeUrl"
+	configKeyActivationWechatRedirectURL  = "runtime.activationWechatRedirectUrl"
 )
 
 type runtimeTicketPayload struct {
@@ -54,9 +62,16 @@ type runtimeTicketPayload struct {
 }
 
 type activationChallengeData struct {
-	AccountID int64  `json:"accountId"`
-	Number    string `json:"number"`
-	Stage     string `json:"stage"`
+	AccountID    int64  `json:"accountId"`
+	Number       string `json:"number"`
+	Stage        string `json:"stage"`
+	Callback     string `json:"callback,omitempty"`
+	WechatStatus string `json:"wechatStatus,omitempty"`
+	UnionID      string `json:"unionId,omitempty"`
+	Code         string `json:"code,omitempty"`
+	RedirectURL  string `json:"redirectUrl,omitempty"`
+	ErrorCode    string `json:"errorCode,omitempty"`
+	Message      string `json:"message,omitempty"`
 }
 
 type unionIDChallengeData struct {

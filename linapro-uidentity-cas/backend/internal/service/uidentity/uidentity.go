@@ -143,6 +143,12 @@ type Service interface {
 	// SetActivationWechat binds a Wechat union ID and activates the account
 	// attached to the challenge.
 	SetActivationWechat(ctx context.Context, in ActivationWechatInput) (*ActivationStepOutput, error)
+	// CreateActivationWechatState returns an external Wechat authorization URL
+	// for binding the account attached to one activation challenge.
+	CreateActivationWechatState(ctx context.Context, in ActivationWechatStateInput) (*ActivationWechatStateOutput, error)
+	// CompleteActivationWechat records an external Wechat activation callback
+	// and binds the resolved union ID to the account attached to the state.
+	CompleteActivationWechat(ctx context.Context, in ActivationWechatCallbackInput) (*ActivationWechatStateOutput, error)
 	// ActivationState returns the current activation challenge stage and
 	// account status.
 	ActivationState(ctx context.Context, challengeID string) (*ActivationStateOutput, error)
@@ -571,6 +577,20 @@ type ActivationWechatInput struct {
 	UnionID     string
 }
 
+// ActivationWechatStateInput carries activation Wechat state creation data.
+type ActivationWechatStateInput struct {
+	ChallengeID string
+	Callback    string
+}
+
+// ActivationWechatCallbackInput carries external activation Wechat callback data.
+type ActivationWechatCallbackInput struct {
+	State    string
+	UnionID  string
+	Code     string
+	Callback string
+}
+
 // ActivationOutput carries activation challenge metadata.
 type ActivationOutput struct {
 	ChallengeID string
@@ -586,10 +606,25 @@ type ActivationStepOutput struct {
 
 // ActivationStateOutput carries activation state read result.
 type ActivationStateOutput struct {
-	ChallengeID string
+	ChallengeID  string
+	Success      bool
+	Status       int
+	Stage        string
+	WechatStatus string
+	RedirectURL  string
+	ErrorCode    string
+	Message      string
+}
+
+// ActivationWechatStateOutput carries activation Wechat state metadata.
+type ActivationWechatStateOutput struct {
+	State       string
+	Status      string
 	Success     bool
-	Status      int
-	Stage       string
+	URL         string
+	RedirectURL string
+	ErrorCode   string
+	Message     string
 }
 
 // UnionIDLookupOutput carries union-ID lookup or bind challenge metadata.

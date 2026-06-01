@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gdb"
+
 	"lina-core/pkg/bizerr"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
@@ -147,10 +149,89 @@ func (s *serviceImpl) SetActivationWechat(ctx context.Context, in ActivationWech
 		return nil, err
 	}
 	payload.Stage = "wechat"
+	payload.WechatStatus = activationWechatStatusSuccess
+	payload.UnionID = strings.TrimSpace(in.UnionID)
 	if err := s.updateRuntimePayload(ctx, token.Id, payload); err != nil {
 		return nil, err
 	}
 	return &ActivationStepOutput{ChallengeID: in.ChallengeID, Success: true}, nil
+}
+
+// CreateActivationWechatState creates a Wechat authorization state for activation.
+func (s *serviceImpl) CreateActivationWechatState(ctx context.Context, in ActivationWechatStateInput) (*ActivationWechatStateOutput, error) {
+	token, payload, err := s.activationChallenge(ctx, in.ChallengeID)
+	if err != nil {
+		return nil, err
+	}
+	payload.Stage = "wechat_pending"
+	payload.Callback = strings.TrimSpace(in.Callback)
+	payload.WechatStatus = activationWechatStatusPending
+	if err := s.updateRuntimePayload(ctx, token.Id, payload); err != nil {
+		return nil, err
+	}
+	baseURL, err := s.configSvc.String(ctx, configKeyActivationWechatAuthorizeURL, "")
+	if err != nil {
+		return nil, err
+	}
+	return &ActivationWechatStateOutput{
+		State:  in.ChallengeID,
+		Status: payload.WechatStatus,
+		URL:    activationWechatAuthorizeURL(baseURL, in.ChallengeID, payload.Callback),
+	}, nil
+}
+
+// CompleteActivationWechat records a Wechat callback result for activation.
+func (s *serviceImpl) CompleteActivationWechat(ctx context.Context, in ActivationWechatCallbackInput) (*ActivationWechatStateOutput, error) {
+	token, payload, err := s.activationChallengeUnscoped(ctx, in.State)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(in.Callback) != "" {
+		payload.Callback = strings.TrimSpace(in.Callback)
+	}
+	payload.Code = strings.TrimSpace(in.Code)
+	unionID := strings.TrimSpace(in.UnionID)
+	if unionID == "" {
+		payload.Stage = "wechat"
+		payload.WechatStatus = activationWechatStatusUnsupported
+		payload.ErrorCode = CodeUnsupportedExternalFlow.RuntimeCode()
+		payload.Message = CodeUnsupportedExternalFlow.Fallback()
+		payload.RedirectURL = s.activationWechatRedirectURL(ctx, payload, in.State)
+		if err := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); err != nil {
+			return nil, err
+		}
+		return activationWechatResult(in.State, payload), nil
+	}
+	if err := s.bindUnionIDToAccountForTenant(ctx, token.TenantId, payload.AccountID, unionID); err != nil {
+		payload.Stage = "wechat"
+		payload.WechatStatus = activationWechatStatusFailed
+		if meta, ok := bizerr.As(err); ok {
+			payload.ErrorCode = meta.RuntimeCode()
+			payload.Message = meta.Fallback()
+		} else {
+			payload.Message = err.Error()
+		}
+		payload.RedirectURL = s.activationWechatRedirectURL(ctx, payload, in.State)
+		if updateErr := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); updateErr != nil {
+			return nil, updateErr
+		}
+		return nil, err
+	}
+	if _, err := dao.Account.Ctx(ctx).
+		Where(dao.Account.Columns().TenantId, token.TenantId).
+		Where(dao.Account.Columns().Id, payload.AccountID).
+		Data(do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}).
+		Update(); err != nil {
+		return nil, err
+	}
+	payload.Stage = "wechat"
+	payload.WechatStatus = activationWechatStatusSuccess
+	payload.UnionID = unionID
+	payload.RedirectURL = s.activationWechatRedirectURL(ctx, payload, in.State)
+	if err := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); err != nil {
+		return nil, err
+	}
+	return activationWechatResult(in.State, payload), nil
 }
 
 // ActivationState returns one activation challenge state.
@@ -164,10 +245,14 @@ func (s *serviceImpl) ActivationState(ctx context.Context, challengeID string) (
 		return nil, err
 	}
 	return &ActivationStateOutput{
-		ChallengeID: challengeID,
-		Success:     account.Status == AccountStatusNormal,
-		Status:      account.Status,
-		Stage:       payload.Stage,
+		ChallengeID:  challengeID,
+		Success:      account.Status == AccountStatusNormal,
+		Status:       account.Status,
+		Stage:        payload.Stage,
+		WechatStatus: payload.WechatStatus,
+		RedirectURL:  payload.RedirectURL,
+		ErrorCode:    payload.ErrorCode,
+		Message:      payload.Message,
 	}, nil
 }
 
@@ -436,9 +521,22 @@ func (s *serviceImpl) UpdateRuntimeAppRole(ctx context.Context, in UserAppRoleUp
 }
 
 func (s *serviceImpl) activationChallenge(ctx context.Context, challengeID string) (*entity.OauthToken, *activationChallengeData, error) {
+	model := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "")
+	return s.activationChallengeByModel(ctx, model, challengeID)
+}
+
+func (s *serviceImpl) activationChallengeUnscoped(ctx context.Context, challengeID string) (*entity.OauthToken, *activationChallengeData, error) {
+	return s.activationChallengeByModel(ctx, dao.OauthToken.Ctx(ctx), challengeID)
+}
+
+func (s *serviceImpl) activationChallengeByModel(ctx context.Context, model *gdb.Model, challengeID string) (*entity.OauthToken, *activationChallengeData, error) {
+	trimmed := strings.TrimSpace(challengeID)
+	if trimmed == "" {
+		return nil, nil, bizerr.NewCode(CodeActivationInvalid)
+	}
 	var token *entity.OauthToken
-	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Code, ticketCodePrefixActivation+challengeID).
+	err := model.
+		Where(dao.OauthToken.Columns().Code, ticketCodePrefixActivation+trimmed).
 		Scan(&token)
 	if err != nil {
 		return nil, nil, err
@@ -523,6 +621,46 @@ func (s *serviceImpl) bindUnionIDToAccount(ctx context.Context, accountID int64,
 		return bizerr.NewCode(CodeContactConflict)
 	}
 	return s.updateAccountDetail(ctx, accountID, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)})
+}
+
+func (s *serviceImpl) activationWechatRedirectURL(ctx context.Context, payload *activationChallengeData, state string) string {
+	baseURL, err := s.configSvc.String(ctx, configKeyActivationWechatRedirectURL, "")
+	if err != nil || payload == nil || strings.TrimSpace(baseURL) == "" {
+		return ""
+	}
+	result := callbackWithQuery(baseURL, "state", strings.TrimSpace(state))
+	result = callbackWithQuery(result, "status", payload.WechatStatus)
+	callback := payload.Callback
+	if strings.TrimSpace(callback) == "" {
+		callback = "active"
+	}
+	result = callbackWithQuery(result, "cascallback", callback)
+	if payload.Message != "" {
+		result = callbackWithQuery(result, "msg", payload.Message)
+	}
+	return result
+}
+
+func activationWechatAuthorizeURL(baseURL string, state string, callback string) string {
+	result := callbackWithQuery(baseURL, "state", state)
+	if strings.TrimSpace(callback) != "" {
+		result = callbackWithQuery(result, "cascallback", callback)
+	}
+	return result
+}
+
+func activationWechatResult(state string, payload *activationChallengeData) *ActivationWechatStateOutput {
+	if payload == nil {
+		return nil
+	}
+	return &ActivationWechatStateOutput{
+		State:       strings.TrimSpace(state),
+		Status:      payload.WechatStatus,
+		Success:     payload.WechatStatus == activationWechatStatusSuccess,
+		RedirectURL: payload.RedirectURL,
+		ErrorCode:   payload.ErrorCode,
+		Message:     payload.Message,
+	}
 }
 
 func (s *serviceImpl) ensurePhoneAvailable(ctx context.Context, phone string, accountID int64) error {

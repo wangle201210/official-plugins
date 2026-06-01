@@ -23,6 +23,8 @@ type IUidentityV1 interface {
 	ActivationPassword(ctx context.Context, req *v1.ActivationPasswordReq) (res *v1.ActivationPasswordRes, err error)
 	ActivationPhone(ctx context.Context, req *v1.ActivationPhoneReq) (res *v1.ActivationPhoneRes, err error)
 	ActivationWechat(ctx context.Context, req *v1.ActivationWechatReq) (res *v1.ActivationWechatRes, err error)
+	ActivationWechatStateCreate(ctx context.Context, req *v1.ActivationWechatStateCreateReq) (res *v1.ActivationWechatStateCreateRes, err error)
+	ActivationWechatCallback(ctx context.Context, req *v1.ActivationWechatCallbackReq) (res *v1.ActivationWechatCallbackRes, err error)
 	ActivationState(ctx context.Context, req *v1.ActivationStateReq) (res *v1.ActivationStateRes, err error)
 	CasLogin(ctx context.Context, req *v1.CasLoginReq) (res *v1.CasLoginRes, err error)
 	CasPasswordLogin(ctx context.Context, req *v1.CasPasswordLoginReq) (res *v1.CasPasswordLoginRes, err error)

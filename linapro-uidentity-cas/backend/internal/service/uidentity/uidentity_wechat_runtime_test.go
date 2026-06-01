@@ -72,3 +72,36 @@ func TestWechatRebindResultProjection(t *testing.T) {
 		t.Fatal("expected nil payload projection to be nil")
 	}
 }
+
+func TestActivationWechatAuthorizeURL(t *testing.T) {
+	t.Parallel()
+
+	got := activationWechatAuthorizeURL("https://wechat.example.com/activate?scope=snsapi_userinfo", "act_123", "active")
+	want := "https://wechat.example.com/activate?cascallback=active&scope=snsapi_userinfo&state=act_123"
+	if got != want {
+		t.Fatalf("unexpected authorize URL:\nwant %s\n got %s", want, got)
+	}
+	if got := activationWechatAuthorizeURL("", "act_123", ""); got != "" {
+		t.Fatalf("expected empty base URL to stay empty, got %s", got)
+	}
+}
+
+func TestActivationWechatResultProjection(t *testing.T) {
+	t.Parallel()
+
+	payload := &activationChallengeData{
+		WechatStatus: activationWechatStatusSuccess,
+		RedirectURL:  "https://example.com/callback",
+		ErrorCode:    CodeUnsupportedExternalFlow.RuntimeCode(),
+		Message:      CodeUnsupportedExternalFlow.Fallback(),
+	}
+	result := activationWechatResult("act_123", payload)
+	if result == nil || result.State != "act_123" || result.Status != payload.WechatStatus ||
+		!result.Success || result.RedirectURL != payload.RedirectURL ||
+		result.ErrorCode != payload.ErrorCode || result.Message != payload.Message {
+		t.Fatalf("unexpected result projection: %#v", result)
+	}
+	if activationWechatResult("act_123", nil) != nil {
+		t.Fatal("expected nil payload projection to be nil")
+	}
+}
