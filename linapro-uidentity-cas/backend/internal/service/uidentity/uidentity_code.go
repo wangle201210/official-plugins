@@ -23,6 +23,12 @@ var (
 	CodePasswordChallengeInvalid = bizerr.MustDefine("UIDENTITY_PASSWORD_CHALLENGE_INVALID", "Password reset challenge is invalid or expired", gcode.CodeInvalidParameter)
 	// CodeSMSCodeInvalid reports that phone verification did not match a plugin SMS record.
 	CodeSMSCodeInvalid = bizerr.MustDefine("UIDENTITY_SMS_CODE_INVALID", "SMS verification code is invalid", gcode.CodeInvalidParameter)
+	// CodeSMSRateLimited reports that one phone/type exceeded the local send cap.
+	CodeSMSRateLimited = bizerr.MustDefine("UIDENTITY_SMS_RATE_LIMITED", "SMS verification code is sent too frequently", gcode.CodeInvalidParameter)
+	// CodeSMSTypeInvalid reports an unsupported SMS scenario type.
+	CodeSMSTypeInvalid = bizerr.MustDefine("UIDENTITY_SMS_TYPE_INVALID", "SMS verification type is invalid", gcode.CodeInvalidParameter)
+	// CodeImportInvalid reports an invalid legacy account import workbook.
+	CodeImportInvalid = bizerr.MustDefine("UIDENTITY_IMPORT_INVALID", "Account import workbook is invalid", gcode.CodeInvalidParameter)
 	// CodeAccountLocked reports that runtime access hit a locked account.
 	CodeAccountLocked = bizerr.MustDefine("UIDENTITY_ACCOUNT_LOCKED", "Account is locked", gcode.CodeNotAuthorized)
 	// CodeAccountInactive reports that runtime access hit a non-normal account.

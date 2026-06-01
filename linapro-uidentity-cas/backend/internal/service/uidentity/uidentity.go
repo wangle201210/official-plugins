@@ -52,6 +52,12 @@ type Service interface {
 	// DeleteResource soft-deletes or hard-deletes supported records after
 	// tenant visibility checks. IDs are capped and validated before delete.
 	DeleteResource(ctx context.Context, resource string, ids string) error
+	// CheckAccountImport validates one legacy account import workbook without
+	// writing data and returns the number of importable rows.
+	CheckAccountImport(ctx context.Context, in AccountImportInput) (*AccountImportCheckOutput, error)
+	// ImportAccounts imports or updates plugin account rows from one legacy
+	// workbook, matching existing accounts by tenant-scoped account number.
+	ImportAccounts(ctx context.Context, in AccountImportInput) (*AccountImportOutput, error)
 	// ResetAccountPassword resets one account password using active password
 	// rules and records plugin-owned password metadata.
 	ResetAccountPassword(ctx context.Context, accountID int64, newPassword string) error
@@ -146,6 +152,9 @@ type Service interface {
 	// UpdateRuntimeAppRole updates delegated role expiration when owned by the
 	// runtime granting account.
 	UpdateRuntimeAppRole(ctx context.Context, in UserAppRoleUpdateInput) error
+	// SendSMSCode records one bounded plugin-local SMS verification code for
+	// CAS login, activation, phone binding, or password reset.
+	SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSendOutput, error)
 	// Stats returns aggregate identity statistics using database-side grouping
 	// and batch name projection.
 	Stats(ctx context.Context) (*StatsOutput, error)
@@ -199,6 +208,23 @@ type ResourceListInput struct {
 type ResourceListOutput struct {
 	List  []Record
 	Total int
+}
+
+// AccountImportInput carries account import workbook options.
+type AccountImportInput struct {
+	Filepath string
+	Limit    int
+}
+
+// AccountImportCheckOutput carries import validation metadata.
+type AccountImportCheckOutput struct {
+	Rows int
+}
+
+// AccountImportOutput carries account import results.
+type AccountImportOutput struct {
+	Success      int
+	FailedNumber []string
 }
 
 // PasswordChallengeOutput carries challenge creation result metadata.
@@ -478,6 +504,17 @@ type UserAppRoleUpdateInput struct {
 	Number   string
 	ID       int64
 	ExpireAt *int64
+}
+
+// SMSSendInput carries one SMS verification-code send request.
+type SMSSendInput struct {
+	Type  string
+	Phone string
+}
+
+// SMSSendOutput carries the plugin SMS record ID.
+type SMSSendOutput struct {
+	ID int64
 }
 
 // StatItem carries one aggregate statistic bucket.

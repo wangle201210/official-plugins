@@ -66,6 +66,7 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 			group.POST("/uidentity/password-challenges", uidentityController.AccountPasswordChallenge)
 			group.POST("/uidentity/password-challenges/{challengeId}/phone", uidentityController.AccountPasswordPhoneVerify)
 			group.PUT("/uidentity/password-challenges/{challengeId}/password", uidentityController.AccountPasswordSelfReset)
+			group.POST("/uidentity/sms-codes", uidentityController.SmsSend)
 			group.POST("/uidentity/cas/login", uidentityController.CasLogin)
 			group.POST("/uidentity/cas/password-logins", uidentityController.CasPasswordLogin)
 			group.POST("/uidentity/cas/phone-logins", uidentityController.CasPhoneLogin)
@@ -90,6 +91,8 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 					middlewares.Permission(),
 				)
 				group.PUT("/uidentity/accounts/{id}/password", uidentityController.AccountPassword)
+				group.POST("/uidentity/accounts/import-checks", uidentityController.AccountImportCheck)
+				group.POST("/uidentity/accounts/imports", uidentityController.AccountImport)
 				group.POST("/uidentity/oauth/tokens", uidentityController.OAuthIssue)
 				group.GET("/uidentity/stats", uidentityController.Stats)
 				group.PUT("/uidentity/users/{number}/password", uidentityController.UserPasswordChange)

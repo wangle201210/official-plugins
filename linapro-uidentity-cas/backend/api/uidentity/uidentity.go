@@ -11,6 +11,8 @@ import (
 )
 
 type IUidentityV1 interface {
+	AccountImportCheck(ctx context.Context, req *v1.AccountImportCheckReq) (res *v1.AccountImportCheckRes, err error)
+	AccountImport(ctx context.Context, req *v1.AccountImportReq) (res *v1.AccountImportRes, err error)
 	AccountPassword(ctx context.Context, req *v1.AccountPasswordReq) (res *v1.AccountPasswordRes, err error)
 	AccountPasswordChallenge(ctx context.Context, req *v1.AccountPasswordChallengeReq) (res *v1.AccountPasswordChallengeRes, err error)
 	AccountPasswordPhoneVerify(ctx context.Context, req *v1.AccountPasswordPhoneVerifyReq) (res *v1.AccountPasswordPhoneVerifyRes, err error)
@@ -34,6 +36,7 @@ type IUidentityV1 interface {
 	ResourceGet(ctx context.Context, req *v1.ResourceGetReq) (res *v1.ResourceGetRes, err error)
 	ResourceList(ctx context.Context, req *v1.ResourceListReq) (res *v1.ResourceListRes, err error)
 	ResourceUpdate(ctx context.Context, req *v1.ResourceUpdateReq) (res *v1.ResourceUpdateRes, err error)
+	SmsSend(ctx context.Context, req *v1.SmsSendReq) (res *v1.SmsSendRes, err error)
 	Stats(ctx context.Context, req *v1.StatsReq) (res *v1.StatsRes, err error)
 	RuntimeTokenIssue(ctx context.Context, req *v1.RuntimeTokenIssueReq) (res *v1.RuntimeTokenIssueRes, err error)
 	RuntimeTokenInfo(ctx context.Context, req *v1.RuntimeTokenInfoReq) (res *v1.RuntimeTokenInfoRes, err error)
