@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ResourceListReq defines the request for listing a UIdentity resource.
 type ResourceListReq struct {
-	g.Meta      `path:"/uidentity/{resource}" method:"get" tags:"UIdentity CAS" summary:"List UIdentity resource records" dc:"Query one plugin-owned UIdentity resource by page. Supported resources are accounts, account-details, groups, units, containers, applications, account-groups, account-units, account-app-roles, account-app-blacklists, group-app-blacklists, pass-rules, sms-records, cas-login-logs, oauth-logs, oauth-tokens, and account-change-logs." permission:"uidentity:cas:read"`
+	g.Meta      `path:"/uidentity/{resource}" method:"get" tags:"UIdentity CAS" summary:"List UIdentity resource records" dc:"Query one plugin-owned UIdentity resource by page. Supported resources are accounts, account-details, groups, units, containers, applications, account-groups, account-units, account-app-roles, account-app-blacklists, group-app-blacklists, pass-rules, sms-records, cas-login-logs, oauth-logs, oauth-tokens, account-change-logs, sys-jobs, and job-logs." permission:"uidentity:cas:read"`
 	Resource    string  `json:"resource" v:"required" dc:"Resource name" eg:"accounts"`
 	PageNum     int     `json:"pageNum" d:"1" v:"min:1" dc:"Page number, starting from 1" eg:"1"`
 	PageSize    int     `json:"pageSize" d:"10" v:"min:1|max:100" dc:"Number of items per page; max 100" eg:"10"`

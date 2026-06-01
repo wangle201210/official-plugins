@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"hash/fnv"
 	"io"
 	"mime"
 	"net"
@@ -19,6 +20,7 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gfile"
 	"github.com/gogf/gf/v2/os/gtime"
+	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/gogf/gf/v2/util/grand"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
@@ -27,12 +29,17 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
+	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
+	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
+	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
 
 const (
-	legacyUploadTypeSingle = "1"
-	legacyUploadTypeMulti  = "2"
-	legacyUploadTypeBase64 = "3"
+	legacyUploadTypeSingle      = "1"
+	legacyUploadTypeMulti       = "2"
+	legacyUploadTypeBase64      = "3"
+	legacyExternalTypeJobStart  = "job_start"
+	legacyExternalTypeJobRemove = "job_remove"
 
 	configKeyLegacyUploadPath       = "legacy.uploadPath"
 	configKeyLegacyUploadPublicBase = "legacy.uploadPublicBase"
@@ -47,6 +54,8 @@ const (
 	defaultLegacySnapshotLines   = 200
 	maxLegacySnapshotLines       = 1000
 )
+
+const legacyJobStatusEnabled = 2
 
 // UploadLegacyFiles stores legacy files in plugin-owned local storage.
 func (s *serviceImpl) UploadLegacyFiles(ctx context.Context, in LegacyUploadInput) (*LegacyUploadOutput, error) {
@@ -214,6 +223,12 @@ func (s *serviceImpl) LogSnapshot(ctx context.Context, in LegacyLogSnapshotInput
 
 // RunExternalAction reports configured support for external legacy actions.
 func (s *serviceImpl) RunExternalAction(ctx context.Context, in LegacyExternalActionInput) (*LegacyExternalActionOutput, error) {
+	switch strings.TrimSpace(in.Type) {
+	case legacyExternalTypeJobStart:
+		return s.startLegacyJob(ctx, in.Target)
+	case legacyExternalTypeJobRemove:
+		return s.removeLegacyJob(ctx, in.Target)
+	}
 	enabled, err := s.configSvc.Bool(ctx, configKeyLegacyExternalEnabled, false)
 	if err != nil {
 		return nil, err
@@ -222,6 +237,86 @@ func (s *serviceImpl) RunExternalAction(ctx context.Context, in LegacyExternalAc
 		return nil, bizerr.NewCode(CodeUnsupportedExternalFlow)
 	}
 	return nil, bizerr.NewCode(CodeUnsupportedExternalFlow)
+}
+
+func (s *serviceImpl) startLegacyJob(ctx context.Context, target string) (*LegacyExternalActionOutput, error) {
+	job, err := s.legacyJobByTarget(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	if job.Status != legacyJobStatusEnabled {
+		return nil, bizerr.NewCode(CodeLegacyJobDisabled)
+	}
+	entryID := legacyRuntimeEntryID(job)
+	_, err = s.tenantFilter.Apply(ctx, dao.SysJob.Ctx(ctx), "").
+		Where(dao.SysJob.Columns().JobId, job.JobId).
+		Data(do.SysJob{EntryId: entryID, UpdatedBy: s.actorID(ctx)}).
+		Update()
+	if err != nil {
+		return nil, err
+	}
+	return &LegacyExternalActionOutput{
+		Type:    legacyExternalTypeJobStart,
+		Target:  strings.TrimSpace(target),
+		Success: true,
+	}, nil
+}
+
+func (s *serviceImpl) removeLegacyJob(ctx context.Context, target string) (*LegacyExternalActionOutput, error) {
+	job, err := s.legacyJobByTarget(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.tenantFilter.Apply(ctx, dao.SysJob.Ctx(ctx), "").
+		Where(dao.SysJob.Columns().JobId, job.JobId).
+		Data(do.SysJob{EntryId: 0, UpdatedBy: s.actorID(ctx)}).
+		Update()
+	if err != nil {
+		return nil, err
+	}
+	return &LegacyExternalActionOutput{
+		Type:    legacyExternalTypeJobRemove,
+		Target:  strings.TrimSpace(target),
+		Success: true,
+	}, nil
+}
+
+func (s *serviceImpl) legacyJobByTarget(ctx context.Context, target string) (*entity.SysJob, error) {
+	jobID := parseLegacyJobID(target)
+	if jobID <= 0 {
+		return nil, bizerr.NewCode(CodeResourceNotFound)
+	}
+	var job *entity.SysJob
+	err := s.tenantFilter.Apply(ctx, dao.SysJob.Ctx(ctx), "").
+		Where(dao.SysJob.Columns().JobId, jobID).
+		Scan(&job)
+	if err != nil {
+		return nil, err
+	}
+	if job == nil {
+		return nil, bizerr.NewCode(CodeResourceNotFound)
+	}
+	return job, nil
+}
+
+func parseLegacyJobID(target string) int64 {
+	return gconv.Int64(strings.TrimSpace(target))
+}
+
+func legacyRuntimeEntryID(job *entity.SysJob) int64 {
+	if job == nil {
+		return 0
+	}
+	if job.EntryId > 0 {
+		return job.EntryId
+	}
+	return legacyEntryID(job.JobId)
+}
+
+func legacyEntryID(jobID int64) int64 {
+	hash := fnv.New32a()
+	_, _ = hash.Write([]byte(gconv.String(jobID)))
+	return int64(hash.Sum32())
 }
 
 func (s *serviceImpl) saveLegacyMultipartUpload(ctx context.Context, file *ghttp.UploadFile) (output *LegacyUploadFile, err error) {

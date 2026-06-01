@@ -145,6 +145,38 @@ func (s *serviceImpl) accountChangeLogResource() *resourceDefinition {
 	}, func(ctx context.Context) *gdb.Model { return dao.AccountChangeLog.Ctx(ctx) }, s.accountChangeLogData)
 }
 
+func (s *serviceImpl) sysJobResource() *resourceDefinition {
+	cols := dao.SysJob.Columns()
+	return &resourceDefinition{
+		name:          "sys-jobs",
+		table:         dao.SysJob.Table(),
+		idColumn:      cols.JobId,
+		defaultOrder:  cols.JobId,
+		keywordFields: []string{cols.JobName, cols.JobGroup, cols.InvokeTarget},
+		apiToColumn: map[string]string{
+			"id": cols.JobId, "jobId": cols.JobId, "tenantId": cols.TenantId, "jobName": cols.JobName,
+			"jobGroup": cols.JobGroup, "jobType": cols.JobType, "cronExpression": cols.CronExpression,
+			"invokeTarget": cols.InvokeTarget, "args": cols.Args, "misfirePolicy": cols.MisfirePolicy,
+			"concurrent": cols.Concurrent, "status": cols.Status, "entryId": cols.EntryId,
+			"createdBy": cols.CreatedBy, "updatedBy": cols.UpdatedBy, "createdAt": cols.CreatedAt,
+			"updatedAt": cols.UpdatedAt, "deletedAt": cols.DeletedAt,
+		},
+		timeFields: commonTimeFields(),
+		model:      func(ctx context.Context) *gdb.Model { return dao.SysJob.Ctx(ctx) },
+		data:       s.sysJobData,
+	}
+}
+
+func (s *serviceImpl) jobLogResource() *resourceDefinition {
+	cols := dao.JobLog.Columns()
+	return relationResource("job-logs", dao.JobLog.Table(), cols.Id, map[string]string{
+		"id": cols.Id, "tenantId": cols.TenantId, "jobId": cols.JobId, "jobName": cols.JobName,
+		"startAt": cols.StartAt, "endAt": cols.EndAt, "createNum": cols.CreateNum, "updateNum": cols.UpdateNum,
+		"deleteNum": cols.DeleteNum, "errNum": cols.ErrNum, "createdBy": cols.CreatedBy, "updatedBy": cols.UpdatedBy,
+		"createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt, "deletedAt": cols.DeletedAt,
+	}, func(ctx context.Context) *gdb.Model { return dao.JobLog.Ctx(ctx) }, s.jobLogData)
+}
+
 func relationResource(name, table, id string, apiToColumn map[string]string, model func(context.Context) *gdb.Model, data func(context.Context, map[string]any, bool) (any, error)) *resourceDefinition {
 	return &resourceDefinition{
 		name:          name,
@@ -185,7 +217,7 @@ func blacklistResource(name, table, id, nameCol, appIDCol, accountIDCol, groupID
 
 func relationKeywordFields(apiToColumn map[string]string) []string {
 	fields := make([]string, 0, 3)
-	for _, apiName := range []string{"name", "type", "scope", "action", "errNumber", "phone"} {
+	for _, apiName := range []string{"name", "type", "scope", "action", "errNumber", "phone", "jobName"} {
 		if column := apiToColumn[apiName]; column != "" {
 			fields = append(fields, column)
 		}

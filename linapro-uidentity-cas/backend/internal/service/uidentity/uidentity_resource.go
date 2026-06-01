@@ -60,10 +60,14 @@ func (s *serviceImpl) resourceDefinitions() map[string]*resourceDefinition {
 		"oauth-logs":             s.oauthLogResource(),
 		"oauth-tokens":           s.oauthTokenResource(),
 		"account-change-logs":    s.accountChangeLogResource(),
+		"sys-jobs":               s.sysJobResource(),
+		"job-logs":               s.jobLogResource(),
 		"account-app-blacklist":  s.accountAppBlacklistResource(),
 		"group-app-blacklist":    s.groupAppBlacklistResource(),
 		"account-app-role":       s.accountAppRoleResource(),
 		"account-change-log":     s.accountChangeLogResource(),
+		"sysjob":                 s.sysJobResource(),
+		"job-log":                s.jobLogResource(),
 		"account-details-legacy": s.accountDetailResource(),
 		"cas-login-logs-legacy":  s.casLoginLogResource(),
 		"oauth-log":              s.oauthLogResource(),
@@ -379,6 +383,8 @@ func commonTimeFields() map[string]struct{} {
 		"deletedAt":         {},
 		"loginTime":         {},
 		"expiredAt":         {},
+		"startAt":           {},
+		"endAt":             {},
 	}
 }
 

@@ -184,6 +184,45 @@ func (s *serviceImpl) accountChangeLogData(ctx context.Context, body map[string]
 	return data, nil
 }
 
+func (s *serviceImpl) sysJobData(ctx context.Context, body map[string]any, create bool) (any, error) {
+	tenantID, actorID := s.baseOwnedDO(ctx, create)
+	data := do.SysJob{UpdatedBy: actorID}
+	if create {
+		data.TenantId = tenantID
+		data.CreatedBy = actorID
+	}
+	copyStringFields(body, map[string]*any{
+		"jobName": &data.JobName, "jobGroup": &data.JobGroup, "cronExpression": &data.CronExpression,
+		"invokeTarget": &data.InvokeTarget, "args": &data.Args,
+	})
+	copyIntFields(body, map[string]*any{
+		"jobType": &data.JobType, "misfirePolicy": &data.MisfirePolicy, "concurrent": &data.Concurrent, "status": &data.Status,
+	})
+	copyInt64Fields(body, map[string]*any{"entryId": &data.EntryId})
+	return data, nil
+}
+
+func (s *serviceImpl) jobLogData(ctx context.Context, body map[string]any, create bool) (any, error) {
+	tenantID, actorID := s.baseOwnedDO(ctx, create)
+	data := do.JobLog{UpdatedBy: actorID}
+	if create {
+		data.TenantId = tenantID
+		data.CreatedBy = actorID
+	}
+	copyStringFields(body, map[string]*any{"jobName": &data.JobName})
+	copyInt64Fields(body, map[string]*any{
+		"jobId": &data.JobId, "createNum": &data.CreateNum, "updateNum": &data.UpdateNum,
+		"deleteNum": &data.DeleteNum, "errNum": &data.ErrNum,
+	})
+	if value := timeField(body, "startAt"); value != nil {
+		data.StartAt = value
+	}
+	if value := timeField(body, "endAt"); value != nil {
+		data.EndAt = value
+	}
+	return data, nil
+}
+
 func copyStringFields(body map[string]any, fields map[string]*any) {
 	for field, target := range fields {
 		if hasField(body, field) {

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
 
 func TestSplitLegacyBase64Payload(t *testing.T) {
@@ -41,5 +43,26 @@ func TestReadTailLines(t *testing.T) {
 	}
 	if len(lines) != 2 || lines[0] != "b" || lines[1] != "c" {
 		t.Fatalf("unexpected tail lines: %#v", lines)
+	}
+}
+
+func TestParseLegacyJobID(t *testing.T) {
+	if got := parseLegacyJobID(" 42 "); got != 42 {
+		t.Fatalf("unexpected job id: %d", got)
+	}
+	if got := parseLegacyJobID("bad"); got != 0 {
+		t.Fatalf("expected invalid job id to become 0, got %d", got)
+	}
+}
+
+func TestLegacyRuntimeEntryID(t *testing.T) {
+	if got := legacyRuntimeEntryID(&entity.SysJob{JobId: 7, EntryId: 99}); got != 99 {
+		t.Fatalf("expected existing entry id to be preserved, got %d", got)
+	}
+	if got := legacyRuntimeEntryID(&entity.SysJob{JobId: 7}); got == 0 {
+		t.Fatal("expected generated entry id for unscheduled job")
+	}
+	if got := legacyRuntimeEntryID(nil); got != 0 {
+		t.Fatalf("expected nil job entry id to be 0, got %d", got)
 	}
 }
