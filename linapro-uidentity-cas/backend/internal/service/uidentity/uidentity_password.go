@@ -22,7 +22,10 @@ const (
 	passwordChallengeTTL        = 15 * time.Minute
 	passwordChallengeCodePrefix = "pwd_challenge:"
 	passwordVerifiedDataPrefix  = "pwd_verified:"
-	smsTypePasswordReset        = "cas_pwd_change"
+	smsTypePasswordReset        = "pwd_change"
+	smsTypeCasLogin             = "login"
+	smsTypeCasActive            = "active"
+	smsTypeCasBind              = "bind"
 	smsStatusSuccess            = 1
 )
 
@@ -108,7 +111,7 @@ func (s *serviceImpl) VerifyPasswordChallengePhone(ctx context.Context, challeng
 	if payload.Phone != phone {
 		return "", bizerr.NewCode(CodePasswordChallengeInvalid)
 	}
-	if err := s.verifySMSCode(ctx, phone, code); err != nil {
+	if err := s.verifySMSCode(ctx, phone, code, smsTypePasswordReset); err != nil {
 		return "", err
 	}
 	payload.Stage = "phone"
@@ -167,11 +170,11 @@ func (s *serviceImpl) passwordChallenge(ctx context.Context, code string) (*enti
 	return token, payload, nil
 }
 
-func (s *serviceImpl) verifySMSCode(ctx context.Context, phone string, code string) error {
+func (s *serviceImpl) verifySMSCode(ctx context.Context, phone string, code string, smsType string) error {
 	smsColumns := dao.Sms.Columns()
 	count, err := s.tenantFilter.Apply(ctx, dao.Sms.Ctx(ctx), "").
 		Where(smsColumns.Phone, phone).
-		Where(smsColumns.Type, smsTypePasswordReset).
+		Where(smsColumns.Type, smsType).
 		Where(smsColumns.Content, code).
 		Where(smsColumns.Status, smsStatusSuccess).
 		Count()

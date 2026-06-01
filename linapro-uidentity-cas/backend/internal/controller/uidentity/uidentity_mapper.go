@@ -22,3 +22,80 @@ func toAPIStatItems(items []*uidentitysvc.StatItem) []*v1.StatItem {
 	}
 	return result
 }
+
+func toAPIRuntimeApplication(app *uidentitysvc.RuntimeApplication) *v1.RuntimeApplication {
+	if app == nil {
+		return nil
+	}
+	return &v1.RuntimeApplication{
+		Id:          app.ID,
+		Name:        app.Name,
+		Alias:       app.Alias,
+		ClientId:    app.ClientID,
+		AccessModel: app.AccessModel,
+		CallbackUrl: app.CallbackURL,
+	}
+}
+
+func toAPIRuntimeApplications(apps []*uidentitysvc.RuntimeApplication) []*v1.RuntimeApplication {
+	result := make([]*v1.RuntimeApplication, 0, len(apps))
+	for _, app := range apps {
+		result = append(result, toAPIRuntimeApplication(app))
+	}
+	return result
+}
+
+func toAPIRuntimeAccount(account *uidentitysvc.RuntimeAccount) *v1.RuntimeAccount {
+	if account == nil {
+		return nil
+	}
+	var detail *v1.RuntimeAccountDetail
+	if account.Detail != nil {
+		detail = &v1.RuntimeAccountDetail{
+			Birthday: account.Detail.Birthday,
+			Email:    account.Detail.Email,
+			Gender:   account.Detail.Gender,
+			Qq:       account.Detail.QQ,
+			Wechat:   account.Detail.Wechat,
+			Idcard:   account.Detail.Idcard,
+			Avatar:   account.Detail.Avatar,
+			Face:     account.Detail.Face,
+		}
+	}
+	return &v1.RuntimeAccount{
+		Id:            account.ID,
+		Number:        account.Number,
+		Name:          account.Name,
+		Phone:         account.Phone,
+		Status:        account.Status,
+		PassLevel:     account.PassLevel,
+		ContainerId:   account.ContainerID,
+		ContainerName: account.ContainerName,
+		UnitId:        account.UnitID,
+		UnitName:      account.UnitName,
+		ExpireAt:      account.ExpireAt,
+		Groups:        account.Groups,
+		Detail:        detail,
+	}
+}
+
+func toAPIRuntimeAccounts(accounts []*uidentitysvc.RuntimeAccount) []*v1.RuntimeAccount {
+	result := make([]*v1.RuntimeAccount, 0, len(accounts))
+	for _, account := range accounts {
+		result = append(result, toAPIRuntimeAccount(account))
+	}
+	return result
+}
+
+func toAPIRuntimeLogin(out *uidentitysvc.RuntimeLoginOutput) *v1.CasRuntimeLoginRes {
+	if out == nil {
+		return nil
+	}
+	return &v1.CasRuntimeLoginRes{
+		CallbackUrl: out.CallbackURL,
+		Tgt:         out.TGT,
+		St:          out.ST,
+		User:        toAPIRuntimeAccount(out.User),
+		Users:       toAPIRuntimeAccounts(out.Users),
+	}
+}

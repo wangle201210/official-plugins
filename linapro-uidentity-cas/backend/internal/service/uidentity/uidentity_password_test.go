@@ -6,6 +6,8 @@ package uidentity
 import (
 	"strings"
 	"testing"
+
+	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
 
 // TestHashPasswordIsStable verifies password hashes are deterministic and not
@@ -40,5 +42,33 @@ func TestRandomTokenUsesPrefix(t *testing.T) {
 	}
 	if len(token) <= len("code_") {
 		t.Fatal("expected token to include random payload")
+	}
+}
+
+// TestPasswordMatchesHashedAccount verifies runtime login compares the stored
+// hash instead of accepting plaintext or empty account data.
+func TestPasswordMatchesHashedAccount(t *testing.T) {
+	t.Parallel()
+
+	account := &entity.Account{PasswordHash: hashPassword("S3cure@2026")}
+	if !passwordMatches(account, "S3cure@2026") {
+		t.Fatal("expected hashed password to match")
+	}
+	if passwordMatches(account, "wrong") {
+		t.Fatal("expected wrong password to fail")
+	}
+	if passwordMatches(nil, "S3cure@2026") {
+		t.Fatal("expected nil account to fail")
+	}
+}
+
+// TestCallbackWithTicketPreservesExistingQuery verifies CAS callback URL
+// decoration keeps existing query parameters and appends the service ticket.
+func TestCallbackWithTicketPreservesExistingQuery(t *testing.T) {
+	t.Parallel()
+
+	got := callbackWithTicket("https://example.com/callback?locale=zh-CN", "ST_123")
+	if got != "https://example.com/callback?locale=zh-CN&ticket=ST_123" {
+		t.Fatalf("unexpected callback URL: %s", got)
 	}
 }

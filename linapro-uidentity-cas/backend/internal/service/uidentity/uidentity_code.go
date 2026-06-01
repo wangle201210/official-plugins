@@ -35,4 +35,18 @@ var (
 	CodeCASValidateURLMissing = bizerr.MustDefine("UIDENTITY_CAS_VALIDATE_URL_MISSING", "CAS validation URL is not configured", gcode.CodeInvalidParameter)
 	// CodeCASValidationFailed reports a failed CAS validation response.
 	CodeCASValidationFailed = bizerr.MustDefine("UIDENTITY_CAS_VALIDATION_FAILED", "CAS ticket validation failed", gcode.CodeNotAuthorized)
+	// CodeInvalidCredentials reports invalid runtime account credentials.
+	CodeInvalidCredentials = bizerr.MustDefine("UIDENTITY_INVALID_CREDENTIALS", "Account credentials are invalid", gcode.CodeNotAuthorized)
+	// CodeApplicationSecretInvalid reports a client secret mismatch.
+	CodeApplicationSecretInvalid = bizerr.MustDefine("UIDENTITY_APPLICATION_SECRET_INVALID", "Application secret is invalid", gcode.CodeNotAuthorized)
+	// CodeTicketInvalid reports a missing, expired, consumed, or malformed runtime ticket.
+	CodeTicketInvalid = bizerr.MustDefine("UIDENTITY_TICKET_INVALID", "Runtime ticket is invalid or expired", gcode.CodeNotAuthorized)
+	// CodeActivationInvalid reports a missing, expired, or malformed activation challenge.
+	CodeActivationInvalid = bizerr.MustDefine("UIDENTITY_ACTIVATION_INVALID", "Activation challenge is invalid or expired", gcode.CodeInvalidParameter)
+	// CodeUnionIDChallengeInvalid reports a missing or expired union ID bind challenge.
+	CodeUnionIDChallengeInvalid = bizerr.MustDefine("UIDENTITY_UNION_ID_CHALLENGE_INVALID", "Union ID bind challenge is invalid or expired", gcode.CodeInvalidParameter)
+	// CodeContactConflict reports duplicate phone or Wechat binding.
+	CodeContactConflict = bizerr.MustDefine("UIDENTITY_CONTACT_CONFLICT", "Contact information is already bound to another account", gcode.CodeInvalidParameter)
+	// CodeUnsupportedExternalFlow reports an external dependency that is not configured for this plugin.
+	CodeUnsupportedExternalFlow = bizerr.MustDefine("UIDENTITY_EXTERNAL_FLOW_UNSUPPORTED", "External identity flow is not configured", gcode.CodeInvalidParameter)
 )
