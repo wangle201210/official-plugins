@@ -43,6 +43,12 @@ var (
 	CodeCASValidationFailed = bizerr.MustDefine("UIDENTITY_CAS_VALIDATION_FAILED", "CAS ticket validation failed", gcode.CodeNotAuthorized)
 	// CodeInvalidCredentials reports invalid runtime account credentials.
 	CodeInvalidCredentials = bizerr.MustDefine("UIDENTITY_INVALID_CREDENTIALS", "Account credentials are invalid", gcode.CodeNotAuthorized)
+	// CodePasswordUnlockNumbersRequired reports an empty password unlock number list.
+	CodePasswordUnlockNumbersRequired = bizerr.MustDefine("UIDENTITY_PASSWORD_UNLOCK_NUMBERS_REQUIRED", "Select at least one account number to unlock", gcode.CodeInvalidParameter)
+	// CodePasswordUnlockNumbersTooMany reports unlock requests above the supported cap.
+	CodePasswordUnlockNumbersTooMany = bizerr.MustDefine("UIDENTITY_PASSWORD_UNLOCK_NUMBERS_TOO_MANY", "Password unlock supports at most {limit} account numbers per request", gcode.CodeInvalidParameter)
+	// CodePasswordFailuresLocked reports too many password failures for a runtime account.
+	CodePasswordFailuresLocked = bizerr.MustDefine("UIDENTITY_PASSWORD_FAILURES_LOCKED", "Password failures exceeded the limit, unlock the account or retry later", gcode.CodeNotAuthorized)
 	// CodeApplicationSecretInvalid reports a client secret mismatch.
 	CodeApplicationSecretInvalid = bizerr.MustDefine("UIDENTITY_APPLICATION_SECRET_INVALID", "Application secret is invalid", gcode.CodeNotAuthorized)
 	// CodeOAuthGrantInvalid reports unsupported or malformed OAuth authorization-code input.

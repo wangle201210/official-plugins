@@ -62,8 +62,8 @@ func (s *serviceImpl) IssueOAuthAuthorizationCode(ctx context.Context, in OAuthA
 	if err != nil {
 		return nil, err
 	}
-	if !passwordMatches(account, in.Password) {
-		return nil, bizerr.NewCode(CodeInvalidCredentials)
+	if err := s.verifyAccountPassword(ctx, account, in.Password); err != nil {
+		return nil, err
 	}
 	if err := s.ensureRuntimeAccess(ctx, account, app); err != nil {
 		return nil, err

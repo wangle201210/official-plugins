@@ -63,6 +63,9 @@ type Service interface {
 	// ResetAccountPassword resets one account password using active password
 	// rules and records plugin-owned password metadata.
 	ResetAccountPassword(ctx context.Context, accountID int64, newPassword string) error
+	// UnlockPasswordFailures clears short-lived runtime password failure
+	// counters for tenant-visible account numbers.
+	UnlockPasswordFailures(ctx context.Context, numbers []string) ([]string, error)
 	// CreatePasswordChallenge creates a short-lived self-service password reset
 	// challenge for an account number and returns its account status.
 	CreatePasswordChallenge(ctx context.Context, number string) (*PasswordChallengeOutput, error)

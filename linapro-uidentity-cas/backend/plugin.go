@@ -99,6 +99,7 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 					middlewares.Permission(),
 				)
 				group.PUT("/uidentity/accounts/{id}/password", uidentityController.AccountPassword)
+				group.POST("/uidentity/accounts/password-unlocks", uidentityController.AccountPasswordUnlock)
 				group.POST("/uidentity/accounts/import-checks", uidentityController.AccountImportCheck)
 				group.POST("/uidentity/accounts/imports", uidentityController.AccountImport)
 				group.POST("/uidentity/legacy/uploads", uidentityController.LegacyUpload)

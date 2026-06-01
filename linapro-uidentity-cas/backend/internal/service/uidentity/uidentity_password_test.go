@@ -72,3 +72,29 @@ func TestCallbackWithTicketPreservesExistingQuery(t *testing.T) {
 		t.Fatalf("unexpected callback URL: %s", got)
 	}
 }
+
+func TestPasswordFailureCodeUsesLegacyDomain(t *testing.T) {
+	t.Parallel()
+
+	if got := passwordFailureCode(" A001 "); got != "cas:pwd:errnum:A001" {
+		t.Fatalf("unexpected password failure code: %s", got)
+	}
+}
+
+func TestPasswordFailureCodesFiltersBlankNumbers(t *testing.T) {
+	t.Parallel()
+
+	got := passwordFailureCodes([]string{" A001 ", "", "B002"})
+	if len(got) != 2 || got[0] != "cas:pwd:errnum:A001" || got[1] != "cas:pwd:errnum:B002" {
+		t.Fatalf("unexpected password failure codes: %#v", got)
+	}
+}
+
+func TestUniqueNonEmptyStringsTrimsAndCaps(t *testing.T) {
+	t.Parallel()
+
+	got := uniqueNonEmptyStrings([]string{" A001 ", "A001", "", "B002", "C003"}, 2)
+	if len(got) != 2 || got[0] != "A001" || got[1] != "B002" {
+		t.Fatalf("unexpected unique numbers: %#v", got)
+	}
+}

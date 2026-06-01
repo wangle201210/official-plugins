@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"regexp"
+	"strings"
 	"time"
 
 	"lina-core/pkg/bizerr"
@@ -22,6 +23,9 @@ const (
 	passwordChallengeTTL        = 15 * time.Minute
 	passwordChallengeCodePrefix = "pwd_challenge:"
 	passwordVerifiedDataPrefix  = "pwd_verified:"
+	passwordFailureCodePrefix   = "cas:pwd:errnum:"
+	passwordFailureTTL          = 30 * time.Minute
+	passwordFailureLimit        = 10
 	smsTypePasswordReset        = "pwd_change"
 	smsTypeCasLogin             = "login"
 	smsTypeCasActive            = "active"
@@ -34,6 +38,11 @@ type passwordChallengeData struct {
 	Number    string `json:"number"`
 	Phone     string `json:"phone"`
 	Stage     string `json:"stage"`
+}
+
+type passwordFailureData struct {
+	Number string `json:"number"`
+	Count  int    `json:"count"`
 }
 
 // ResetAccountPassword resets one account password by administrator action.
@@ -58,6 +67,41 @@ func (s *serviceImpl) ResetAccountPassword(ctx context.Context, accountID int64,
 		}).
 		Update()
 	return err
+}
+
+// UnlockPasswordFailures clears short-lived password failure counters.
+func (s *serviceImpl) UnlockPasswordFailures(ctx context.Context, numbers []string) ([]string, error) {
+	cleaned := uniqueNonEmptyStrings(numbers, 0)
+	if len(cleaned) == 0 {
+		return nil, bizerr.NewCode(CodePasswordUnlockNumbersRequired)
+	}
+	if len(cleaned) > maxDeleteIDs {
+		return nil, bizerr.NewCode(CodePasswordUnlockNumbersTooMany, bizerr.P("limit", maxDeleteIDs))
+	}
+	accountColumns := dao.Account.Columns()
+	var rows []struct {
+		Number string `json:"number"`
+	}
+	if err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+		Fields(accountColumns.Number).
+		WhereIn(accountColumns.Number, cleaned).
+		Scan(&rows); err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return []string{}, nil
+	}
+	visible := make([]string, 0, len(rows))
+	for _, row := range rows {
+		visible = append(visible, row.Number)
+	}
+	_, err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
+		WhereIn(dao.OauthToken.Columns().Code, passwordFailureCodes(visible)).
+		Delete()
+	if err != nil {
+		return nil, err
+	}
+	return visible, nil
 }
 
 // CreatePasswordChallenge creates one short-lived password reset challenge.
@@ -187,6 +231,134 @@ func (s *serviceImpl) verifySMSCode(ctx context.Context, phone string, code stri
 	return nil
 }
 
+func (s *serviceImpl) verifyAccountPassword(ctx context.Context, account *entity.Account, password string) error {
+	if account == nil {
+		return bizerr.NewCode(CodeResourceNotFound)
+	}
+	failureCount, err := s.passwordFailureCount(ctx, account.Number)
+	if err != nil {
+		return err
+	}
+	if failureCount >= passwordFailureLimit {
+		return bizerr.NewCode(CodePasswordFailuresLocked)
+	}
+	if !passwordMatches(account, password) {
+		if err := s.recordPasswordFailure(ctx, account.Number, failureCount+1); err != nil {
+			return err
+		}
+		return bizerr.NewCode(CodeInvalidCredentials)
+	}
+	return s.clearPasswordFailure(ctx, account.Number)
+}
+
+func (s *serviceImpl) passwordFailureCount(ctx context.Context, number string) (int, error) {
+	token, data, err := s.passwordFailureToken(ctx, number)
+	if err != nil || token == nil {
+		return 0, err
+	}
+	return data.Count, nil
+}
+
+func (s *serviceImpl) recordPasswordFailure(ctx context.Context, number string, count int) error {
+	number = strings.TrimSpace(number)
+	if number == "" {
+		return nil
+	}
+	if count < 1 {
+		count = 1
+	}
+	if count > passwordFailureLimit {
+		count = passwordFailureLimit
+	}
+	content, err := json.Marshal(passwordFailureData{Number: number, Count: count})
+	if err != nil {
+		return err
+	}
+	expiredAt := time.Now().Add(passwordFailureTTL)
+	token, _, err := s.passwordFailureToken(ctx, number)
+	if err != nil {
+		return err
+	}
+	if token != nil {
+		_, err = s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
+			Where(dao.OauthToken.Columns().Id, token.Id).
+			Data(do.OauthToken{
+				Data:      string(content),
+				ExpiredAt: &expiredAt,
+				UpdatedBy: s.actorID(ctx),
+			}).
+			Update()
+		return err
+	}
+	tenantID, actorID := s.baseOwnedDO(ctx, true)
+	_, err = dao.OauthToken.Ctx(ctx).Data(do.OauthToken{
+		TenantId:  tenantID,
+		Code:      passwordFailureCode(number),
+		Data:      string(content),
+		ExpiredAt: &expiredAt,
+		CreatedBy: actorID,
+		UpdatedBy: actorID,
+	}).Insert()
+	if err != nil {
+		existing, _, getErr := s.passwordFailureToken(ctx, number)
+		if getErr != nil {
+			return getErr
+		}
+		if existing != nil {
+			_, updateErr := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
+				Where(dao.OauthToken.Columns().Id, existing.Id).
+				Data(do.OauthToken{
+					Data:      string(content),
+					ExpiredAt: &expiredAt,
+					UpdatedBy: actorID,
+				}).
+				Update()
+			return updateErr
+		}
+	}
+	return err
+}
+
+func (s *serviceImpl) clearPasswordFailure(ctx context.Context, number string) error {
+	number = strings.TrimSpace(number)
+	if number == "" {
+		return nil
+	}
+	_, err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
+		Where(dao.OauthToken.Columns().Code, passwordFailureCode(number)).
+		Delete()
+	return err
+}
+
+func (s *serviceImpl) passwordFailureToken(ctx context.Context, number string) (*entity.OauthToken, passwordFailureData, error) {
+	number = strings.TrimSpace(number)
+	if number == "" {
+		return nil, passwordFailureData{}, nil
+	}
+	var token *entity.OauthToken
+	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
+		Where(dao.OauthToken.Columns().Code, passwordFailureCode(number)).
+		Scan(&token)
+	if err != nil {
+		return nil, passwordFailureData{}, err
+	}
+	if token == nil {
+		return nil, passwordFailureData{}, nil
+	}
+	if token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+		if err := s.clearPasswordFailure(ctx, number); err != nil {
+			return nil, passwordFailureData{}, err
+		}
+		return nil, passwordFailureData{}, nil
+	}
+	data := passwordFailureData{}
+	if err := json.Unmarshal([]byte(token.Data), &data); err != nil {
+		_ = s.clearPasswordFailure(ctx, number)
+		return nil, passwordFailureData{}, nil
+	}
+	return token, data, nil
+}
+
 func (s *serviceImpl) validatePassword(ctx context.Context, password string) (int, error) {
 	rule := &entity.PassRule{}
 	err := s.tenantFilter.Apply(ctx, dao.PassRule.Ctx(ctx), "").
@@ -235,4 +407,38 @@ func randomToken(prefix string) (string, error) {
 		return "", err
 	}
 	return prefix + "_" + hex.EncodeToString(buffer), nil
+}
+
+func uniqueNonEmptyStrings(values []string, limit int) []string {
+	seen := make(map[string]struct{}, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+		if limit > 0 && len(result) == limit {
+			break
+		}
+	}
+	return result
+}
+
+func passwordFailureCode(number string) string {
+	return passwordFailureCodePrefix + strings.TrimSpace(number)
+}
+
+func passwordFailureCodes(numbers []string) []string {
+	codes := make([]string, 0, len(numbers))
+	for _, number := range numbers {
+		if trimmed := strings.TrimSpace(number); trimmed != "" {
+			codes = append(codes, passwordFailureCode(trimmed))
+		}
+	}
+	return codes
 }

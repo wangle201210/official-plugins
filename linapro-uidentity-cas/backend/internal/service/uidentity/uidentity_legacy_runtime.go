@@ -73,8 +73,8 @@ func (s *serviceImpl) LoginByPassword(ctx context.Context, in PasswordLoginInput
 	if err != nil {
 		return nil, err
 	}
-	if !passwordMatches(account, in.Password) {
-		return nil, bizerr.NewCode(CodeInvalidCredentials)
+	if err := s.verifyAccountPassword(ctx, account, in.Password); err != nil {
+		return nil, err
 	}
 	return s.issueRuntimeLogin(ctx, account, app, LoginTypePassword)
 }
@@ -229,8 +229,8 @@ func (s *serviceImpl) IssueRuntimeToken(ctx context.Context, in RuntimeTokenInpu
 	if err != nil {
 		return nil, err
 	}
-	if !passwordMatches(account, in.Password) {
-		return nil, bizerr.NewCode(CodeInvalidCredentials)
+	if err := s.verifyAccountPassword(ctx, account, in.Password); err != nil {
+		return nil, err
 	}
 	if err := s.ensureRuntimeAccess(ctx, account, app); err != nil {
 		return nil, err

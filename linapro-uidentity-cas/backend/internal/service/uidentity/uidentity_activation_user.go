@@ -218,8 +218,8 @@ func (s *serviceImpl) BindUnionID(ctx context.Context, in UnionIDBindInput) (*Un
 		account, err = s.getAccountByPhone(ctx, in.Phone)
 	case 2:
 		account, err = s.getAccountByNumber(ctx, in.Number)
-		if err == nil && !passwordMatches(account, in.Password) {
-			err = bizerr.NewCode(CodeInvalidCredentials)
+		if err == nil {
+			err = s.verifyAccountPassword(ctx, account, in.Password)
 		}
 	default:
 		err = bizerr.NewCode(CodeUnionIDChallengeInvalid)

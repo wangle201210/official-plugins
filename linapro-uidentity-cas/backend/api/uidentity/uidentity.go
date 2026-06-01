@@ -14,6 +14,7 @@ type IUidentityV1 interface {
 	AccountImportCheck(ctx context.Context, req *v1.AccountImportCheckReq) (res *v1.AccountImportCheckRes, err error)
 	AccountImport(ctx context.Context, req *v1.AccountImportReq) (res *v1.AccountImportRes, err error)
 	AccountPassword(ctx context.Context, req *v1.AccountPasswordReq) (res *v1.AccountPasswordRes, err error)
+	AccountPasswordUnlock(ctx context.Context, req *v1.AccountPasswordUnlockReq) (res *v1.AccountPasswordUnlockRes, err error)
 	AccountPasswordChallenge(ctx context.Context, req *v1.AccountPasswordChallengeReq) (res *v1.AccountPasswordChallengeRes, err error)
 	AccountPasswordPhoneVerify(ctx context.Context, req *v1.AccountPasswordPhoneVerifyReq) (res *v1.AccountPasswordPhoneVerifyRes, err error)
 	AccountPasswordSelfReset(ctx context.Context, req *v1.AccountPasswordSelfResetReq) (res *v1.AccountPasswordSelfResetRes, err error)

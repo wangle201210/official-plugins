@@ -14,6 +14,17 @@ type AccountPasswordReq struct {
 // AccountPasswordRes is an empty administrator password reset response.
 type AccountPasswordRes struct{}
 
+// AccountPasswordUnlockReq defines administrator unlock for password failure counters.
+type AccountPasswordUnlockReq struct {
+	g.Meta         `path:"/uidentity/accounts/password-unlocks" method:"post" tags:"UIdentity CAS" summary:"Unlock account password failures" dc:"Clear short-lived password failure counters for visible account numbers, matching the legacy account unlockPassword backend behavior." permission:"uidentity:cas:write"`
+	UserNumberList []string `json:"userNumberList" v:"required" dc:"Account numbers to unlock" eg:"[\"A001\"]"`
+}
+
+// AccountPasswordUnlockRes returns the account numbers whose password failures were cleared.
+type AccountPasswordUnlockRes struct {
+	UserNumberList []string `json:"userNumberList" dc:"Unlocked account numbers" eg:"[\"A001\"]"`
+}
+
 // AccountPasswordChallengeReq defines the request for checking an account before self-service password reset.
 type AccountPasswordChallengeReq struct {
 	g.Meta `path:"/uidentity/password-challenges" method:"post" tags:"UIdentity CAS" summary:"Create password reset challenge" dc:"Create a short-lived password reset challenge for the account number. The challenge is stored in plugin-owned OAuth token storage and must be verified by phone before password reset."`
