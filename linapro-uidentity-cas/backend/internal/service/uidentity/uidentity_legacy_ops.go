@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"hash/fnv"
 	"io"
 	"mime"
 	"net"
@@ -30,7 +29,6 @@ import (
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
-	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
 
@@ -247,11 +245,10 @@ func (s *serviceImpl) startLegacyJob(ctx context.Context, target string) (*Legac
 	if job.Status != legacyJobStatusEnabled {
 		return nil, bizerr.NewCode(CodeLegacyJobDisabled)
 	}
-	entryID := legacyRuntimeEntryID(job)
-	_, err = s.tenantFilter.Apply(ctx, dao.SysJob.Ctx(ctx), "").
-		Where(dao.SysJob.Columns().JobId, job.JobId).
-		Data(do.SysJob{EntryId: entryID, UpdatedBy: s.actorID(ctx)}).
-		Update()
+	if s.jobCron == nil {
+		return nil, bizerr.NewCode(CodeLegacyJobSchedulerUnavailable)
+	}
+	_, err = s.jobCron.StartJob(ctx, job, s.actorID(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -267,10 +264,10 @@ func (s *serviceImpl) removeLegacyJob(ctx context.Context, target string) (*Lega
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.SysJob.Ctx(ctx), "").
-		Where(dao.SysJob.Columns().JobId, job.JobId).
-		Data(do.SysJob{EntryId: 0, UpdatedBy: s.actorID(ctx)}).
-		Update()
+	if s.jobCron == nil {
+		return nil, bizerr.NewCode(CodeLegacyJobSchedulerUnavailable)
+	}
+	err = s.jobCron.RemoveJob(ctx, job.TenantId, job.JobId, s.actorID(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -301,22 +298,6 @@ func (s *serviceImpl) legacyJobByTarget(ctx context.Context, target string) (*en
 
 func parseLegacyJobID(target string) int64 {
 	return gconv.Int64(strings.TrimSpace(target))
-}
-
-func legacyRuntimeEntryID(job *entity.SysJob) int64 {
-	if job == nil {
-		return 0
-	}
-	if job.EntryId > 0 {
-		return job.EntryId
-	}
-	return legacyEntryID(job.JobId)
-}
-
-func legacyEntryID(jobID int64) int64 {
-	hash := fnv.New32a()
-	_, _ = hash.Write([]byte(gconv.String(jobID)))
-	return int64(hash.Sum32())
 }
 
 func (s *serviceImpl) saveLegacyMultipartUpload(ctx context.Context, file *ghttp.UploadFile) (output *LegacyUploadFile, err error) {

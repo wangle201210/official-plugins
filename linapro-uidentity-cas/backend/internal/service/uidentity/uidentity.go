@@ -10,6 +10,7 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	plugincontract "lina-core/pkg/plugin/capability/contract"
+	uidentitycron "lina-plugin-linapro-uidentity-cas/backend/internal/service/cron"
 )
 
 // Account status values.
@@ -240,6 +241,7 @@ type serviceImpl struct {
 	bizCtxSvc    plugincontract.BizCtxService       // Business context bridge.
 	configSvc    plugincontract.ConfigService       // Plugin-scoped static config reader.
 	tenantFilter plugincontract.TenantFilterService // Tenant query filter bridge.
+	jobCron      uidentitycron.Service              // Plugin-local GoFrame legacy job scheduler.
 }
 
 // New creates and returns a new UIdentity service instance.
@@ -247,11 +249,13 @@ func New(
 	bizCtxSvc plugincontract.BizCtxService,
 	configSvc plugincontract.ConfigService,
 	tenantFilter plugincontract.TenantFilterService,
+	jobCron uidentitycron.Service,
 ) Service {
 	return &serviceImpl{
 		bizCtxSvc:    bizCtxSvc,
 		configSvc:    configSvc,
 		tenantFilter: tenantFilter,
+		jobCron:      jobCron,
 	}
 }
 
