@@ -35,6 +35,8 @@ const (
 	defaultHTTPTimeout = 30 * time.Second
 	// legacyHTTPRetryBaseDelay preserves the old incremental retry delay shape.
 	legacyHTTPRetryBaseDelay = 5 * time.Second
+	// legacyJobRunLease preserves the old distributed lock lease used by Exec jobs.
+	legacyJobRunLease = 50 * time.Minute
 )
 
 // Service defines plugin-owned legacy job scheduling behavior.

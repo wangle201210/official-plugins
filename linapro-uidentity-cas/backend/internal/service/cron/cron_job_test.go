@@ -4,6 +4,7 @@ package cron
 
 import (
 	"testing"
+	"time"
 
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
@@ -18,6 +19,38 @@ func TestJobCronNameAndEntryID(t *testing.T) {
 	}
 	if got := jobEntryIDForJob(&entity.SysJob{TenantId: 3, JobId: 7}); got != jobEntryID(name) {
 		t.Fatalf("expected job entry ID to match name hash, got %d", got)
+	}
+}
+
+func TestRunningEntryIDRoundTrip(t *testing.T) {
+	entryID := int64(42)
+	runningEntryID := toRunningEntryID(entryID)
+	if !isRunningEntryID(runningEntryID) {
+		t.Fatalf("expected running entry ID, got %d", runningEntryID)
+	}
+	if got := toScheduledEntryID(runningEntryID); got != entryID {
+		t.Fatalf("expected scheduled entry ID %d, got %d", entryID, got)
+	}
+	if got := toRunningEntryID(runningEntryID); got != runningEntryID {
+		t.Fatalf("expected running entry ID to be stable, got %d", got)
+	}
+	if got := toScheduledEntryID(entryID); got != entryID {
+		t.Fatalf("expected scheduled entry ID to be stable, got %d", got)
+	}
+}
+
+func TestIsStaleRunningJob(t *testing.T) {
+	now := time.Date(2026, 6, 2, 12, 0, 0, 0, time.UTC)
+	fresh := now.Add(-legacyJobRunLease + time.Second)
+	stale := now.Add(-legacyJobRunLease - time.Second)
+	if isStaleRunningJob(&fresh, now) {
+		t.Fatal("expected fresh running marker to be kept")
+	}
+	if !isStaleRunningJob(&stale, now) {
+		t.Fatal("expected expired running marker to be stale")
+	}
+	if !isStaleRunningJob(nil, now) {
+		t.Fatal("expected missing timestamp to be recoverable")
 	}
 }
 

@@ -55,6 +55,16 @@ func (s *serviceImpl) StartJob(ctx context.Context, job *entity.SysJob, actorID 
 	if err != nil {
 		return 0, err
 	}
+	if isRunningEntryID(job.EntryId) {
+		released, releaseErr := releaseStaleRunningJob(ctx, job)
+		if releaseErr != nil {
+			s.removeEntry(entryName)
+			return 0, releaseErr
+		}
+		if !released {
+			return entryID, nil
+		}
+	}
 	if err = s.persistEntryID(ctx, job.TenantId, job.JobId, entryID, actorID); err != nil {
 		s.removeEntry(entryName)
 		return 0, err
@@ -94,10 +104,7 @@ func (s *serviceImpl) reload(ctx context.Context) error {
 	s.mu.Unlock()
 
 	cols := dao.SysJob.Columns()
-	if _, err := dao.SysJob.Ctx(ctx).
-		WhereGT(cols.EntryId, 0).
-		Data(do.SysJob{EntryId: 0}).
-		Update(); err != nil {
+	if err := releaseStaleRunningJobs(ctx); err != nil {
 		return err
 	}
 
@@ -113,6 +120,9 @@ func (s *serviceImpl) reload(ctx context.Context) error {
 		entryID, entryName, err := s.addJob(ctx, job)
 		if err != nil {
 			logger.Warningf(ctx, "uidentity legacy job schedule skipped tenant=%d jobId=%d err=%v", job.TenantId, job.JobId, err)
+			continue
+		}
+		if isRunningEntryID(job.EntryId) {
 			continue
 		}
 		if err = s.persistEntryID(ctx, job.TenantId, job.JobId, entryID, 0); err != nil {
@@ -287,7 +297,19 @@ func loadRunnableJob(ctx context.Context, tenantID int, jobID int64) (*entity.Sy
 	if err != nil || job == nil {
 		return job, err
 	}
-	if job.Status != jobStatusEnabled || job.EntryId <= 0 || job.EntryId > jobEntryRunningOffset {
+	if job.Status != jobStatusEnabled || job.EntryId <= 0 {
+		return nil, nil
+	}
+	if isRunningEntryID(job.EntryId) {
+		released, releaseErr := releaseStaleRunningJob(ctx, job)
+		if releaseErr != nil {
+			return nil, releaseErr
+		}
+		if !released {
+			return nil, nil
+		}
+	}
+	if isRunningEntryID(job.EntryId) {
 		return nil, nil
 	}
 	return job, nil
@@ -299,7 +321,7 @@ func claimJobExecution(ctx context.Context, job *entity.SysJob) (release func(),
 		return func() {}, false, nil
 	}
 	cols := dao.SysJob.Columns()
-	runningEntryID := job.EntryId + jobEntryRunningOffset
+	runningEntryID := toRunningEntryID(job.EntryId)
 	result, err := dao.SysJob.Ctx(ctx).
 		Where(cols.TenantId, job.TenantId).
 		Where(cols.JobId, job.JobId).
@@ -327,6 +349,52 @@ func claimJobExecution(ctx context.Context, job *entity.SysJob) (release func(),
 			logger.Warningf(ctx, "uidentity legacy job release failed tenant=%d jobId=%d err=%v", job.TenantId, job.JobId, releaseErr)
 		}
 	}, true, nil
+}
+
+// releaseStaleRunningJobs restores orphaned running markers left by crashed nodes.
+func releaseStaleRunningJobs(ctx context.Context) error {
+	cols := dao.SysJob.Columns()
+	var staleJobs []*entity.SysJob
+	if err := dao.SysJob.Ctx(ctx).
+		Where(cols.Status, jobStatusEnabled).
+		WhereGT(cols.EntryId, jobEntryRunningOffset).
+		WhereLT(cols.UpdatedAt, time.Now().Add(-legacyJobRunLease)).
+		Scan(&staleJobs); err != nil {
+		return err
+	}
+	for _, job := range staleJobs {
+		if _, err := releaseStaleRunningJob(ctx, job); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// releaseStaleRunningJob restores one expired running marker when the lease elapsed.
+func releaseStaleRunningJob(ctx context.Context, job *entity.SysJob) (bool, error) {
+	if job == nil || !isRunningEntryID(job.EntryId) || !isStaleRunningJob(job.UpdatedAt, time.Now()) {
+		return false, nil
+	}
+	cols := dao.SysJob.Columns()
+	result, err := dao.SysJob.Ctx(ctx).
+		Where(cols.TenantId, job.TenantId).
+		Where(cols.JobId, job.JobId).
+		Where(cols.Status, jobStatusEnabled).
+		Where(cols.EntryId, job.EntryId).
+		Data(do.SysJob{EntryId: toScheduledEntryID(job.EntryId)}).
+		Update()
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if affected == 0 {
+		return false, nil
+	}
+	job.EntryId = toScheduledEntryID(job.EntryId)
+	return true, nil
 }
 
 // insertJobLog stores the legacy job run result in the plugin job log table.
@@ -486,4 +554,33 @@ func jobEntryIDForJob(job *entity.SysJob) int64 {
 		return 0
 	}
 	return jobEntryID(jobCronName(job.TenantId, job.JobId))
+}
+
+// isRunningEntryID reports whether entryID is the persisted cross-node running marker.
+func isRunningEntryID(entryID int64) bool {
+	return entryID > jobEntryRunningOffset
+}
+
+// toRunningEntryID converts one scheduled entry ID to its running marker.
+func toRunningEntryID(entryID int64) int64 {
+	if entryID <= 0 || isRunningEntryID(entryID) {
+		return entryID
+	}
+	return entryID + jobEntryRunningOffset
+}
+
+// toScheduledEntryID restores the scheduled entry ID from its running marker.
+func toScheduledEntryID(entryID int64) int64 {
+	if !isRunningEntryID(entryID) {
+		return entryID
+	}
+	return entryID - jobEntryRunningOffset
+}
+
+// isStaleRunningJob reports whether a running marker is old enough to recover.
+func isStaleRunningJob(updatedAt *time.Time, now time.Time) bool {
+	if updatedAt == nil {
+		return true
+	}
+	return updatedAt.Before(now.Add(-legacyJobRunLease))
 }
