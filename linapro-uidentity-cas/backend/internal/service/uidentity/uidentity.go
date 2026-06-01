@@ -84,6 +84,16 @@ type Service interface {
 	// LoginByUnionID resolves a Wechat union ID to an account and issues CAS
 	// TGT/ST values when the account can access the target application.
 	LoginByUnionID(ctx context.Context, in UnionIDLoginInput) (*RuntimeLoginOutput, error)
+	// CreateWechatLoginQR creates a short-lived Wechat QR login state and
+	// returns the configured external authorization URL when available.
+	CreateWechatLoginQR(ctx context.Context, in WechatLoginQRInput) (*WechatLoginQROutput, error)
+	// CompleteWechatLoginQR records a Wechat callback result. A supplied union
+	// ID either completes login or creates a bind challenge; missing external
+	// union-ID data is persisted as a structured unsupported-flow result.
+	CompleteWechatLoginQR(ctx context.Context, in WechatLoginCallbackInput) (*WechatLoginQRResultOutput, error)
+	// GetWechatLoginQRResult reads and consumes a terminal QR login result, or
+	// returns a pending state while the callback has not completed.
+	GetWechatLoginQRResult(ctx context.Context, state string) (*WechatLoginQRResultOutput, error)
 	// IssueServiceTicketFromTGT issues a new one-time ST from an existing TGT
 	// and optional selected delegated account.
 	IssueServiceTicketFromTGT(ctx context.Context, in ServiceTicketInput) (*ServiceTicketOutput, error)
@@ -412,6 +422,40 @@ type PhoneLoginInput struct {
 type UnionIDLoginInput struct {
 	ClientID string
 	UnionID  string
+}
+
+// WechatLoginQRInput carries QR login state creation input.
+type WechatLoginQRInput struct {
+	ClientID string
+	Callback string
+}
+
+// WechatLoginQROutput carries one QR login state and authorization URL.
+type WechatLoginQROutput struct {
+	State     string
+	URL       string
+	ExpiredAt *int64
+}
+
+// WechatLoginCallbackInput carries external Wechat callback data.
+type WechatLoginCallbackInput struct {
+	State    string
+	ClientID string
+	Code     string
+	UnionID  string
+	Callback string
+}
+
+// WechatLoginQRResultOutput carries QR login polling result data.
+type WechatLoginQRResultOutput struct {
+	State       string
+	Status      string
+	RedirectURL string
+	ChallengeID string
+	CallbackURL string
+	ErrorCode   string
+	Message     string
+	Login       *RuntimeLoginOutput
 }
 
 // RuntimeLoginOutput carries issued CAS ticket values and accessible accounts.

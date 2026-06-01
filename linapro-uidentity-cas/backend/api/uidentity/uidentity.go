@@ -66,4 +66,7 @@ type IUidentityV1 interface {
 	UserAppRoles(ctx context.Context, req *v1.UserAppRolesReq) (res *v1.UserAppRolesRes, err error)
 	UserAppRoleCreate(ctx context.Context, req *v1.UserAppRoleCreateReq) (res *v1.UserAppRoleCreateRes, err error)
 	UserAppRoleUpdate(ctx context.Context, req *v1.UserAppRoleUpdateReq) (res *v1.UserAppRoleUpdateRes, err error)
+	WechatLoginQR(ctx context.Context, req *v1.WechatLoginQRReq) (res *v1.WechatLoginQRRes, err error)
+	WechatLoginCallback(ctx context.Context, req *v1.WechatLoginCallbackReq) (res *v1.WechatLoginCallbackRes, err error)
+	WechatLoginQRResult(ctx context.Context, req *v1.WechatLoginQRResultReq) (res *v1.WechatLoginQRResultRes, err error)
 }

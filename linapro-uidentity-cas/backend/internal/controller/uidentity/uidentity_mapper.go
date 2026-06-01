@@ -99,3 +99,19 @@ func toAPIRuntimeLogin(out *uidentitysvc.RuntimeLoginOutput) *v1.CasRuntimeLogin
 		Users:       toAPIRuntimeAccounts(out.Users),
 	}
 }
+
+func toAPIWechatLoginResult(out *uidentitysvc.WechatLoginQRResultOutput) *v1.WechatLoginQRResultRes {
+	if out == nil {
+		return nil
+	}
+	return &v1.WechatLoginQRResultRes{
+		State:       out.State,
+		Status:      out.Status,
+		RedirectUrl: out.RedirectURL,
+		ChallengeId: out.ChallengeID,
+		CallbackUrl: out.CallbackURL,
+		ErrorCode:   out.ErrorCode,
+		Message:     out.Message,
+		Login:       toAPIRuntimeLogin(out.Login),
+	}
+}
