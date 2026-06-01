@@ -53,6 +53,7 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 		scopedServices.Config(),
 		services.TenantFilter(),
 	)
+	uidentityController := uidentitycontroller.NewV1(uidentitySvc)
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
@@ -62,15 +63,24 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 				middlewares.RequestBodyLimit(),
 				middlewares.Ctx(),
 			)
+			group.POST("/uidentity/password-challenges", uidentityController.AccountPasswordChallenge)
+			group.POST("/uidentity/password-challenges/{challengeId}/phone", uidentityController.AccountPasswordPhoneVerify)
+			group.PUT("/uidentity/password-challenges/{challengeId}/password", uidentityController.AccountPasswordSelfReset)
+			group.POST("/uidentity/cas/login", uidentityController.CasLogin)
 			group.Group("/", func(group pluginhost.RouteGroup) {
 				group.Middleware(
 					middlewares.Auth(),
 					middlewares.Tenancy(),
 					middlewares.Permission(),
 				)
-				group.Bind(
-					uidentitycontroller.NewV1(uidentitySvc),
-				)
+				group.GET("/uidentity/{resource}", uidentityController.ResourceList)
+				group.POST("/uidentity/{resource}", uidentityController.ResourceCreate)
+				group.GET("/uidentity/{resource}/{id}", uidentityController.ResourceGet)
+				group.PUT("/uidentity/{resource}/{id}", uidentityController.ResourceUpdate)
+				group.DELETE("/uidentity/{resource}/{ids}", uidentityController.ResourceDelete)
+				group.PUT("/uidentity/accounts/{id}/password", uidentityController.AccountPassword)
+				group.POST("/uidentity/oauth/tokens", uidentityController.OAuthIssue)
+				group.GET("/uidentity/stats", uidentityController.Stats)
 			})
 		})
 	})

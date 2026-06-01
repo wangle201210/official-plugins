@@ -94,7 +94,10 @@ func (s *serviceImpl) ListResource(ctx context.Context, in ResourceListInput) (*
 	} else {
 		model = model.OrderDesc(orderColumn)
 	}
-	result, err := model.Page(in.PageNum, in.PageSize).All()
+	result, err := model.
+		Fields(projectionFields(def)...).
+		Page(in.PageNum, in.PageSize).
+		All()
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +117,7 @@ func (s *serviceImpl) GetResource(ctx context.Context, resource string, id int64
 		return nil, err
 	}
 	result, err := s.tenantFilter.Apply(ctx, def.model(ctx), "").
+		Fields(projectionFields(def)...).
 		Where(def.idColumn, id).
 		One()
 	if err != nil {
@@ -140,6 +144,13 @@ func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body 
 	data, err := def.data(ctx, body, true)
 	if err != nil {
 		return 0, err
+	}
+	if def.name == "account-details" {
+		_, err := def.model(ctx).Data(data).Insert()
+		if err != nil {
+			return 0, err
+		}
+		return int64Field(body, "accountId"), nil
 	}
 	id, err := def.model(ctx).Data(data).InsertAndGetId()
 	if err != nil {
@@ -251,6 +262,31 @@ func projectResult(result gdb.Result, def *resourceDefinition) []Record {
 		list = append(list, projectRecord(row, def))
 	}
 	return list
+}
+
+func projectionColumns(def *resourceDefinition) []string {
+	seen := make(map[string]struct{}, len(def.apiToColumn))
+	columns := make([]string, 0, len(def.apiToColumn))
+	for _, column := range def.apiToColumn {
+		if column == "" {
+			continue
+		}
+		if _, ok := seen[column]; ok {
+			continue
+		}
+		columns = append(columns, column)
+		seen[column] = struct{}{}
+	}
+	return columns
+}
+
+func projectionFields(def *resourceDefinition) []any {
+	columns := projectionColumns(def)
+	fields := make([]any, 0, len(columns))
+	for _, column := range columns {
+		fields = append(fields, column)
+	}
+	return fields
 }
 
 func projectRecord(row gdb.Record, def *resourceDefinition) Record {
