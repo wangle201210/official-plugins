@@ -92,6 +92,11 @@ type Service interface {
 	ValidateServiceTicket(ctx context.Context, in ServiceValidateInput) (*ServiceValidateOutput, error)
 	// DeleteTicket deletes one TGT/ST/access/challenge token by runtime value.
 	DeleteTicket(ctx context.Context, ticket string) error
+	// LegacyCASServiceXML validates one CAS service ticket and returns a
+	// classic CAS serviceResponse XML document. Validation failures are encoded
+	// as XML authenticationFailure payloads instead of returned as HTTP JSON
+	// errors, matching old CAS client expectations.
+	LegacyCASServiceXML(ctx context.Context, in LegacyCASServiceXMLInput) (*LegacyCASServiceXMLOutput, error)
 	// IssueOAuthToken creates an OAuth token and log for an account and
 	// application after runtime access checks.
 	IssueOAuthToken(ctx context.Context, in OAuthIssueInput) (*OAuthIssueOutput, error)
@@ -182,6 +187,18 @@ type Service interface {
 	// execution boundaries and returns a structured unsupported-flow error when
 	// no executor is configured.
 	RunExternalAction(ctx context.Context, in LegacyExternalActionInput) (*LegacyExternalActionOutput, error)
+	// LegacyCASConfig returns plugin-scoped CAS endpoint metadata compatible
+	// with the old static configuration API.
+	LegacyCASConfig(ctx context.Context) (*LegacyCASConfigOutput, error)
+	// LegacyLDAPConfig returns plugin-scoped LDAP endpoint metadata. The default
+	// output is discovery metadata only and does not imply an LDAP executor.
+	LegacyLDAPConfig(ctx context.Context) (*LegacyLDAPConfigOutput, error)
+	// LegacyOAuthConfig returns plugin-scoped OAuth endpoint metadata compatible
+	// with the old static configuration API.
+	LegacyOAuthConfig(ctx context.Context) (*LegacyOAuthConfigOutput, error)
+	// LegacyTokenConfig returns plugin-scoped runtime token endpoint metadata
+	// compatible with the old static configuration API.
+	LegacyTokenConfig(ctx context.Context) (*LegacyTokenConfigOutput, error)
 	// Stats returns aggregate identity statistics using database-side grouping
 	// and batch name projection.
 	Stats(ctx context.Context) (*StatsOutput, error)
@@ -434,6 +451,17 @@ type ServiceValidateOutput struct {
 	Success bool
 }
 
+// LegacyCASServiceXMLInput carries one XML service validation request.
+type LegacyCASServiceXMLInput struct {
+	Ticket string
+	UserID int64
+}
+
+// LegacyCASServiceXMLOutput carries a CAS XML serviceResponse document.
+type LegacyCASServiceXMLOutput struct {
+	XML []byte
+}
+
 // RuntimeTokenInput carries legacy token issue input.
 type RuntimeTokenInput struct {
 	ClientID string
@@ -656,6 +684,39 @@ type LegacyExternalActionOutput struct {
 	Type    string
 	Target  string
 	Success bool
+}
+
+// LegacyCASConfigOutput carries legacy CAS static endpoint metadata.
+type LegacyCASConfigOutput struct {
+	LoginAddr  string
+	LogoutAddr string
+	RestAddr   string
+	Docs       string
+}
+
+// LegacyLDAPConfigOutput carries legacy LDAP static endpoint metadata.
+type LegacyLDAPConfigOutput struct {
+	Version string
+	Addr    string
+	Docs    string
+}
+
+// LegacyOAuthConfigOutput carries legacy OAuth static endpoint metadata.
+type LegacyOAuthConfigOutput struct {
+	Authorization string
+	GetTokenAddr  string
+	UserInfoAddr  string
+	LogoutAddr    string
+	PingAddr      string
+	Docs          string
+}
+
+// LegacyTokenConfigOutput carries legacy runtime token static endpoint metadata.
+type LegacyTokenConfigOutput struct {
+	GetAddr   string
+	CheckAddr string
+	TokenDocs string
+	CasDocs   string
 }
 
 // StatItem carries one aggregate statistic bucket.
