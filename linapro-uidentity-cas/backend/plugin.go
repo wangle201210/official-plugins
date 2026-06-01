@@ -6,8 +6,11 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
+	"lina-core/pkg/plugin/capability"
 	"lina-core/pkg/plugin/pluginhost"
 	uidentitycas "lina-plugin-linapro-uidentity-cas"
+	uidentitycontroller "lina-plugin-linapro-uidentity-cas/backend/internal/controller/uidentity"
+	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
 const (
@@ -41,6 +44,15 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 	if services == nil || services.BizCtx() == nil || services.TenantFilter() == nil {
 		return gerror.New("linapro-uidentity-cas routes require host bizctx and tenant-filter services")
 	}
+	scopedServices := capability.ServicesForPlugin(services, pluginID)
+	if scopedServices.Config() == nil {
+		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
+	}
+	uidentitySvc := uidentitysvc.New(
+		scopedServices.BizCtx(),
+		scopedServices.Config(),
+		services.TenantFilter(),
+	)
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
@@ -50,6 +62,16 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 				middlewares.RequestBodyLimit(),
 				middlewares.Ctx(),
 			)
+			group.Group("/", func(group pluginhost.RouteGroup) {
+				group.Middleware(
+					middlewares.Auth(),
+					middlewares.Tenancy(),
+					middlewares.Permission(),
+				)
+				group.Bind(
+					uidentitycontroller.NewV1(uidentitySvc),
+				)
+			})
 		})
 	})
 
