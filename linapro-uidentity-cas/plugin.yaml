@@ -1,0 +1,57 @@
+# Plugin identifier, unique across the host and source plugin directories.
+id: linapro-uidentity-cas
+
+# Plugin display name used in plugin management and permission governance.
+name: UIdentity CAS Backend
+
+# Plugin semantic version used for plugin sync, upgrades, and delivery asset identity.
+version: v0.1.0
+
+# Source plugins are compiled with the host through the official plugin bundle.
+type: source
+
+# Identity data is tenant-aware and must be governed by tenant installation state.
+scope_nature: tenant_aware
+supports_multi_tenant: true
+default_install_mode: tenant_scoped
+
+# Backend-only plugin that ports the uidentity/admin identity, CAS, OAuth, and audit APIs.
+description: Provides backend identity, CAS, OAuth, password policy, blacklist, and audit services.
+
+author: linapro
+license: Apache-2.0
+
+# No pages are shipped. Menus below are hidden permission anchors synchronized by the host.
+menus:
+  - key: plugin:linapro-uidentity-cas:permissions
+    parent_key: system
+    name: UIdentity CAS Permissions
+    type: D
+    visible: 0
+    status: 1
+    sort: 90
+    remark: Hidden permission anchor for the backend-only UIdentity CAS plugin.
+  - key: plugin:linapro-uidentity-cas:read
+    parent_key: plugin:linapro-uidentity-cas:permissions
+    name: UIdentity CAS Read
+    perms: uidentity:cas:read
+    type: B
+    sort: 1
+  - key: plugin:linapro-uidentity-cas:write
+    parent_key: plugin:linapro-uidentity-cas:permissions
+    name: UIdentity CAS Write
+    perms: uidentity:cas:write
+    type: B
+    sort: 2
+  - key: plugin:linapro-uidentity-cas:delete
+    parent_key: plugin:linapro-uidentity-cas:permissions
+    name: UIdentity CAS Delete
+    perms: uidentity:cas:delete
+    type: B
+    sort: 3
+  - key: plugin:linapro-uidentity-cas:runtime
+    parent_key: plugin:linapro-uidentity-cas:permissions
+    name: UIdentity CAS Runtime
+    perms: uidentity:cas:runtime
+    type: B
+    sort: 4

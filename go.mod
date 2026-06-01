@@ -12,6 +12,7 @@ require (
 	lina-plugin-linapro-ops-demo-guard v0.0.0
 	lina-plugin-linapro-org-core v0.0.0
 	lina-plugin-linapro-tenant-core v0.0.0
+	lina-plugin-linapro-uidentity-cas v0.0.0
 )
 
 require (
@@ -82,3 +83,5 @@ replace lina-plugin-linapro-monitor-server => ./linapro-monitor-server
 replace lina-plugin-linapro-tenant-core => ./linapro-tenant-core
 
 replace lina-plugin-linapro-org-core => ./linapro-org-core
+
+replace lina-plugin-linapro-uidentity-cas => ./linapro-uidentity-cas
