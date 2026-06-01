@@ -63,6 +63,8 @@ var (
 	CodeUnionIDChallengeInvalid = bizerr.MustDefine("UIDENTITY_UNION_ID_CHALLENGE_INVALID", "Union ID bind challenge is invalid or expired", gcode.CodeInvalidParameter)
 	// CodeWechatLoginInvalid reports a missing or expired Wechat QR login state.
 	CodeWechatLoginInvalid = bizerr.MustDefine("UIDENTITY_WECHAT_LOGIN_INVALID", "Wechat QR login state is invalid or expired", gcode.CodeInvalidParameter)
+	// CodeWechatRebindInvalid reports a missing or expired Wechat rebind state.
+	CodeWechatRebindInvalid = bizerr.MustDefine("UIDENTITY_WECHAT_REBIND_INVALID", "Wechat rebind state is invalid or expired", gcode.CodeInvalidParameter)
 	// CodeContactConflict reports duplicate phone or Wechat binding.
 	CodeContactConflict = bizerr.MustDefine("UIDENTITY_CONTACT_CONFLICT", "Contact information is already bound to another account", gcode.CodeInvalidParameter)
 	// CodeUnsupportedExternalFlow reports an external dependency that is not configured for this plugin.

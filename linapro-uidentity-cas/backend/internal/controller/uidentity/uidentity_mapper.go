@@ -115,3 +115,18 @@ func toAPIWechatLoginResult(out *uidentitysvc.WechatLoginQRResultOutput) *v1.Wec
 		Login:       toAPIRuntimeLogin(out.Login),
 	}
 }
+
+func toAPIWechatRebindState(out *uidentitysvc.WechatRebindStateOutput) *v1.UserWechatRebindStateRes {
+	if out == nil {
+		return nil
+	}
+	return &v1.UserWechatRebindStateRes{
+		State:       out.State,
+		Status:      out.Status,
+		Success:     out.Success,
+		RedirectUrl: out.RedirectURL,
+		ErrorCode:   out.ErrorCode,
+		Message:     out.Message,
+		ExpiredAt:   out.ExpiredAt,
+	}
+}

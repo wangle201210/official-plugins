@@ -92,6 +92,7 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 			group.GET("/uidentity/activations/{challengeId}/state", uidentityController.ActivationState)
 			group.POST("/uidentity/users/union-id-lookups", uidentityController.UserUnionIDLookup)
 			group.POST("/uidentity/users/union-id-bindings", uidentityController.UserUnionIDBind)
+			group.POST("/uidentity/users/wechat-rebind-callbacks", uidentityController.UserWechatRebindCallback)
 			group.Group("/", func(group pluginhost.RouteGroup) {
 				group.Middleware(
 					middlewares.Auth(),
@@ -117,6 +118,8 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 				group.PUT("/uidentity/users/{number}/email", uidentityController.UserEmailChange)
 				group.PUT("/uidentity/users/{number}/qq", uidentityController.UserQQChange)
 				group.DELETE("/uidentity/users/{number}/wechat", uidentityController.UserWechatUnbind)
+				group.POST("/uidentity/users/{number}/wechat-rebind-states", uidentityController.UserWechatRebindStateCreate)
+				group.GET("/uidentity/users/{number}/wechat-rebind-states/{state}", uidentityController.UserWechatRebindState)
 				group.GET("/uidentity/users/{number}", uidentityController.UserInfo)
 				group.GET("/uidentity/users/{number}/cas-login-logs", uidentityController.UserLoginLogs)
 				group.GET("/uidentity/users/{number}/applications", uidentityController.UserApplications)

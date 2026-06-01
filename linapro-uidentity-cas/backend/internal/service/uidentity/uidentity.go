@@ -163,6 +163,15 @@ type Service interface {
 	ChangeRuntimeQQ(ctx context.Context, number string, qq string) error
 	// UnbindRuntimeWechat clears the Wechat union ID for one account.
 	UnbindRuntimeWechat(ctx context.Context, number string) error
+	// CreateRuntimeWechatRebindState creates a short-lived state for a logged-in
+	// account to rebind its Wechat union ID.
+	CreateRuntimeWechatRebindState(ctx context.Context, in WechatRebindStateInput) (*WechatRebindStateOutput, error)
+	// CompleteRuntimeWechatRebind records an external Wechat callback result and
+	// binds the resolved union ID to the account attached to the state.
+	CompleteRuntimeWechatRebind(ctx context.Context, in WechatRebindCallbackInput) (*WechatRebindStateOutput, error)
+	// GetRuntimeWechatRebindState returns the current result for one rebind
+	// state without consuming successful results, matching legacy polling.
+	GetRuntimeWechatRebindState(ctx context.Context, in WechatRebindStateLookupInput) (*WechatRebindStateOutput, error)
 	// GetRuntimeUserInfo returns the account projection used by legacy user
 	// self-service endpoints.
 	GetRuntimeUserInfo(ctx context.Context, number string) (*RuntimeAccount, error)
@@ -603,6 +612,38 @@ type UnionIDBindInput struct {
 // UnionIDBindOutput carries bound account metadata.
 type UnionIDBindOutput struct {
 	Number string
+}
+
+// WechatRebindStateInput carries logged-in Wechat rebind state creation data.
+type WechatRebindStateInput struct {
+	Number   string
+	Callback string
+}
+
+// WechatRebindCallbackInput carries external Wechat rebind callback data.
+type WechatRebindCallbackInput struct {
+	State    string
+	UnionID  string
+	Code     string
+	Callback string
+}
+
+// WechatRebindStateLookupInput carries one Wechat rebind state lookup.
+type WechatRebindStateLookupInput struct {
+	Number string
+	State  string
+}
+
+// WechatRebindStateOutput carries one Wechat rebind state projection.
+type WechatRebindStateOutput struct {
+	State       string
+	Status      string
+	Success     bool
+	URL         string
+	RedirectURL string
+	ExpiredAt   *int64
+	ErrorCode   string
+	Message     string
 }
 
 // ChangePhoneInput carries runtime phone update data.

@@ -39,3 +39,36 @@ func TestWechatLoginResultProjection(t *testing.T) {
 		t.Fatal("expected nil payload projection to be nil")
 	}
 }
+
+func TestWechatRebindAuthorizeURL(t *testing.T) {
+	t.Parallel()
+
+	got := wechatRebindAuthorizeURL("https://wechat.example.com/bind?scope=snsapi_userinfo", "rebindWechat_123", "rebind")
+	want := "https://wechat.example.com/bind?cascallback=rebind&scope=snsapi_userinfo&state=rebindWechat_123"
+	if got != want {
+		t.Fatalf("unexpected authorize URL:\nwant %s\n got %s", want, got)
+	}
+	if got := wechatRebindAuthorizeURL("", "rebindWechat_123", ""); got != "" {
+		t.Fatalf("expected empty base URL to stay empty, got %s", got)
+	}
+}
+
+func TestWechatRebindResultProjection(t *testing.T) {
+	t.Parallel()
+
+	payload := &wechatRebindStateData{
+		State:       "rebindWechat_123",
+		Status:      wechatRebindStatusSuccess,
+		RedirectURL: "https://example.com/callback",
+		ExpiredAt:   1776759600000,
+	}
+	result := wechatRebindResult(payload)
+	if result == nil || result.State != payload.State || result.Status != payload.Status ||
+		!result.Success || result.RedirectURL != payload.RedirectURL ||
+		result.ExpiredAt == nil || *result.ExpiredAt != payload.ExpiredAt {
+		t.Fatalf("unexpected result projection: %#v", result)
+	}
+	if wechatRebindResult(nil) != nil {
+		t.Fatal("expected nil payload projection to be nil")
+	}
+}

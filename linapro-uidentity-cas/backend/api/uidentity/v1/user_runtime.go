@@ -56,6 +56,29 @@ type UserWechatUnbindReq struct {
 	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 }
 
+// UserWechatRebindStateCreateReq defines logged-in Wechat rebind state creation.
+type UserWechatRebindStateCreateReq struct {
+	g.Meta   `path:"/uidentity/users/{number}/wechat-rebind-states" method:"post" tags:"UIdentity User Runtime" summary:"Create user Wechat rebind state" dc:"Create a short-lived Wechat rebind state for one logged-in runtime account and return the configured external authorization URL when available." permission:"uidentity:cas:runtime"`
+	Number   string `json:"number" v:"required" dc:"Account number" eg:"A001"`
+	Callback string `json:"callback" dc:"Optional legacy cascallback value echoed to the configured redirect URL" eg:"rebind"`
+}
+
+// UserWechatRebindCallbackReq defines external Wechat rebind callback completion.
+type UserWechatRebindCallbackReq struct {
+	g.Meta   `path:"/uidentity/users/wechat-rebind-callbacks" method:"post" tags:"UIdentity User Runtime" summary:"Complete user Wechat rebind callback" dc:"Record a Wechat rebind callback result. If unionId is supplied, the plugin binds it to the account attached to the state; otherwise it records a structured unsupported-flow result."`
+	State    string `json:"state" v:"required" dc:"Wechat rebind state" eg:"rebindWechat_abcdef"`
+	UnionId  string `json:"unionId" dc:"Wechat union ID resolved by an external callback adapter" eg:"unionid_001"`
+	Code     string `json:"code" dc:"External Wechat callback code retained for diagnostics when no unionId is supplied" eg:"wx_code"`
+	Callback string `json:"callback" dc:"Optional legacy cascallback value echoed to the configured redirect URL" eg:"rebind"`
+}
+
+// UserWechatRebindStateReq defines Wechat rebind state lookup.
+type UserWechatRebindStateReq struct {
+	g.Meta `path:"/uidentity/users/{number}/wechat-rebind-states/{state}" method:"get" tags:"UIdentity User Runtime" summary:"Get user Wechat rebind state" dc:"Read the current Wechat rebind state for one logged-in runtime account without consuming successful terminal states." permission:"uidentity:cas:runtime"`
+	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
+	State  string `json:"state" v:"required" dc:"Wechat rebind state" eg:"rebindWechat_abcdef"`
+}
+
 // UserInfoReq defines runtime account info lookup.
 type UserInfoReq struct {
 	g.Meta `path:"/uidentity/users/{number}" method:"get" tags:"UIdentity User Runtime" summary:"Get runtime user info" dc:"Return account, detail, unit, container and group projection for one runtime account." permission:"uidentity:cas:runtime"`
@@ -72,8 +95,8 @@ type UserLoginLogsReq struct {
 
 // UserApplicationsReq defines runtime accessible application lookup.
 type UserApplicationsReq struct {
-	g.Meta `path:"/uidentity/users/{number}/applications" method:"get" tags:"UIdentity User Runtime" summary:"List user accessible applications" dc:"Return enabled applications not blocked by account or group blacklists for one runtime account." permission:"uidentity:cas:runtime"`
-	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
+	g.Meta   `path:"/uidentity/users/{number}/applications" method:"get" tags:"UIdentity User Runtime" summary:"List user accessible applications" dc:"Return enabled applications not blocked by account or group blacklists for one runtime account." permission:"uidentity:cas:runtime"`
+	Number   string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"Page number starting from 1" eg:"1"`
 	PageSize int    `json:"pageSize" d:"20" v:"min:1|max:100" dc:"Page size with hard maximum 100" eg:"20"`
 }
@@ -133,6 +156,28 @@ type UserQQChangeRes = UserMutationRes
 // UserWechatUnbindRes is an empty Wechat-unbind response.
 type UserWechatUnbindRes = UserMutationRes
 
+// UserWechatRebindStateCreateRes returns one rebind state.
+type UserWechatRebindStateCreateRes struct {
+	State     string `json:"state" dc:"Wechat rebind state" eg:"rebindWechat_abcdef"`
+	Status    string `json:"status" dc:"Rebind status: pending, success, unsupported, failed" eg:"pending"`
+	Url       string `json:"url" dc:"External authorization URL when runtime.wechatRebindAuthorizeUrl is configured" eg:"https://wechat.example.com/oauth?state=rebindWechat_abcdef"`
+	ExpiredAt *int64 `json:"expiredAt" dc:"State expiration time as Unix timestamp in milliseconds" eg:"1776759600000"`
+}
+
+// UserWechatRebindStateRes returns current rebind state.
+type UserWechatRebindStateRes struct {
+	State       string `json:"state" dc:"Wechat rebind state" eg:"rebindWechat_abcdef"`
+	Status      string `json:"status" dc:"Rebind status: pending, success, unsupported, failed" eg:"success"`
+	Success     bool   `json:"success" dc:"Whether Wechat has been rebound successfully" eg:"true"`
+	RedirectUrl string `json:"redirectUrl" dc:"Configured redirect URL decorated with status and state, when runtime.wechatRebindRedirectUrl is configured" eg:"https://example.com/callback?status=success"`
+	ErrorCode   string `json:"errorCode" dc:"Structured business error code when status is unsupported or failed" eg:"UIDENTITY_EXTERNAL_FLOW_UNSUPPORTED"`
+	Message     string `json:"message" dc:"Diagnostic fallback message for unsupported or failed states" eg:"External identity flow is not configured"`
+	ExpiredAt   *int64 `json:"expiredAt" dc:"State expiration time as Unix timestamp in milliseconds" eg:"1776759600000"`
+}
+
+// UserWechatRebindCallbackRes returns callback completion state.
+type UserWechatRebindCallbackRes = UserWechatRebindStateRes
+
 // UserAppRoleUpdateRes is an empty delegated-role update response.
 type UserAppRoleUpdateRes = UserMutationRes
 
@@ -149,7 +194,7 @@ type UserLoginLogsRes struct {
 
 // UserApplicationsRes returns accessible applications.
 type UserApplicationsRes struct {
-	List []*RuntimeApplication `json:"list" dc:"Accessible application projections" eg:"[]"`
+	List  []*RuntimeApplication `json:"list" dc:"Accessible application projections" eg:"[]"`
 	Total int                   `json:"total" dc:"Total number of accessible applications" eg:"10"`
 }
 
