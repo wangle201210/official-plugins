@@ -7,6 +7,8 @@ package uidentity
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/net/ghttp"
+
 	plugincontract "lina-core/pkg/plugin/capability/contract"
 )
 
@@ -164,6 +166,22 @@ type Service interface {
 	// SendSMSCode records one bounded plugin-local SMS verification code for
 	// CAS login, activation, phone binding, or password reset.
 	SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSendOutput, error)
+	// UploadLegacyFiles stores legacy single, multiple, or base64 image uploads
+	// in plugin-owned local storage and returns old uploadFile-compatible
+	// projections.
+	UploadLegacyFiles(ctx context.Context, in LegacyUploadInput) (*LegacyUploadOutput, error)
+	// Health returns a lightweight health status for legacy health checks.
+	Health(ctx context.Context) (*LegacyHealthOutput, error)
+	// ServerMonitor returns runtime and host monitor information using local
+	// process/OS data without requiring an external monitor dependency.
+	ServerMonitor(ctx context.Context) (*LegacyServerMonitorOutput, error)
+	// LogSnapshot returns a bounded tail snapshot from the configured plugin log
+	// directory instead of starting an unbounded request-scoped file watcher.
+	LogSnapshot(ctx context.Context, in LegacyLogSnapshotInput) (*LegacyLogSnapshotOutput, error)
+	// RunExternalAction exposes legacy LDAP, external file, job, and monitor
+	// execution boundaries and returns a structured unsupported-flow error when
+	// no executor is configured.
+	RunExternalAction(ctx context.Context, in LegacyExternalActionInput) (*LegacyExternalActionOutput, error)
 	// Stats returns aggregate identity statistics using database-side grouping
 	// and batch name projection.
 	Stats(ctx context.Context) (*StatsOutput, error)
@@ -570,6 +588,74 @@ type SMSSendInput struct {
 // SMSSendOutput carries the plugin SMS record ID.
 type SMSSendOutput struct {
 	ID int64
+}
+
+// LegacyUploadInput carries legacy upload data.
+type LegacyUploadInput struct {
+	Type        string
+	Source      string
+	Base64File  string
+	UploadFiles ghttp.UploadFiles
+}
+
+// LegacyUploadFile carries one stored upload projection.
+type LegacyUploadFile struct {
+	Size     int64
+	Path     string
+	FullPath string
+	Name     string
+	Type     string
+}
+
+// LegacyUploadOutput carries legacy upload response files.
+type LegacyUploadOutput struct {
+	Files []*LegacyUploadFile
+}
+
+// LegacyHealthOutput carries health status.
+type LegacyHealthOutput struct {
+	Status string
+}
+
+// LegacyServerMonitorOutput carries runtime monitor data.
+type LegacyServerMonitorOutput struct {
+	Code     int
+	OS       map[string]any
+	Mem      map[string]any
+	CPU      map[string]any
+	Disk     map[string]any
+	Net      map[string]any
+	Swap     map[string]any
+	Location string
+	BootTime int64
+}
+
+// LegacyLogSnapshotInput carries bounded log tail filters.
+type LegacyLogSnapshotInput struct {
+	Date  string
+	Lines int
+}
+
+// LegacyLogSnapshotOutput carries bounded log tail content.
+type LegacyLogSnapshotOutput struct {
+	Date      string
+	Path      string
+	Lines     []string
+	Exists    bool
+	Truncated bool
+}
+
+// LegacyExternalActionInput carries one external action request.
+type LegacyExternalActionInput struct {
+	Type   string
+	Target string
+}
+
+// LegacyExternalActionOutput carries one external action result.
+type LegacyExternalActionOutput struct {
+	Type    string
+	Target  string
+	Success bool
 }
 
 // StatItem carries one aggregate statistic bucket.

@@ -59,4 +59,12 @@ var (
 	CodeContactConflict = bizerr.MustDefine("UIDENTITY_CONTACT_CONFLICT", "Contact information is already bound to another account", gcode.CodeInvalidParameter)
 	// CodeUnsupportedExternalFlow reports an external dependency that is not configured for this plugin.
 	CodeUnsupportedExternalFlow = bizerr.MustDefine("UIDENTITY_EXTERNAL_FLOW_UNSUPPORTED", "External identity flow is not configured", gcode.CodeInvalidParameter)
+	// CodeLegacyUploadRequired reports a missing legacy upload file payload.
+	CodeLegacyUploadRequired = bizerr.MustDefine("UIDENTITY_LEGACY_UPLOAD_REQUIRED", "Legacy upload file is required", gcode.CodeInvalidParameter)
+	// CodeLegacyUploadInvalid reports malformed legacy upload data.
+	CodeLegacyUploadInvalid = bizerr.MustDefine("UIDENTITY_LEGACY_UPLOAD_INVALID", "Legacy upload data is invalid", gcode.CodeInvalidParameter)
+	// CodeLegacyUploadFailed reports failure while writing plugin-owned upload storage.
+	CodeLegacyUploadFailed = bizerr.MustDefine("UIDENTITY_LEGACY_UPLOAD_FAILED", "Legacy upload storage failed", gcode.CodeInternalError)
+	// CodeLegacyLogInvalid reports an invalid bounded log snapshot request.
+	CodeLegacyLogInvalid = bizerr.MustDefine("UIDENTITY_LEGACY_LOG_INVALID", "Legacy log snapshot request is invalid", gcode.CodeInvalidParameter)
 )
