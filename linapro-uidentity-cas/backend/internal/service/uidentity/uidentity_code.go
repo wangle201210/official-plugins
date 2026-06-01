@@ -45,6 +45,10 @@ var (
 	CodeInvalidCredentials = bizerr.MustDefine("UIDENTITY_INVALID_CREDENTIALS", "Account credentials are invalid", gcode.CodeNotAuthorized)
 	// CodeApplicationSecretInvalid reports a client secret mismatch.
 	CodeApplicationSecretInvalid = bizerr.MustDefine("UIDENTITY_APPLICATION_SECRET_INVALID", "Application secret is invalid", gcode.CodeNotAuthorized)
+	// CodeOAuthGrantInvalid reports unsupported or malformed OAuth authorization-code input.
+	CodeOAuthGrantInvalid = bizerr.MustDefine("UIDENTITY_OAUTH_GRANT_INVALID", "OAuth authorization grant is invalid", gcode.CodeInvalidParameter)
+	// CodeOAuthRedirectInvalid reports a redirect URI that does not match the application callback.
+	CodeOAuthRedirectInvalid = bizerr.MustDefine("UIDENTITY_OAUTH_REDIRECT_INVALID", "OAuth redirect URI is invalid", gcode.CodeInvalidParameter)
 	// CodeTicketInvalid reports a missing, expired, consumed, or malformed runtime ticket.
 	CodeTicketInvalid = bizerr.MustDefine("UIDENTITY_TICKET_INVALID", "Runtime ticket is invalid or expired", gcode.CodeNotAuthorized)
 	// CodeActivationInvalid reports a missing, expired, or malformed activation challenge.

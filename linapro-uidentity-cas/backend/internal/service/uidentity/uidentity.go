@@ -93,6 +93,15 @@ type Service interface {
 	// IssueOAuthToken creates an OAuth token and log for an account and
 	// application after runtime access checks.
 	IssueOAuthToken(ctx context.Context, in OAuthIssueInput) (*OAuthIssueOutput, error)
+	// IssueOAuthAuthorizationCode validates account credentials and application
+	// access before creating a short-lived one-time OAuth authorization code.
+	IssueOAuthAuthorizationCode(ctx context.Context, in OAuthAuthorizationCodeInput) (*OAuthAuthorizationCodeOutput, error)
+	// ExchangeOAuthAuthorizationCode validates client secret and consumes one
+	// authorization code before issuing OAuth access and refresh tokens.
+	ExchangeOAuthAuthorizationCode(ctx context.Context, in OAuthTokenExchangeInput) (*OAuthTokenExchangeOutput, error)
+	// GetOAuthAccessTokenInfo validates an OAuth access token and returns the
+	// bound account/application projection without consuming the token.
+	GetOAuthAccessTokenInfo(ctx context.Context, accessToken string) (*OAuthAccessTokenInfoOutput, error)
 	// IssueRuntimeToken validates a client secret and account password before
 	// issuing a runtime access token compatible with the old token API.
 	IssueRuntimeToken(ctx context.Context, in RuntimeTokenInput) (*RuntimeTokenOutput, error)
@@ -262,6 +271,52 @@ type OAuthIssueOutput struct {
 	Access    string
 	Refresh   string
 	ExpiredAt *int64
+}
+
+// OAuthAuthorizationCodeInput carries OAuth authorization-code issue input.
+type OAuthAuthorizationCodeInput struct {
+	ClientID    string
+	RedirectURI string
+	Scope       string
+	State       string
+	Number      string
+	Password    string
+	TtlSeconds  int64
+}
+
+// OAuthAuthorizationCodeOutput carries one-time OAuth code metadata.
+type OAuthAuthorizationCodeOutput struct {
+	Code        string
+	RedirectURL string
+	ExpiredAt   *int64
+	State       string
+}
+
+// OAuthTokenExchangeInput carries authorization-code exchange input.
+type OAuthTokenExchangeInput struct {
+	GrantType    string
+	ClientID     string
+	ClientSecret string
+	Code         string
+	RedirectURI  string
+	TtlSeconds   int64
+}
+
+// OAuthTokenExchangeOutput carries issued OAuth access token metadata.
+type OAuthTokenExchangeOutput struct {
+	AccessToken  string
+	RefreshToken string
+	TokenType    string
+	ExpiresIn    int64
+	ExpiredAt    *int64
+	Scope        string
+}
+
+// OAuthAccessTokenInfoOutput carries OAuth access-token projection data.
+type OAuthAccessTokenInfoOutput struct {
+	User  *RuntimeAccount
+	App   *RuntimeApplication
+	Scope string
 }
 
 // RuntimeApplication is the service-level application projection for legacy
