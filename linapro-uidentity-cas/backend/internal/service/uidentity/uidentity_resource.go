@@ -159,11 +159,19 @@ func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body 
 		return accountID, nil
 	}
 	if def.name == "accounts" {
+		if groupIDs, ok := accountGroupIDsFromBody(body); ok {
+			if err := s.validateAccountGroups(ctx, groupIDs); err != nil {
+				return 0, err
+			}
+		}
 		id, err := s.createAccountWithAudit(ctx, data)
 		if err != nil {
 			return 0, err
 		}
 		if err := s.ensureAccountDetail(ctx, id); err != nil {
+			return 0, err
+		}
+		if err := s.syncAccountGroupsFromBody(ctx, id, body); err != nil {
 			return 0, err
 		}
 		return id, nil
@@ -189,7 +197,10 @@ func (s *serviceImpl) UpdateResource(ctx context.Context, resource string, id in
 		return err
 	}
 	if def.name == "accounts" {
-		return s.updateAccountWithAudit(ctx, id, data)
+		if err := s.updateAccountWithAudit(ctx, id, data); err != nil {
+			return err
+		}
+		return s.syncAccountGroupsFromBody(ctx, id, body)
 	}
 	if def.name == "account-details" {
 		return s.updateAccountDetailWithAudit(ctx, id, data)
