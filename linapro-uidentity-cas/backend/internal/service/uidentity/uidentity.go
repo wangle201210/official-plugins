@@ -54,6 +54,59 @@ type Service interface {
 	// DeleteResource soft-deletes or hard-deletes supported records. IDs are
 	// capped and validated before delete.
 	DeleteResource(ctx context.Context, resource string, ids string) error
+	// ListLegacySystemResource returns a paged old admin system-resource list
+	// backed by plugin-prefixed sys_* compatibility tables. It applies filters
+	// and pagination in the database and returns legacy JSON field names.
+	ListLegacySystemResource(ctx context.Context, in LegacySystemResourceListInput) (*ResourceListOutput, error)
+	// GetLegacySystemResource returns one old admin system-resource record by
+	// ID from plugin-prefixed sys_* compatibility tables.
+	GetLegacySystemResource(ctx context.Context, resource string, id int64) (Record, error)
+	// CreateLegacySystemResource inserts one old admin system-resource row and
+	// returns the generated ID, filling audit fields from ctx when available.
+	CreateLegacySystemResource(ctx context.Context, resource string, body map[string]any) (int64, error)
+	// UpdateLegacySystemResource updates one old admin system-resource row by
+	// ID. Nil fields are omitted and GoFrame owns time maintenance.
+	UpdateLegacySystemResource(ctx context.Context, resource string, id int64, body map[string]any) error
+	// DeleteLegacySystemResource deletes old admin system-resource rows,
+	// respecting GoFrame soft delete when the compatibility table has deleted_at.
+	DeleteLegacySystemResource(ctx context.Context, resource string, ids string) error
+	// LegacyDeptTree returns the old /dept tree payload using full department
+	// records and nested children.
+	LegacyDeptTree(ctx context.Context, filters map[string]any) ([]Record, error)
+	// LegacyDeptLabelTree returns the old /deptTree label tree payload.
+	LegacyDeptLabelTree(ctx context.Context, filters map[string]any) ([]Record, error)
+	// LegacyRoleDeptTreeSelect returns department label tree data and role
+	// checked keys in the old roleDeptTreeselect shape.
+	LegacyRoleDeptTreeSelect(ctx context.Context, roleID int64) (Record, error)
+	// LegacyMenuRoleTree returns menu records visible for the current legacy
+	// role context. Without a role it returns all menu records as a tree.
+	LegacyMenuRoleTree(ctx context.Context, roleID int64) ([]Record, error)
+	// LegacyRoleMenuTreeSelect returns menu label tree data and role checked
+	// keys in the old roleMenuTreeselect shape.
+	LegacyRoleMenuTreeSelect(ctx context.Context, roleID int64) (Record, error)
+	// LegacyDictTypeOptions returns old dictionary type option rows.
+	LegacyDictTypeOptions(ctx context.Context) ([]Record, error)
+	// LegacyDictDataOptions returns old dictionary data label/value options for
+	// one optional dictionary type.
+	LegacyDictDataOptions(ctx context.Context, dictType string) ([]Record, error)
+	// LegacyConfigByKey returns old configKey/configValue payload by config key.
+	LegacyConfigByKey(ctx context.Context, configKey string) (Record, error)
+	// LegacyFrontendConfigs returns old app-config map for frontend-enabled rows.
+	LegacyFrontendConfigs(ctx context.Context) (Record, error)
+	// LegacySetConfigs returns old set-config key/value map for all config rows.
+	LegacySetConfigs(ctx context.Context) (Record, error)
+	// UpdateLegacySetConfigs updates existing config rows from an old set-config
+	// key/value map. Missing keys are ignored to match the old service behavior.
+	UpdateLegacySetConfigs(ctx context.Context, values map[string]string) error
+	// LegacyGetInfo returns old /getinfo profile, role, permission, and button
+	// metadata for the current business user context.
+	LegacyGetInfo(ctx context.Context) (Record, error)
+	// UpdateLegacySysUserAvatar updates one old sys_user avatar field.
+	UpdateLegacySysUserAvatar(ctx context.Context, userID int64, avatar string) error
+	// UpdateLegacySysUserPassword updates one old sys_user password field.
+	UpdateLegacySysUserPassword(ctx context.Context, userID int64, oldPassword string, newPassword string, requireOld bool) error
+	// UpdateLegacySysUserStatus updates one old sys_user status field.
+	UpdateLegacySysUserStatus(ctx context.Context, userID int64, status string) error
 	// ListLegacyJobLogs returns scheduler logs projected into the old
 	// uidentity/admin job-log shape without owning scheduler state.
 	ListLegacyJobLogs(ctx context.Context, in LegacyJobLogListInput) (*ResourceListOutput, error)
@@ -300,6 +353,16 @@ type ResourceListInput struct {
 type ResourceListOutput struct {
 	List  []Record
 	Total int
+}
+
+// LegacySystemResourceListInput carries old admin system-resource filters.
+type LegacySystemResourceListInput struct {
+	Resource string
+	PageNum  int
+	PageSize int
+	Filters  map[string]any
+	OrderBy  string
+	Order    string
 }
 
 // LegacyJobLogListInput carries old job-log filter and pagination fields.
