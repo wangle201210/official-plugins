@@ -1,12 +1,11 @@
-// This file declares the generic resource delete endpoint DTO.
+// This file declares the old account delete endpoint DTO.
 
 package v1
 
 import "github.com/gogf/gf/v2/frame/g"
 
-// ResourceDeleteReq defines the request for deleting one or more UIdentity resource records.
+// ResourceDeleteReq defines the old DELETE /api/v1/account request.
 type ResourceDeleteReq struct {
-	g.Meta   `path:"/api/v1/account" method:"delete" tags:"UIdentity CAS" summary:"Delete UIdentity resource records" dc:"Delete one or more plugin-owned UIdentity resource records. IDs are comma-separated and capped at 100 per request." permission:"uidentity:cas:delete"`
-	Resource string `json:"resource" v:"required" dc:"Resource name" eg:"accounts"`
-	Ids      string `json:"ids" v:"required" dc:"Comma-separated record IDs, max 100" eg:"1,2,3"`
+	g.Meta `path:"/api/v1/account" method:"delete" tags:"UIdentity CAS" summary:"Delete accounts" dc:"Match the old uidentity/admin account delete contract. The request body carries ids as an array." permission:"uidentity:cas:delete"`
+	Ids    []int64 `json:"ids" v:"required" dc:"Account IDs" eg:"[1,2,3]"`
 }

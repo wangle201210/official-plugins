@@ -8,7 +8,7 @@ import (
 
 // ResourceGet returns one UIdentity resource record.
 func (c *ControllerV1) ResourceGet(ctx context.Context, req *v1.ResourceGetReq) (res *v1.ResourceGetRes, err error) {
-	record, err := c.uidentitySvc.GetResource(ctx, req.Resource, req.Id)
+	record, err := c.uidentitySvc.GetResource(ctx, "accounts", req.Id)
 	if err != nil {
 		return nil, err
 	}
