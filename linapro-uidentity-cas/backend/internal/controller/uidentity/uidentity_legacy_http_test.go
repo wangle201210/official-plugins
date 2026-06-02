@@ -52,11 +52,88 @@ func TestLegacyRuntimeLoginPayloadKeepsTicketFields(t *testing.T) {
 		User:        &uidentitysvc.RuntimeAccount{Number: "A001"},
 		App:         &uidentitysvc.RuntimeApplication{ClientID: "portal"},
 	})
-	if payload["callbackUrl"] != "https://app.example.com/callback" || payload["callback_url"] != "https://app.example.com/callback" {
+	if payload["callbackUrl"] != "https://app.example.com/callback" {
 		t.Fatalf("legacy callback fields missing: %#v", payload)
+	}
+	if _, ok := payload["callback_url"]; ok {
+		t.Fatalf("legacy runtime login payload must not add non-legacy callback_url alias: %#v", payload)
 	}
 	if payload["tgt"] != "1:TGT:abc" || payload["st"] != "ST-abc" {
 		t.Fatalf("legacy ticket fields missing: %#v", payload)
+	}
+	if _, ok := payload["app"]; ok {
+		t.Fatalf("legacy runtime login payload must not add non-legacy app field: %#v", payload)
+	}
+	if payload["uuid"] != "" {
+		t.Fatalf("legacy runtime login payload must keep empty uuid field: %#v", payload)
+	}
+}
+
+func TestLegacyWechatLoginResultPayloadKeepsEmptyCasLoginFields(t *testing.T) {
+	payload := legacyWechatLoginResultPayload(&uidentitysvc.WechatLoginQRResultOutput{
+		ChallengeID: "bind-uuid",
+	})
+	if payload["uuid"] != "bind-uuid" {
+		t.Fatalf("legacy QR result uuid missing: %#v", payload)
+	}
+	for _, field := range []string{"callbackUrl", "tgt", "st", "user", "users"} {
+		if _, ok := payload[field]; !ok {
+			t.Fatalf("legacy QR result field %q missing: %#v", field, payload)
+		}
+	}
+	if payload["user"] != nil || payload["users"] != nil {
+		t.Fatalf("legacy QR result empty user fields must keep struct zero values: %#v", payload)
+	}
+}
+
+func TestLegacyActivationPayloadsKeepOldFieldSets(t *testing.T) {
+	start := legacyActivationStartPayload(&uidentitysvc.ActivationOutput{
+		ChallengeID: "act-1",
+		NeedFace:    true,
+		Status:      1,
+	})
+	if start["uuid"] != "act-1" || start["face"] != true {
+		t.Fatalf("legacy activation start payload mismatch: %#v", start)
+	}
+	if _, ok := start["challengeId"]; ok {
+		t.Fatalf("legacy activation start payload must not add challengeId: %#v", start)
+	}
+
+	step := legacyActivationStepPayload(&uidentitysvc.ActivationStepOutput{
+		ChallengeID: "act-1",
+		Success:     true,
+	})
+	if step["uuid"] != "act-1" || len(step) != 1 {
+		t.Fatalf("legacy activation step payload mismatch: %#v", step)
+	}
+
+	state := legacyActivationStatePayload(&uidentitysvc.ActivationStateOutput{
+		ChallengeID: "act-1",
+		Success:     true,
+		Status:      2,
+	})
+	if state["success"] != true || len(state) != 1 {
+		t.Fatalf("legacy activation state payload mismatch: %#v", state)
+	}
+}
+
+func TestLegacyUploadPayloadUsesOldSnakeCaseFields(t *testing.T) {
+	payload := legacyUploadPayload(&uidentitysvc.LegacyUploadOutput{Files: []*uidentitysvc.LegacyUploadFile{{
+		Size:     123,
+		Path:     "static/uploadfile/a.jpg",
+		FullPath: "http://example.com/static/uploadfile/a.jpg",
+		Name:     "a.jpg",
+		Type:     "image/jpeg",
+	}}})
+	file, ok := payload.(map[string]any)
+	if !ok {
+		t.Fatalf("legacyUploadPayload() = %#v", payload)
+	}
+	if file["full_path"] != "http://example.com/static/uploadfile/a.jpg" {
+		t.Fatalf("legacy upload full_path missing: %#v", file)
+	}
+	if _, ok := file["fullPath"]; ok {
+		t.Fatalf("legacy upload payload must not add fullPath alias: %#v", file)
 	}
 }
 

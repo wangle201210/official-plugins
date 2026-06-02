@@ -23,13 +23,22 @@ import (
 )
 
 const (
-	legacyStatusOK        = 200
-	legacyStatusError     = 500
-	legacyTGTCookieName   = "go-admin-tgt"
-	legacyTGTCookieMaxAge = 24 * 10 * time.Hour
-	legacySysJobGroup     = "uidentity"
-	legacySysJobType      = 1
-	legacySysJobStatusOn  = 2
+	legacyStatusOK           = 200
+	legacyStatusError        = 500
+	legacyTGTCookieName      = "go-admin-tgt"
+	legacyTGTCookieMaxAge    = 24 * 10 * time.Hour
+	legacySysJobGroup        = "uidentity"
+	legacySysJobType         = 1
+	legacySysJobStatusOn     = 2
+	legacyMsgOK              = "ok"
+	legacyMsgQuerySuccess    = "查询成功"
+	legacyMsgGetSuccess      = "获取成功"
+	legacyMsgCreateSuccess   = "创建成功"
+	legacyMsgUpdateSuccess   = "修改成功"
+	legacyMsgDeleteSuccess   = "删除成功"
+	legacyMsgValidateSuccess = "验证成功"
+	legacyMsgLoginSuccess    = "登录成功"
+	legacyMsgLogoutSuccess   = "退出成功"
 )
 
 type legacyWechatTextMessage struct {
@@ -89,7 +98,7 @@ func (c *LegacyController) ResourceGet(resource string) ghttp.HandlerFunc {
 			legacyError(r, err)
 			return
 		}
-		legacyOK(r, record)
+		legacyOKWithMsg(r, record, legacyMsgQuerySuccess)
 	}
 }
 
@@ -101,7 +110,7 @@ func (c *LegacyController) ResourceCreate(resource string) ghttp.HandlerFunc {
 			legacyError(r, err)
 			return
 		}
-		legacyOK(r, map[string]any{"id": id})
+		legacyOKWithMsg(r, id, legacyMsgCreateSuccess)
 	}
 }
 
@@ -112,7 +121,7 @@ func (c *LegacyController) ResourceUpdate(resource string) ghttp.HandlerFunc {
 			legacyError(r, err)
 			return
 		}
-		legacyOK(r, nil)
+		legacyOKWithMsg(r, legacyRouterID(r), legacyMsgUpdateSuccess)
 	}
 }
 
@@ -123,7 +132,7 @@ func (c *LegacyController) ResourceDelete(resource string) ghttp.HandlerFunc {
 			legacyError(r, err)
 			return
 		}
-		legacyOK(r, nil)
+		legacyOKWithMsg(r, legacyDeleteIDPayload(r), legacyMsgDeleteSuccess)
 	}
 }
 
@@ -135,7 +144,7 @@ func (c *LegacyController) AccountPasswordUnlock(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"numbers": out})
+	legacyOKWithMsg(r, map[string]any{"userNumberList": out}, "解锁成功")
 }
 
 // AccountPasswordUpdate handles POST /api/v1/account/updatePassword.
@@ -146,17 +155,17 @@ func (c *LegacyController) AccountPasswordUpdate(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, id, "修改密码成功")
 }
 
 // AccountImportCheck handles POST /api/v1/account/importCheck.
 func (c *LegacyController) AccountImportCheck(r *ghttp.Request) {
-	out, err := c.uidentitySvc.CheckAccountImport(r.Context(), legacyAccountImportInput(r))
+	_, err := c.uidentitySvc.CheckAccountImport(r.Context(), legacyAccountImportInput(r))
 	if err != nil {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"rows": out.Rows})
+	legacyOKWithMsg(r, nil, legacyMsgValidateSuccess)
 }
 
 // AccountImport handles POST /api/v1/account/import.
@@ -166,7 +175,7 @@ func (c *LegacyController) AccountImport(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"success": out.Success, "failedNumber": out.FailedNumber, "failed_number": out.FailedNumber})
+	legacyOKWithMsg(r, map[string]any{"success": out.Success, "failedNumber": out.FailedNumber}, "导入成功")
 }
 
 // AccountPasswordChallenge handles POST /api/v1/account/updatePasswordGetUser.
@@ -176,7 +185,7 @@ func (c *LegacyController) AccountPasswordChallenge(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"uuid": out.ChallengeID, "challengeId": out.ChallengeID, "status": out.Status})
+	legacyOKWithMsg(r, map[string]any{"uuid": out.ChallengeID, "status": out.Status}, legacyMsgValidateSuccess)
 }
 
 // AccountPasswordPhoneVerify handles POST /api/v1/account/updatePasswordBySelfPhone.
@@ -191,7 +200,7 @@ func (c *LegacyController) AccountPasswordPhoneVerify(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"uuid": token, "challengeId": token})
+	legacyOKWithMsg(r, map[string]any{"uuid": token}, legacyMsgValidateSuccess)
 }
 
 // AccountPasswordSelfReset handles POST /api/v1/account/updatePasswordBySelf.
@@ -200,7 +209,7 @@ func (c *LegacyController) AccountPasswordSelfReset(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, legacyMsgUpdateSuccess)
 }
 
 // CasLoginByCookie handles GET /api/v1/cas/login.
@@ -218,7 +227,7 @@ func (c *LegacyController) CasLoginByCookie(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"callbackUrl": out.CallbackURL, "callback_url": out.CallbackURL, "tgt": tgt, "st": out.ST})
+	legacyOKWithMsg(r, legacyServiceTicketPayload(out, tgt), legacyMsgLoginSuccess)
 }
 
 // CasPasswordLogin handles POST /api/v1/cas/login.
@@ -233,7 +242,7 @@ func (c *LegacyController) CasPasswordLogin(r *ghttp.Request) {
 		return
 	}
 	legacySetTGTCookie(r, out)
-	legacyOK(r, legacyRuntimeLoginPayload(out))
+	legacyOKWithMsg(r, legacyRuntimeLoginPayload(out), legacyMsgLoginSuccess)
 }
 
 // CasPhoneLogin handles POST /api/v1/cas/loginByPhone.
@@ -248,7 +257,7 @@ func (c *LegacyController) CasPhoneLogin(r *ghttp.Request) {
 		return
 	}
 	legacySetTGTCookie(r, out)
-	legacyOK(r, legacyRuntimeLoginPayload(out))
+	legacyOKWithMsg(r, legacyRuntimeLoginPayload(out), legacyMsgLoginSuccess)
 }
 
 // CasUnionIDLogin handles GET /api/v1/cas/loginByUnionID.
@@ -267,7 +276,7 @@ func (c *LegacyController) CasUnionIDLogin(r *ghttp.Request) {
 		r.Exit()
 		return
 	}
-	legacyOK(r, legacyRuntimeLoginPayload(out))
+	legacyOKWithMsg(r, legacyRuntimeLoginPayload(out), legacyMsgLoginSuccess)
 }
 
 // CasTicketLogout handles DELETE /api/v1/cas/tickets/:ticket.
@@ -276,7 +285,7 @@ func (c *LegacyController) CasTicketLogout(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, legacyMsgLogoutSuccess)
 }
 
 // CasServiceValidateXML handles old CAS XML validation paths.
@@ -304,7 +313,7 @@ func (c *LegacyController) CasGetLoginQR(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"uuid": out.State, "state": out.State, "url": out.URL, "expiredAt": out.ExpiredAt, "expired_at": out.ExpiredAt})
+	legacyOKWithMsg(r, legacyCasLoginQRPayload(out), legacyMsgGetSuccess)
 }
 
 // CasLoginByQR handles GET /api/v1/cas/loginByQr.
@@ -334,7 +343,7 @@ func (c *LegacyController) CasGetLoginQRResult(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyWechatLoginResultPayload(out))
+	legacyOKWithMsg(r, legacyWechatLoginResultPayload(out), "ok")
 }
 
 // SSOLogin handles old /sso/login paths as a redirect-only login shell.
@@ -408,7 +417,7 @@ func (c *LegacyController) RuntimeTokenIssue(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOKWithMsg(r, map[string]any{"AccessToken": out.AccessToken, "accessToken": out.AccessToken, "access_token": out.AccessToken, "expiredAt": out.ExpiredAt, "expired_at": out.ExpiredAt}, "登录成功")
+	legacyOKWithMsg(r, map[string]any{"AccessToken": out.AccessToken}, legacyMsgLoginSuccess)
 }
 
 // RuntimeTokenInfo handles GET /api/v1/token/getUserInfoByToken.
@@ -418,7 +427,7 @@ func (c *LegacyController) RuntimeTokenInfo(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"user": legacyRuntimeAccountPayload(out.User), "users": legacyRuntimeAccountPayloads(out.Users), "app": legacyRuntimeApplicationPayload(out.App)})
+	legacyOKWithMsg(r, map[string]any{"user": legacyRuntimeAccountPayload(out.User), "users": legacyRuntimeAccountPayloads(out.Users)}, legacyMsgGetSuccess)
 }
 
 // ActivationStart handles POST /api/v1/activate/baseInfo.
@@ -432,7 +441,7 @@ func (c *LegacyController) ActivationStart(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"uuid": out.ChallengeID, "challengeId": out.ChallengeID, "face": out.NeedFace, "status": out.Status})
+	legacyOKWithMsg(r, legacyActivationStartPayload(out), legacyMsgValidateSuccess)
 }
 
 // ActivationFace handles POST /api/v1/activate/face.
@@ -445,7 +454,7 @@ func (c *LegacyController) ActivationFace(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyActivationStepPayload(out))
+	legacyOKWithMsg(r, legacyActivationFacePayload(out), legacyMsgValidateSuccess)
 }
 
 // ActivationPassword handles POST /api/v1/activate/password.
@@ -458,7 +467,7 @@ func (c *LegacyController) ActivationPassword(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyActivationStepPayload(out))
+	legacyOKWithMsg(r, legacyActivationStepPayload(out), legacyMsgValidateSuccess)
 }
 
 // ActivationPhone handles POST /api/v1/activate/phone.
@@ -472,7 +481,7 @@ func (c *LegacyController) ActivationPhone(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyActivationStepPayload(out))
+	legacyOKWithMsg(r, legacyActivationStepPayload(out), legacyMsgValidateSuccess)
 }
 
 // ActivationWechatQR handles POST /api/v1/activate/wechatQr.
@@ -485,7 +494,7 @@ func (c *LegacyController) ActivationWechatQR(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyActivationWechatPayload(out))
+	legacyOKWithMsg(r, legacyActivationWechatPayload(out), legacyMsgValidateSuccess)
 }
 
 // ActivationWechatScan handles GET /api/v1/activate/wechatScan.
@@ -510,12 +519,7 @@ func (c *LegacyController) ActivationState(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{
-		"uuid": out.ChallengeID, "challengeId": out.ChallengeID, "success": out.Success, "status": out.Status,
-		"stage": out.Stage, "wechatStatus": out.WechatStatus, "wechat_status": out.WechatStatus,
-		"redirectUrl": out.RedirectURL, "redirect_url": out.RedirectURL, "errorCode": out.ErrorCode, "error_code": out.ErrorCode,
-		"message": out.Message,
-	})
+	legacyOKWithMsg(r, legacyActivationStatePayload(out), legacyMsgGetSuccess)
 }
 
 // UserGetByUnionID handles POST /api/v1/user/getByUnionID.
@@ -525,7 +529,7 @@ func (c *LegacyController) UserGetByUnionID(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"number": out.Number, "uuid": out.ChallengeID, "challengeId": out.ChallengeID, "call_back_url": out.CallbackURL, "callbackUrl": out.CallbackURL})
+	legacyOKWithMsg(r, legacyUnionIDLookupPayload(out), "ok")
 }
 
 // UserBindUnionIDCallback handles GET /api/v1/user/bindUnionIDCallBack.
@@ -553,7 +557,7 @@ func (c *LegacyController) UserBindUnionID(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"number": out.Number})
+	legacyOKWithMsg(r, map[string]any{"number": out.Number}, "ok")
 }
 
 // UserChangePassword handles POST /api/v1/user/changePassword.
@@ -567,7 +571,7 @@ func (c *LegacyController) UserChangePassword(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, "ok")
 }
 
 // UserChangePhone handles POST /api/v1/user/changePhone.
@@ -585,7 +589,7 @@ func (c *LegacyController) UserChangePhone(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, "ok")
 }
 
 // UserChangeEmail handles POST /api/v1/user/changeEmail.
@@ -599,7 +603,7 @@ func (c *LegacyController) UserChangeEmail(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, "ok")
 }
 
 // UserChangeQQ handles POST /api/v1/user/changeQQ.
@@ -613,7 +617,7 @@ func (c *LegacyController) UserChangeQQ(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, "ok")
 }
 
 // UserUnbindWechat handles POST /api/v1/user/unbindWechat.
@@ -627,7 +631,7 @@ func (c *LegacyController) UserUnbindWechat(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, "ok")
 }
 
 // UserInfo handles POST /api/v1/user/getUserInfo.
@@ -642,7 +646,7 @@ func (c *LegacyController) UserInfo(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyRuntimeAccountPayload(out))
+	legacyOKWithMsg(r, legacyRuntimeAccountPayload(out), "ok")
 }
 
 // UserLoginLogs handles GET /api/v1/user/getUserCasLoginLog.
@@ -674,7 +678,7 @@ func (c *LegacyController) UserApplications(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"count": out.Total, "pageIndex": pageIndex, "pageSize": pageSize, "list": legacyRuntimeApplicationPayloads(out.List)})
+	legacyOKWithMsg(r, map[string]any{"list": legacyRuntimeApplicationPayloads(out.List)}, "ok")
 }
 
 // UserAppRoles handles GET /api/v1/user/accountAppRole.
@@ -700,7 +704,7 @@ func (c *LegacyController) UserAppRoleCreate(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	id, err := c.uidentitySvc.CreateRuntimeAppRole(r.Context(), uidentitysvc.UserAppRoleCreateInput{
+	_, err = c.uidentitySvc.CreateRuntimeAppRole(r.Context(), uidentitysvc.UserAppRoleCreateInput{
 		Number:          number,
 		EmpoweredNumber: legacyStringParam(r, "empoweredNumber", "empowered_number"),
 		AppID:           legacyInt64Param(r, "appId", "app_id"),
@@ -710,7 +714,7 @@ func (c *LegacyController) UserAppRoleCreate(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"id": id})
+	legacyOKWithMsg(r, nil, legacyMsgCreateSuccess)
 }
 
 // UserAppRoleUpdate handles POST /api/v1/user/accountAppRoleUpdate.
@@ -728,7 +732,7 @@ func (c *LegacyController) UserAppRoleUpdate(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, legacyMsgUpdateSuccess)
 }
 
 // UserChangeWechatQR handles POST /api/v1/user/changeWechatQr.
@@ -746,7 +750,7 @@ func (c *LegacyController) UserChangeWechatQR(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyWechatRebindPayload(out))
+	legacyOKWithMsg(r, legacyWechatRebindPayload(out), "ok")
 }
 
 // UserChangeWechatState handles POST /api/v1/user/changeWechatState.
@@ -764,7 +768,7 @@ func (c *LegacyController) UserChangeWechatState(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyWechatRebindPayload(out))
+	legacyOKWithMsg(r, legacyWechatRebindStatePayload(out), legacyMsgGetSuccess)
 }
 
 // UserWechatRebindCallback handles POST /api/v1/user/changeWechatCallBack.
@@ -779,7 +783,7 @@ func (c *LegacyController) UserWechatRebindCallback(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, legacyWechatRebindPayload(out))
+	legacyOKWithMsg(r, legacyWechatRebindPayload(out), "ok")
 }
 
 // OAuthLogin handles old OAuth login page and form submission paths.
@@ -804,7 +808,7 @@ func (c *LegacyController) OAuthAuthorize(r *ghttp.Request) {
 	}
 	payload := map[string]any{"code": out.Code, "redirectUrl": out.RedirectURL, "redirect_url": out.RedirectURL, "expiredAt": out.ExpiredAt, "expired_at": out.ExpiredAt, "state": out.State}
 	if legacyBoolParam(r, "json", "api") || out.RedirectURL == "" {
-		legacyOK(r, payload)
+		legacyOKWithMsg(r, payload, legacyMsgOK)
 		return
 	}
 	r.Response.RedirectTo(out.RedirectURL)
@@ -838,12 +842,12 @@ func (c *LegacyController) OAuthToken(r *ghttp.Request) {
 
 // OAuthTest handles old /api/v1/oauth/test.
 func (c *LegacyController) OAuthTest(r *ghttp.Request) {
-	legacyOK(r, map[string]any{"status": "ok"})
+	legacyOKWithMsg(r, map[string]any{"status": "ok"}, legacyMsgOK)
 }
 
 // SmsSend handles POST /api/v1/sms/send.
 func (c *LegacyController) SmsSend(r *ghttp.Request) {
-	out, err := c.uidentitySvc.SendSMSCode(r.Context(), uidentitysvc.SMSSendInput{
+	_, err := c.uidentitySvc.SendSMSCode(r.Context(), uidentitysvc.SMSSendInput{
 		Type:  legacyStringParam(r, "type", "scene"),
 		Phone: legacyStringParam(r, "phone"),
 	})
@@ -851,7 +855,7 @@ func (c *LegacyController) SmsSend(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"id": out.ID})
+	legacyOKWithMsg(r, nil, "发送成功")
 }
 
 // WechatLogin keeps the old commented-out Wechat login endpoint as empty 200.
@@ -913,7 +917,7 @@ func (c *LegacyController) Upload(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, out)
+	legacyOKWithMsg(r, legacyUploadPayload(out), "上传成功")
 }
 
 // Health handles old /api/v1/health.
@@ -931,25 +935,25 @@ func (c *LegacyController) Metrics(r *ghttp.Request) {
 // LegacyCASConfig handles GET /api/v1/config/cas.
 func (c *LegacyController) LegacyCASConfig(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyCASConfig(r.Context())
-	legacyWriteServiceOutput(r, out, err)
+	legacyWriteServiceOutputWithMsg(r, out, err, legacyMsgQuerySuccess)
 }
 
 // LegacyLDAPConfig handles GET /api/v1/config/ldap.
 func (c *LegacyController) LegacyLDAPConfig(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyLDAPConfig(r.Context())
-	legacyWriteServiceOutput(r, out, err)
+	legacyWriteServiceOutputWithMsg(r, out, err, legacyMsgQuerySuccess)
 }
 
 // LegacyOAuthConfig handles GET /api/v1/config/oauth.
 func (c *LegacyController) LegacyOAuthConfig(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyOAuthConfig(r.Context())
-	legacyWriteServiceOutput(r, out, err)
+	legacyWriteServiceOutputWithMsg(r, out, err, legacyMsgQuerySuccess)
 }
 
 // LegacyTokenConfig handles GET /api/v1/config/token.
 func (c *LegacyController) LegacyTokenConfig(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyTokenConfig(r.Context())
-	legacyWriteServiceOutput(r, out, err)
+	legacyWriteServiceOutputWithMsg(r, out, err, legacyMsgQuerySuccess)
 }
 
 // CasLoginIndex handles old GoAdmin CAS callback route as plugin CAS validation.
@@ -983,13 +987,17 @@ func (c *LegacyController) CasLoginIndex(r *ghttp.Request) {
 // Stats handles GET /api/v1/stat/get.
 func (c *LegacyController) Stats(r *ghttp.Request) {
 	out, err := c.uidentitySvc.Stats(r.Context())
-	legacyWriteServiceOutput(r, out, err)
+	legacyWriteServiceOutputWithMsg(r, out, err, legacyMsgQuerySuccess)
 }
 
 // ServerMonitor handles GET /api/v1/server-monitor.
 func (c *LegacyController) ServerMonitor(r *ghttp.Request) {
 	out, err := c.uidentitySvc.ServerMonitor(r.Context())
-	legacyWriteServiceOutput(r, out, err)
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyServerMonitorOK(r, out)
 }
 
 // LogSnapshot handles GET /api/v1/log/watch.
@@ -998,7 +1006,7 @@ func (c *LegacyController) LogSnapshot(r *ghttp.Request) {
 		Date:  legacyStringParam(r, "date"),
 		Lines: legacyIntParam(r, "lines", "limit"),
 	})
-	legacyWriteServiceOutput(r, out, err)
+	legacyWriteServiceOutputWithMsg(r, out, err, legacyMsgQuerySuccess)
 }
 
 // SysJobList handles old GET /api/v1/sysjob using plugin managed-job snapshots.
@@ -1019,7 +1027,7 @@ func (c *LegacyController) SysJobGet(r *ghttp.Request) {
 	}
 	for _, record := range legacySysJobSnapshots() {
 		if gconv.Int64(record["jobId"]) == id {
-			legacyOK(r, record)
+			legacyOKWithMsg(r, record, legacyMsgQuerySuccess)
 			return
 		}
 	}
@@ -1060,7 +1068,7 @@ func (c *LegacyController) JobLogGet(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, record)
+	legacyOKWithMsg(r, record, legacyMsgQuerySuccess)
 }
 
 // JobLogCreate keeps old POST /api/v1/job-log compatibility.
@@ -1070,7 +1078,7 @@ func (c *LegacyController) JobLogCreate(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"id": id})
+	legacyOKWithMsg(r, id, legacyMsgCreateSuccess)
 }
 
 // JobLogUpdate keeps old PUT /api/v1/job-log/{id} compatibility.
@@ -1079,7 +1087,7 @@ func (c *LegacyController) JobLogUpdate(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, legacyRouterID(r), legacyMsgUpdateSuccess)
 }
 
 // JobLogDelete keeps old DELETE /api/v1/job-log compatibility.
@@ -1088,7 +1096,7 @@ func (c *LegacyController) JobLogDelete(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, legacyDeleteIDPayload(r), legacyMsgDeleteSuccess)
 }
 
 // ExternalAction handles compatibility stubs for old external execution routes.
@@ -1176,11 +1184,15 @@ func (c *LegacyController) legacyRuntimeNumber(r *ghttp.Request) (string, error)
 }
 
 func legacyWriteServiceOutput(r *ghttp.Request, out any, err error) {
+	legacyWriteServiceOutputWithMsg(r, out, err, "操作成功")
+}
+
+func legacyWriteServiceOutputWithMsg(r *ghttp.Request, out any, err error, msg string) {
 	if err != nil {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, out)
+	legacyOKWithMsg(r, out, msg)
 }
 
 func legacyOK(r *ghttp.Request, data any) {
@@ -1201,12 +1213,12 @@ func legacyOKWithMsg(r *ghttp.Request, data any, msg string) {
 }
 
 func legacyPageOK(r *ghttp.Request, list any, total int, pageIndex int, pageSize int) {
-	legacyOK(r, map[string]any{
+	legacyOKWithMsg(r, map[string]any{
 		"count":     total,
 		"pageIndex": pageIndex,
 		"pageSize":  pageSize,
 		"list":      list,
-	})
+	}, legacyMsgQuerySuccess)
 }
 
 func legacyError(r *ghttp.Request, err error) {
@@ -1521,6 +1533,23 @@ func legacyDeleteIDs(r *ghttp.Request) string {
 	return ""
 }
 
+func legacyDeleteIDPayload(r *ghttp.Request) any {
+	if routerID := legacyRouterID(r); routerID > 0 {
+		return routerID
+	}
+	values := legacyStringListParam(r, "ids", "id", "account_ids", "accountIds")
+	if len(values) == 0 {
+		return nil
+	}
+	result := make([]int64, 0, len(values))
+	for _, value := range values {
+		if parsed := gconv.Int64(value); parsed > 0 {
+			result = append(result, parsed)
+		}
+	}
+	return result
+}
+
 func legacyRouterID(r *ghttp.Request) int64 {
 	return gconv.Int64(r.GetRouter("id").String())
 }
@@ -1592,63 +1621,148 @@ func legacySetTGTCookie(r *ghttp.Request, out *uidentitysvc.RuntimeLoginOutput) 
 	r.Cookie.SetCookie(legacyTGTCookieName, out.TGT, "", "/", legacyTGTCookieMaxAge)
 }
 
+func legacyServiceTicketPayload(out *uidentitysvc.ServiceTicketOutput, tgt string) map[string]any {
+	if out == nil {
+		return map[string]any{"callbackUrl": "", "tgt": tgt, "st": ""}
+	}
+	return map[string]any{"callbackUrl": out.CallbackURL, "tgt": tgt, "st": out.ST}
+}
+
 func legacyRuntimeLoginPayload(out *uidentitysvc.RuntimeLoginOutput) map[string]any {
+	payload := map[string]any{
+		"callbackUrl": "",
+		"tgt":         "",
+		"st":          "",
+		"user":        nil,
+		"users":       nil,
+		"uuid":        "",
+	}
+	if out == nil {
+		return payload
+	}
+	payload["callbackUrl"] = out.CallbackURL
+	payload["tgt"] = out.TGT
+	payload["st"] = out.ST
+	payload["user"] = legacyRuntimeAccountPayload(out.User)
+	payload["users"] = legacyRuntimeAccountPayloads(out.Users)
+	return payload
+}
+
+func legacyCasLoginQRPayload(out *uidentitysvc.WechatLoginQROutput) map[string]any {
 	if out == nil {
 		return map[string]any{}
 	}
-	return map[string]any{
-		"callbackUrl":  out.CallbackURL,
-		"callback_url": out.CallbackURL,
-		"tgt":          out.TGT,
-		"st":           out.ST,
-		"user":         legacyRuntimeAccountPayload(out.User),
-		"users":        legacyRuntimeAccountPayloads(out.Users),
-		"app":          legacyRuntimeApplicationPayload(out.App),
-	}
+	return map[string]any{"url": out.URL, "state": out.State}
 }
 
 func legacyWechatLoginResultPayload(out *uidentitysvc.WechatLoginQRResultOutput) map[string]any {
 	if out == nil {
-		return map[string]any{}
+		return legacyRuntimeLoginPayload(nil)
 	}
-	payload := map[string]any{
-		"uuid": out.State, "state": out.State, "status": out.Status, "redirectUrl": out.RedirectURL, "redirect_url": out.RedirectURL,
-		"challengeId": out.ChallengeID, "challenge_id": out.ChallengeID, "callbackUrl": out.CallbackURL, "callback_url": out.CallbackURL,
-		"errorCode": out.ErrorCode, "error_code": out.ErrorCode, "message": out.Message,
-	}
-	for key, value := range legacyRuntimeLoginPayload(out.Login) {
-		payload[key] = value
+	payload := legacyRuntimeLoginPayload(out.Login)
+	if out.Login == nil {
+		payload["uuid"] = out.ChallengeID
 	}
 	return payload
+}
+
+func legacyActivationStartPayload(out *uidentitysvc.ActivationOutput) map[string]any {
+	if out == nil {
+		return map[string]any{}
+	}
+	return map[string]any{"uuid": out.ChallengeID, "face": out.NeedFace}
+}
+
+func legacyActivationFacePayload(out *uidentitysvc.ActivationStepOutput) map[string]any {
+	if out == nil {
+		return map[string]any{}
+	}
+	return map[string]any{"uuid": out.ChallengeID, "pass": out.Success, "msg": ""}
 }
 
 func legacyActivationStepPayload(out *uidentitysvc.ActivationStepOutput) map[string]any {
 	if out == nil {
 		return map[string]any{}
 	}
-	return map[string]any{"uuid": out.ChallengeID, "challengeId": out.ChallengeID, "success": out.Success}
+	return map[string]any{"uuid": out.ChallengeID}
 }
 
 func legacyActivationWechatPayload(out *uidentitysvc.ActivationWechatStateOutput) map[string]any {
 	if out == nil {
 		return map[string]any{}
 	}
-	return map[string]any{
-		"uuid": out.State, "state": out.State, "status": out.Status, "success": out.Success, "qrcode": out.URL, "url": out.URL,
-		"redirectUrl": out.RedirectURL, "redirect_url": out.RedirectURL, "errorCode": out.ErrorCode, "error_code": out.ErrorCode,
-		"message": out.Message,
+	return map[string]any{"uuid": out.State, "qrcode": out.URL}
+}
+
+func legacyActivationStatePayload(out *uidentitysvc.ActivationStateOutput) map[string]any {
+	if out == nil {
+		return map[string]any{}
 	}
+	return map[string]any{"success": out.Success}
+}
+
+func legacyUnionIDLookupPayload(out *uidentitysvc.UnionIDLookupOutput) map[string]any {
+	if out == nil {
+		return map[string]any{}
+	}
+	return map[string]any{"number": out.Number, "call_back_url": out.CallbackURL}
 }
 
 func legacyWechatRebindPayload(out *uidentitysvc.WechatRebindStateOutput) map[string]any {
 	if out == nil {
 		return map[string]any{}
 	}
-	return map[string]any{
-		"uuid": out.State, "state": out.State, "status": out.Status, "success": out.Success, "qrcode": out.URL, "url": out.URL,
-		"redirectUrl": out.RedirectURL, "redirect_url": out.RedirectURL, "expiredAt": out.ExpiredAt, "expired_at": out.ExpiredAt,
-		"errorCode": out.ErrorCode, "error_code": out.ErrorCode, "message": out.Message,
+	return map[string]any{"uuid": out.State, "qrcode": out.URL}
+}
+
+func legacyWechatRebindStatePayload(out *uidentitysvc.WechatRebindStateOutput) map[string]any {
+	if out == nil {
+		return map[string]any{}
 	}
+	return map[string]any{"success": out.Success}
+}
+
+func legacyUploadPayload(out *uidentitysvc.LegacyUploadOutput) any {
+	if out == nil || len(out.Files) == 0 {
+		return nil
+	}
+	files := make([]map[string]any, 0, len(out.Files))
+	for _, file := range out.Files {
+		if file == nil {
+			continue
+		}
+		files = append(files, map[string]any{
+			"size":      file.Size,
+			"path":      file.Path,
+			"full_path": file.FullPath,
+			"name":      file.Name,
+			"type":      file.Type,
+		})
+	}
+	if len(files) == 1 {
+		return files[0]
+	}
+	return files
+}
+
+func legacyServerMonitorOK(r *ghttp.Request, out *uidentitysvc.LegacyServerMonitorOutput) {
+	if out == nil {
+		r.Response.WriteJson(map[string]any{"code": legacyStatusOK})
+		r.Exit()
+		return
+	}
+	r.Response.WriteJson(map[string]any{
+		"code":     legacyStatusOK,
+		"os":       out.OS,
+		"mem":      out.Mem,
+		"cpu":      out.CPU,
+		"disk":     out.Disk,
+		"net":      out.Net,
+		"swap":     out.Swap,
+		"location": out.Location,
+		"bootTime": out.BootTime,
+	})
+	r.Exit()
 }
 
 func legacyRuntimeAccountPayload(account *uidentitysvc.RuntimeAccount) map[string]any {
@@ -1678,6 +1792,9 @@ func legacyRuntimeAccountPayload(account *uidentitysvc.RuntimeAccount) map[strin
 }
 
 func legacyRuntimeAccountPayloads(accounts []*uidentitysvc.RuntimeAccount) []map[string]any {
+	if accounts == nil {
+		return nil
+	}
 	result := make([]map[string]any, 0, len(accounts))
 	for _, account := range accounts {
 		result = append(result, legacyRuntimeAccountPayload(account))
