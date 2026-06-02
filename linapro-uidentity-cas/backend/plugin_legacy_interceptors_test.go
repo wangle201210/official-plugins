@@ -48,7 +48,8 @@ func TestLegacyRouteInterceptorRewritesHostListResponse(t *testing.T) {
 		`"count":1`,
 		`"pageIndex":3`,
 		`"pageSize":7`,
-		`"name":"admin"`,
+		`"roleId":1`,
+		`"roleName":"admin"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected legacy list response to contain %s, got %s", want, body)
@@ -105,6 +106,126 @@ func TestLegacyRouteInterceptorAliasesLegacyJSONBody(t *testing.T) {
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected legacy create response to contain %s, got %s", want, body)
+		}
+	}
+}
+
+func TestLegacyRouteInterceptorMapsHostMenuTreeResponse(t *testing.T) {
+	server := startLegacyInterceptorServer(t, "menu-tree", true, func(group *ghttp.RouterGroup) {
+		group.GET("/menu", func(r *ghttp.Request) {
+			r.Response.WriteJson(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"list": []map[string]any{
+						{
+							"id":       10,
+							"name":     "系统管理",
+							"type":     "M",
+							"perms":    "system:menu:list",
+							"isCache":  0,
+							"parentId": 0,
+							"children": []map[string]any{{"id": 11, "name": "菜单", "type": "C"}},
+						},
+					},
+				},
+			})
+		})
+	})
+
+	body := g.Client().GetContent(context.Background(), server+"/api/v1/menu")
+	for _, want := range []string{
+		`"menuId":10`,
+		`"menuName":"系统管理"`,
+		`"menuType":"M"`,
+		`"permission":"system:menu:list"`,
+		`"noCache":true`,
+		`"menuId":11`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected legacy menu response to contain %s, got %s", want, body)
+		}
+	}
+}
+
+func TestLegacyRouteInterceptorMapsHostDictAndConfigResponses(t *testing.T) {
+	server := startLegacyInterceptorServer(t, "dict-config", true, func(group *ghttp.RouterGroup) {
+		group.GET("/dict/data", func(r *ghttp.Request) {
+			if got := r.GetRequest("type").String(); got != "sys_normal_disable" {
+				t.Fatalf("expected dictType query to be aliased to type, got %q", got)
+			}
+			r.Response.WriteJson(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"items": []map[string]any{{"id": 21, "label": "正常", "value": "2", "type": "sys_normal_disable"}},
+					"total": 1,
+				},
+			})
+		})
+		group.GET("/config/9", func(r *ghttp.Request) {
+			r.Response.WriteJson(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"item": map[string]any{"id": 9, "name": "CAS", "key": "cas.url", "value": "https://cas.example.com"},
+				},
+			})
+		})
+	})
+
+	dictBody := g.Client().GetContent(context.Background(), server+"/api/v1/dict/data?dictType=sys_normal_disable")
+	for _, want := range []string{
+		`"dictCode":21`,
+		`"dictLabel":"正常"`,
+		`"dictValue":"2"`,
+		`"dictType":"sys_normal_disable"`,
+	} {
+		if !strings.Contains(dictBody, want) {
+			t.Fatalf("expected legacy dict response to contain %s, got %s", want, dictBody)
+		}
+	}
+
+	configBody := g.Client().GetContent(context.Background(), server+"/api/v1/config/9")
+	for _, want := range []string{
+		`"id":9`,
+		`"configId":9`,
+		`"configName":"CAS"`,
+		`"configKey":"cas.url"`,
+		`"configValue":"https://cas.example.com"`,
+	} {
+		if !strings.Contains(configBody, want) {
+			t.Fatalf("expected legacy config response to contain %s, got %s", want, configBody)
+		}
+	}
+}
+
+func TestLegacyRouteInterceptorMapsHostProfileResponse(t *testing.T) {
+	server := startLegacyInterceptorServer(t, "profile", true, func(group *ghttp.RouterGroup) {
+		group.GET("/user/profile", func(r *ghttp.Request) {
+			r.Response.WriteJson(map[string]any{
+				"code": 0,
+				"data": map[string]any{
+					"user":    map[string]any{"id": 3, "name": "管理员", "username": "admin", "dept": map[string]any{"id": 2, "name": "研发部"}},
+					"roles":   []map[string]any{{"id": 1, "name": "admin", "key": "admin"}},
+					"posts":   []map[string]any{{"id": 5, "name": "工程师", "code": "engineer"}},
+					"roleIds": []int{1},
+					"postIds": []int{5},
+				},
+			})
+		})
+	})
+
+	body := g.Client().GetContent(context.Background(), server+"/api/v1/user/profile")
+	for _, want := range []string{
+		`"userId":3`,
+		`"nickName":"管理员"`,
+		`"deptId":2`,
+		`"deptName":"研发部"`,
+		`"roleId":1`,
+		`"roleName":"admin"`,
+		`"postId":5`,
+		`"postName":"工程师"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected legacy profile response to contain %s, got %s", want, body)
 		}
 	}
 }

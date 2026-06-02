@@ -1,7 +1,10 @@
 package uidentity
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -233,6 +236,104 @@ func TestLegacySchemaTableSuffixesAndColumnSets(t *testing.T) {
 	}
 }
 
+func TestLegacySystemSchemaSQLTableSuffixesAndColumnSets(t *testing.T) {
+	tables := legacySystemSQLTables(t)
+	const tablePrefix = "plugin_linapro_uidentity_cas_"
+	contracts := map[string][]string{
+		"sys_dept": {
+			"dept_id", "parent_id", "dept_path", "dept_name", "sort", "leader", "phone", "email",
+			"status", "create_by", "update_by", "created_at", "updated_at", "deleted_at",
+		},
+		"sys_config": {
+			"id", "config_name", "config_key", "config_value", "config_type", "is_frontend",
+			"remark", "create_by", "update_by", "created_at", "updated_at", "deleted_at",
+		},
+		"sys_tables": {
+			"table_id", "table_name", "table_comment", "class_name", "tpl_category", "package_name",
+			"module_name", "module_front_name", "business_name", "function_name", "function_author",
+			"pk_column", "pk_go_field", "pk_json_field", "options", "tree_code", "tree_parent_code",
+			"tree_name", "tree", "crud", "remark", "is_data_scope", "is_actions", "is_auth",
+			"is_logical_delete", "logical_delete", "logical_delete_column", "create_by", "update_by",
+			"created_at", "updated_at", "deleted_at",
+		},
+		"sys_columns": {
+			"column_id", "table_id", "column_name", "column_comment", "column_type", "go_type",
+			"go_field", "json_field", "is_pk", "is_increment", "is_required", "is_insert",
+			"is_edit", "is_list", "is_query", "query_type", "html_type", "dict_type", "sort",
+			"list", "pk", "required", "super_column", "usable_column", "increment", "insert",
+			"edit", "query", "remark", "fk_table_name", "fk_table_name_class", "fk_table_name_package",
+			"fk_label_id", "fk_label_name", "create_by", "update_by", "created_at", "updated_at",
+			"deleted_at",
+		},
+		"sys_menu": {
+			"menu_id", "menu_name", "title", "icon", "path", "paths", "menu_type", "action",
+			"permission", "parent_id", "no_cache", "breadcrumb", "component", "sort", "visible",
+			"is_frame", "create_by", "update_by", "created_at", "updated_at", "deleted_at",
+		},
+		"sys_login_log": {
+			"id", "username", "status", "ipaddr", "login_location", "browser", "os", "platform",
+			"login_time", "remark", "msg", "created_at", "updated_at", "create_by", "update_by",
+		},
+		"sys_opera_log": {
+			"id", "title", "business_type", "business_types", "method", "request_method",
+			"operator_type", "oper_name", "dept_name", "oper_url", "oper_ip", "oper_location",
+			"oper_param", "status", "oper_time", "json_result", "remark", "latency_time",
+			"user_agent", "created_at", "updated_at", "create_by", "update_by",
+		},
+		"sys_role_dept": {"role_id", "dept_id"},
+		"sys_user": {
+			"user_id", "username", "password", "nick_name", "phone", "role_id", "salt", "avatar",
+			"sex", "email", "dept_id", "post_id", "remark", "status", "create_by", "update_by",
+			"created_at", "updated_at", "deleted_at",
+		},
+		"sys_role": {
+			"role_id", "role_name", "status", "role_key", "role_sort", "flag", "remark", "admin",
+			"data_scope", "create_by", "update_by", "created_at", "updated_at", "deleted_at",
+		},
+		"sys_role_menu": {"role_id", "menu_id"},
+		"sys_post": {
+			"post_id", "post_name", "post_code", "sort", "status", "remark", "create_by",
+			"update_by", "created_at", "updated_at", "deleted_at",
+		},
+		"sys_dict_data": {
+			"dict_code", "dict_sort", "dict_label", "dict_value", "dict_type", "css_class",
+			"list_class", "is_default", "status", "default", "remark", "create_by", "update_by",
+			"created_at", "updated_at", "deleted_at",
+		},
+		"sys_dict_type": {
+			"dict_id", "dict_name", "dict_type", "status", "remark", "create_by", "update_by",
+			"created_at", "updated_at", "deleted_at",
+		},
+		"sys_api": {
+			"id", "handle", "title", "path", "type", "action", "create_by", "update_by",
+			"created_at", "updated_at", "deleted_at",
+		},
+		"sys_menu_api_rule": {"sys_menu_menu_id", "sys_api_id"},
+		"sys_job": {
+			"job_id", "job_name", "job_group", "job_type", "cron_expression", "invoke_target",
+			"args", "misfire_policy", "concurrent", "status", "entry_id", "create_by", "update_by",
+			"created_at", "updated_at", "deleted_at",
+		},
+		"job_log": {
+			"id", "job_id", "job_name", "start_at", "end_at", "create_num", "update_num",
+			"delete_num", "err_num", "create_by", "update_by", "created_at", "updated_at", "deleted_at",
+		},
+		"sys_casbin_rule": {"id", "ptype", "v0", "v1", "v2", "v3", "v4", "v5"},
+	}
+
+	for suffix, want := range contracts {
+		t.Run(suffix, func(t *testing.T) {
+			columns, ok := tables[tablePrefix+suffix]
+			if !ok {
+				t.Fatalf("missing legacy system table %s%s", tablePrefix, suffix)
+			}
+			if !reflect.DeepEqual(columns, want) {
+				t.Fatalf("%s columns = %#v, want %#v", suffix, columns, want)
+			}
+		})
+	}
+}
+
 func assertEntityFieldType(t *testing.T, entityType reflect.Type, fieldName string, want reflect.Type) {
 	t.Helper()
 	field, ok := entityType.FieldByName(fieldName)
@@ -249,6 +350,42 @@ func columnValues(columns any) []string {
 	result := make([]string, 0, value.NumField())
 	for i := 0; i < value.NumField(); i++ {
 		result = append(result, value.Field(i).String())
+	}
+	return result
+}
+
+func legacySystemSQLTables(t *testing.T) map[string][]string {
+	t.Helper()
+	sqlPath := filepath.Join("..", "..", "..", "..", "manifest", "sql", "001-implement-uidentity-cas-backend.sql")
+	content, err := os.ReadFile(sqlPath)
+	if err != nil {
+		t.Fatalf("read plugin install SQL: %v", err)
+	}
+	createTableRe := regexp.MustCompile(`(?is)CREATE TABLE IF NOT EXISTS\s+([a-z0-9_]+)\s*\((.*?)\);`)
+	result := make(map[string][]string)
+	for _, match := range createTableRe.FindAllStringSubmatch(string(content), -1) {
+		table := strings.TrimSpace(match[1])
+		result[table] = legacySQLColumnNames(match[2])
+	}
+	return result
+}
+
+func legacySQLColumnNames(body string) []string {
+	lines := strings.Split(body, "\n")
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(strings.TrimSuffix(line, ","))
+		if line == "" {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if strings.HasPrefix(lower, "primary key") ||
+			strings.HasPrefix(lower, "unique") ||
+			strings.HasPrefix(lower, "constraint") {
+			continue
+		}
+		column := strings.Trim(strings.Fields(line)[0], `"`)
+		result = append(result, column)
 	}
 	return result
 }
