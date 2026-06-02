@@ -12,6 +12,8 @@ func (c *ControllerV1) SmsSend(ctx context.Context, req *v1.SmsSendReq) (res *v1
 	out, err := c.uidentitySvc.SendSMSCode(ctx, uidentitysvc.SMSSendInput{
 		Type:  req.Type,
 		Phone: req.Phone,
+		Code:  req.Code,
+		UUID:  req.UUID,
 	})
 	if err != nil {
 		return nil, err

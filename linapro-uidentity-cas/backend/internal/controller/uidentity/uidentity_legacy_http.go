@@ -850,9 +850,11 @@ func (c *LegacyController) SmsSend(r *ghttp.Request) {
 	_, err := c.uidentitySvc.SendSMSCode(r.Context(), uidentitysvc.SMSSendInput{
 		Type:  legacyStringParam(r, "type", "scene"),
 		Phone: legacyStringParam(r, "phone"),
+		Code:  legacyStringParam(r, "code"),
+		UUID:  legacyStringParam(r, "uuid"),
 	})
 	if err != nil {
-		legacyError(r, err)
+		legacyErrorWithMsg(r, err, legacySMSSendErrorMsg(err))
 		return
 	}
 	legacyOKWithMsg(r, nil, "发送成功")
@@ -1226,6 +1228,16 @@ func legacyError(r *ghttp.Request, err error) {
 	if err != nil {
 		msg = err.Error()
 	}
+	legacyErrorWithMsg(r, err, msg)
+}
+
+func legacyErrorWithMsg(r *ghttp.Request, err error, msg string) {
+	if strings.TrimSpace(msg) == "" && err != nil {
+		msg = err.Error()
+	}
+	if strings.TrimSpace(msg) == "" {
+		msg = "操作失败"
+	}
 	r.Response.WriteStatus(http.StatusOK)
 	r.Response.WriteJson(map[string]any{
 		"requestId": legacyRequestID(r),
@@ -1234,6 +1246,19 @@ func legacyError(r *ghttp.Request, err error) {
 		"status":    "error",
 	})
 	r.Exit()
+}
+
+func legacySMSSendErrorMsg(err error) string {
+	switch {
+	case bizerr.Is(err, uidentitysvc.CodeSMSCaptchaInvalid):
+		return "验证码错误"
+	case bizerr.Is(err, uidentitysvc.CodeSMSTypeInvalid):
+		return "参数错误"
+	case bizerr.Is(err, uidentitysvc.CodeSMSRateLimited):
+		return "发送频繁"
+	default:
+		return ""
+	}
 }
 
 func legacyRequestID(r *ghttp.Request) string {

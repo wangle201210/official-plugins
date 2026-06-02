@@ -779,6 +779,8 @@ type UserAppRoleUpdateInput struct {
 type SMSSendInput struct {
 	Type  string
 	Phone string
+	Code  string
+	UUID  string
 }
 
 // SMSSendOutput carries the plugin SMS record ID.

@@ -23,6 +23,8 @@ var (
 	CodePasswordChallengeInvalid = bizerr.MustDefine("UIDENTITY_PASSWORD_CHALLENGE_INVALID", "Password reset challenge is invalid or expired", gcode.CodeInvalidParameter)
 	// CodeSMSCodeInvalid reports that phone verification did not match a plugin SMS record.
 	CodeSMSCodeInvalid = bizerr.MustDefine("UIDENTITY_SMS_CODE_INVALID", "SMS verification code is invalid", gcode.CodeInvalidParameter)
+	// CodeSMSCaptchaInvalid reports that legacy SMS send captcha validation failed.
+	CodeSMSCaptchaInvalid = bizerr.MustDefine("UIDENTITY_SMS_CAPTCHA_INVALID", "Captcha verification code is invalid", gcode.CodeInvalidParameter)
 	// CodeSMSRateLimited reports that one phone/type exceeded the local send cap.
 	CodeSMSRateLimited = bizerr.MustDefine("UIDENTITY_SMS_RATE_LIMITED", "SMS verification code is sent too frequently", gcode.CodeInvalidParameter)
 	// CodeSMSTypeInvalid reports an unsupported SMS scenario type.

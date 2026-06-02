@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"testing"
 
+	"lina-core/pkg/bizerr"
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
@@ -134,6 +135,41 @@ func TestLegacyUploadPayloadUsesOldSnakeCaseFields(t *testing.T) {
 	}
 	if _, ok := file["fullPath"]; ok {
 		t.Fatalf("legacy upload payload must not add fullPath alias: %#v", file)
+	}
+}
+
+func TestLegacySMSSendErrorMsgKeepsOldChineseText(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "captcha",
+			err:  bizerr.NewCode(uidentitysvc.CodeSMSCaptchaInvalid),
+			want: "验证码错误",
+		},
+		{
+			name: "type",
+			err:  bizerr.NewCode(uidentitysvc.CodeSMSTypeInvalid),
+			want: "参数错误",
+		},
+		{
+			name: "rate",
+			err:  bizerr.NewCode(uidentitysvc.CodeSMSRateLimited),
+			want: "发送频繁",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := legacySMSSendErrorMsg(tc.err); got != tc.want {
+				t.Fatalf("legacySMSSendErrorMsg() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
