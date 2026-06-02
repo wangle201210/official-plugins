@@ -2,6 +2,7 @@ package uidentity
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
@@ -79,6 +80,159 @@ func TestLegacySchemaColumnNamesAndGeneratedTypes(t *testing.T) {
 	assertEntityFieldType(t, reflect.TypeOf(entity.AccountChangeLog{}), "ErrNumber", reflect.TypeOf(""))
 }
 
+func TestLegacySchemaTableSuffixesAndColumnSets(t *testing.T) {
+	const tablePrefix = "plugin_linapro_uidentity_cas_"
+
+	type schemaContract struct {
+		name    string
+		table   string
+		columns any
+		want    []string
+	}
+
+	contracts := []schemaContract{
+		{
+			name:    "account",
+			table:   dao.Account.Table(),
+			columns: dao.Account.Columns(),
+			want: []string{
+				"id", "number", "name", "phone", "effect_at", "expire_at", "group_id", "pass_level",
+				"container_id", "unit_id", "status", "created_at", "updated_at", "deleted_at", "create_by", "update_by",
+			},
+		},
+		{
+			name:    "account_details",
+			table:   dao.AccountDetails.Table(),
+			columns: dao.AccountDetails.Columns(),
+			want: []string{
+				"account_id", "birthday", "email", "gender", "qq", "wechat", "idcard", "avatar", "source", "nj",
+				"xymc", "xydm", "xq", "xz", "yjbysj", "zymc", "bjmc", "face", "created_at", "updated_at",
+				"deleted_at", "create_by", "update_by",
+			},
+		},
+		{
+			name:    "groups",
+			table:   dao.Groups.Table(),
+			columns: dao.Groups.Columns(),
+			want:    []string{"id", "name", "alias", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "units",
+			table:   dao.Units.Table(),
+			columns: dao.Units.Columns(),
+			want:    []string{"id", "name", "alias", "code", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "containers",
+			table:   dao.Containers.Table(),
+			columns: dao.Containers.Columns(),
+			want:    []string{"id", "name", "alias", "account_count", "admin_count", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "applications",
+			table:   dao.Applications.Table(),
+			columns: dao.Applications.Columns(),
+			want: []string{
+				"id", "name", "alias", "client_id", "secret_key", "access_model", "status", "callback_url",
+				"whitelist", "created_at", "updated_at", "deleted_at", "create_by", "update_by",
+			},
+		},
+		{
+			name:    "account_group",
+			table:   dao.AccountGroup.Table(),
+			columns: dao.AccountGroup.Columns(),
+			want:    []string{"account_id", "groups_id"},
+		},
+		{
+			name:    "account_unit",
+			table:   dao.AccountUnit.Table(),
+			columns: dao.AccountUnit.Columns(),
+			want:    []string{"id", "account_id", "unit_id"},
+		},
+		{
+			name:    "account_app_role",
+			table:   dao.AccountAppRole.Table(),
+			columns: dao.AccountAppRole.Columns(),
+			want:    []string{"id", "give_account_id", "empowered_account_id", "app_id", "expire_at", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "account_app_blacklist",
+			table:   dao.AccountAppBlacklist.Table(),
+			columns: dao.AccountAppBlacklist.Columns(),
+			want:    []string{"id", "name", "app_id", "account_id", "effect_at", "expire_at", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "group_app_blacklist",
+			table:   dao.GroupAppBlacklist.Table(),
+			columns: dao.GroupAppBlacklist.Columns(),
+			want:    []string{"id", "name", "app_id", "group_id", "effect_at", "expire_at", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "pass_ruler",
+			table:   dao.PassRuler.Table(),
+			columns: dao.PassRuler.Columns(),
+			want: []string{
+				"id", "name", "capital", "lower", "number", "symbol", "length", "interval",
+				"interval_status", "status", "created_at", "updated_at", "deleted_at", "create_by", "update_by",
+			},
+		},
+		{
+			name:    "sms",
+			table:   dao.Sms.Table(),
+			columns: dao.Sms.Columns(),
+			want:    []string{"id", "phone", "type", "content", "status", "resp_msg", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "cas_login_log",
+			table:   dao.CasLoginLog.Table(),
+			columns: dao.CasLoginLog.Columns(),
+			want: []string{
+				"id", "account_id", "choice_account_id", "app_id", "ipaddr", "login_location", "browser", "os",
+				"platform", "login_time", "remark", "msg", "login_type", "created_at", "updated_at",
+				"deleted_at", "create_by", "update_by",
+			},
+		},
+		{
+			name:    "oauth_log",
+			table:   dao.OauthLog.Table(),
+			columns: dao.OauthLog.Columns(),
+			want:    []string{"id", "user_id", "app_id", "redirect_uri", "scope", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "oauth2_token",
+			table:   dao.Oauth2Token.Table(),
+			columns: dao.Oauth2Token.Columns(),
+			want:    []string{"id", "expired_at", "code", "access", "refresh", "data"},
+		},
+		{
+			name:    "account_change_log",
+			table:   dao.AccountChangeLog.Table(),
+			columns: dao.AccountChangeLog.Columns(),
+			want:    []string{"id", "account_id", "table_name", "action", "data_old", "data_new", "err_msg", "err_number", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		},
+		{
+			name:    "account_active_log",
+			table:   dao.AccountActiveLog.Table(),
+			columns: dao.AccountActiveLog.Columns(),
+			want:    []string{"id", "number", "phone", "wechat", "created_at", "type"},
+		},
+	}
+
+	for _, contract := range contracts {
+		t.Run(contract.name, func(t *testing.T) {
+			if !strings.HasPrefix(contract.table, tablePrefix) {
+				t.Fatalf("table %q does not use plugin prefix %q", contract.table, tablePrefix)
+			}
+			if suffix := strings.TrimPrefix(contract.table, tablePrefix); suffix != contract.name {
+				t.Fatalf("table suffix = %q, want %q", suffix, contract.name)
+			}
+			if got := columnValues(contract.columns); !reflect.DeepEqual(got, contract.want) {
+				t.Fatalf("%s columns = %#v, want %#v", contract.name, got, contract.want)
+			}
+		})
+	}
+}
+
 func assertEntityFieldType(t *testing.T, entityType reflect.Type, fieldName string, want reflect.Type) {
 	t.Helper()
 	field, ok := entityType.FieldByName(fieldName)
@@ -88,4 +242,13 @@ func assertEntityFieldType(t *testing.T, entityType reflect.Type, fieldName stri
 	if field.Type != want {
 		t.Fatalf("%s.%s type = %s, want %s", entityType.Name(), fieldName, field.Type, want)
 	}
+}
+
+func columnValues(columns any) []string {
+	value := reflect.ValueOf(columns)
+	result := make([]string, 0, value.NumField())
+	for i := 0; i < value.NumField(); i++ {
+		result = append(result, value.Field(i).String())
+	}
+	return result
 }
