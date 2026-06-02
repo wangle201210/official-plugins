@@ -269,6 +269,13 @@ func (s *serviceImpl) IssueRuntimeToken(ctx context.Context, in RuntimeTokenInpu
 	if err := s.ensureRuntimeAccess(ctx, account, app); err != nil {
 		return nil, err
 	}
+	return s.issueRuntimeAccessToken(ctx, account, app)
+}
+
+func (s *serviceImpl) issueRuntimeAccessToken(ctx context.Context, account *entity.Account, app *entity.Application) (*RuntimeTokenOutput, error) {
+	if account == nil || app == nil {
+		return nil, bizerr.NewCode(CodeResourceNotFound)
+	}
 	access, err := randomToken("AT")
 	if err != nil {
 		return nil, err

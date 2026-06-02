@@ -4,6 +4,7 @@
 package uidentity
 
 import (
+	"encoding/xml"
 	"net/url"
 	"testing"
 
@@ -75,6 +76,21 @@ func TestLegacyAppendEncodedQueryMatchesOldRedirectShell(t *testing.T) {
 	}
 	if got := legacyAppendEncodedQuery("https://sso.example.com/logout?from=admin", values); got != "https://sso.example.com/logout?from=admin&appid=portal&cascallback=choose" {
 		t.Fatalf("legacyAppendEncodedQuery() with query = %s", got)
+	}
+}
+
+func TestLegacyWechatCallbackTextResponseEchoesText(t *testing.T) {
+	inbound := `<xml><ToUserName>server</ToUserName><FromUserName>openid</FromUserName><CreateTime>1</CreateTime><MsgType>text</MsgType><Content>hello</Content></xml>`
+	got := legacyWechatCallbackTextResponse([]byte(inbound), 1780372800)
+	if got == "" {
+		t.Fatal("expected text response")
+	}
+	var outbound legacyWechatTextMessage
+	if err := xml.Unmarshal([]byte(got), &outbound); err != nil {
+		t.Fatalf("invalid XML response: %v", err)
+	}
+	if outbound.ToUserName != "openid" || outbound.FromUserName != "server" || outbound.Content != "hello" || outbound.MsgType != "text" {
+		t.Fatalf("unexpected response: %#v", outbound)
 	}
 }
 

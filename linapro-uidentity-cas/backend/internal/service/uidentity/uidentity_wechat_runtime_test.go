@@ -40,6 +40,20 @@ func TestWechatLoginResultProjection(t *testing.T) {
 	}
 }
 
+func TestWechatUnionIDFromPayload(t *testing.T) {
+	t.Parallel()
+
+	if got := wechatUnionIDFromPayload([]byte(`{"unionid":"wx-union"}`)); got != "wx-union" {
+		t.Fatalf("expected root unionid, got %q", got)
+	}
+	if got := wechatUnionIDFromPayload([]byte(`{"data":{"unionId":"nested-union"}}`)); got != "nested-union" {
+		t.Fatalf("expected nested unionId, got %q", got)
+	}
+	if got := wechatUnionIDFromPayload([]byte(`not-json`)); got != "" {
+		t.Fatalf("expected invalid payload to return empty union id, got %q", got)
+	}
+}
+
 func TestWechatRebindAuthorizeURL(t *testing.T) {
 	t.Parallel()
 

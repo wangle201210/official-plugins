@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/util/gconv"
+
 	"lina-core/pkg/bizerr"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
@@ -28,8 +31,9 @@ const (
 
 	wechatLoginTTL = 5 * time.Minute
 
-	configKeyWechatLoginAuthorizeURL = "runtime.wechatLoginAuthorizeUrl"
-	configKeyWechatLoginRedirectURL  = "runtime.wechatLoginRedirectUrl"
+	configKeyWechatLoginAuthorizeURL   = "runtime.wechatLoginAuthorizeUrl"
+	configKeyWechatLoginRedirectURL    = "runtime.wechatLoginRedirectUrl"
+	configKeyWechatLoginCodeResolveURL = "runtime.wechatLoginCodeResolveUrl"
 )
 
 type wechatLoginStateData struct {
@@ -98,6 +102,13 @@ func (s *serviceImpl) CompleteWechatLoginQR(ctx context.Context, in WechatLoginC
 	}
 	payload.Code = strings.TrimSpace(in.Code)
 	unionID := strings.TrimSpace(in.UnionID)
+	if unionID == "" && payload.Code != "" {
+		resolved, resolveErr := s.resolveWechatLoginUnionID(ctx, payload.Code)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		unionID = resolved
+	}
 	if unionID == "" {
 		payload.Status = wechatLoginStatusUnsupported
 		payload.ErrorCode = CodeUnsupportedExternalFlow.RuntimeCode()
@@ -146,6 +157,22 @@ func (s *serviceImpl) CompleteWechatLoginQR(ctx context.Context, in WechatLoginC
 		return nil, err
 	}
 	return wechatLoginResult(payload), nil
+}
+
+func (s *serviceImpl) resolveWechatLoginUnionID(ctx context.Context, code string) (string, error) {
+	resolveURL, err := s.configSvc.String(ctx, configKeyWechatLoginCodeResolveURL, "")
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(resolveURL) == "" {
+		return "", nil
+	}
+	resp, err := g.Client().SetTimeout(10*time.Second).Get(ctx, resolveURL, map[string]any{"code": strings.TrimSpace(code)})
+	if err != nil {
+		return "", err
+	}
+	defer resp.Close()
+	return wechatUnionIDFromPayload(resp.ReadAll()), nil
 }
 
 // GetWechatLoginQRResult returns pending or terminal QR login state.
@@ -257,4 +284,28 @@ func wechatLoginResult(payload *wechatLoginStateData) *WechatLoginQRResultOutput
 		Message:     payload.Message,
 		Login:       payload.Login,
 	}
+}
+
+func wechatUnionIDFromPayload(data []byte) string {
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return ""
+	}
+	for _, key := range []string{"unionID", "unionId", "unionid"} {
+		if value := strings.TrimSpace(gconv.String(payload[key])); value != "" {
+			return value
+		}
+	}
+	for _, key := range []string{"data", "result", "user"} {
+		nested, ok := payload[key].(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, unionKey := range []string{"unionID", "unionId", "unionid"} {
+			if value := strings.TrimSpace(gconv.String(nested[unionKey])); value != "" {
+				return value
+			}
+		}
+	}
+	return ""
 }

@@ -6,6 +6,9 @@
 package uidentity
 
 import (
+	"encoding/xml"
+	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,6 +30,15 @@ const (
 	legacySysJobType      = 1
 	legacySysJobStatusOn  = 2
 )
+
+type legacyWechatTextMessage struct {
+	XMLName      xml.Name `xml:"xml"`
+	ToUserName   string   `xml:"ToUserName"`
+	FromUserName string   `xml:"FromUserName"`
+	CreateTime   int64    `xml:"CreateTime"`
+	MsgType      string   `xml:"MsgType"`
+	Content      string   `xml:"Content"`
+}
 
 // LegacyController serves legacy uidentity/admin paths and response envelopes.
 type LegacyController struct {
@@ -305,6 +317,10 @@ func (c *LegacyController) CasLoginByQR(r *ghttp.Request) {
 		c.redirectLegacyWechatLogin(r, nil, err)
 		return
 	}
+	if out != nil && (out.Status == "unsupported" || out.Status == "failed") && strings.TrimSpace(out.Message) != "" {
+		c.redirectLegacyWechatLogin(r, out, errors.New(out.Message))
+		return
+	}
 	c.redirectLegacyWechatLogin(r, out, nil)
 }
 
@@ -369,7 +385,7 @@ func (c *LegacyController) SSOLogout(r *ghttp.Request) {
 		r.Exit()
 		return
 	}
-	legacyOK(r, nil)
+	legacyOKWithMsg(r, nil, "退出成功")
 }
 
 // SSOLoginToken handles POST /api/v1/ssologin/getToken.
@@ -389,7 +405,7 @@ func (c *LegacyController) RuntimeTokenIssue(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"AccessToken": out.AccessToken, "accessToken": out.AccessToken, "access_token": out.AccessToken, "expiredAt": out.ExpiredAt, "expired_at": out.ExpiredAt})
+	legacyOKWithMsg(r, map[string]any{"AccessToken": out.AccessToken, "accessToken": out.AccessToken, "access_token": out.AccessToken, "expiredAt": out.ExpiredAt, "expired_at": out.ExpiredAt}, "登录成功")
 }
 
 // RuntimeTokenInfo handles GET /api/v1/token/getUserInfoByToken.
@@ -849,6 +865,23 @@ func (c *LegacyController) WechatLoginCallback(r *ghttp.Request) {
 
 // WechatCallback keeps the old root Wechat OA callback address available.
 func (c *LegacyController) WechatCallback(r *ghttp.Request) {
+	if r.Request.Method == http.MethodGet {
+		r.Response.Write(legacyStringParam(r, "echostr"))
+		r.Exit()
+		return
+	}
+	body, err := io.ReadAll(r.Request.Body)
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	payload := legacyWechatCallbackTextResponse(body, time.Now().Unix())
+	if payload != "" {
+		r.Response.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		r.Response.Write(payload)
+		r.Exit()
+		return
+	}
 	r.Response.WriteStatus(http.StatusOK)
 	r.Exit()
 }
@@ -921,7 +954,21 @@ func (c *LegacyController) CasLoginIndex(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	legacyOK(r, map[string]any{"number": out.Number, "accountId": out.AccountID, "account_id": out.AccountID, "appId": out.AppID, "app_id": out.AppID})
+	payload := map[string]any{
+		"number":     out.Number,
+		"accountId":  out.AccountID,
+		"account_id": out.AccountID,
+		"appId":      out.AppID,
+		"app_id":     out.AppID,
+	}
+	if out.AccessToken != "" {
+		payload["AccessToken"] = out.AccessToken
+		payload["accessToken"] = out.AccessToken
+		payload["access_token"] = out.AccessToken
+		payload["expiredAt"] = out.ExpiredAt
+		payload["expired_at"] = out.ExpiredAt
+	}
+	legacyOKWithMsg(r, payload, "登录成功")
 }
 
 // Stats handles GET /api/v1/stat/get.
@@ -978,12 +1025,61 @@ func (c *LegacyController) SysJobExternalAction(actionType string) ghttp.Handler
 // JobLogList keeps the old job-log list route while logs stay host-owned.
 func (c *LegacyController) JobLogList(r *ghttp.Request) {
 	pageIndex, pageSize := legacyPage(r)
-	legacyPageOK(r, []map[string]any{}, 0, pageIndex, pageSize)
+	out, err := c.uidentitySvc.ListLegacyJobLogs(r.Context(), uidentitysvc.LegacyJobLogListInput{
+		PageNum:   pageIndex,
+		PageSize:  pageSize,
+		JobID:     legacyInt64Param(r, "jobId", "job_id"),
+		JobName:   legacyStringParam(r, "jobName", "job_name"),
+		Status:    legacyStringParam(r, "status"),
+		Trigger:   legacyStringParam(r, "trigger"),
+		BeginTime: legacyStringParam(r, "beginTime", "begin_time", "startAt", "start_at"),
+		EndTime:   legacyStringParam(r, "endTime", "end_time", "endAt", "end_at"),
+		OrderBy:   legacyJobLogOrderByParam(r),
+		Order:     legacyJobLogOrderParam(r),
+	})
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyPageOK(r, out.List, out.Total, pageIndex, pageSize)
 }
 
 // JobLogGet keeps the old job-log detail route without reading core internals.
 func (c *LegacyController) JobLogGet(r *ghttp.Request) {
-	legacyError(r, bizerr.NewCode(uidentitysvc.CodeResourceNotFound))
+	record, err := c.uidentitySvc.GetLegacyJobLog(r.Context(), legacyRouterID(r))
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOK(r, record)
+}
+
+// JobLogCreate keeps old POST /api/v1/job-log compatibility.
+func (c *LegacyController) JobLogCreate(r *ghttp.Request) {
+	id, err := c.uidentitySvc.CreateLegacyJobLog(r.Context(), legacyRequestMap(r))
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOK(r, map[string]any{"id": id})
+}
+
+// JobLogUpdate keeps old PUT /api/v1/job-log/{id} compatibility.
+func (c *LegacyController) JobLogUpdate(r *ghttp.Request) {
+	if err := c.uidentitySvc.UpdateLegacyJobLog(r.Context(), legacyRouterID(r), legacyRequestMap(r)); err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOK(r, nil)
+}
+
+// JobLogDelete keeps old DELETE /api/v1/job-log compatibility.
+func (c *LegacyController) JobLogDelete(r *ghttp.Request) {
+	if err := c.uidentitySvc.DeleteLegacyJobLogs(r.Context(), legacyDeleteIDs(r)); err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOK(r, nil)
 }
 
 // ExternalAction handles compatibility stubs for old external execution routes.
@@ -1003,20 +1099,23 @@ func (c *LegacyController) redirectLegacyWechatLogin(r *ghttp.Request, out *uide
 		legacyError(r, err)
 		return
 	}
-	query := r.Request.URL.Query()
+	query := url.Values{}
+	callback := legacyStringParam(r, "cascallback", "callback", "casCallback")
+	msg := ""
+	uuid := ""
 	if flowErr != nil {
-		query.Set("cascallback", "err")
-		query.Set("msg", flowErr.Error())
+		callback = "err"
+		msg = flowErr.Error()
 	} else {
-		callback := legacyStringParam(r, "cascallback", "callback", "casCallback")
-		if callback == "" && out != nil {
-			callback = out.Status
-		}
-		query.Set("cascallback", callback)
 		if out != nil && strings.TrimSpace(out.ChallengeID) != "" {
-			query.Set("uuid", strings.TrimSpace(out.ChallengeID))
+			uuid = strings.TrimSpace(out.ChallengeID)
 		}
 	}
+	query.Set("cascallback", callback)
+	query.Set("state", legacyStringParam(r, "state", "uuid"))
+	query.Set("appid", legacyClientID(r))
+	query.Set("uuid", uuid)
+	query.Set("msg", msg)
 	r.Response.RedirectTo(legacyAppendEncodedQuery(cfg.WechatLoginRedirect, query))
 	r.Exit()
 }
@@ -1076,10 +1175,17 @@ func legacyWriteServiceOutput(r *ghttp.Request, out any, err error) {
 }
 
 func legacyOK(r *ghttp.Request, data any) {
+	legacyOKWithMsg(r, data, "操作成功")
+}
+
+func legacyOKWithMsg(r *ghttp.Request, data any, msg string) {
+	if strings.TrimSpace(msg) == "" {
+		msg = "操作成功"
+	}
 	r.Response.WriteJson(map[string]any{
 		"requestId": legacyRequestID(r),
 		"code":      legacyStatusOK,
-		"msg":       "操作成功",
+		"msg":       msg,
 		"data":      data,
 	})
 	r.Exit()
@@ -1147,6 +1253,83 @@ func legacyIntParam(r *ghttp.Request, names ...string) int {
 
 func legacyInt64Param(r *ghttp.Request, names ...string) int64 {
 	return gconv.Int64(legacyStringParam(r, names...))
+}
+
+func legacyJobLogOrderParam(r *ghttp.Request) string {
+	for _, name := range append(legacyJobLogOrderFieldNames(), "order", "sortOrder", "sort_order") {
+		if value := legacyStringParam(r, name); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func legacyJobLogOrderByParam(r *ghttp.Request) string {
+	if value := legacyStringParam(r, "orderBy", "order_by", "sort"); value != "" {
+		return value
+	}
+	orderFields := map[string]string{
+		"idOrder":        "id",
+		"jobIdOrder":     "jobId",
+		"jobNameOrder":   "jobName",
+		"startAtOrder":   "startAt",
+		"endAtOrder":     "endAt",
+		"createNumOrder": "createNum",
+		"updateNumOrder": "updateNum",
+		"deleteNumOrder": "deleteNum",
+		"errNumOrder":    "errNum",
+		"deletedAtOrder": "deletedAt",
+		"createByOrder":  "createBy",
+		"updateByOrder":  "updateBy",
+	}
+	for _, name := range legacyJobLogOrderFieldNames() {
+		if legacyStringParam(r, name) != "" {
+			return orderFields[name]
+		}
+	}
+	return ""
+}
+
+func legacyJobLogOrderFieldNames() []string {
+	return []string{
+		"idOrder",
+		"jobIdOrder",
+		"jobNameOrder",
+		"startAtOrder",
+		"endAtOrder",
+		"createNumOrder",
+		"updateNumOrder",
+		"deleteNumOrder",
+		"errNumOrder",
+		"deletedAtOrder",
+		"createByOrder",
+		"updateByOrder",
+	}
+}
+
+func legacyWechatCallbackTextResponse(body []byte, now int64) string {
+	var inbound legacyWechatTextMessage
+	if err := xml.Unmarshal(body, &inbound); err != nil {
+		return ""
+	}
+	if strings.TrimSpace(inbound.FromUserName) == "" || strings.TrimSpace(inbound.ToUserName) == "" {
+		return ""
+	}
+	if strings.TrimSpace(inbound.MsgType) != "text" {
+		return ""
+	}
+	outbound := legacyWechatTextMessage{
+		ToUserName:   inbound.FromUserName,
+		FromUserName: inbound.ToUserName,
+		CreateTime:   now,
+		MsgType:      "text",
+		Content:      inbound.Content,
+	}
+	data, err := xml.Marshal(outbound)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 func legacyOptionalInt(r *ghttp.Request, names ...string) *int {

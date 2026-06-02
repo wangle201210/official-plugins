@@ -92,7 +92,24 @@ func (s *serviceImpl) ValidateLegacyAdminCASTicket(ctx context.Context, in CASLo
 	if err := s.recordCASLogin(ctx, account.Id, in.AppID, LoginTypeCAS, "Legacy admin CAS callback"); err != nil {
 		return nil, err
 	}
-	return &CASLoginOutput{Number: account.Number, AccountID: account.Id, AppID: in.AppID}, nil
+	out := &CASLoginOutput{Number: account.Number, AccountID: account.Id, AppID: in.AppID}
+	if in.AppID <= 0 {
+		return out, nil
+	}
+	app, err := s.runtimeApplication(ctx, in.AppID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.ensureRuntimeAccess(ctx, account, app); err != nil {
+		return nil, err
+	}
+	token, err := s.issueRuntimeAccessToken(ctx, account, app)
+	if err != nil {
+		return nil, err
+	}
+	out.AccessToken = token.AccessToken
+	out.ExpiredAt = token.ExpiredAt
+	return out, nil
 }
 
 // IssueOAuthToken issues one OAuth token record and auth log.

@@ -54,6 +54,17 @@ type Service interface {
 	// DeleteResource soft-deletes or hard-deletes supported records after
 	// tenant visibility checks. IDs are capped and validated before delete.
 	DeleteResource(ctx context.Context, resource string, ids string) error
+	// ListLegacyJobLogs returns scheduler logs projected into the old
+	// uidentity/admin job-log shape without owning scheduler state.
+	ListLegacyJobLogs(ctx context.Context, in LegacyJobLogListInput) (*ResourceListOutput, error)
+	// GetLegacyJobLog returns one scheduler log projected into the old job-log shape.
+	GetLegacyJobLog(ctx context.Context, id int64) (Record, error)
+	// CreateLegacyJobLog writes one compatibility execution log row for old CRUD clients.
+	CreateLegacyJobLog(ctx context.Context, body map[string]any) (int64, error)
+	// UpdateLegacyJobLog updates one compatibility execution log row for old CRUD clients.
+	UpdateLegacyJobLog(ctx context.Context, id int64, body map[string]any) error
+	// DeleteLegacyJobLogs deletes one or more compatibility execution log rows.
+	DeleteLegacyJobLogs(ctx context.Context, ids string) error
 	// CheckAccountImport validates one legacy account import workbook without
 	// writing data and returns the number of importable rows.
 	CheckAccountImport(ctx context.Context, in AccountImportInput) (*AccountImportCheckOutput, error)
@@ -290,6 +301,20 @@ type ResourceListOutput struct {
 	Total int
 }
 
+// LegacyJobLogListInput carries old job-log filter and pagination fields.
+type LegacyJobLogListInput struct {
+	PageNum   int
+	PageSize  int
+	JobID     int64
+	JobName   string
+	Status    string
+	Trigger   string
+	BeginTime string
+	EndTime   string
+	OrderBy   string
+	Order     string
+}
+
 // AccountImportInput carries account import workbook options.
 type AccountImportInput struct {
 	Filepath string
@@ -322,9 +347,11 @@ type CASLoginInput struct {
 
 // CASLoginOutput carries resolved CAS login metadata.
 type CASLoginOutput struct {
-	Number    string
-	AccountID int64
-	AppID     int64
+	Number      string
+	AccountID   int64
+	AppID       int64
+	AccessToken string
+	ExpiredAt   *int64
 }
 
 // OAuthIssueInput carries OAuth token issue input.
