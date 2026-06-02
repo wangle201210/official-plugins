@@ -283,6 +283,7 @@ type ResourceListInput struct {
 	PageNum     int
 	PageSize    int
 	Keyword     string
+	Filters     map[string]any
 	AccountId   int64
 	AppId       int64
 	GroupId     int64

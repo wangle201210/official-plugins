@@ -16,6 +16,7 @@ import (
 
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/util/gconv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"lina-core/pkg/bizerr"
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
@@ -54,11 +55,13 @@ func NewLegacy(uidentitySvc uidentitysvc.Service) *LegacyController {
 func (c *LegacyController) ResourceList(resource string) ghttp.HandlerFunc {
 	return func(r *ghttp.Request) {
 		pageIndex, pageSize := legacyPage(r)
+		requestMap := legacyRequestMap(r)
 		out, err := c.uidentitySvc.ListResource(r.Context(), uidentitysvc.ResourceListInput{
 			Resource:    resource,
 			PageNum:     pageIndex,
 			PageSize:    pageSize,
 			Keyword:     legacyKeyword(r),
+			Filters:     requestMap,
 			AccountId:   legacyInt64Param(r, "accountId", "account_id"),
 			AppId:       legacyInt64Param(r, "appId", "app_id", "applicationId", "application_id"),
 			GroupId:     legacyInt64Param(r, "groupId", "group_id"),
@@ -67,8 +70,8 @@ func (c *LegacyController) ResourceList(resource string) ghttp.HandlerFunc {
 			Status:      legacyOptionalInt(r, "status"),
 			PassLevels:  legacyInt64ListParam(r, "passLevels", "pass_levels", "passLevel", "pass_level"),
 			GroupIds:    legacyInt64ListParam(r, "groupIds", "group_ids"),
-			OrderBy:     legacyStringParam(r, "orderBy", "order_by", "sort"),
-			Order:       legacyStringParam(r, "order", "sortOrder", "sort_order"),
+			OrderBy:     legacyResourceOrderByParam(r),
+			Order:       legacyResourceOrderParam(r),
 		})
 		if err != nil {
 			legacyError(r, err)
@@ -126,7 +129,7 @@ func (c *LegacyController) ResourceDelete(resource string) ghttp.HandlerFunc {
 
 // AccountPasswordUnlock handles POST /api/v1/account/unlockPassword.
 func (c *LegacyController) AccountPasswordUnlock(r *ghttp.Request) {
-	numbers := legacyStringListParam(r, "numbers", "number", "usernames", "username")
+	numbers := legacyStringListParam(r, "userNumberList", "user_number_list", "numbers", "number", "usernames", "username")
 	out, err := c.uidentitySvc.UnlockPasswordFailures(r.Context(), numbers)
 	if err != nil {
 		legacyError(r, err)
@@ -919,6 +922,12 @@ func (c *LegacyController) Health(r *ghttp.Request) {
 	r.Exit()
 }
 
+// Metrics keeps the old Prometheus scrape path addressable.
+func (c *LegacyController) Metrics(r *ghttp.Request) {
+	promhttp.Handler().ServeHTTP(r.Response.RawWriter(), r.Request)
+	r.Exit()
+}
+
 // LegacyCASConfig handles GET /api/v1/config/cas.
 func (c *LegacyController) LegacyCASConfig(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyCASConfig(r.Context())
@@ -1255,6 +1264,111 @@ func legacyInt64Param(r *ghttp.Request, names ...string) int64 {
 	return gconv.Int64(legacyStringParam(r, names...))
 }
 
+func legacyResourceOrderParam(r *ghttp.Request) string {
+	for _, name := range append(legacyResourceOrderFieldNames(), "order", "sortOrder", "sort_order") {
+		if value := legacyStringParam(r, name); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func legacyResourceOrderByParam(r *ghttp.Request) string {
+	if value := legacyStringParam(r, "orderBy", "order_by", "sort"); value != "" {
+		return value
+	}
+	for _, name := range legacyResourceOrderFieldNames() {
+		if legacyStringParam(r, name) != "" {
+			return strings.TrimSuffix(name, "Order")
+		}
+	}
+	return ""
+}
+
+func legacyResourceOrderFieldNames() []string {
+	return []string{
+		"idOrder",
+		"accountIdOrder",
+		"userIdOrder",
+		"numberOrder",
+		"nameOrder",
+		"phoneOrder",
+		"aliasOrder",
+		"codeOrder",
+		"birthdayOrder",
+		"emailOrder",
+		"genderOrder",
+		"qqOrder",
+		"wechatOrder",
+		"idcardOrder",
+		"avatarOrder",
+		"sourceOrder",
+		"njOrder",
+		"xymcOrder",
+		"xydmOrder",
+		"xqOrder",
+		"xzOrder",
+		"yjbysjOrder",
+		"zymcOrder",
+		"bjmcOrder",
+		"effectAtOrder",
+		"expireAtOrder",
+		"groupIdOrder",
+		"passLevelOrder",
+		"containerIdOrder",
+		"unitIdOrder",
+		"accountCountOrder",
+		"adminCountOrder",
+		"giveAccountIdOrder",
+		"empoweredAccountIdOrder",
+		"appIdOrder",
+		"clientIdOrder",
+		"secretKeyOrder",
+		"accessModelOrder",
+		"callbackUrlOrder",
+		"whitelistOrder",
+		"capitalOrder",
+		"lowerOrder",
+		"numberOrder",
+		"symbolOrder",
+		"lengthOrder",
+		"intervalOrder",
+		"intervalStatusOrder",
+		"typeOrder",
+		"contentOrder",
+		"respMsgOrder",
+		"choiceAccountIdOrder",
+		"ipaddrOrder",
+		"loginLocationOrder",
+		"browserOrder",
+		"osOrder",
+		"platformOrder",
+		"loginTimeOrder",
+		"remarkOrder",
+		"msgOrder",
+		"loginTypeOrder",
+		"redirectUriOrder",
+		"scopeOrder",
+		"expiredAtOrder",
+		"codeOrder",
+		"accessOrder",
+		"refreshOrder",
+		"dataOrder",
+		"tableNameOrder",
+		"actionOrder",
+		"dataOldOrder",
+		"dataNewOrder",
+		"errMsgOrder",
+		"errNumberOrder",
+		"statusOrder",
+		"createdAtOrder",
+		"updatedAtOrder",
+		"deletedAtOrder",
+		"createByOrder",
+		"updateByOrder",
+	}
+}
+
 func legacyJobLogOrderParam(r *ghttp.Request) string {
 	for _, name := range append(legacyJobLogOrderFieldNames(), "order", "sortOrder", "sort_order") {
 		if value := legacyStringParam(r, name); value != "" {
@@ -1398,7 +1512,7 @@ func legacyDeleteIDs(r *ghttp.Request) string {
 	if routerID := legacyRouterID(r); routerID > 0 {
 		return gconv.String(routerID)
 	}
-	for _, name := range []string{"ids", "id"} {
+	for _, name := range []string{"ids", "id", "account_ids", "accountIds"} {
 		values := legacyStringListParam(r, name)
 		if len(values) > 0 {
 			return strings.Join(values, ",")

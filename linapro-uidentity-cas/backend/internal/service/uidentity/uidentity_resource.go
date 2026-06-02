@@ -27,6 +27,7 @@ type resourceDefinition struct {
 	defaultOrder  string
 	keywordFields []string
 	apiToColumn   map[string]string
+	likeFields    map[string]struct{}
 	timeFields    map[string]struct{}
 	dateFields    map[string]struct{}
 	model         func(context.Context) *gdb.Model
@@ -90,6 +91,11 @@ func (s *serviceImpl) ListResource(ctx context.Context, in ResourceListInput) (*
 	orderColumn := def.defaultOrder
 	if column := def.apiToColumn[strings.TrimSpace(in.OrderBy)]; column != "" {
 		orderColumn = column
+	} else if apiName := resourceFilterAPIName(in.OrderBy); apiName != "" {
+		orderColumn = def.apiToColumn[apiName]
+	}
+	if orderColumn == "" {
+		orderColumn = def.defaultOrder
 	}
 	if strings.EqualFold(in.Order, "asc") {
 		model = model.OrderAsc(orderColumn)
@@ -139,6 +145,7 @@ func (s *serviceImpl) GetResource(ctx context.Context, resource string, id int64
 
 // CreateResource creates one tenant-scoped resource row.
 func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body map[string]any) (int64, error) {
+	body = normalizeLegacyResourceBody(resource, body)
 	def, err := s.resourceDefinition(resource)
 	if err != nil {
 		return 0, err
@@ -181,6 +188,7 @@ func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body 
 
 // UpdateResource updates one tenant-scoped resource row.
 func (s *serviceImpl) UpdateResource(ctx context.Context, resource string, id int64, body map[string]any) error {
+	body = normalizeLegacyResourceBody(resource, body)
 	def, err := s.resourceDefinition(resource)
 	if err != nil {
 		return err
@@ -264,6 +272,7 @@ func (s *serviceImpl) applyResourceFilters(ctx context.Context, def *resourceDef
 	if in.Status != nil && def.apiToColumn["status"] != "" {
 		model = model.Where(def.apiToColumn["status"], *in.Status)
 	}
+	model = applyLegacyResourceFieldFilters(model, def, in)
 	if len(in.PassLevels) > 0 && def.apiToColumn["passLevel"] != "" {
 		model = model.WhereIn(def.apiToColumn["passLevel"], in.PassLevels)
 	}
@@ -275,6 +284,97 @@ func (s *serviceImpl) applyResourceFilters(ctx context.Context, def *resourceDef
 		model = model.Where(def.idColumn+" IN (?)", subQuery)
 	}
 	return model
+}
+
+func applyLegacyResourceFieldFilters(model *gdb.Model, def *resourceDefinition, in ResourceListInput) *gdb.Model {
+	if len(in.Filters) == 0 {
+		return model
+	}
+	for fieldName, value := range in.Filters {
+		apiName := resourceFilterAPIName(fieldName)
+		column := def.apiToColumn[apiName]
+		if column == "" || isResourceListControlField(apiName) || isResourceListFilterAlreadyApplied(apiName) {
+			continue
+		}
+		if strings.TrimSpace(gconv.String(value)) == "" {
+			continue
+		}
+		if _, ok := def.likeFields[apiName]; ok {
+			model = model.Where(column+" LIKE ?", "%"+strings.TrimSpace(gconv.String(value))+"%")
+			continue
+		}
+		model = model.Where(column, value)
+	}
+	return model
+}
+
+func resourceFilterAPIName(name string) string {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return ""
+	}
+	return resourceLegacyFieldAliases()[trimmed]
+}
+
+func resourceLegacyFieldAliases() map[string]string {
+	return map[string]string{
+		"id": "id", "tenantId": "tenantId", "tenant_id": "tenantId",
+		"accountId": "accountId", "account_id": "accountId",
+		"appId": "appId", "app_id": "appId", "applicationId": "appId", "application_id": "appId",
+		"groupId": "groupId", "group_id": "groupId",
+		"containerId": "containerId", "container_id": "containerId",
+		"unitId": "unitId", "unit_id": "unitId",
+		"number": "number", "name": "name", "phone": "phone", "status": "status",
+		"alias": "alias", "code": "code", "accountCount": "accountCount", "account_count": "accountCount",
+		"adminCount": "adminCount", "admin_count": "adminCount",
+		"birthday": "birthday", "email": "email", "gender": "gender", "qq": "qq", "wechat": "wechat",
+		"idcard": "idcard", "idCard": "idcard", "avatar": "avatar", "source": "source",
+		"grade": "grade", "nj": "grade", "college": "college", "xymc": "college",
+		"collegeCode": "collegeCode", "college_code": "collegeCode", "xydm": "collegeCode",
+		"campus": "campus", "xq": "campus", "schoolSystem": "schoolSystem", "school_system": "schoolSystem", "xz": "schoolSystem",
+		"graduatedAt": "graduatedAt", "graduated_at": "graduatedAt", "yjbysj": "graduatedAt",
+		"major": "major", "zymc": "major", "className": "className", "class_name": "className", "bjmc": "className",
+		"face": "face", "giveAccountId": "giveAccountId", "give_account_id": "giveAccountId",
+		"empoweredAccountId": "empoweredAccountId", "empowered_account_id": "empoweredAccountId",
+		"effectAt": "effectAt", "effect_at": "effectAt", "expireAt": "expireAt", "expire_at": "expireAt",
+		"clientId": "clientId", "client_id": "clientId", "secretKey": "secretKey", "secret_key": "secretKey",
+		"accessModel": "accessModel", "access_model": "accessModel", "callbackUrl": "callbackUrl", "callback_url": "callbackUrl",
+		"whitelist": "whitelist", "capital": "capital", "lower": "lower", "symbol": "symbol", "length": "length",
+		"interval": "intervalDays", "intervalDays": "intervalDays", "interval_days": "intervalDays",
+		"intervalStatus": "intervalStatus", "interval_status": "intervalStatus",
+		"type": "type", "content": "content", "respMsg": "respMsg", "resp_msg": "respMsg",
+		"choiceAccountId": "choiceAccountId", "choice_account_id": "choiceAccountId",
+		"ipaddr": "ipaddr", "loginLocation": "loginLocation", "login_location": "loginLocation",
+		"browser": "browser", "os": "os", "platform": "platform", "loginTime": "loginTime", "login_time": "loginTime",
+		"remark": "remark", "msg": "msg", "loginType": "loginType", "login_type": "loginType",
+		"userId": "userId", "user_id": "userId", "redirectUri": "redirectUri", "redirect_uri": "redirectUri", "scope": "scope",
+		"expiredAt": "expiredAt", "expired_at": "expiredAt", "access": "access", "refresh": "refresh", "data": "data",
+		"tableName": "tableName", "table_name": "tableName", "action": "action", "dataOld": "dataOld", "data_old": "dataOld",
+		"dataNew": "dataNew", "data_new": "dataNew", "errMsg": "errMsg", "err_msg": "errMsg",
+		"errNumber": "errNumber", "err_number": "errNumber",
+		"createdBy": "createdBy", "createBy": "createdBy", "created_by": "createdBy", "create_by": "createdBy",
+		"updatedBy": "updatedBy", "updateBy": "updatedBy", "updated_by": "updatedBy", "update_by": "updatedBy",
+		"createdAt": "createdAt", "created_at": "createdAt", "updatedAt": "updatedAt", "updated_at": "updatedAt",
+		"deletedAt": "deletedAt", "deleted_at": "deletedAt",
+	}
+}
+
+func isResourceListControlField(name string) bool {
+	switch name {
+	case "", "pageIndex", "pageNum", "page", "current", "pageSize", "limit", "keyword", "search", "orderBy", "sort", "order", "sortOrder":
+		return true
+	default:
+		return strings.HasSuffix(name, "Order")
+	}
+}
+
+func isResourceListFilterAlreadyApplied(name string) bool {
+	switch name {
+	case "accountId", "appId", "groupId", "containerId", "unitId", "status", "passLevel":
+		return true
+	default:
+		return false
+	}
 }
 
 func projectResult(result gdb.Result, def *resourceDefinition) []Record {
@@ -324,7 +424,39 @@ func projectRecord(row gdb.Record, def *resourceDefinition) Record {
 		}
 		record[apiName] = value.Interface()
 	}
+	addLegacyResourceResponseAliases(record, def)
 	return record
+}
+
+func addLegacyResourceResponseAliases(record Record, def *resourceDefinition) {
+	if record == nil || def == nil {
+		return
+	}
+	if value, ok := record["createdBy"]; ok {
+		record["createBy"] = value
+	}
+	if value, ok := record["updatedBy"]; ok {
+		record["updateBy"] = value
+	}
+	switch def.name {
+	case "account-details":
+		copyRecordAlias(record, "grade", "nj")
+		copyRecordAlias(record, "college", "xymc")
+		copyRecordAlias(record, "collegeCode", "xydm")
+		copyRecordAlias(record, "campus", "xq")
+		copyRecordAlias(record, "schoolSystem", "xz")
+		copyRecordAlias(record, "graduatedAt", "yjbysj")
+		copyRecordAlias(record, "major", "zymc")
+		copyRecordAlias(record, "className", "bjmc")
+	case "pass-rules":
+		copyRecordAlias(record, "intervalDays", "interval")
+	}
+}
+
+func copyRecordAlias(record Record, source string, alias string) {
+	if value, ok := record[source]; ok {
+		record[alias] = value
+	}
 }
 
 func parseIDList(ids string) []int64 {
@@ -390,6 +522,42 @@ func mergeBody(reqBody map[string]any) map[string]any {
 	return reqBody
 }
 
+func normalizeLegacyResourceBody(resource string, body map[string]any) map[string]any {
+	if body == nil {
+		return map[string]any{}
+	}
+	setIfMissing := func(target string, aliases ...string) {
+		if hasField(body, target) {
+			return
+		}
+		for _, alias := range aliases {
+			if hasField(body, alias) {
+				body[target] = body[alias]
+				return
+			}
+		}
+	}
+	switch strings.TrimSpace(resource) {
+	case "accounts":
+		setIfMissing("unitId", "unit_id", "groupId", "group_id")
+	case "account-details", "account-details-legacy":
+		setIfMissing("accountId", "account_id")
+		setIfMissing("idcard", "idCard")
+		setIfMissing("grade", "nj")
+		setIfMissing("college", "xymc")
+		setIfMissing("collegeCode", "college_code", "xydm")
+		setIfMissing("campus", "xq")
+		setIfMissing("schoolSystem", "school_system", "xz")
+		setIfMissing("graduatedAt", "graduated_at", "yjbysj")
+		setIfMissing("major", "zymc")
+		setIfMissing("className", "class_name", "bjmc")
+	case "pass-rules", "pass-ruler":
+		setIfMissing("intervalDays", "interval", "interval_days")
+		setIfMissing("intervalStatus", "interval_status")
+	}
+	return body
+}
+
 func commonTimeFields() map[string]struct{} {
 	return map[string]struct{}{
 		"effectAt":          {},
@@ -419,6 +587,7 @@ func (s *serviceImpl) accountResource() *resourceDefinition {
 			"passLevel": cols.PassLevel, "containerId": cols.ContainerId, "unitId": cols.UnitId, "status": cols.Status,
 			"createdBy": cols.CreatedBy, "updatedBy": cols.UpdatedBy, "createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt, "deletedAt": cols.DeletedAt,
 		},
+		likeFields: map[string]struct{}{"name": {}, "phone": {}},
 		timeFields: commonTimeFields(),
 		model:      func(ctx context.Context) *gdb.Model { return dao.Account.Ctx(ctx) },
 		data:       s.accountData,
@@ -439,6 +608,8 @@ func (s *serviceImpl) accountDetailResource() *resourceDefinition {
 			"grade": cols.Grade, "college": cols.College, "collegeCode": cols.CollegeCode, "campus": cols.Campus,
 			"schoolSystem": cols.SchoolSystem, "graduatedAt": cols.GraduatedAt, "major": cols.Major, "className": cols.ClassName,
 			"face": cols.Face, "createdBy": cols.CreatedBy, "updatedBy": cols.UpdatedBy, "createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt,
+			"nj": cols.Grade, "xymc": cols.College, "xydm": cols.CollegeCode, "xq": cols.Campus, "xz": cols.SchoolSystem,
+			"yjbysj": cols.GraduatedAt, "zymc": cols.Major, "bjmc": cols.ClassName,
 		},
 		timeFields: commonTimeFields(),
 		dateFields: map[string]struct{}{"birthday": {}},

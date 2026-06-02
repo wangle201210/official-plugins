@@ -45,6 +45,7 @@ var legacyPublicRoutes = []legacyRouteSpec{
 	{Method: "POST", Path: "/account/updatePasswordBySelfPhone"},
 	{Method: "POST", Path: "/account/updatePasswordBySelf"},
 	{Method: "GET", Path: "/health"},
+	{Method: "GET", Path: "/metrics"},
 	{Method: "GET", Path: "/cas/login"},
 	{Method: "POST", Path: "/cas/login"},
 	{Method: "POST", Path: "/cas/loginByPhone"},
@@ -189,6 +190,7 @@ func registerLegacyPublicRoutes(group pluginhost.RouteGroup, legacyController *u
 	group.POST("/account/updatePasswordBySelfPhone", legacyController.AccountPasswordPhoneVerify)
 	group.POST("/account/updatePasswordBySelf", legacyController.AccountPasswordSelfReset)
 	group.GET("/health", legacyController.Health)
+	group.GET("/metrics", legacyController.Metrics)
 	group.GET("/cas/login", legacyController.CasLoginByCookie)
 	group.POST("/cas/login", legacyController.CasPasswordLogin)
 	group.POST("/cas/loginByPhone", legacyController.CasPhoneLogin)

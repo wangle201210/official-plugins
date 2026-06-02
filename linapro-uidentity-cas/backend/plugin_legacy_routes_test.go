@@ -16,6 +16,7 @@ func TestLegacyRouteSpecIncludesOldAdminContracts(t *testing.T) {
 		{Method: "GET", Path: "/job/start/{id}"},
 		{Method: "GET", Path: "/job/remove/{id}"},
 		{Method: "GET", Path: "/health"},
+		{Method: "GET", Path: "/metrics"},
 		{Method: "GET", Path: "/account"},
 		{Method: "GET", Path: "/account/{id}"},
 		{Method: "POST", Path: "/account"},
