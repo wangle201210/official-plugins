@@ -78,6 +78,9 @@ type Service interface {
 	// LoginByCASTicket validates a CAS ticket, enforces application access
 	// rules, records a CAS log, and returns the resolved account projection.
 	LoginByCASTicket(ctx context.Context, in CASLoginInput) (*CASLoginOutput, error)
+	// ValidateLegacyAdminCASTicket validates the old GoAdmin CAS callback
+	// ticket and resolves the account without issuing a LinaPro auth session.
+	ValidateLegacyAdminCASTicket(ctx context.Context, in CASLoginInput) (*CASLoginOutput, error)
 	// LoginByPassword validates application, account password, account status,
 	// blacklist rules, and delegated accounts before issuing CAS TGT/ST values.
 	LoginByPassword(ctx context.Context, in PasswordLoginInput) (*RuntimeLoginOutput, error)
@@ -100,6 +103,8 @@ type Service interface {
 	// IssueServiceTicketFromTGT issues a new one-time ST from an existing TGT
 	// and optional selected delegated account.
 	IssueServiceTicketFromTGT(ctx context.Context, in ServiceTicketInput) (*ServiceTicketOutput, error)
+	// CheckTicketGranting validates one TGT without consuming it.
+	CheckTicketGranting(ctx context.Context, tgt string) (*TicketGrantingOutput, error)
 	// ValidateServiceTicket consumes one ST, enforces selected-account access,
 	// records the selected account in the login log, and returns projections.
 	ValidateServiceTicket(ctx context.Context, in ServiceValidateInput) (*ServiceValidateOutput, error)
@@ -227,6 +232,9 @@ type Service interface {
 	// LegacyTokenConfig returns plugin-scoped runtime token endpoint metadata
 	// compatible with the old static configuration API.
 	LegacyTokenConfig(ctx context.Context) (*LegacyTokenConfigOutput, error)
+	// LegacyRedirectConfig returns old redirect shell configuration used by
+	// root SSO, Wechat, activation, and UnionID callback compatibility routes.
+	LegacyRedirectConfig(ctx context.Context) (*LegacyRedirectConfigOutput, error)
 	// Stats returns aggregate identity statistics using database-side grouping
 	// and batch name projection.
 	Stats(ctx context.Context) (*StatsOutput, error)
@@ -497,6 +505,15 @@ type ServiceTicketInput struct {
 type ServiceTicketOutput struct {
 	ST          string
 	CallbackURL string
+}
+
+// TicketGrantingOutput carries one validated TGT payload.
+type TicketGrantingOutput struct {
+	TGT       string
+	AccountID int64
+	Number    string
+	AppID     int64
+	ClientID  string
 }
 
 // ServiceValidateInput carries one service ticket validation request.
@@ -840,6 +857,16 @@ type LegacyTokenConfigOutput struct {
 	CheckAddr string
 	TokenDocs string
 	CasDocs   string
+}
+
+// LegacyRedirectConfigOutput carries old redirect shell configuration.
+type LegacyRedirectConfigOutput struct {
+	DefaultAppID          string
+	SSOLoginRedirect      string
+	SSOLogoutRedirect     string
+	UnionIDBindRedirect   string
+	WechatLoginRedirect   string
+	ActivationRedirectURL string
 }
 
 // StatItem carries one aggregate statistic bucket.

@@ -4,6 +4,7 @@
 package uidentity
 
 import (
+	"net/url"
 	"testing"
 
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
@@ -62,6 +63,18 @@ func TestCleanupStringsSplitsCSVAndDropsEmptyValues(t *testing.T) {
 	got := stringsFromAny("1, 2,,3 ")
 	if len(got) != 3 || got[0] != "1" || got[1] != "2" || got[2] != "3" {
 		t.Fatalf("stringsFromAny() = %#v", got)
+	}
+}
+
+func TestLegacyAppendEncodedQueryMatchesOldRedirectShell(t *testing.T) {
+	values := url.Values{}
+	values.Set("appid", "portal")
+	values.Set("cascallback", "choose")
+	if got := legacyAppendEncodedQuery("https://sso.example.com/login", values); got != "https://sso.example.com/login?appid=portal&cascallback=choose" {
+		t.Fatalf("legacyAppendEncodedQuery() = %s", got)
+	}
+	if got := legacyAppendEncodedQuery("https://sso.example.com/logout?from=admin", values); got != "https://sso.example.com/logout?from=admin&appid=portal&cascallback=choose" {
+		t.Fatalf("legacyAppendEncodedQuery() with query = %s", got)
 	}
 }
 

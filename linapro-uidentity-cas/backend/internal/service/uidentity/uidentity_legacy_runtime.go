@@ -160,6 +160,25 @@ func (s *serviceImpl) IssueServiceTicketFromTGT(ctx context.Context, in ServiceT
 	return &ServiceTicketOutput{ST: st, CallbackURL: callbackWithTicket(app.CallbackUrl, st)}, nil
 }
 
+// CheckTicketGranting validates one TGT without consuming it.
+func (s *serviceImpl) CheckTicketGranting(ctx context.Context, tgt string) (*TicketGrantingOutput, error) {
+	trimmed := strings.TrimSpace(tgt)
+	if trimmed == "" {
+		return nil, bizerr.NewCode(CodeTicketInvalid)
+	}
+	payload, err := s.runtimeTicketByCode(ctx, ticketCodePrefixTGT+trimmed, ticketKindTGT)
+	if err != nil {
+		return nil, err
+	}
+	return &TicketGrantingOutput{
+		TGT:       trimmed,
+		AccountID: payload.AccountID,
+		Number:    payload.Number,
+		AppID:     payload.AppID,
+		ClientID:  payload.ClientID,
+	}, nil
+}
+
 // ValidateServiceTicket consumes and validates one ST.
 func (s *serviceImpl) ValidateServiceTicket(ctx context.Context, in ServiceValidateInput) (*ServiceValidateOutput, error) {
 	token, payload, err := s.runtimeTicketRecordByCode(ctx, ticketCodePrefixST+in.Ticket, ticketKindST)

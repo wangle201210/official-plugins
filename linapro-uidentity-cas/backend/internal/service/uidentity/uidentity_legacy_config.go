@@ -23,6 +23,9 @@ const (
 	configKeyLegacyTokenCheck     = "legacy.static.token.checkAddr"
 	configKeyLegacyTokenDocs      = "legacy.static.token.tokenDocs"
 	configKeyLegacyTokenCASDocs   = "legacy.static.token.casDocs"
+	configKeyLegacyDefaultAppID   = "legacy.sso.defaultAppid"
+	configKeyLegacySSOLogin       = "legacy.sso.loginRedirect"
+	configKeyLegacySSOLogout      = "legacy.sso.logoutRedirect"
 
 	defaultLegacyCASLoginAddr   = "/api/v1/uidentity/cas/password-logins"
 	defaultLegacyCASLogoutAddr  = "/api/v1/uidentity/cas/tickets/{ticket}"
@@ -142,5 +145,41 @@ func (s *serviceImpl) LegacyTokenConfig(ctx context.Context) (*LegacyTokenConfig
 		CheckAddr: checkAddr,
 		TokenDocs: tokenDocs,
 		CasDocs:   casDocs,
+	}, nil
+}
+
+// LegacyRedirectConfig returns old redirect shell configuration from plugin config.
+func (s *serviceImpl) LegacyRedirectConfig(ctx context.Context) (*LegacyRedirectConfigOutput, error) {
+	defaultAppID, err := s.configSvc.String(ctx, configKeyLegacyDefaultAppID, "")
+	if err != nil {
+		return nil, err
+	}
+	ssoLogin, err := s.configSvc.String(ctx, configKeyLegacySSOLogin, "")
+	if err != nil {
+		return nil, err
+	}
+	ssoLogout, err := s.configSvc.String(ctx, configKeyLegacySSOLogout, "")
+	if err != nil {
+		return nil, err
+	}
+	unionIDBind, err := s.configSvc.String(ctx, configKeyUnionIDBindCallbackURL, "")
+	if err != nil {
+		return nil, err
+	}
+	wechatLogin, err := s.configSvc.String(ctx, configKeyWechatLoginRedirectURL, "")
+	if err != nil {
+		return nil, err
+	}
+	activationRedirect, err := s.configSvc.String(ctx, configKeyActivationWechatRedirectURL, "")
+	if err != nil {
+		return nil, err
+	}
+	return &LegacyRedirectConfigOutput{
+		DefaultAppID:          defaultAppID,
+		SSOLoginRedirect:      ssoLogin,
+		SSOLogoutRedirect:     ssoLogout,
+		UnionIDBindRedirect:   unionIDBind,
+		WechatLoginRedirect:   wechatLogin,
+		ActivationRedirectURL: activationRedirect,
 	}, nil
 }

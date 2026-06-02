@@ -7,6 +7,7 @@ package uidentity
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -246,6 +247,11 @@ func (c *LegacyController) CasUnionIDLogin(r *ghttp.Request) {
 		return
 	}
 	legacySetTGTCookie(r, out)
+	if redirectURL := legacyStringParam(r, "redirectUrl", "redirectURL", "redirect_url"); redirectURL != "" {
+		r.Response.RedirectTo(redirectURL)
+		r.Exit()
+		return
+	}
 	legacyOK(r, legacyRuntimeLoginPayload(out))
 }
 
@@ -296,10 +302,10 @@ func (c *LegacyController) CasLoginByQR(r *ghttp.Request) {
 		Callback: legacyStringParam(r, "callback", "cascallback", "casCallback"),
 	})
 	if err != nil {
-		legacyError(r, err)
+		c.redirectLegacyWechatLogin(r, nil, err)
 		return
 	}
-	legacyOK(r, legacyWechatLoginResultPayload(out))
+	c.redirectLegacyWechatLogin(r, out, nil)
 }
 
 // CasGetLoginQRResult handles POST /api/v1/cas/getCasLoginQrRes.
@@ -312,13 +318,34 @@ func (c *LegacyController) CasGetLoginQRResult(r *ghttp.Request) {
 	legacyOK(r, legacyWechatLoginResultPayload(out))
 }
 
-// SSOLogin handles old /sso/login paths using the same TGT-to-ST flow.
+// SSOLogin handles old /sso/login paths as a redirect-only login shell.
 func (c *LegacyController) SSOLogin(r *ghttp.Request) {
-	c.CasLoginByCookie(r)
+	cfg, err := c.uidentitySvc.LegacyRedirectConfig(r.Context())
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	query := r.Request.URL.Query()
+	if strings.TrimSpace(query.Get("appid")) == "" {
+		query.Set("appid", strings.TrimSpace(cfg.DefaultAppID))
+	}
+	tgt := r.Cookie.Get(legacyTGTCookieName).String()
+	if tgt != "" {
+		if _, err := c.uidentitySvc.CheckTicketGranting(r.Context(), tgt); err == nil {
+			query.Set("cascallback", "choose")
+		}
+	}
+	r.Response.RedirectTo(legacyAppendEncodedQuery(cfg.SSOLoginRedirect, query))
+	r.Exit()
 }
 
 // SSOLogout handles old /sso/logout paths.
 func (c *LegacyController) SSOLogout(r *ghttp.Request) {
+	cfg, err := c.uidentitySvc.LegacyRedirectConfig(r.Context())
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
 	ticket := legacyStringParam(r, "ticket", "tgt")
 	if ticket == "" {
 		ticket = r.Cookie.Get(legacyTGTCookieName).String()
@@ -327,12 +354,27 @@ func (c *LegacyController) SSOLogout(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
+	if r.Request.Method == http.MethodGet {
+		appid := legacyStringParam(r, "appid", "appId", "app_id")
+		if strings.TrimSpace(appid) == "" {
+			appid = cfg.DefaultAppID
+		}
+		serviceURL := legacyStringParam(r, "service")
+		if serviceURL == "" {
+			values := url.Values{}
+			values.Set("appid", strings.TrimSpace(appid))
+			serviceURL = legacyAppendEncodedQuery(cfg.SSOLogoutRedirect, values)
+		}
+		r.Response.RedirectTo(serviceURL)
+		r.Exit()
+		return
+	}
 	legacyOK(r, nil)
 }
 
 // SSOLoginToken handles POST /api/v1/ssologin/getToken.
 func (c *LegacyController) SSOLoginToken(r *ghttp.Request) {
-	c.CasLoginByCookie(r)
+	c.RuntimeTokenIssue(r)
 }
 
 // RuntimeTokenIssue handles POST /api/v1/token/get.
@@ -429,17 +471,17 @@ func (c *LegacyController) ActivationWechatQR(r *ghttp.Request) {
 
 // ActivationWechatScan handles GET /api/v1/activate/wechatScan.
 func (c *LegacyController) ActivationWechatScan(r *ghttp.Request) {
-	out, err := c.uidentitySvc.CompleteActivationWechat(r.Context(), uidentitysvc.ActivationWechatCallbackInput{
+	_, err := c.uidentitySvc.CompleteActivationWechat(r.Context(), uidentitysvc.ActivationWechatCallbackInput{
 		State:    legacyStringParam(r, "state", "uuid"),
 		UnionID:  legacyStringParam(r, "unionID", "unionId", "union_id"),
 		Code:     legacyStringParam(r, "code"),
 		Callback: legacyStringParam(r, "callback", "cascallback", "casCallback"),
 	})
 	if err != nil {
-		legacyError(r, err)
+		c.redirectLegacyActivationWechat(r, err)
 		return
 	}
-	legacyOK(r, legacyActivationWechatPayload(out))
+	c.redirectLegacyActivationWechat(r, nil)
 }
 
 // ActivationState handles POST /api/v1/activate/state.
@@ -469,7 +511,13 @@ func (c *LegacyController) UserGetByUnionID(r *ghttp.Request) {
 
 // UserBindUnionIDCallback handles GET /api/v1/user/bindUnionIDCallBack.
 func (c *LegacyController) UserBindUnionIDCallback(r *ghttp.Request) {
-	legacyOK(r, legacyRequestMap(r))
+	cfg, err := c.uidentitySvc.LegacyRedirectConfig(r.Context())
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	r.Response.RedirectTo(legacyAppendEncodedQuery(cfg.UnionIDBindRedirect, r.Request.URL.Query()))
+	r.Exit()
 }
 
 // UserBindUnionID handles POST /api/v1/user/bindUnionID.
@@ -787,6 +835,36 @@ func (c *LegacyController) SmsSend(r *ghttp.Request) {
 	legacyOK(r, map[string]any{"id": out.ID})
 }
 
+// WechatLogin keeps the old commented-out Wechat login endpoint as empty 200.
+func (c *LegacyController) WechatLogin(r *ghttp.Request) {
+	r.Response.WriteStatus(http.StatusOK)
+	r.Exit()
+}
+
+// WechatLoginCallback keeps the old commented-out Wechat callback as empty 200.
+func (c *LegacyController) WechatLoginCallback(r *ghttp.Request) {
+	r.Response.WriteStatus(http.StatusOK)
+	r.Exit()
+}
+
+// WechatCallback keeps the old root Wechat OA callback address available.
+func (c *LegacyController) WechatCallback(r *ghttp.Request) {
+	r.Response.WriteStatus(http.StatusOK)
+	r.Exit()
+}
+
+// WechatVerifyMP serves the old MP_verify domain ownership token.
+func (c *LegacyController) WechatVerifyMP(r *ghttp.Request) {
+	r.Response.Write("5osfGmdqMLsyyzYp")
+	r.Exit()
+}
+
+// WechatVerifyEc serves the old EcEOCIhE9w domain ownership token.
+func (c *LegacyController) WechatVerifyEc(r *ghttp.Request) {
+	r.Response.Write("5d319b6fdb9a08c52df0847fdc4d9430")
+	r.Exit()
+}
+
 // Upload handles POST /api/v1/public/uploadFile.
 func (c *LegacyController) Upload(r *ghttp.Request) {
 	out, err := c.uidentitySvc.UploadLegacyFiles(r.Context(), uidentitysvc.LegacyUploadInput{
@@ -830,6 +908,20 @@ func (c *LegacyController) LegacyOAuthConfig(r *ghttp.Request) {
 func (c *LegacyController) LegacyTokenConfig(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyTokenConfig(r.Context())
 	legacyWriteServiceOutput(r, out, err)
+}
+
+// CasLoginIndex handles old GoAdmin CAS callback route as plugin CAS validation.
+func (c *LegacyController) CasLoginIndex(r *ghttp.Request) {
+	out, err := c.uidentitySvc.ValidateLegacyAdminCASTicket(r.Context(), uidentitysvc.CASLoginInput{
+		Ticket: legacyStringParam(r, "ticket"),
+		UserID: legacyInt64Param(r, "userID", "userId", "user_id"),
+		AppID:  legacyInt64Param(r, "appId", "app_id"),
+	})
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOK(r, map[string]any{"number": out.Number, "accountId": out.AccountID, "account_id": out.AccountID, "appId": out.AppID, "app_id": out.AppID})
 }
 
 // Stats handles GET /api/v1/stat/get.
@@ -883,6 +975,17 @@ func (c *LegacyController) SysJobExternalAction(actionType string) ghttp.Handler
 	return c.ExternalAction(actionType)
 }
 
+// JobLogList keeps the old job-log list route while logs stay host-owned.
+func (c *LegacyController) JobLogList(r *ghttp.Request) {
+	pageIndex, pageSize := legacyPage(r)
+	legacyPageOK(r, []map[string]any{}, 0, pageIndex, pageSize)
+}
+
+// JobLogGet keeps the old job-log detail route without reading core internals.
+func (c *LegacyController) JobLogGet(r *ghttp.Request) {
+	legacyError(r, bizerr.NewCode(uidentitysvc.CodeResourceNotFound))
+}
+
 // ExternalAction handles compatibility stubs for old external execution routes.
 func (c *LegacyController) ExternalAction(actionType string) ghttp.HandlerFunc {
 	return func(r *ghttp.Request) {
@@ -892,6 +995,48 @@ func (c *LegacyController) ExternalAction(actionType string) ghttp.HandlerFunc {
 		})
 		legacyWriteServiceOutput(r, out, err)
 	}
+}
+
+func (c *LegacyController) redirectLegacyWechatLogin(r *ghttp.Request, out *uidentitysvc.WechatLoginQRResultOutput, flowErr error) {
+	cfg, err := c.uidentitySvc.LegacyRedirectConfig(r.Context())
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	query := r.Request.URL.Query()
+	if flowErr != nil {
+		query.Set("cascallback", "err")
+		query.Set("msg", flowErr.Error())
+	} else {
+		callback := legacyStringParam(r, "cascallback", "callback", "casCallback")
+		if callback == "" && out != nil {
+			callback = out.Status
+		}
+		query.Set("cascallback", callback)
+		if out != nil && strings.TrimSpace(out.ChallengeID) != "" {
+			query.Set("uuid", strings.TrimSpace(out.ChallengeID))
+		}
+	}
+	r.Response.RedirectTo(legacyAppendEncodedQuery(cfg.WechatLoginRedirect, query))
+	r.Exit()
+}
+
+func (c *LegacyController) redirectLegacyActivationWechat(r *ghttp.Request, flowErr error) {
+	cfg, err := c.uidentitySvc.LegacyRedirectConfig(r.Context())
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	query := r.Request.URL.Query()
+	if strings.TrimSpace(query.Get("appid")) == "" {
+		query.Set("appid", strings.TrimSpace(cfg.DefaultAppID))
+	}
+	if flowErr != nil {
+		query.Set("cascallback", "err")
+		query.Set("msg", flowErr.Error())
+	}
+	r.Response.RedirectTo(legacyAppendEncodedQuery(cfg.SSOLoginRedirect, query))
+	r.Exit()
 }
 
 func (c *LegacyController) legacyRuntimeNumber(r *ghttp.Request) (string, error) {
@@ -1101,6 +1246,18 @@ func legacyAccessToken(r *ghttp.Request) string {
 		return strings.TrimSpace(auth[7:])
 	}
 	return auth
+}
+
+func legacyAppendEncodedQuery(base string, values url.Values) string {
+	encoded := values.Encode()
+	if encoded == "" {
+		return base
+	}
+	separator := "?"
+	if strings.Contains(base, "?") {
+		separator = "&"
+	}
+	return base + separator + encoded
 }
 
 func legacyKeyword(r *ghttp.Request) string {

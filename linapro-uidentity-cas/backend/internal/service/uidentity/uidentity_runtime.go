@@ -72,6 +72,29 @@ func (s *serviceImpl) LoginByCASTicket(ctx context.Context, in CASLoginInput) (*
 	return &CASLoginOutput{Number: account.Number, AccountID: account.Id, AppID: in.AppID}, nil
 }
 
+// ValidateLegacyAdminCASTicket resolves the old GoAdmin CAS callback account.
+func (s *serviceImpl) ValidateLegacyAdminCASTicket(ctx context.Context, in CASLoginInput) (*CASLoginOutput, error) {
+	validateURL, err := s.configSvc.String(ctx, configKeyCASValidateURL, "")
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(validateURL) == "" {
+		return nil, bizerr.NewCode(CodeCASValidateURLMissing)
+	}
+	number, err := s.validateCASTicket(ctx, validateURL, in)
+	if err != nil {
+		return nil, err
+	}
+	account, err := s.getAccountByNumber(ctx, number)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.recordCASLogin(ctx, account.Id, in.AppID, LoginTypeCAS, "Legacy admin CAS callback"); err != nil {
+		return nil, err
+	}
+	return &CASLoginOutput{Number: account.Number, AccountID: account.Id, AppID: in.AppID}, nil
+}
+
 // IssueOAuthToken issues one OAuth token record and auth log.
 func (s *serviceImpl) IssueOAuthToken(ctx context.Context, in OAuthIssueInput) (*OAuthIssueOutput, error) {
 	account, err := s.getAccountByID(ctx, in.AccountID)
