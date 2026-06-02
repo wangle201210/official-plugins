@@ -12,5 +12,5 @@ func (c *ControllerV1) AccountPasswordPhoneVerify(ctx context.Context, req *v1.A
 	if err != nil {
 		return nil, err
 	}
-	return &v1.AccountPasswordPhoneVerifyRes{ChallengeId: challengeID}, nil
+	return &v1.AccountPasswordPhoneVerifyRes{UUID: challengeID}, nil
 }

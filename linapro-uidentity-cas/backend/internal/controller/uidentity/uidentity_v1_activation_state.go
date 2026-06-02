@@ -13,13 +13,6 @@ func (c *ControllerV1) ActivationState(ctx context.Context, req *v1.ActivationSt
 		return nil, err
 	}
 	return &v1.ActivationStateRes{
-		ChallengeId:  out.ChallengeID,
-		Success:      out.Success,
-		Status:       out.Status,
-		Stage:        out.Stage,
-		WechatStatus: out.WechatStatus,
-		RedirectUrl:  out.RedirectURL,
-		ErrorCode:    out.ErrorCode,
-		Message:      out.Message,
+		Success: out.Success,
 	}, nil
 }

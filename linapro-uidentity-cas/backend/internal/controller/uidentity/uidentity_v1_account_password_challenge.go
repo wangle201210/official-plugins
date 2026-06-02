@@ -12,5 +12,5 @@ func (c *ControllerV1) AccountPasswordChallenge(ctx context.Context, req *v1.Acc
 	if err != nil {
 		return nil, err
 	}
-	return &v1.AccountPasswordChallengeRes{ChallengeId: out.ChallengeID, Status: out.Status}, nil
+	return &v1.AccountPasswordChallengeRes{UUID: out.ChallengeID, Status: out.Status}, nil
 }

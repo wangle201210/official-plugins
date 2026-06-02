@@ -2,11 +2,8 @@
 
 package v1
 
-import "github.com/gogf/gf/v2/frame/g"
-
 // OAuthIssueReq defines an OAuth token issue request.
 type OAuthIssueReq struct {
-	g.Meta      `path:"/uidentity/oauth/tokens" method:"post" tags:"UIdentity CAS" summary:"Issue OAuth token" dc:"Issue an OAuth token record for a plugin account and application, persist the token payload, and record an OAuth authorization log." permission:"uidentity:cas:runtime"`
 	AccountId   int64  `json:"accountId" v:"required|min:1" dc:"Account ID" eg:"1"`
 	AppId       int64  `json:"appId" v:"required|min:1" dc:"Application ID" eg:"1"`
 	RedirectUri string `json:"redirectUri" dc:"OAuth redirect URI" eg:"https://example.com/callback"`

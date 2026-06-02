@@ -17,5 +17,5 @@ func (c *ControllerV1) ActivationStart(ctx context.Context, req *v1.ActivationSt
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ActivationStartRes{ChallengeId: out.ChallengeID, NeedFace: out.NeedFace, Status: out.Status}, nil
+	return &v1.ActivationStartRes{UUID: out.ChallengeID, Face: out.NeedFace}, nil
 }

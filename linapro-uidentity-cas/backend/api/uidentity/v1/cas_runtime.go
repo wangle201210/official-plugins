@@ -45,45 +45,51 @@ type RuntimeApplication struct {
 
 // CasPasswordLoginReq defines account-password CAS login.
 type CasPasswordLoginReq struct {
-	g.Meta   `path:"/uidentity/cas/password-logins" method:"post" tags:"UIdentity CAS Runtime" summary:"Login with account password" dc:"Validate a plugin account password for one application, issue CAS TGT and ST tickets, return the accessible account projections, and record a CAS login log."`
-	ClientId string `json:"clientId" v:"required" dc:"Application client ID" eg:"portal"`
+	g.Meta   `path:"/api/v1/cas/login" method:"post" tags:"UIdentity CAS Runtime" summary:"Login with account password" dc:"Validate a plugin account password for one application, issue CAS TGT and ST tickets, return the accessible account projections, and record a CAS login log."`
+	ClientId string `json:"appid" v:"required" dc:"Application client ID" eg:"portal"`
 	Number   string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 	Password string `json:"password" v:"required" dc:"Plaintext password submitted by the runtime client" eg:"S3cure@2026"`
+	Code     string `json:"code" v:"required" dc:"Captcha code" eg:"1234"`
+	UUID     string `json:"uuid" v:"required" dc:"Captcha UUID" eg:"captcha_uuid"`
 }
 
 // CasPhoneLoginReq defines phone and SMS-code CAS login.
 type CasPhoneLoginReq struct {
-	g.Meta   `path:"/uidentity/cas/phone-logins" method:"post" tags:"UIdentity CAS Runtime" summary:"Login with phone and SMS code" dc:"Validate a phone SMS code for one application, issue CAS TGT and ST tickets, return the accessible account projections, and record a CAS login log."`
-	ClientId string `json:"clientId" v:"required" dc:"Application client ID" eg:"portal"`
+	g.Meta   `path:"/api/v1/cas/loginByPhone" method:"post" tags:"UIdentity CAS Runtime" summary:"Login with phone and SMS code" dc:"Validate a phone SMS code for one application, issue CAS TGT and ST tickets, return the accessible account projections, and record a CAS login log."`
+	ClientId string `json:"appid" v:"required" dc:"Application client ID" eg:"portal"`
 	Phone    string `json:"phone" v:"required" dc:"Mobile phone number" eg:"13800000000"`
 	Code     string `json:"code" v:"required" dc:"SMS verification code" eg:"123456"`
 }
 
 // CasUnionIDLoginReq defines direct union ID CAS login.
 type CasUnionIDLoginReq struct {
-	g.Meta   `path:"/uidentity/cas/union-id-logins" method:"post" tags:"UIdentity CAS Runtime" summary:"Login with union ID" dc:"Resolve a Wechat union ID to a plugin account, issue CAS TGT and ST tickets, return the accessible account projections, and record a CAS login log."`
-	ClientId string `json:"clientId" v:"required" dc:"Application client ID" eg:"portal"`
-	UnionId  string `json:"unionId" v:"required" dc:"Wechat union ID" eg:"unionid_001"`
+	g.Meta   `path:"/api/v1/cas/loginByUnionID" method:"get" tags:"UIdentity CAS Runtime" summary:"Login with union ID" dc:"Resolve a Wechat union ID to a plugin account, issue CAS TGT and ST tickets, return the accessible account projections, and record a CAS login log."`
+	ClientId string `json:"appid" dc:"Application client ID" eg:"portal"`
+	UnionId  string `json:"uuid" v:"required" dc:"Wechat login UUID used by the old loginByUnionID flow" eg:"uid_abcdef"`
+	Redirect string `json:"redirectUrl" dc:"Legacy redirect URL" eg:"https://example.com/callback"`
 }
 
-// CasServiceTicketReq defines service-ticket issue from a TGT.
+// CasServiceTicketReq defines the old ssologin token request.
 type CasServiceTicketReq struct {
-	g.Meta    `path:"/uidentity/cas/service-tickets" method:"post" tags:"UIdentity CAS Runtime" summary:"Issue CAS service ticket" dc:"Issue a new CAS service ticket from an existing ticket-granting ticket and optionally select an authorized delegated account."`
-	ClientId  string `json:"clientId" v:"required" dc:"Application client ID" eg:"portal"`
-	Tgt       string `json:"tgt" v:"required" dc:"Ticket-granting ticket" eg:"TGT_abcdef"`
-	AccountId int64  `json:"accountId" dc:"Optional selected account ID, defaults to the TGT owner" eg:"1"`
+	g.Meta    `path:"/ssologin/getToken" method:"post" tags:"UIdentity CAS Runtime" summary:"Issue SSO login token" dc:"Match the old ssologin/getToken contract, which accepts account password credentials and application secret."`
+	ClientId  string `json:"appid" v:"required" dc:"Application client ID" eg:"portal"`
+	Secret    string `json:"secret" v:"required" dc:"Application secret key" eg:"secret"`
+	Number    string `json:"number" v:"required" dc:"Account number" eg:"A001"`
+	Password  string `json:"password" v:"required" dc:"Plaintext password submitted by the runtime client" eg:"S3cure@2026"`
+	Tgt       string `json:"tgt" dc:"Unsupported new-contract TGT field retained only for the unregistered v1 controller" eg:"TGT_abcdef"`
+	AccountId int64  `json:"accountId" dc:"Unsupported new-contract account ID retained only for the unregistered v1 controller" eg:"1"`
 }
 
 // CasServiceValidateReq defines service-ticket validation.
 type CasServiceValidateReq struct {
-	g.Meta `path:"/uidentity/cas/service-validations" method:"post" tags:"UIdentity CAS Runtime" summary:"Validate CAS service ticket" dc:"Consume and validate a CAS service ticket, enforce selected-account authorization and application access, and return account and application projections."`
+	g.Meta `path:"/sso/serviceValidate" method:"all" tags:"UIdentity CAS Runtime" summary:"Validate CAS service ticket" dc:"Consume and validate a CAS service ticket, enforce selected-account authorization and application access, and return account and application projections."`
 	Ticket string `json:"ticket" v:"required" dc:"CAS service ticket" eg:"ST_abcdef"`
 	UserId int64  `json:"userId" dc:"Optional selected account ID to validate delegated access" eg:"1"`
 }
 
 // CasTicketLogoutReq defines CAS TGT/ST deletion.
 type CasTicketLogoutReq struct {
-	g.Meta `path:"/uidentity/cas/tickets/{ticket}" method:"delete" tags:"UIdentity CAS Runtime" summary:"Delete CAS ticket" dc:"Delete a CAS ticket-granting ticket or service ticket from plugin runtime storage."`
+	g.Meta `path:"/api/v1/cas/tickets/{ticket}" method:"delete" tags:"UIdentity CAS Runtime" summary:"Delete CAS ticket" dc:"Delete a CAS ticket-granting ticket or service ticket from plugin runtime storage."`
 	Ticket string `json:"ticket" v:"required" dc:"CAS TGT or ST value" eg:"TGT_abcdef"`
 }
 
@@ -113,10 +119,9 @@ type CasServiceValidateRes struct {
 	Success bool                `json:"success" dc:"Whether validation succeeded" eg:"true"`
 }
 
-// CasServiceTicketRes returns a newly issued ST from a TGT.
+// CasServiceTicketRes returns a legacy runtime access token.
 type CasServiceTicketRes struct {
-	St          string `json:"st" dc:"New service ticket" eg:"ST_abcdef"`
-	CallbackUrl string `json:"callbackUrl" dc:"Application callback URL with ticket query parameter appended when configured" eg:"https://example.com/callback?ticket=ST_abcdef"`
+	AccessToken string `json:"AccessToken" dc:"Runtime access token" eg:"AT_abcdef"`
 }
 
 // CasTicketLogoutRes is an empty CAS logout response.

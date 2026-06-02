@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // AccountImportCheckReq validates an account import workbook before execution.
 type AccountImportCheckReq struct {
-	g.Meta   `path:"/uidentity/accounts/import-checks" method:"post" tags:"UIdentity Account Import" summary:"Validate account import workbook" dc:"Open an uploaded account import workbook, validate the Sheet1 header and row bounds, and return the number of importable rows before any data is written." permission:"uidentity:cas:write"`
+	g.Meta   `path:"/api/v1/account/importCheck" method:"post" tags:"UIdentity Account Import" summary:"Validate account import workbook" dc:"Open an uploaded account import workbook, validate the Sheet1 header and row bounds, and return the number of importable rows before any data is written." permission:"uidentity:cas:write"`
 	Filepath string `json:"filepath" v:"required" dc:"Server-side workbook path produced by the upload flow" eg:"/tmp/account_import.xlsx"`
 	Limit    int    `json:"limit" dc:"Optional maximum row count; defaults to the plugin import limit when omitted" eg:"1000"`
 }
@@ -18,7 +18,7 @@ type AccountImportCheckRes struct {
 
 // AccountImportReq imports account rows from one workbook.
 type AccountImportReq struct {
-	g.Meta   `path:"/uidentity/accounts/imports" method:"post" tags:"UIdentity Account Import" summary:"Import accounts from workbook" dc:"Import or update plugin accounts and account details from the Sheet1 rows of a server-side workbook. Existing accounts are matched by account number and updated with non-empty workbook fields." permission:"uidentity:cas:write"`
+	g.Meta   `path:"/api/v1/account/import" method:"post" tags:"UIdentity Account Import" summary:"Import accounts from workbook" dc:"Import or update plugin accounts and account details from the Sheet1 rows of a server-side workbook. Existing accounts are matched by account number and updated with non-empty workbook fields." permission:"uidentity:cas:write"`
 	Filepath string `json:"filepath" v:"required" dc:"Server-side workbook path produced by the upload flow" eg:"/tmp/account_import.xlsx"`
 	Limit    int    `json:"limit" dc:"Optional maximum row count; defaults to the plugin import limit when omitted" eg:"1000"`
 }

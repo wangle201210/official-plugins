@@ -7,15 +7,16 @@ import (
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
-// CasServiceTicket issues a CAS service ticket from a TGT.
+// CasServiceTicket issues the old ssologin access token.
 func (c *ControllerV1) CasServiceTicket(ctx context.Context, req *v1.CasServiceTicketReq) (res *v1.CasServiceTicketRes, err error) {
-	out, err := c.uidentitySvc.IssueServiceTicketFromTGT(ctx, uidentitysvc.ServiceTicketInput{
-		ClientID:  req.ClientId,
-		TGT:       req.Tgt,
-		AccountID: req.AccountId,
+	out, err := c.uidentitySvc.IssueRuntimeToken(ctx, uidentitysvc.RuntimeTokenInput{
+		ClientID: req.ClientId,
+		Secret:   req.Secret,
+		Number:   req.Number,
+		Password: req.Password,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &v1.CasServiceTicketRes{St: out.ST, CallbackUrl: out.CallbackURL}, nil
+	return &v1.CasServiceTicketRes{AccessToken: out.AccessToken}, nil
 }

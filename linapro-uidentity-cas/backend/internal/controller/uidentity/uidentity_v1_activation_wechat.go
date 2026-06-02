@@ -16,5 +16,5 @@ func (c *ControllerV1) ActivationWechat(ctx context.Context, req *v1.ActivationW
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ActivationStepRes{ChallengeId: out.ChallengeID, Success: out.Success}, nil
+	return &v1.ActivationStepRes{UUID: out.ChallengeID}, nil
 }

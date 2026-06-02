@@ -6,9 +6,9 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // OAuthAuthorizationCodeReq defines password-backed authorization-code issue.
 type OAuthAuthorizationCodeReq struct {
-	g.Meta      `path:"/uidentity/oauth/authorization-codes" method:"post" tags:"UIdentity OAuth Runtime" summary:"Issue OAuth authorization code" dc:"Validate application client ID, redirect URI, account password and access rules, then issue a one-time OAuth authorization code without rendering legacy login pages."`
-	ClientId    string `json:"clientId" v:"required" dc:"Application client ID" eg:"portal"`
-	RedirectUri string `json:"redirectUri" dc:"Requested OAuth redirect URI; defaults to the application callback URL when empty" eg:"https://example.com/oauth/callback"`
+	g.Meta      `path:"/api/v1/oauth/auth" method:"all" tags:"UIdentity OAuth Runtime" summary:"Issue OAuth authorization code" dc:"Validate application client ID, redirect URI, account password and access rules, then issue a one-time OAuth authorization code without rendering legacy login pages."`
+	ClientId    string `json:"client_id" v:"required" dc:"Application client ID" eg:"portal"`
+	RedirectUri string `json:"redirect_uri" dc:"Requested OAuth redirect URI; defaults to the application callback URL when empty" eg:"https://example.com/oauth/callback"`
 	Scope       string `json:"scope" dc:"OAuth scope granted to the authorization code" eg:"read_user_info"`
 	State       string `json:"state" dc:"Opaque client state returned in the redirect URL" eg:"csrf-state"`
 	Number      string `json:"number" v:"required" dc:"Account number" eg:"A001"`
@@ -18,19 +18,19 @@ type OAuthAuthorizationCodeReq struct {
 
 // OAuthAccessTokenReq defines authorization-code token exchange.
 type OAuthAccessTokenReq struct {
-	g.Meta       `path:"/uidentity/oauth/access-tokens" method:"post" tags:"UIdentity OAuth Runtime" summary:"Exchange OAuth authorization code" dc:"Validate client secret and a one-time authorization code, consume the code, issue access and refresh tokens, and record an OAuth authorization log."`
-	GrantType    string `json:"grantType" d:"authorization_code" dc:"OAuth grant type; only authorization_code is supported" eg:"authorization_code"`
-	ClientId     string `json:"clientId" v:"required" dc:"Application client ID" eg:"portal"`
-	ClientSecret string `json:"clientSecret" v:"required" dc:"Application client secret, raw or URL-escaped for legacy clients" eg:"secret"`
+	g.Meta       `path:"/api/v1/oauth/token" method:"post" tags:"UIdentity OAuth Runtime" summary:"Exchange OAuth authorization code" dc:"Validate client secret and a one-time authorization code, consume the code, issue access and refresh tokens, and record an OAuth authorization log."`
+	GrantType    string `json:"grant_type" d:"authorization_code" dc:"OAuth grant type; only authorization_code is supported" eg:"authorization_code"`
+	ClientId     string `json:"client_id" v:"required" dc:"Application client ID" eg:"portal"`
+	ClientSecret string `json:"client_secret" v:"required" dc:"Application client secret, raw or URL-escaped for legacy clients" eg:"secret"`
 	Code         string `json:"code" v:"required" dc:"One-time authorization code" eg:"OC_abcdef"`
-	RedirectUri  string `json:"redirectUri" dc:"Redirect URI used by the authorization request; required to match when the code stored one" eg:"https://example.com/oauth/callback"`
+	RedirectUri  string `json:"redirect_uri" dc:"Redirect URI used by the authorization request; required to match when the code stored one" eg:"https://example.com/oauth/callback"`
 	TtlSeconds   int64  `json:"ttlSeconds" d:"7200" v:"min:60|max:86400" dc:"Access token TTL in seconds, between 60 and 86400" eg:"7200"`
 }
 
 // OAuthAccessTokenInfoReq defines access-token user-info lookup.
 type OAuthAccessTokenInfoReq struct {
-	g.Meta      `path:"/uidentity/oauth/access-tokens/{accessToken}/user-info" method:"get" tags:"UIdentity OAuth Runtime" summary:"Get user info by OAuth access token" dc:"Validate an OAuth access token and return the bound account and application projections without consuming the token."`
-	AccessToken string `json:"accessToken" v:"required" dc:"OAuth access token" eg:"OA_abcdef"`
+	g.Meta      `path:"/api/v1/oauth/test" method:"all" tags:"UIdentity OAuth Runtime" summary:"Get user info by OAuth access token" dc:"Validate an OAuth access token and return the bound account and application projections without consuming the token."`
+	AccessToken string `json:"access_token" v:"required" dc:"OAuth access token" eg:"OA_abcdef"`
 }
 
 // OAuthAuthorizationCodeRes returns one-time code data.
@@ -43,10 +43,10 @@ type OAuthAuthorizationCodeRes struct {
 
 // OAuthAccessTokenRes returns exchanged token data.
 type OAuthAccessTokenRes struct {
-	AccessToken  string `json:"accessToken" dc:"OAuth access token" eg:"OA_abcdef"`
-	RefreshToken string `json:"refreshToken" dc:"OAuth refresh token" eg:"OR_abcdef"`
-	TokenType    string `json:"tokenType" dc:"Token type for Authorization header usage" eg:"Bearer"`
-	ExpiresIn    int64  `json:"expiresIn" dc:"Access token lifetime in seconds" eg:"7200"`
+	AccessToken  string `json:"access_token" dc:"OAuth access token" eg:"OA_abcdef"`
+	RefreshToken string `json:"refresh_token" dc:"OAuth refresh token" eg:"OR_abcdef"`
+	TokenType    string `json:"token_type" dc:"Token type for Authorization header usage" eg:"Bearer"`
+	ExpiresIn    int64  `json:"expires_in" dc:"Access token lifetime in seconds" eg:"7200"`
 	ExpiredAt    *int64 `json:"expiredAt" dc:"Access token expiration time as Unix timestamp in milliseconds" eg:"1776759600000"`
 	Scope        string `json:"scope" dc:"Granted OAuth scope" eg:"read_user_info"`
 }

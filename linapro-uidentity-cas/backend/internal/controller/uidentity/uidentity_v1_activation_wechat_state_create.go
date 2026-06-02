@@ -19,8 +19,7 @@ func (c *ControllerV1) ActivationWechatStateCreate(ctx context.Context, req *v1.
 		return nil, err
 	}
 	return &v1.ActivationWechatStateCreateRes{
-		State:  out.State,
-		Status: out.Status,
-		Url:    out.URL,
+		UUID:   out.State,
+		QRCode: out.URL,
 	}, nil
 }

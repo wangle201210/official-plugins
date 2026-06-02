@@ -7,22 +7,22 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // LegacyCASConfigReq defines the legacy CAS static config lookup.
 type LegacyCASConfigReq struct {
-	g.Meta `path:"/uidentity/legacy/config/cas" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy CAS configuration" dc:"Return plugin-scoped CAS endpoint metadata compatible with the old admin static configuration response." permission:"uidentity:cas:read"`
+	g.Meta `path:"/api/v1/config/cas" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy CAS configuration" dc:"Return plugin-scoped CAS endpoint metadata compatible with the old admin static configuration response." permission:"uidentity:cas:read"`
 }
 
 // LegacyLDAPConfigReq defines the legacy LDAP static config lookup.
 type LegacyLDAPConfigReq struct {
-	g.Meta `path:"/uidentity/legacy/config/ldap" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy LDAP configuration" dc:"Return plugin-scoped LDAP endpoint metadata compatible with the old admin static configuration response. The plugin does not start an LDAP executor by default." permission:"uidentity:cas:read"`
+	g.Meta `path:"/api/v1/config/ldap" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy LDAP configuration" dc:"Return plugin-scoped LDAP endpoint metadata compatible with the old admin static configuration response. The plugin does not start an LDAP executor by default." permission:"uidentity:cas:read"`
 }
 
 // LegacyOAuthConfigReq defines the legacy OAuth static config lookup.
 type LegacyOAuthConfigReq struct {
-	g.Meta `path:"/uidentity/legacy/config/oauth" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy OAuth configuration" dc:"Return plugin-scoped OAuth endpoint metadata compatible with the old admin static configuration response." permission:"uidentity:cas:read"`
+	g.Meta `path:"/api/v1/config/oauth" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy OAuth configuration" dc:"Return plugin-scoped OAuth endpoint metadata compatible with the old admin static configuration response." permission:"uidentity:cas:read"`
 }
 
 // LegacyTokenConfigReq defines the legacy runtime token static config lookup.
 type LegacyTokenConfigReq struct {
-	g.Meta `path:"/uidentity/legacy/config/token" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy token configuration" dc:"Return plugin-scoped runtime token endpoint metadata compatible with the old admin static configuration response." permission:"uidentity:cas:read"`
+	g.Meta `path:"/api/v1/config/token" method:"get" tags:"UIdentity Legacy Configuration" summary:"Get legacy token configuration" dc:"Return plugin-scoped runtime token endpoint metadata compatible with the old admin static configuration response." permission:"uidentity:cas:read"`
 }
 
 // LegacyCASConfigRes returns legacy CAS endpoint metadata.

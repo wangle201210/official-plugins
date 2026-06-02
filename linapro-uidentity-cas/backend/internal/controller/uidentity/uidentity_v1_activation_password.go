@@ -16,5 +16,5 @@ func (c *ControllerV1) ActivationPassword(ctx context.Context, req *v1.Activatio
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ActivationStepRes{ChallengeId: out.ChallengeID, Success: out.Success}, nil
+	return &v1.ActivationStepRes{UUID: out.ChallengeID}, nil
 }
