@@ -287,13 +287,14 @@ func (s *serviceImpl) studentInput(row *oracleStudentInfo) *accountSyncInput {
 		return &accountSyncInput{}
 	}
 	return &accountSyncInput{
-		number:        row.XH,
-		name:          row.XM,
-		phone:         row.SJH,
-		statusRaw:     row.ZDQK,
-		unitCode:      row.XYDM,
-		containerName: legacyContainerStudent,
-		groupName:     legacyContainerStudent,
+		number:                 row.XH,
+		name:                   row.XM,
+		phone:                  row.SJH,
+		statusRaw:              row.ZDQK,
+		unitCode:               row.XYDM,
+		containerName:          legacyContainerStudent,
+		groupName:              legacyContainerStudent,
+		requireNumericUnitCode: true,
 		detail: accountDetailSyncInput{
 			idcard:       row.SFZHM,
 			birthday:     row.CSRQ,
@@ -317,13 +318,14 @@ func studentYJSInput(row *oracleStudentYJS) *accountSyncInput {
 		return &accountSyncInput{}
 	}
 	return &accountSyncInput{
-		number:        row.Xh,
-		name:          row.XsXm,
-		phone:         row.Sjhm,
-		statusRaw:     row.Sfzj,
-		unitCode:      row.XsYxDm,
-		containerName: legacyContainerStudentYJ,
-		groupName:     legacyContainerStudentYJ,
+		number:                 row.Xh,
+		name:                   row.XsXm,
+		phone:                  row.Sjhm,
+		statusRaw:              row.Sfzj,
+		unitCode:               row.XsYxDm,
+		containerName:          legacyContainerStudentYJ,
+		groupName:              legacyContainerStudentYJ,
+		requireNumericUnitCode: true,
 		detail: accountDetailSyncInput{
 			idcard:      row.Zjhm,
 			birthday:    birthdayFromIDCard(row.Zjhm),
@@ -364,13 +366,14 @@ func staffJZGInput(row *oracleStaffJZG) *accountSyncInput {
 		return &accountSyncInput{}
 	}
 	return &accountSyncInput{
-		number:        row.GH,
-		name:          row.XM,
-		phone:         row.MobilePhone,
-		statusRaw:     row.RYZTM,
-		unitCode:      row.DWH,
-		containerName: legacyContainerStaff,
-		groupName:     legacyContainerStaff,
+		number:                 row.GH,
+		name:                   row.XM,
+		phone:                  row.MobilePhone,
+		statusRaw:              row.RYZTM,
+		unitCode:               row.DWH,
+		containerName:          legacyContainerStaff,
+		groupName:              legacyContainerStaff,
+		requireNumericUnitCode: true,
 		detail: accountDetailSyncInput{
 			idcard:   row.SFZJH,
 			birthday: dateFromTime(row.CSRQ),

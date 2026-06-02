@@ -33,16 +33,11 @@ func (s *serviceImpl) syncMysql2LDAP(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	conn, err := ldap.DialURL(cfg.addr, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: cfg.skipTLSVerify}))
+	conn, err := openLDAPConn(cfg)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	if cfg.bindDN != "" || cfg.bindPassword != "" {
-		if err := conn.Bind(cfg.bindDN, cfg.bindPassword); err != nil {
-			return err
-		}
-	}
 	tenantID := s.tenantID(ctx)
 	stats := jobRunStats{}
 	for page := 0; ; page++ {
@@ -127,6 +122,20 @@ func (s *serviceImpl) ldapJobConfig(ctx context.Context) (ldapJobConfig, error) 
 		pageSize:        pageSize,
 		skipTLSVerify:   skipTLSVerify,
 	}, nil
+}
+
+func openLDAPConn(cfg ldapJobConfig) (*ldap.Conn, error) {
+	conn, err := ldap.DialURL(cfg.addr, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: cfg.skipTLSVerify}))
+	if err != nil {
+		return nil, err
+	}
+	if cfg.bindDN != "" || cfg.bindPassword != "" {
+		if err := conn.Bind(cfg.bindDN, cfg.bindPassword); err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+	return conn, nil
 }
 
 func (s *serviceImpl) ldapObjectClass(ctx context.Context) ([]string, error) {
@@ -244,6 +253,31 @@ func syncOneLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Acco
 	return changed, false, nil
 }
 
+func moveLDAPAccountToContainer(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, target *entity.Container) error {
+	if account == nil || strings.TrimSpace(account.Number) == "" {
+		return pluginJobUnsupported()
+	}
+	if target == nil || strings.TrimSpace(target.Name) == "" {
+		return pluginJobUnsupported()
+	}
+	entry, err := searchLDAPAccount(conn, cfg.baseDN, account.Number)
+	if err != nil {
+		return err
+	}
+	if entry == nil {
+		return fmt.Errorf("ldap user does not exist: %s", account.Number)
+	}
+	targetDN := ldapAccountDN(cfg.baseDN, target.Name, account.Number)
+	if !strings.EqualFold(entry.DN, targetDN) {
+		if err := conn.ModifyDN(ldap.NewModifyDNRequest(entry.DN, fmt.Sprintf("uid=%s", account.Number), true, ldapContainerDN(cfg.baseDN, target.Name))); err != nil {
+			return err
+		}
+	}
+	modify := ldap.NewModifyRequest(targetDN, nil)
+	modify.Replace("usertype", []string{target.Name})
+	return conn.Modify(modify)
+}
+
 func searchLDAPAccount(conn *ldap.Conn, baseDN string, number string) (*ldap.Entry, error) {
 	req := ldap.NewSearchRequest(
 		baseDN,
@@ -267,9 +301,17 @@ func searchLDAPAccount(conn *ldap.Conn, baseDN string, number string) (*ldap.Ent
 }
 
 func addLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetail, container *entity.Container) error {
-	password, err := generateLDAPSSHA(cfg.defaultPassword)
+	req, err := buildLDAPAddRequest(cfg, account, detail, container)
 	if err != nil {
 		return err
+	}
+	return conn.Add(req)
+}
+
+func buildLDAPAddRequest(cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetail, container *entity.Container) (*ldap.AddRequest, error) {
+	password, err := generateLDAPSSHA(cfg.defaultPassword)
+	if err != nil {
+		return nil, err
 	}
 	req := ldap.NewAddRequest(ldapAccountDN(cfg.baseDN, container.Name, account.Number), nil)
 	req.Attribute("objectClass", cfg.objectClass)
@@ -284,15 +326,12 @@ func addLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account,
 		if detail.Email != "" {
 			req.Attribute("securityEmail", []string{detail.Email})
 		}
-		if detail.Wechat != "" {
-			req.Attribute("openUID", []string{detail.Wechat})
-		}
 	}
 	if account.Status == 1 {
 		req.Attribute("inetUserStatus", []string{"Active"})
 	}
 	req.Attribute("usertype", []string{container.Name})
-	return conn.Add(req)
+	return req, nil
 }
 
 func buildLDAPModify(req *ldap.ModifyRequest, entry *ldap.Entry, account *entity.Account, detail *entity.AccountDetail, container *entity.Container) bool {
@@ -315,9 +354,6 @@ func buildLDAPModify(req *ldap.ModifyRequest, entry *ldap.Entry, account *entity
 	if detail != nil {
 		replace("securityEmail", detail.Email)
 		replace("openUID", detail.Wechat)
-	}
-	if container != nil {
-		replace("usertype", container.Name)
 	}
 	return changed
 }

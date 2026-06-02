@@ -6,6 +6,7 @@ package jobs
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,14 +21,15 @@ import (
 )
 
 type accountSyncInput struct {
-	number        string
-	name          string
-	phone         string
-	statusRaw     string
-	unitCode      string
-	containerName string
-	groupName     string
-	detail        accountDetailSyncInput
+	number                 string
+	name                   string
+	phone                  string
+	statusRaw              string
+	unitCode               string
+	containerName          string
+	groupName              string
+	requireNumericUnitCode bool
+	detail                 accountDetailSyncInput
 }
 
 type accountDetailSyncInput struct {
@@ -59,19 +61,14 @@ type syncContext struct {
 }
 
 func (s *serviceImpl) syncOracleAccounts(ctx context.Context, syncCtx *syncContext, inputs []*accountSyncInput) (jobRunStats, error) {
-	if len(inputs) == 0 {
-		return jobRunStats{}, nil
+	validInputs, stats := prepareAccountSyncInputs(inputs)
+	if len(validInputs) == 0 {
+		return stats, nil
 	}
-	sanitizeAccountInputs(inputs)
-	numbers := make(map[string]struct{}, len(inputs))
-	phones := make(map[string]struct{}, len(inputs))
-	for _, input := range inputs {
-		if input == nil {
-			continue
-		}
-		if input.number != "" {
-			numbers[input.number] = struct{}{}
-		}
+	numbers := make(map[string]struct{}, len(validInputs))
+	phones := make(map[string]struct{}, len(validInputs))
+	for _, input := range validInputs {
+		numbers[input.number] = struct{}{}
 		if input.phone != "" {
 			phones[input.phone] = struct{}{}
 		}
@@ -94,12 +91,7 @@ func (s *serviceImpl) syncOracleAccounts(ctx context.Context, syncCtx *syncConte
 	if err != nil {
 		return jobRunStats{}, err
 	}
-	stats := jobRunStats{}
-	for _, input := range inputs {
-		if input.number == "" {
-			stats.errNum++
-			continue
-		}
+	for _, input := range validInputs {
 		account := accountsByNumber[input.number]
 		if account == nil {
 			err = s.createOracleAccount(ctx, syncCtx, input, &stats)
@@ -254,12 +246,7 @@ func (s *serviceImpl) updateAccountFromJob(ctx context.Context, syncCtx *syncCon
 
 func (s *serviceImpl) upsertDetailFromJob(ctx context.Context, syncCtx *syncContext, accountID int64, detail *entity.AccountDetail, input accountDetailSyncInput, stats *jobRunStats) (bool, error) {
 	if detail == nil {
-		data := detailDO(syncCtx.tenantID, accountID, input, true)
-		if _, err := dao.AccountDetail.Ctx(ctx).Data(data).Insert(); err != nil {
-			return false, err
-		}
-		stats.updateAccountDetailCount++
-		return true, s.insertAccountAudit(ctx, syncCtx.tenantID, accountID, legacyAuditTableDetail, legacyAuditCreate, nil, data)
+		return false, nil
 	}
 	data, changed := changedDetailDO(detail, input)
 	if !changed {
@@ -543,6 +530,35 @@ func sanitizeAccountInputs(inputs []*accountSyncInput) {
 			input.phone = input.number
 		}
 	}
+}
+
+func prepareAccountSyncInputs(inputs []*accountSyncInput) ([]*accountSyncInput, jobRunStats) {
+	if len(inputs) == 0 {
+		return nil, jobRunStats{}
+	}
+	sanitizeAccountInputs(inputs)
+	stats := jobRunStats{}
+	result := make([]*accountSyncInput, 0, len(inputs))
+	for _, input := range inputs {
+		if input == nil {
+			continue
+		}
+		if input.number == "" {
+			stats.errNum++
+			continue
+		}
+		if input.requireNumericUnitCode && !legacyNumericUnitCode(input.unitCode) {
+			stats.errNum++
+			continue
+		}
+		result = append(result, input)
+	}
+	return result, stats
+}
+
+func legacyNumericUnitCode(value string) bool {
+	_, err := strconv.Atoi(strings.TrimSpace(value))
+	return err == nil
 }
 
 func unsupportedOracleDriverError(err error) error {
