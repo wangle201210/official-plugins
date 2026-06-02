@@ -65,6 +65,8 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		services.TenantFilter(),
 	)
 	uidentityController := uidentitycontroller.NewV1(uidentitySvc)
+	legacyController := uidentitycontroller.NewLegacy(uidentitySvc)
+	registerLegacyRoutes(routes, middlewares, legacyController)
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
 			group.Middleware(
