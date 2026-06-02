@@ -123,8 +123,16 @@ var legacyProtectedRoutes = []legacyRouteSpec{
 	{Method: "PUT", Path: "/role-status"},
 	{Method: "PUT", Path: "/roledatascope"},
 	{Method: "DELETE", Path: "/dept"},
+	{Method: "GET", Path: "/dept"},
+	{Method: "GET", Path: "/dept/{id}"},
+	{Method: "POST", Path: "/dept"},
+	{Method: "PUT", Path: "/dept/{id}"},
 	{Method: "GET", Path: "/menurole"},
 	{Method: "DELETE", Path: "/post"},
+	{Method: "GET", Path: "/post"},
+	{Method: "GET", Path: "/post/{id}"},
+	{Method: "POST", Path: "/post"},
+	{Method: "PUT", Path: "/post/{id}"},
 	{Method: "GET", Path: "/deptTree"},
 	{Method: "DELETE", Path: "/dict/data"},
 	{Method: "GET", Path: "/dict/type-option-select"},
@@ -201,7 +209,7 @@ var legacyRootSystemRoutes = []legacyRouteSpec{
 	{Method: "HEAD", Path: "/logs/*filepath"},
 }
 
-var legacyHostCoveredOldRoutes = []legacyRouteSpec{
+var legacyInterceptedOldRoutes = []legacyRouteSpec{
 	{Method: "GET", Path: "/user/profile"},
 	{Method: "GET", Path: "/role"},
 	{Method: "GET", Path: "/role/{id}"},
@@ -212,14 +220,6 @@ var legacyHostCoveredOldRoutes = []legacyRouteSpec{
 	{Method: "GET", Path: "/menu/{id}"},
 	{Method: "POST", Path: "/menu"},
 	{Method: "PUT", Path: "/menu/{id}"},
-	{Method: "GET", Path: "/dept"},
-	{Method: "GET", Path: "/dept/{id}"},
-	{Method: "POST", Path: "/dept"},
-	{Method: "PUT", Path: "/dept/{id}"},
-	{Method: "GET", Path: "/post"},
-	{Method: "GET", Path: "/post/{id}"},
-	{Method: "POST", Path: "/post"},
-	{Method: "PUT", Path: "/post/{id}"},
 	{Method: "GET", Path: "/dict/data"},
 	{Method: "GET", Path: "/dict/data/{dictCode}"},
 	{Method: "POST", Path: "/dict/data"},
@@ -371,8 +371,16 @@ func registerLegacyProtectedRoutes(group pluginhost.RouteGroup, legacyController
 	group.PUT("/role-status", legacyController.LegacyExternalOK("role-status"))
 	group.PUT("/roledatascope", legacyController.LegacyExternalOK("role-data-scope"))
 	group.DELETE("/dept", legacyController.LegacyExternalOK("dept-delete"))
+	group.GET("/dept", legacyController.LegacyEmptyTree("dept"))
+	group.GET("/dept/{id}", legacyController.LegacyEmptyObject("dept"))
+	group.POST("/dept", legacyController.LegacyCreateOK("dept"))
+	group.PUT("/dept/{id}", legacyController.LegacyUpdateOK("dept"))
 	group.GET("/menurole", legacyController.LegacyEmptyTree("menurole"))
 	group.DELETE("/post", legacyController.LegacyExternalOK("post-delete"))
+	group.GET("/post", legacyController.LegacyEmptyPage("post"))
+	group.GET("/post/{id}", legacyController.LegacyEmptyObject("post"))
+	group.POST("/post", legacyController.LegacyCreateOK("post"))
+	group.PUT("/post/{id}", legacyController.LegacyUpdateOK("post"))
 	group.GET("/deptTree", legacyController.LegacyEmptyTree("deptTree"))
 	group.DELETE("/dict/data", legacyController.LegacyExternalOK("dict-data-delete"))
 	group.GET("/dict/type-option-select", legacyController.LegacyEmptyList("dict-type-option-select"))

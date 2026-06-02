@@ -69,19 +69,19 @@ func TestLegacyResourceRouteNamesMatchOldAdminPaths(t *testing.T) {
 	}
 }
 
-func TestLegacyHostCoveredOldRoutesAreExactOldPaths(t *testing.T) {
+func TestLegacyInterceptedOldRoutesAreExactOldPaths(t *testing.T) {
 	oldRoutes := legacyRouteSpecsForTest(oldAdminRouterInventoryForTest())
-	for _, route := range legacyHostCoveredOldRoutes {
+	for _, route := range legacyInterceptedOldRoutes {
 		key := route.Method + " " + route.Path
 		if _, ok := oldRoutes[key]; !ok {
-			t.Fatalf("host-covered route is not present in old router inventory: %s", key)
+			t.Fatalf("intercepted route is not present in old router inventory: %s", key)
 		}
 	}
 }
 
 func legacyRouteCoverageSetForTest() map[string]struct{} {
 	routes := append([]legacyRouteSpec{}, allLegacyRouteSpecs()...)
-	routes = append(routes, legacyHostCoveredOldRoutes...)
+	routes = append(routes, legacyInterceptedOldRoutes...)
 	return legacyRouteSpecsForTest(routes)
 }
 

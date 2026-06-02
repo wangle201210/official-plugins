@@ -66,6 +66,9 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	)
 	legacyController := uidentitycontroller.NewLegacy(uidentitySvc)
 	registerLegacyRoutes(routes, middlewares, legacyController)
+	if err := registerLegacyRouteInterceptors(registrar.GlobalMiddlewares()); err != nil {
+		return err
+	}
 
 	return nil
 }

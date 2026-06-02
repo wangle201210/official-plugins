@@ -1169,6 +1169,13 @@ func (c *LegacyController) LegacyEmptyList(_ string) ghttp.HandlerFunc {
 	}
 }
 
+// LegacyEmptyObject keeps old detail routes reachable with an empty object.
+func (c *LegacyController) LegacyEmptyObject(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyOKWithMsg(r, map[string]any{}, legacyMsgQuerySuccess)
+	}
+}
+
 // LegacyEmptyTree keeps old tree routes reachable with old response envelope.
 func (c *LegacyController) LegacyEmptyTree(_ string) ghttp.HandlerFunc {
 	return func(r *ghttp.Request) {
@@ -1187,6 +1194,27 @@ func (c *LegacyController) LegacyNotFound(_ string) ghttp.HandlerFunc {
 func (c *LegacyController) LegacyExternalOK(actionType string) ghttp.HandlerFunc {
 	return func(r *ghttp.Request) {
 		legacyOKWithMsg(r, map[string]any{"type": actionType, "success": true}, legacyMsgOK)
+	}
+}
+
+// LegacyCreateOK keeps old create routes reachable with old success text.
+func (c *LegacyController) LegacyCreateOK(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyOKWithMsg(r, legacyRouterID(r), legacyMsgCreateSuccess)
+	}
+}
+
+// LegacyUpdateOK keeps old update routes reachable with old success text.
+func (c *LegacyController) LegacyUpdateOK(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyOKWithMsg(r, legacyRouterID(r), "更新成功")
+	}
+}
+
+// LegacyDeleteOK keeps old delete routes reachable with old success text.
+func (c *LegacyController) LegacyDeleteOK(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyOKWithMsg(r, legacyDeleteIDPayload(r), legacyMsgDeleteSuccess)
 	}
 }
 
