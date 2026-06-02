@@ -320,6 +320,7 @@ func TestLegacySystemSchemaSQLTableSuffixesAndColumnSets(t *testing.T) {
 		},
 		"sys_casbin_rule": {"id", "ptype", "v0", "v1", "v2", "v3", "v4", "v5"},
 		"tb_demo":         {"id", "name", "created_at", "updated_at", "deleted_at", "create_by", "update_by"},
+		"sys_migration":   {"version", "apply_time"},
 	}
 
 	for suffix, want := range contracts {

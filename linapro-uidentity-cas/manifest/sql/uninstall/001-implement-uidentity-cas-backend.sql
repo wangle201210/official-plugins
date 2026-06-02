@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS plugin_linapro_uidentity_cas_sys_migration;
 DROP TABLE IF EXISTS plugin_linapro_uidentity_cas_tb_demo;
 DROP TABLE IF EXISTS plugin_linapro_uidentity_cas_sys_casbin_rule;
 DROP TABLE IF EXISTS plugin_linapro_uidentity_cas_job_log;

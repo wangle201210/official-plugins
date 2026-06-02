@@ -1070,6 +1070,11 @@ CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_tb_demo (
 CREATE INDEX IF NOT EXISTS idx_uidentity_cas_tb_demo_name ON plugin_linapro_uidentity_cas_tb_demo (name);
 CREATE INDEX IF NOT EXISTS idx_uidentity_cas_tb_demo_deleted_at ON plugin_linapro_uidentity_cas_tb_demo (deleted_at);
 
+CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_sys_migration (
+    version VARCHAR(255) PRIMARY KEY,
+    apply_time TIMESTAMP NULL
+);
+
 INSERT INTO plugin_linapro_uidentity_cas_pass_ruler (
     name, capital, lower, number, symbol, length, "interval", interval_status, status, created_at, updated_at
 )
