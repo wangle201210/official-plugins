@@ -17,11 +17,11 @@ import (
 
 func TestAccountResourceSyncsGroupIDs(t *testing.T) {
 	ctx := context.Background()
-	configureUIdentityTestDB(t, ctx, dao.Account.Table(), dao.AccountDetail.Table(), dao.AccountChangeLog.Table(), dao.Group.Table(), dao.AccountGroup.Table())
+	configureUIdentityTestDB(t, ctx, dao.Account.Table(), dao.AccountDetails.Table(), dao.AccountChangeLog.Table(), dao.Groups.Table(), dao.AccountGroup.Table())
 
 	tenantID := int(time.Now().UnixNano()%1000000) + 920000
 	actorID := 8821
-	number := fmt.Sprintf("groups-%d", time.Now().UnixNano())
+	number := fmt.Sprintf("g%09d", time.Now().UnixNano()%1000000000)
 	service := &serviceImpl{
 		tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{
 			TenantID: tenantID,
@@ -75,10 +75,9 @@ func TestAccountResourceSyncsGroupIDs(t *testing.T) {
 
 func insertAccountGroupTestGroup(t *testing.T, ctx context.Context, tenantID int, name string) int64 {
 	t.Helper()
-	id, err := dao.Group.Ctx(ctx).Data(do.Group{
-		TenantId: tenantID,
-		Name:     name,
-		Alias:    name,
+	id, err := dao.Groups.Ctx(ctx).Data(do.Groups{
+		Name:  name,
+		Alias: name,
 	}).InsertAndGetId()
 	if err != nil {
 		t.Fatalf("insert group %s: %v", name, err)
@@ -89,9 +88,9 @@ func insertAccountGroupTestGroup(t *testing.T, ctx context.Context, tenantID int
 func accountGroupIDs(t *testing.T, ctx context.Context, tenantID int, accountID int64) []int64 {
 	t.Helper()
 	rows, err := dao.AccountGroup.Ctx(ctx).
-		Fields(dao.AccountGroup.Columns().GroupId).
-		Where(do.AccountGroup{TenantId: tenantID, AccountId: accountID}).
-		OrderAsc(dao.AccountGroup.Columns().GroupId).
+		Fields(dao.AccountGroup.Columns().GroupsId).
+		Where(do.AccountGroup{AccountId: accountID}).
+		OrderAsc(dao.AccountGroup.Columns().GroupsId).
 		Array()
 	if err != nil {
 		t.Fatalf("query account groups: %v", err)
@@ -108,7 +107,7 @@ func cleanupAccountGroupTestRows(t *testing.T, ctx context.Context, tenantID int
 	var accountIDs []int64
 	if rows, err := dao.Account.Ctx(ctx).Unscoped().
 		Fields(dao.Account.Columns().Id).
-		Where(do.Account{TenantId: tenantID, Number: number}).
+		Where(do.Account{Number: number}).
 		Array(); err == nil {
 		for _, id := range rows {
 			if value := id.Int64(); value > 0 {
@@ -122,17 +121,19 @@ func cleanupAccountGroupTestRows(t *testing.T, ctx context.Context, tenantID int
 		if _, err := dao.AccountGroup.Ctx(ctx).Unscoped().WhereIn(dao.AccountGroup.Columns().AccountId, accountIDs).Delete(); err != nil {
 			t.Fatalf("cleanup account groups: %v", err)
 		}
-		if _, err := dao.AccountDetail.Ctx(ctx).Unscoped().WhereIn(dao.AccountDetail.Columns().AccountId, accountIDs).Delete(); err != nil {
+		if _, err := dao.AccountDetails.Ctx(ctx).Unscoped().WhereIn(dao.AccountDetails.Columns().AccountId, accountIDs).Delete(); err != nil {
 			t.Fatalf("cleanup account details: %v", err)
 		}
 		if _, err := dao.Account.Ctx(ctx).Unscoped().WhereIn(dao.Account.Columns().Id, accountIDs).Delete(); err != nil {
 			t.Fatalf("cleanup accounts: %v", err)
 		}
 	}
-	if _, err := dao.AccountChangeLog.Ctx(ctx).Unscoped().Where(do.AccountChangeLog{TenantId: tenantID}).Delete(); err != nil {
-		t.Fatalf("cleanup account change logs: %v", err)
+	if len(accountIDs) > 0 {
+		if _, err := dao.AccountChangeLog.Ctx(ctx).Unscoped().WhereIn(dao.AccountChangeLog.Columns().AccountId, accountIDs).Delete(); err != nil {
+			t.Fatalf("cleanup account change logs: %v", err)
+		}
 	}
-	if _, err := dao.Group.Ctx(ctx).Unscoped().Where(dao.Group.Columns().TenantId, tenantID).Delete(); err != nil {
+	if _, err := dao.Groups.Ctx(ctx).Unscoped().WhereLike(dao.Groups.Columns().Name, "%"+number).Delete(); err != nil {
 		t.Fatalf("cleanup groups: %v", err)
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 
 	"lina-core/pkg/bizerr"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
@@ -85,9 +84,9 @@ func (s *serviceImpl) IssueOAuthAuthorizationCode(ctx context.Context, in OAuthA
 		Scope:       strings.TrimSpace(in.Scope),
 		State:       strings.TrimSpace(in.State),
 	}
-	if err := s.createRuntimeToken(ctx, do.OauthToken{
+	if err := s.createRuntimeToken(ctx, do.Oauth2Token{
 		Code:      oauthCodePrefix + code,
-		ExpiredAt: &expiredAt,
+		ExpiredAt: expiredAt.UnixMilli(),
 	}, payload); err != nil {
 		return nil, err
 	}
@@ -197,14 +196,14 @@ func (s *serviceImpl) GetOAuthAccessTokenInfo(ctx context.Context, accessToken s
 	}, nil
 }
 
-func (s *serviceImpl) oauthAuthorizationCode(ctx context.Context, code string) (*entity.OauthToken, *oauthRuntimePayload, error) {
+func (s *serviceImpl) oauthAuthorizationCode(ctx context.Context, code string) (*entity.Oauth2Token, *oauthRuntimePayload, error) {
 	return s.oauthTokenByCode(ctx, oauthCodePrefix+strings.TrimSpace(code), oauthKindAuthorizationCode)
 }
 
 func (s *serviceImpl) oauthAccessToken(ctx context.Context, accessToken string) (*oauthRuntimePayload, error) {
-	var token *entity.OauthToken
-	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Access, oauthAccessPrefix+strings.TrimSpace(accessToken)).
+	var token *entity.Oauth2Token
+	err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Access, oauthAccessPrefix+strings.TrimSpace(accessToken)).
 		Scan(&token)
 	if err != nil {
 		return nil, err
@@ -213,10 +212,10 @@ func (s *serviceImpl) oauthAccessToken(ctx context.Context, accessToken string) 
 	return payload, err
 }
 
-func (s *serviceImpl) oauthTokenByCode(ctx context.Context, code string, kind string) (*entity.OauthToken, *oauthRuntimePayload, error) {
-	var token *entity.OauthToken
-	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Code, code).
+func (s *serviceImpl) oauthTokenByCode(ctx context.Context, code string, kind string) (*entity.Oauth2Token, *oauthRuntimePayload, error) {
+	var token *entity.Oauth2Token
+	err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Code, code).
 		Scan(&token)
 	if err != nil {
 		return nil, nil, err
@@ -236,11 +235,10 @@ func (s *serviceImpl) consumeOAuthCodeAndCreateAccess(
 	if err != nil {
 		return err
 	}
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
-	return dao.OauthToken.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		result, err := tx.Model(dao.OauthToken.Table()).Safe().Ctx(ctx).
-			Where(plugincontract.TenantFilterColumn, tenantID).
-			Where(dao.OauthToken.Columns().Id, codeTokenID).
+	actorID := s.actorID(ctx)
+	return dao.Oauth2Token.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		result, err := tx.Model(dao.Oauth2Token.Table()).Safe().Ctx(ctx).
+			Where(dao.Oauth2Token.Columns().Id, codeTokenID).
 			Delete()
 		if err != nil {
 			return err
@@ -252,37 +250,35 @@ func (s *serviceImpl) consumeOAuthCodeAndCreateAccess(
 		if affected == 0 {
 			return bizerr.NewCode(CodeOAuthGrantInvalid)
 		}
-		if _, err := tx.Model(dao.OauthToken.Table()).Safe().Ctx(ctx).
-			Data(do.OauthToken{
-				TenantId:  tenantID,
-				ExpiredAt: &expiredAt,
+		if _, err := tx.Model(dao.Oauth2Token.Table()).Safe().Ctx(ctx).
+			Data(do.Oauth2Token{
+				ExpiredAt: expiredAt.UnixMilli(),
 				Code:      oauthAccessPrefix + access,
 				Access:    oauthAccessPrefix + access,
 				Refresh:   oauthRefreshPrefix + refresh,
 				Data:      string(content),
-				CreatedBy: actorID,
-				UpdatedBy: actorID,
+				CreateBy:  actorID,
+				UpdateBy:  actorID,
 			}).
 			Insert(); err != nil {
 			return err
 		}
 		_, err = tx.Model(dao.OauthLog.Table()).Safe().Ctx(ctx).
 			Data(do.OauthLog{
-				TenantId:    tenantID,
 				UserId:      payload.AccountID,
 				AppId:       payload.AppID,
 				RedirectUri: payload.RedirectURI,
 				Scope:       payload.Scope,
-				CreatedBy:   actorID,
-				UpdatedBy:   actorID,
+				CreateBy:    actorID,
+				UpdateBy:    actorID,
 			}).
 			Insert()
 		return err
 	})
 }
 
-func parseOAuthRuntimeToken(token *entity.OauthToken, kind string) (*entity.OauthToken, *oauthRuntimePayload, error) {
-	if token == nil || token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+func parseOAuthRuntimeToken(token *entity.Oauth2Token, kind string) (*entity.Oauth2Token, *oauthRuntimePayload, error) {
+	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeTicketInvalid)
 	}
 	payload := &oauthRuntimePayload{}

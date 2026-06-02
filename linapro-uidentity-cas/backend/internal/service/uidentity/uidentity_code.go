@@ -11,7 +11,7 @@ import (
 var (
 	// CodeResourceNotSupported reports an unknown UIdentity resource name.
 	CodeResourceNotSupported = bizerr.MustDefine("UIDENTITY_RESOURCE_NOT_SUPPORTED", "UIdentity resource is not supported", gcode.CodeInvalidParameter)
-	// CodeResourceNotFound reports a missing tenant-visible resource record.
+	// CodeResourceNotFound reports a missing global resource record.
 	CodeResourceNotFound = bizerr.MustDefine("UIDENTITY_RESOURCE_NOT_FOUND", "UIdentity resource record does not exist", gcode.CodeNotFound)
 	// CodeDeleteIDsRequired reports an empty delete ID list.
 	CodeDeleteIDsRequired = bizerr.MustDefine("UIDENTITY_DELETE_IDS_REQUIRED", "Select at least one record to delete", gcode.CodeInvalidParameter)

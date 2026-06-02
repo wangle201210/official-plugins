@@ -6,27 +6,7 @@ package uidentity
 import (
 	"strings"
 	"testing"
-
-	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
-
-// TestHashPasswordIsStable verifies password hashes are deterministic and not
-// returned as plaintext.
-func TestHashPasswordIsStable(t *testing.T) {
-	t.Parallel()
-
-	first := hashPassword("S3cure@2026")
-	second := hashPassword("S3cure@2026")
-	if first != second {
-		t.Fatal("expected password hash to be stable")
-	}
-	if first == "S3cure@2026" {
-		t.Fatal("expected password hash to differ from plaintext")
-	}
-	if len(first) != 64 {
-		t.Fatalf("expected SHA-256 hex length 64, got %d", len(first))
-	}
-}
 
 // TestRandomTokenUsesPrefix verifies generated runtime tokens carry the
 // caller-provided domain prefix.
@@ -42,23 +22,6 @@ func TestRandomTokenUsesPrefix(t *testing.T) {
 	}
 	if len(token) <= len("code_") {
 		t.Fatal("expected token to include random payload")
-	}
-}
-
-// TestPasswordMatchesHashedAccount verifies runtime login compares the stored
-// hash instead of accepting plaintext or empty account data.
-func TestPasswordMatchesHashedAccount(t *testing.T) {
-	t.Parallel()
-
-	account := &entity.Account{PasswordHash: hashPassword("S3cure@2026")}
-	if !passwordMatches(account, "S3cure@2026") {
-		t.Fatal("expected hashed password to match")
-	}
-	if passwordMatches(account, "wrong") {
-		t.Fatal("expected wrong password to fail")
-	}
-	if passwordMatches(nil, "S3cure@2026") {
-		t.Fatal("expected nil account to fail")
 	}
 }
 
@@ -87,6 +50,48 @@ func TestPasswordFailureCodesFiltersBlankNumbers(t *testing.T) {
 	got := passwordFailureCodes([]string{" A001 ", "", "B002"})
 	if len(got) != 2 || got[0] != "cas:pwd:errnum:A001" || got[1] != "cas:pwd:errnum:B002" {
 		t.Fatalf("unexpected password failure codes: %#v", got)
+	}
+}
+
+func TestValidateLegacyLDAPPasswordMatchesOldFormats(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		password string
+		ldapPass string
+		want     bool
+	}{
+		{name: "plain", password: "secret", ldapPass: "secret", want: true},
+		{name: "plain mismatch", password: "secret", ldapPass: "other", want: false},
+		{name: "ssha", password: "123456", ldapPass: "{SSHA}dx7V6wZKPRnO6MlJHxpqKebdDKg+1mti8RaZMw==", want: true},
+		{name: "ssha mismatch", password: "12345", ldapPass: "{SSHA}q1k6zow91JW4Y/9n8N/kGj9A1J+u6BbJF9xFGQ==", want: false},
+		{name: "md5", password: "123456", ldapPass: "{MD5}4QrcOUm6Wau+VuBX8g+IPg==", want: true},
+		{name: "md5 mismatch", password: "12345", ldapPass: "{MD5}4QrcOUm6Wau+VuBX8g+IPg==", want: false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := validateLegacyLDAPPassword(tc.password, tc.ldapPass); got != tc.want {
+				t.Fatalf("validateLegacyLDAPPassword() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGenerateLegacyLDAPSSHAValidates(t *testing.T) {
+	t.Parallel()
+
+	ldapPass, err := generateLegacyLDAPSSHA("changed-password")
+	if err != nil {
+		t.Fatalf("generateLegacyLDAPSSHA: %v", err)
+	}
+	if !strings.HasPrefix(ldapPass, ldapPasswordPrefixSSHA) {
+		t.Fatalf("expected SSHA prefix, got %q", ldapPass)
+	}
+	if !validateLegacyLDAPPassword("changed-password", ldapPass) {
+		t.Fatal("expected generated SSHA password to validate")
 	}
 }
 

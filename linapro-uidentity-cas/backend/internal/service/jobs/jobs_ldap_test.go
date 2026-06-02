@@ -21,10 +21,10 @@ func TestBuildLDAPAddRequestOmitsOpenUID(t *testing.T) {
 		Name:   "张三",
 		Phone:  "13800138000",
 		Status: 1,
-	}, &entity.AccountDetail{
+	}, &entity.AccountDetails{
 		Email:  "zhangsan@example.test",
 		Wechat: "open-id",
-	}, &entity.Container{Name: legacyContainerStudent})
+	}, &entity.Containers{Name: legacyContainerStudent})
 	if err != nil {
 		t.Fatalf("buildLDAPAddRequest returned error: %v", err)
 	}
@@ -45,10 +45,10 @@ func TestBuildLDAPModifyStillSyncsOpenUID(t *testing.T) {
 		Name:   "张三",
 		Phone:  "13800138000",
 		Status: 1,
-	}, &entity.AccountDetail{
+	}, &entity.AccountDetails{
 		Email:  "zhangsan@example.test",
 		Wechat: "new-open-id",
-	}, &entity.Container{Name: legacyContainerStudent})
+	}, &entity.Containers{Name: legacyContainerStudent})
 	if !changed {
 		t.Fatal("expected LDAP modify request to change openUID")
 	}

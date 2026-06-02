@@ -10,11 +10,10 @@ import (
 )
 
 func (s *serviceImpl) applicationData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.Application{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.Applications{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyStringFields(body, map[string]*any{
 		"name": &data.Name, "alias": &data.Alias, "clientId": &data.ClientId, "secretKey": &data.SecretKey,
@@ -25,33 +24,26 @@ func (s *serviceImpl) applicationData(ctx context.Context, body map[string]any, 
 }
 
 func (s *serviceImpl) accountGroupData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
 	data := do.AccountGroup{}
-	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
-	}
-	copyInt64Fields(body, map[string]*any{"accountId": &data.AccountId, "groupId": &data.GroupId})
+	copyInt64Fields(body, map[string]*any{"accountId": &data.AccountId, "groupId": &data.GroupsId, "groupsId": &data.GroupsId})
 	return data, nil
 }
 
 func (s *serviceImpl) accountUnitData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
+	actorID := s.actorID(ctx)
 	data := do.AccountUnit{}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
-	copyInt64Fields(body, map[string]*any{"accountId": &data.AccountId, "unitId": &data.UnitId})
+	copyInt64Fields(body, map[string]*any{"accountId": &data.AccountId, "unitId": &data.UnitsId, "unitsId": &data.UnitsId})
 	return data, nil
 }
 
 func (s *serviceImpl) accountAppRoleData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.AccountAppRole{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.AccountAppRole{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyInt64Fields(body, map[string]*any{
 		"giveAccountId": &data.GiveAccountId, "empoweredAccountId": &data.EmpoweredAccountId, "appId": &data.AppId,
@@ -63,11 +55,10 @@ func (s *serviceImpl) accountAppRoleData(ctx context.Context, body map[string]an
 }
 
 func (s *serviceImpl) accountAppBlacklistData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.AccountAppBlacklist{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.AccountAppBlacklist{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyStringFields(body, map[string]*any{"name": &data.Name})
 	copyInt64Fields(body, map[string]*any{"appId": &data.AppId, "accountId": &data.AccountId})
@@ -81,11 +72,10 @@ func (s *serviceImpl) accountAppBlacklistData(ctx context.Context, body map[stri
 }
 
 func (s *serviceImpl) groupAppBlacklistData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.GroupAppBlacklist{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.GroupAppBlacklist{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyStringFields(body, map[string]*any{"name": &data.Name})
 	copyInt64Fields(body, map[string]*any{"appId": &data.AppId, "groupId": &data.GroupId})
@@ -99,26 +89,24 @@ func (s *serviceImpl) groupAppBlacklistData(ctx context.Context, body map[string
 }
 
 func (s *serviceImpl) passRuleData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.PassRule{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.PassRuler{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyStringFields(body, map[string]*any{"name": &data.Name})
 	copyIntFields(body, map[string]*any{
 		"capital": &data.Capital, "lower": &data.Lower, "number": &data.Number, "symbol": &data.Symbol,
-		"length": &data.Length, "intervalDays": &data.IntervalDays, "intervalStatus": &data.IntervalStatus, "status": &data.Status,
+		"length": &data.Length, "interval": &data.Interval, "intervalDays": &data.Interval, "intervalStatus": &data.IntervalStatus, "status": &data.Status,
 	})
 	return data, nil
 }
 
 func (s *serviceImpl) smsData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.Sms{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.Sms{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyStringFields(body, map[string]*any{"phone": &data.Phone, "type": &data.Type, "content": &data.Content, "respMsg": &data.RespMsg})
 	copyIntFields(body, map[string]*any{"status": &data.Status})
@@ -126,11 +114,10 @@ func (s *serviceImpl) smsData(ctx context.Context, body map[string]any, create b
 }
 
 func (s *serviceImpl) casLoginLogData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.CasLoginLog{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.CasLoginLog{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyStringFields(body, map[string]*any{
 		"ipaddr": &data.Ipaddr, "loginLocation": &data.LoginLocation, "browser": &data.Browser, "os": &data.Os,
@@ -144,11 +131,10 @@ func (s *serviceImpl) casLoginLogData(ctx context.Context, body map[string]any, 
 }
 
 func (s *serviceImpl) oauthLogData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.OauthLog{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.OauthLog{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyInt64Fields(body, map[string]*any{"userId": &data.UserId, "appId": &data.AppId})
 	copyStringFields(body, map[string]*any{"redirectUri": &data.RedirectUri, "scope": &data.Scope})
@@ -156,25 +142,23 @@ func (s *serviceImpl) oauthLogData(ctx context.Context, body map[string]any, cre
 }
 
 func (s *serviceImpl) oauthTokenData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.OauthToken{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.Oauth2Token{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyStringFields(body, map[string]*any{"code": &data.Code, "access": &data.Access, "refresh": &data.Refresh, "data": &data.Data})
-	if value := timeField(body, "expiredAt"); value != nil {
-		data.ExpiredAt = value
+	if hasField(body, "expiredAt") {
+		data.ExpiredAt = int64Field(body, "expiredAt")
 	}
 	return data, nil
 }
 
 func (s *serviceImpl) accountChangeLogData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.AccountChangeLog{UpdatedBy: actorID}
+	actorID := s.actorID(ctx)
+	data := do.AccountChangeLog{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 	}
 	copyInt64Fields(body, map[string]*any{"accountId": &data.AccountId})
 	copyStringFields(body, map[string]*any{
@@ -185,12 +169,7 @@ func (s *serviceImpl) accountChangeLogData(ctx context.Context, body map[string]
 }
 
 func (s *serviceImpl) accountActiveLogData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.AccountActiveLog{UpdatedBy: actorID}
-	if create {
-		data.TenantId = tenantID
-		data.CreatedBy = actorID
-	}
+	data := do.AccountActiveLog{}
 	copyStringFields(body, map[string]*any{"number": &data.Number, "phone": &data.Phone, "wechat": &data.Wechat})
 	copyIntFields(body, map[string]*any{"type": &data.Type})
 	return data, nil

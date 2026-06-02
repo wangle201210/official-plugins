@@ -151,28 +151,26 @@ func (s *serviceImpl) IssueOAuthToken(ctx context.Context, in OAuthIssueInput) (
 	if err != nil {
 		return nil, err
 	}
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
-	_, err = dao.OauthToken.Ctx(ctx).Data(do.OauthToken{
-		TenantId:  tenantID,
-		ExpiredAt: &expiredAt,
+	actorID := s.actorID(ctx)
+	_, err = dao.Oauth2Token.Ctx(ctx).Data(do.Oauth2Token{
+		ExpiredAt: expiredAt.UnixMilli(),
 		Code:      code,
 		Access:    access,
 		Refresh:   refresh,
 		Data:      string(payload),
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
+		CreateBy:  actorID,
+		UpdateBy:  actorID,
 	}).Insert()
 	if err != nil {
 		return nil, err
 	}
 	_, err = dao.OauthLog.Ctx(ctx).Data(do.OauthLog{
-		TenantId:    tenantID,
 		UserId:      account.Id,
 		AppId:       app.Id,
 		RedirectUri: in.RedirectURI,
 		Scope:       in.Scope,
-		CreatedBy:   actorID,
-		UpdatedBy:   actorID,
+		CreateBy:    actorID,
+		UpdateBy:    actorID,
 	}).Insert()
 	if err != nil {
 		return nil, err
@@ -216,7 +214,7 @@ func (s *serviceImpl) validateCASTicket(ctx context.Context, validateURL string,
 
 func (s *serviceImpl) getAccountByID(ctx context.Context, accountID int64) (*entity.Account, error) {
 	var account *entity.Account
-	err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	err := dao.Account.Ctx(ctx).
 		Where(dao.Account.Columns().Id, accountID).
 		Scan(&account)
 	if err != nil {
@@ -230,7 +228,7 @@ func (s *serviceImpl) getAccountByID(ctx context.Context, accountID int64) (*ent
 
 func (s *serviceImpl) getAccountByNumber(ctx context.Context, number string) (*entity.Account, error) {
 	var account *entity.Account
-	err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	err := dao.Account.Ctx(ctx).
 		Where(dao.Account.Columns().Number, number).
 		Scan(&account)
 	if err != nil {
@@ -242,13 +240,13 @@ func (s *serviceImpl) getAccountByNumber(ctx context.Context, number string) (*e
 	return account, nil
 }
 
-func (s *serviceImpl) runtimeApplication(ctx context.Context, appID int64) (*entity.Application, error) {
+func (s *serviceImpl) runtimeApplication(ctx context.Context, appID int64) (*entity.Applications, error) {
 	if appID == 0 {
 		return nil, nil
 	}
-	var app *entity.Application
-	err := s.tenantFilter.Apply(ctx, dao.Application.Ctx(ctx), "").
-		Where(dao.Application.Columns().Id, appID).
+	var app *entity.Applications
+	err := dao.Applications.Ctx(ctx).
+		Where(dao.Applications.Columns().Id, appID).
 		Scan(&app)
 	if err != nil {
 		return nil, err
@@ -262,7 +260,7 @@ func (s *serviceImpl) runtimeApplication(ctx context.Context, appID int64) (*ent
 	return app, nil
 }
 
-func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.Account, app *entity.Application) error {
+func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.Account, app *entity.Applications) error {
 	if account.Status == AccountStatusLocked {
 		return bizerr.NewCode(CodeAccountLocked)
 	}
@@ -273,7 +271,7 @@ func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.A
 		return nil
 	}
 	now := time.Now()
-	accountBlacklistCount, err := s.tenantFilter.Apply(ctx, dao.AccountAppBlacklist.Ctx(ctx), "").
+	accountBlacklistCount, err := dao.AccountAppBlacklist.Ctx(ctx).
 		Where(dao.AccountAppBlacklist.Columns().AccountId, account.Id).
 		Where(dao.AccountAppBlacklist.Columns().AppId, app.Id).
 		Where("("+dao.AccountAppBlacklist.Columns().EffectAt+" IS NULL OR "+dao.AccountAppBlacklist.Columns().EffectAt+" <= ?)", now).
@@ -287,8 +285,8 @@ func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.A
 	}
 	groupColumns := dao.AccountGroup.Columns()
 	groupBlackColumns := dao.GroupAppBlacklist.Columns()
-	groupIDs, err := s.tenantFilter.Apply(ctx, dao.AccountGroup.Ctx(ctx), "").
-		Fields(groupColumns.GroupId).
+	groupIDs, err := dao.AccountGroup.Ctx(ctx).
+		Fields(groupColumns.GroupsId).
 		Where(groupColumns.AccountId, account.Id).
 		Array()
 	if err != nil {
@@ -297,7 +295,7 @@ func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.A
 	if len(groupIDs) == 0 {
 		return nil
 	}
-	groupBlacklistCount, err := s.tenantFilter.Apply(ctx, dao.GroupAppBlacklist.Ctx(ctx), "").
+	groupBlacklistCount, err := dao.GroupAppBlacklist.Ctx(ctx).
 		WhereIn(groupBlackColumns.GroupId, groupIDs).
 		Where(groupBlackColumns.AppId, app.Id).
 		Where("("+groupBlackColumns.EffectAt+" IS NULL OR "+groupBlackColumns.EffectAt+" <= ?)", now).
@@ -314,17 +312,16 @@ func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.A
 
 func (s *serviceImpl) recordCASLogin(ctx context.Context, accountID int64, appID int64, loginType string, message string) error {
 	now := time.Now()
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
+	actorID := s.actorID(ctx)
 	_, err := dao.CasLoginLog.Ctx(ctx).Data(do.CasLoginLog{
-		TenantId:        tenantID,
 		AccountId:       accountID,
 		ChoiceAccountId: accountID,
 		AppId:           appID,
 		LoginTime:       &now,
 		Msg:             message,
 		LoginType:       loginType,
-		CreatedBy:       actorID,
-		UpdatedBy:       actorID,
+		CreateBy:        actorID,
+		UpdateBy:        actorID,
 	}).Insert()
 	return err
 }

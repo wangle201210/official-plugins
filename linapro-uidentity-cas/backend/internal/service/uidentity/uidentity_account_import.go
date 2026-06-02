@@ -165,13 +165,12 @@ func (s *serviceImpl) importAccountRow(ctx context.Context, row map[string]strin
 }
 
 func (s *serviceImpl) createImportedAccount(ctx context.Context, row map[string]string, unitIDs map[string]int64, containerIDs map[string]int64) error {
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
+	actorID := s.actorID(ctx)
 	phone := strings.TrimSpace(row["phone"])
 	if phone == "" {
 		phone = strings.TrimSpace(row["number"])
 	}
 	accountData := do.Account{
-		TenantId:    tenantID,
 		Number:      strings.TrimSpace(row["number"]),
 		Name:        strings.TrimSpace(row["name"]),
 		Phone:       phone,
@@ -180,8 +179,8 @@ func (s *serviceImpl) createImportedAccount(ctx context.Context, row map[string]
 		ContainerId: containerIDs[strings.TrimSpace(row["container_name"])],
 		UnitId:      unitIDs[strings.TrimSpace(row["unit_code"])],
 		Status:      importInt(row["status"]),
-		CreatedBy:   actorID,
-		UpdatedBy:   actorID,
+		CreateBy:    actorID,
+		UpdateBy:    actorID,
 	}
 	accountID, err := s.createAccountWithAudit(ctx, accountData)
 	if err != nil {
@@ -192,7 +191,7 @@ func (s *serviceImpl) createImportedAccount(ctx context.Context, row map[string]
 }
 
 func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity.Account, row map[string]string, unitIDs map[string]int64, containerIDs map[string]int64) error {
-	accountData := do.Account{UpdatedBy: s.actorID(ctx)}
+	accountData := do.Account{UpdateBy: s.actorID(ctx)}
 	if value := strings.TrimSpace(row["name"]); value != "" && value != account.Name {
 		accountData.Name = value
 	}
@@ -217,8 +216,8 @@ func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity
 	if err := s.updateAccountWithAudit(ctx, account.Id, accountData); err != nil {
 		return err
 	}
-	count, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-		Where(dao.AccountDetail.Columns().AccountId, account.Id).
+	count, err := dao.AccountDetails.Ctx(ctx).
+		Where(dao.AccountDetails.Columns().AccountId, account.Id).
 		Count()
 	if err != nil {
 		return err
@@ -230,16 +229,15 @@ func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity
 	return s.updateAccountDetailWithAudit(ctx, account.Id, detailData)
 }
 
-func importedAccountDetailDO(ctx context.Context, s *serviceImpl, accountID int64, row map[string]string, create bool) do.AccountDetail {
-	tenantID, actorID := s.baseOwnedDO(ctx, create)
-	data := do.AccountDetail{UpdatedBy: actorID}
+func importedAccountDetailDO(ctx context.Context, s *serviceImpl, accountID int64, row map[string]string, create bool) do.AccountDetails {
+	actorID := s.actorID(ctx)
+	data := do.AccountDetails{UpdateBy: actorID}
 	if create {
-		data.TenantId = tenantID
 		data.AccountId = accountID
-		data.CreatedBy = actorID
+		data.CreateBy = actorID
 		data.Source = accountImportSource
 	}
-	if value := importBirthday(row["birthday"]); value != "" {
+	if value := importBirthday(row["birthday"]); value != nil {
 		data.Birthday = value
 	}
 	copyImportString(row, "email", &data.Email)
@@ -247,14 +245,14 @@ func importedAccountDetailDO(ctx context.Context, s *serviceImpl, accountID int6
 	copyImportString(row, "wechat", &data.Wechat)
 	copyImportString(row, "idcard", &data.Idcard)
 	copyImportString(row, "avatar", &data.Avatar)
-	copyImportString(row, "grade", &data.Grade)
-	copyImportString(row, "college", &data.College)
-	copyImportString(row, "college_code", &data.CollegeCode)
-	copyImportString(row, "campus", &data.Campus)
-	copyImportString(row, "school_system", &data.SchoolSystem)
-	copyImportString(row, "graduated_at", &data.GraduatedAt)
-	copyImportString(row, "major", &data.Major)
-	copyImportString(row, "class_name", &data.ClassName)
+	copyImportString(row, "grade", &data.Nj)
+	copyImportString(row, "college", &data.Xymc)
+	copyImportString(row, "college_code", &data.Xydm)
+	copyImportString(row, "campus", &data.Xq)
+	copyImportString(row, "school_system", &data.Xz)
+	copyImportString(row, "graduated_at", &data.Yjbysj)
+	copyImportString(row, "major", &data.Zymc)
+	copyImportString(row, "class_name", &data.Bjmc)
 	copyImportString(row, "face", &data.Face)
 	if value := strings.TrimSpace(row["gender"]); value != "" {
 		data.Gender = importInt(value)
@@ -270,7 +268,7 @@ func copyImportString(row map[string]string, key string, target *any) {
 
 func (s *serviceImpl) accountByNumberAllowMissing(ctx context.Context, number string) (*entity.Account, error) {
 	var account *entity.Account
-	err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	err := dao.Account.Ctx(ctx).
 		Where(dao.Account.Columns().Number, number).
 		Scan(&account)
 	if err != nil {
@@ -281,28 +279,28 @@ func (s *serviceImpl) accountByNumberAllowMissing(ctx context.Context, number st
 
 func (s *serviceImpl) importUnitIDMap(ctx context.Context) (map[string]int64, error) {
 	result := make(map[string]int64)
-	rows, err := s.tenantFilter.Apply(ctx, dao.Unit.Ctx(ctx), "").
-		Fields(dao.Unit.Columns().Id, dao.Unit.Columns().Code).
+	rows, err := dao.Units.Ctx(ctx).
+		Fields(dao.Units.Columns().Id, dao.Units.Columns().Code).
 		All()
 	if err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
-		result[row[dao.Unit.Columns().Code].String()] = row[dao.Unit.Columns().Id].Int64()
+		result[row[dao.Units.Columns().Code].String()] = row[dao.Units.Columns().Id].Int64()
 	}
 	return result, nil
 }
 
 func (s *serviceImpl) importContainerIDMap(ctx context.Context) (map[string]int64, error) {
 	result := make(map[string]int64)
-	rows, err := s.tenantFilter.Apply(ctx, dao.Container.Ctx(ctx), "").
-		Fields(dao.Container.Columns().Id, dao.Container.Columns().Name).
+	rows, err := dao.Containers.Ctx(ctx).
+		Fields(dao.Containers.Columns().Id, dao.Containers.Columns().Name).
 		All()
 	if err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
-		result[row[dao.Container.Columns().Name].String()] = row[dao.Container.Columns().Id].Int64()
+		result[row[dao.Containers.Columns().Name].String()] = row[dao.Containers.Columns().Id].Int64()
 	}
 	return result, nil
 }
@@ -350,14 +348,14 @@ func parseImportTime(value string) time.Time {
 	return time.Now()
 }
 
-func importBirthday(value string) string {
+func importBirthday(value string) *time.Time {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return ""
+		return nil
 	}
 	parsed := parseImportTime(trimmed)
 	if parsed.IsZero() {
-		return trimmed
+		return nil
 	}
-	return parsed.Format("2006-01-02")
+	return &parsed
 }

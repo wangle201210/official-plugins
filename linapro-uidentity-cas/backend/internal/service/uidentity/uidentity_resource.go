@@ -1,5 +1,5 @@
 // This file implements resource registry, paged reads, generic CRUD dispatch,
-// API field projection, and tenant-scoped delete validation for plugin tables.
+// API field projection, and delete validation for plugin tables.
 
 package uidentity
 
@@ -77,7 +77,7 @@ func (s *serviceImpl) resourceDefinitions() map[string]*resourceDefinition {
 	}
 }
 
-// ListResource returns one paged tenant-scoped resource list.
+// ListResource returns one paged global resource list.
 func (s *serviceImpl) ListResource(ctx context.Context, in ResourceListInput) (*ResourceListOutput, error) {
 	def, err := s.resourceDefinition(in.Resource)
 	if err != nil {
@@ -118,13 +118,13 @@ func (s *serviceImpl) ListResource(ctx context.Context, in ResourceListInput) (*
 	return &ResourceListOutput{List: records, Total: total}, nil
 }
 
-// GetResource returns one tenant-scoped resource detail.
+// GetResource returns one global resource detail.
 func (s *serviceImpl) GetResource(ctx context.Context, resource string, id int64) (Record, error) {
 	def, err := s.resourceDefinition(resource)
 	if err != nil {
 		return nil, err
 	}
-	result, err := s.tenantFilter.Apply(ctx, def.model(ctx), "").
+	result, err := def.model(ctx).
 		Fields(projectionFields(def)...).
 		Where(def.idColumn, id).
 		One()
@@ -143,7 +143,7 @@ func (s *serviceImpl) GetResource(ctx context.Context, resource string, id int64
 	return record, nil
 }
 
-// CreateResource creates one tenant-scoped resource row.
+// CreateResource creates one global resource row.
 func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body map[string]any) (int64, error) {
 	body = normalizeLegacyResourceBody(resource, body)
 	def, err := s.resourceDefinition(resource)
@@ -186,7 +186,7 @@ func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body 
 	return id, nil
 }
 
-// UpdateResource updates one tenant-scoped resource row.
+// UpdateResource updates one global resource row.
 func (s *serviceImpl) UpdateResource(ctx context.Context, resource string, id int64, body map[string]any) error {
 	body = normalizeLegacyResourceBody(resource, body)
 	def, err := s.resourceDefinition(resource)
@@ -209,7 +209,7 @@ func (s *serviceImpl) UpdateResource(ctx context.Context, resource string, id in
 	if def.name == "account-details" {
 		return s.updateAccountDetailWithAudit(ctx, id, data)
 	}
-	_, err = s.tenantFilter.Apply(ctx, def.model(ctx), "").
+	_, err = def.model(ctx).
 		Where(def.idColumn, id).
 		OmitNilData().
 		Data(data).
@@ -217,7 +217,7 @@ func (s *serviceImpl) UpdateResource(ctx context.Context, resource string, id in
 	return err
 }
 
-// DeleteResource deletes one or more tenant-scoped resource rows.
+// DeleteResource deletes one or more global resource rows.
 func (s *serviceImpl) DeleteResource(ctx context.Context, resource string, ids string) error {
 	def, err := s.resourceDefinition(resource)
 	if err != nil {
@@ -230,7 +230,7 @@ func (s *serviceImpl) DeleteResource(ctx context.Context, resource string, ids s
 	if len(idList) > maxDeleteIDs {
 		return bizerr.NewCode(CodeDeleteIDsTooMany, bizerr.P("limit", maxDeleteIDs))
 	}
-	count, err := s.tenantFilter.Apply(ctx, def.model(ctx), "").
+	count, err := def.model(ctx).
 		WhereIn(def.idColumn, idList).
 		Count()
 	if err != nil {
@@ -243,7 +243,7 @@ func (s *serviceImpl) DeleteResource(ctx context.Context, resource string, ids s
 }
 
 func (s *serviceImpl) applyResourceFilters(ctx context.Context, def *resourceDefinition, in ResourceListInput) *gdb.Model {
-	model := s.tenantFilter.Apply(ctx, def.model(ctx), "")
+	model := def.model(ctx)
 	keyword := strings.TrimSpace(in.Keyword)
 	if keyword != "" && len(def.keywordFields) > 0 {
 		likeConditions := make([]string, 0, len(def.keywordFields))
@@ -278,9 +278,9 @@ func (s *serviceImpl) applyResourceFilters(ctx context.Context, def *resourceDef
 	}
 	if len(in.GroupIds) > 0 && def.name == "accounts" {
 		groupColumns := dao.AccountGroup.Columns()
-		subQuery := s.tenantFilter.Apply(ctx, dao.AccountGroup.Ctx(ctx), "").
+		subQuery := dao.AccountGroup.Ctx(ctx).
 			Fields(groupColumns.AccountId).
-			WhereIn(groupColumns.GroupId, in.GroupIds)
+			WhereIn(groupColumns.GroupsId, in.GroupIds)
 		model = model.Where(def.idColumn+" IN (?)", subQuery)
 	}
 	return model
@@ -352,8 +352,8 @@ func resourceLegacyFieldAliases() map[string]string {
 		"tableName": "tableName", "table_name": "tableName", "action": "action", "dataOld": "dataOld", "data_old": "dataOld",
 		"dataNew": "dataNew", "data_new": "dataNew", "errMsg": "errMsg", "err_msg": "errMsg",
 		"errNumber": "errNumber", "err_number": "errNumber",
-		"createdBy": "createdBy", "createBy": "createdBy", "created_by": "createdBy", "create_by": "createdBy",
-		"updatedBy": "updatedBy", "updateBy": "updatedBy", "updated_by": "updatedBy", "update_by": "updatedBy",
+		"createBy": "createBy", "createdBy": "createBy", "created_by": "createBy", "create_by": "createBy",
+		"updateBy": "updateBy", "updatedBy": "updateBy", "updated_by": "updateBy", "update_by": "updateBy",
 		"createdAt": "createdAt", "created_at": "createdAt", "updatedAt": "updatedAt", "updated_at": "updatedAt",
 		"deletedAt": "deletedAt", "deleted_at": "deletedAt",
 	}
@@ -432,10 +432,10 @@ func addLegacyResourceResponseAliases(record Record, def *resourceDefinition) {
 	if record == nil || def == nil {
 		return
 	}
-	if value, ok := record["createdBy"]; ok {
+	if value, ok := record["createBy"]; ok {
 		record["createBy"] = value
 	}
-	if value, ok := record["updatedBy"]; ok {
+	if value, ok := record["updateBy"]; ok {
 		record["updateBy"] = value
 	}
 	switch def.name {
@@ -471,20 +471,12 @@ func parseIDList(ids string) []int64 {
 	return result
 }
 
-func (s *serviceImpl) tenantID(ctx context.Context) int {
-	return s.tenantFilter.Context(ctx).TenantID
-}
-
 func (s *serviceImpl) actorID(ctx context.Context) int64 {
 	tenantCtx := s.tenantFilter.Context(ctx)
 	if tenantCtx.ActingUserID > 0 {
 		return int64(tenantCtx.ActingUserID)
 	}
 	return int64(tenantCtx.UserID)
-}
-
-func (s *serviceImpl) baseOwnedDO(ctx context.Context, create bool) (tenantID int, actorID int64) {
-	return s.tenantID(ctx), s.actorID(ctx)
 }
 
 func hasField(body map[string]any, field string) bool {
@@ -560,16 +552,14 @@ func normalizeLegacyResourceBody(resource string, body map[string]any) map[strin
 
 func commonTimeFields() map[string]struct{} {
 	return map[string]struct{}{
-		"effectAt":          {},
-		"expireAt":          {},
-		"passwordUpdatedAt": {},
-		"createdAt":         {},
-		"updatedAt":         {},
-		"deletedAt":         {},
-		"loginTime":         {},
-		"expiredAt":         {},
-		"startAt":           {},
-		"endAt":             {},
+		"effectAt":  {},
+		"expireAt":  {},
+		"createdAt": {},
+		"updatedAt": {},
+		"deletedAt": {},
+		"loginTime": {},
+		"startAt":   {},
+		"endAt":     {},
 	}
 }
 
@@ -582,10 +572,10 @@ func (s *serviceImpl) accountResource() *resourceDefinition {
 		defaultOrder:  cols.Id,
 		keywordFields: []string{cols.Number, cols.Name, cols.Phone},
 		apiToColumn: map[string]string{
-			"id": cols.Id, "tenantId": cols.TenantId, "number": cols.Number, "name": cols.Name, "phone": cols.Phone,
-			"effectAt": cols.EffectAt, "expireAt": cols.ExpireAt, "passwordUpdatedAt": cols.PasswordUpdatedAt,
+			"id": cols.Id, "number": cols.Number, "name": cols.Name, "phone": cols.Phone,
+			"effectAt": cols.EffectAt, "expireAt": cols.ExpireAt,
 			"passLevel": cols.PassLevel, "containerId": cols.ContainerId, "unitId": cols.UnitId, "status": cols.Status,
-			"createdBy": cols.CreatedBy, "updatedBy": cols.UpdatedBy, "createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt, "deletedAt": cols.DeletedAt,
+			"createBy": cols.CreateBy, "updateBy": cols.UpdateBy, "createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt, "deletedAt": cols.DeletedAt,
 		},
 		likeFields: map[string]struct{}{"name": {}, "phone": {}},
 		timeFields: commonTimeFields(),
@@ -595,51 +585,51 @@ func (s *serviceImpl) accountResource() *resourceDefinition {
 }
 
 func (s *serviceImpl) accountDetailResource() *resourceDefinition {
-	cols := dao.AccountDetail.Columns()
+	cols := dao.AccountDetails.Columns()
 	return &resourceDefinition{
 		name:          "account-details",
-		table:         dao.AccountDetail.Table(),
+		table:         dao.AccountDetails.Table(),
 		idColumn:      cols.AccountId,
 		defaultOrder:  cols.AccountId,
 		keywordFields: []string{cols.Email, cols.Wechat, cols.Idcard},
 		apiToColumn: map[string]string{
-			"accountId": cols.AccountId, "tenantId": cols.TenantId, "birthday": cols.Birthday, "email": cols.Email, "gender": cols.Gender,
+			"accountId": cols.AccountId, "birthday": cols.Birthday, "email": cols.Email, "gender": cols.Gender,
 			"qq": cols.Qq, "wechat": cols.Wechat, "idcard": cols.Idcard, "avatar": cols.Avatar, "source": cols.Source,
-			"grade": cols.Grade, "college": cols.College, "collegeCode": cols.CollegeCode, "campus": cols.Campus,
-			"schoolSystem": cols.SchoolSystem, "graduatedAt": cols.GraduatedAt, "major": cols.Major, "className": cols.ClassName,
-			"face": cols.Face, "createdBy": cols.CreatedBy, "updatedBy": cols.UpdatedBy, "createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt,
-			"nj": cols.Grade, "xymc": cols.College, "xydm": cols.CollegeCode, "xq": cols.Campus, "xz": cols.SchoolSystem,
-			"yjbysj": cols.GraduatedAt, "zymc": cols.Major, "bjmc": cols.ClassName,
+			"grade": cols.Nj, "college": cols.Xymc, "collegeCode": cols.Xydm, "campus": cols.Xq,
+			"schoolSystem": cols.Xz, "graduatedAt": cols.Yjbysj, "major": cols.Zymc, "className": cols.Bjmc,
+			"face": cols.Face, "createBy": cols.CreateBy, "updateBy": cols.UpdateBy, "createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt,
+			"nj": cols.Nj, "xymc": cols.Xymc, "xydm": cols.Xydm, "xq": cols.Xq, "xz": cols.Xz,
+			"yjbysj": cols.Yjbysj, "zymc": cols.Zymc, "bjmc": cols.Bjmc,
 		},
 		timeFields: commonTimeFields(),
 		dateFields: map[string]struct{}{"birthday": {}},
-		model:      func(ctx context.Context) *gdb.Model { return dao.AccountDetail.Ctx(ctx) },
+		model:      func(ctx context.Context) *gdb.Model { return dao.AccountDetails.Ctx(ctx) },
 		data:       s.accountDetailData,
 	}
 }
 
 func (s *serviceImpl) groupResource() *resourceDefinition {
-	cols := dao.Group.Columns()
-	return simpleNamedResource("groups", dao.Group.Table(), cols.Id, cols.Name, cols.Alias, cols.CreatedBy, cols.UpdatedBy, cols.CreatedAt, cols.UpdatedAt, cols.DeletedAt, func(ctx context.Context) *gdb.Model { return dao.Group.Ctx(ctx) }, s.groupData)
+	cols := dao.Groups.Columns()
+	return simpleNamedResource("groups", dao.Groups.Table(), cols.Id, cols.Name, cols.Alias, cols.CreateBy, cols.UpdateBy, cols.CreatedAt, cols.UpdatedAt, cols.DeletedAt, func(ctx context.Context) *gdb.Model { return dao.Groups.Ctx(ctx) }, s.groupData)
 }
 
 func (s *serviceImpl) unitResource() *resourceDefinition {
-	cols := dao.Unit.Columns()
-	def := simpleNamedResource("units", dao.Unit.Table(), cols.Id, cols.Name, cols.Alias, cols.CreatedBy, cols.UpdatedBy, cols.CreatedAt, cols.UpdatedAt, cols.DeletedAt, func(ctx context.Context) *gdb.Model { return dao.Unit.Ctx(ctx) }, s.unitData)
+	cols := dao.Units.Columns()
+	def := simpleNamedResource("units", dao.Units.Table(), cols.Id, cols.Name, cols.Alias, cols.CreateBy, cols.UpdateBy, cols.CreatedAt, cols.UpdatedAt, cols.DeletedAt, func(ctx context.Context) *gdb.Model { return dao.Units.Ctx(ctx) }, s.unitData)
 	def.apiToColumn["code"] = cols.Code
 	def.keywordFields = append(def.keywordFields, cols.Code)
 	return def
 }
 
 func (s *serviceImpl) containerResource() *resourceDefinition {
-	cols := dao.Container.Columns()
-	def := simpleNamedResource("containers", dao.Container.Table(), cols.Id, cols.Name, cols.Alias, cols.CreatedBy, cols.UpdatedBy, cols.CreatedAt, cols.UpdatedAt, cols.DeletedAt, func(ctx context.Context) *gdb.Model { return dao.Container.Ctx(ctx) }, s.containerData)
+	cols := dao.Containers.Columns()
+	def := simpleNamedResource("containers", dao.Containers.Table(), cols.Id, cols.Name, cols.Alias, cols.CreateBy, cols.UpdateBy, cols.CreatedAt, cols.UpdatedAt, cols.DeletedAt, func(ctx context.Context) *gdb.Model { return dao.Containers.Ctx(ctx) }, s.containerData)
 	def.apiToColumn["accountCount"] = cols.AccountCount
 	def.apiToColumn["adminCount"] = cols.AdminCount
 	return def
 }
 
-func simpleNamedResource(name, table, id, resourceName, alias, createdBy, updatedBy, createdAt, updatedAt, deletedAt string, model func(context.Context) *gdb.Model, data func(context.Context, map[string]any, bool) (any, error)) *resourceDefinition {
+func simpleNamedResource(name, table, id, resourceName, alias, createBy, updateBy, createdAt, updatedAt, deletedAt string, model func(context.Context) *gdb.Model, data func(context.Context, map[string]any, bool) (any, error)) *resourceDefinition {
 	return &resourceDefinition{
 		name:          name,
 		table:         table,
@@ -647,7 +637,7 @@ func simpleNamedResource(name, table, id, resourceName, alias, createdBy, update
 		defaultOrder:  id,
 		keywordFields: []string{resourceName, alias},
 		apiToColumn: map[string]string{
-			"id": id, "name": resourceName, "alias": alias, "createdBy": createdBy, "updatedBy": updatedBy,
+			"id": id, "name": resourceName, "alias": alias, "createBy": createBy, "updateBy": updateBy,
 			"createdAt": createdAt, "updatedAt": updatedAt, "deletedAt": deletedAt,
 		},
 		timeFields: commonTimeFields(),

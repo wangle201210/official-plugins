@@ -14,10 +14,11 @@ import (
 type AccountUnit struct {
 	g.Meta    `orm:"table:plugin_linapro_uidentity_cas_account_unit, do:true"`
 	Id        any        //
-	TenantId  any        //
 	AccountId any        //
-	UnitId    any        //
-	CreatedBy any        //
+	UnitsId   any        //
 	CreatedAt *time.Time //
 	UpdatedAt *time.Time //
+	DeletedAt *time.Time //
+	CreateBy  any        //
+	UpdateBy  any        //
 }

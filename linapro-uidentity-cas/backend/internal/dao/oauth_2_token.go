@@ -8,15 +8,15 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao/internal"
 )
 
-// accountDetailDao is the data access object for the table plugin_linapro_uidentity_cas_account_detail.
+// oauth2TokenDao is the data access object for the table oauth2_token.
 // You can define custom methods on it to extend its functionality as needed.
-type accountDetailDao struct {
-	*internal.AccountDetailDao
+type oauth2TokenDao struct {
+	*internal.Oauth2TokenDao
 }
 
 var (
-	// AccountDetail is a globally accessible object for table plugin_linapro_uidentity_cas_account_detail operations.
-	AccountDetail = accountDetailDao{internal.NewAccountDetailDao()}
+	// Oauth2Token is a globally accessible object for table oauth2_token operations.
+	Oauth2Token = oauth2TokenDao{internal.NewOauth2TokenDao()}
 )
 
 // Add your custom methods and functionality below.

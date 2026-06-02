@@ -12,23 +12,21 @@ import (
 
 // Account is the golang structure of table plugin_linapro_uidentity_cas_account for DAO operations like Where/Data.
 type Account struct {
-	g.Meta            `orm:"table:plugin_linapro_uidentity_cas_account, do:true"`
-	Id                any        //
-	TenantId          any        // Owning tenant ID, 0 means platform
-	Number            any        // Stable account number
-	Name              any        // Account display name
-	Phone             any        // Mobile phone number
-	PasswordHash      any        // Password hash managed by the plugin
-	EffectAt          *time.Time //
-	ExpireAt          *time.Time //
-	PasswordUpdatedAt *time.Time //
-	PassLevel         any        // Password strength level: 0=invalid, higher is stronger
-	ContainerId       any        // Container ID
-	UnitId            any        // Primary unit ID
-	Status            any        // Account status: 0=not active, 1=normal, 2=locked
-	CreatedBy         any        //
-	UpdatedBy         any        //
-	CreatedAt         *time.Time //
-	UpdatedAt         *time.Time //
-	DeletedAt         *time.Time //
+	g.Meta      `orm:"table:plugin_linapro_uidentity_cas_account, do:true"`
+	Id          any        //
+	Number      any        //
+	Name        any        //
+	Phone       any        //
+	EffectAt    *time.Time //
+	ExpireAt    *time.Time //
+	GroupId     any        //
+	PassLevel   any        //
+	ContainerId any        //
+	UnitId      any        //
+	Status      any        //
+	CreatedAt   *time.Time //
+	UpdatedAt   *time.Time //
+	DeletedAt   *time.Time //
+	CreateBy    any        //
+	UpdateBy    any        //
 }

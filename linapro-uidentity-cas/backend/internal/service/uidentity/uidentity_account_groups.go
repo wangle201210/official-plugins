@@ -31,13 +31,13 @@ func accountGroupIDsFromBody(body map[string]any) ([]int64, bool) {
 	return uniquePositiveInt64s(gconv.SliceInt64(body["groupIds"])), true
 }
 
-// validateAccountGroups rejects missing or cross-tenant group IDs before writes.
+// validateAccountGroups rejects missing group IDs before writes.
 func (s *serviceImpl) validateAccountGroups(ctx context.Context, groupIDs []int64) error {
 	if len(groupIDs) == 0 {
 		return nil
 	}
-	groupCount, err := s.tenantFilter.Apply(ctx, dao.Group.Ctx(ctx), "").
-		WhereIn(dao.Group.Columns().Id, groupIDs).
+	groupCount, err := dao.Groups.Ctx(ctx).
+		WhereIn(dao.Groups.Columns().Id, groupIDs).
 		Count()
 	if err != nil {
 		return err
@@ -48,27 +48,24 @@ func (s *serviceImpl) validateAccountGroups(ctx context.Context, groupIDs []int6
 	return nil
 }
 
-// replaceAccountGroups replaces all tenant-visible account group relations.
+// replaceAccountGroups replaces all account group relations.
 func (s *serviceImpl) replaceAccountGroups(ctx context.Context, accountID int64, groupIDs []int64) error {
 	if accountID <= 0 {
 		return bizerr.NewCode(CodeResourceNotFound)
 	}
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
 	return dao.AccountGroup.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
 		if err := s.validateAccountGroups(ctx, groupIDs); err != nil {
 			return err
 		}
-		if _, err := s.tenantFilter.Apply(ctx, dao.AccountGroup.Ctx(ctx), "").
+		if _, err := dao.AccountGroup.Ctx(ctx).
 			Where(dao.AccountGroup.Columns().AccountId, accountID).
 			Delete(); err != nil {
 			return err
 		}
 		for _, groupID := range groupIDs {
 			if _, err := dao.AccountGroup.Ctx(ctx).Data(do.AccountGroup{
-				TenantId:  tenantID,
 				AccountId: accountID,
-				GroupId:   groupID,
-				CreatedBy: actorID,
+				GroupsId:  groupID,
 			}).Insert(); err != nil {
 				return err
 			}

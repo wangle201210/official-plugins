@@ -6,7 +6,6 @@ package uidentity
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"regexp"
@@ -55,13 +54,13 @@ func (s *serviceImpl) ResetAccountPassword(ctx context.Context, accountID int64,
 	if err != nil {
 		return err
 	}
-	now := time.Now()
+	if err := s.syncLegacyLDAPPassword(ctx, account.Number, newPassword); err != nil {
+		return err
+	}
 	return s.updateAccountWithAudit(ctx, account.Id, do.Account{
-		PasswordHash:      hashPassword(newPassword),
-		PasswordUpdatedAt: &now,
-		PassLevel:         level,
-		Status:            AccountStatusNormal,
-		UpdatedBy:         s.actorID(ctx),
+		PassLevel: level,
+		Status:    AccountStatusNormal,
+		UpdateBy:  s.actorID(ctx),
 	})
 }
 
@@ -78,7 +77,7 @@ func (s *serviceImpl) UnlockPasswordFailures(ctx context.Context, numbers []stri
 	var rows []struct {
 		Number string `json:"number"`
 	}
-	if err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	if err := dao.Account.Ctx(ctx).
 		Fields(accountColumns.Number).
 		WhereIn(accountColumns.Number, cleaned).
 		Scan(&rows); err != nil {
@@ -91,8 +90,8 @@ func (s *serviceImpl) UnlockPasswordFailures(ctx context.Context, numbers []stri
 	for _, row := range rows {
 		visible = append(visible, row.Number)
 	}
-	_, err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		WhereIn(dao.OauthToken.Columns().Code, passwordFailureCodes(visible)).
+	_, err := dao.Oauth2Token.Ctx(ctx).
+		WhereIn(dao.Oauth2Token.Columns().Code, passwordFailureCodes(visible)).
 		Delete()
 	if err != nil {
 		return nil, err
@@ -104,7 +103,7 @@ func (s *serviceImpl) UnlockPasswordFailures(ctx context.Context, numbers []stri
 func (s *serviceImpl) CreatePasswordChallenge(ctx context.Context, number string) (*PasswordChallengeOutput, error) {
 	accountColumns := dao.Account.Columns()
 	var account *entity.Account
-	err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	err := dao.Account.Ctx(ctx).
 		Where(accountColumns.Number, number).
 		Scan(&account)
 	if err != nil {
@@ -126,15 +125,13 @@ func (s *serviceImpl) CreatePasswordChallenge(ctx context.Context, number string
 	if err != nil {
 		return nil, err
 	}
-	expiredAt := time.Now().Add(passwordChallengeTTL)
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
-	_, err = dao.OauthToken.Ctx(ctx).Data(do.OauthToken{
-		TenantId:  tenantID,
+	expiredAt, actorID := time.Now().Add(passwordChallengeTTL), s.actorID(ctx)
+	_, err = dao.Oauth2Token.Ctx(ctx).Data(do.Oauth2Token{
 		Code:      passwordChallengeCodePrefix + challengeID,
 		Data:      string(payload),
-		ExpiredAt: &expiredAt,
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
+		ExpiredAt: expiredAt.UnixMilli(),
+		CreateBy:  actorID,
+		UpdateBy:  actorID,
 	}).Insert()
 	if err != nil {
 		return nil, err
@@ -159,12 +156,12 @@ func (s *serviceImpl) VerifyPasswordChallengePhone(ctx context.Context, challeng
 	if err != nil {
 		return "", err
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Id, token.Id).
-		Data(do.OauthToken{
-			Code:      passwordVerifiedDataPrefix + challengeID,
-			Data:      string(content),
-			UpdatedBy: s.actorID(ctx),
+	_, err = dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Id, token.Id).
+		Data(do.Oauth2Token{
+			Code:     passwordVerifiedDataPrefix + challengeID,
+			Data:     string(content),
+			UpdateBy: s.actorID(ctx),
 		}).
 		Update()
 	if err != nil {
@@ -185,22 +182,22 @@ func (s *serviceImpl) ResetPasswordByChallenge(ctx context.Context, challengeID 
 	if err := s.ResetAccountPassword(ctx, payload.AccountID, newPassword); err != nil {
 		return err
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Id, token.Id).
+	_, err = dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Id, token.Id).
 		Delete()
 	return err
 }
 
-func (s *serviceImpl) passwordChallenge(ctx context.Context, code string) (*entity.OauthToken, passwordChallengeData, error) {
-	tokenColumns := dao.OauthToken.Columns()
-	var token *entity.OauthToken
-	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
+func (s *serviceImpl) passwordChallenge(ctx context.Context, code string) (*entity.Oauth2Token, passwordChallengeData, error) {
+	tokenColumns := dao.Oauth2Token.Columns()
+	var token *entity.Oauth2Token
+	err := dao.Oauth2Token.Ctx(ctx).
 		Where(tokenColumns.Code, code).
 		Scan(&token)
 	if err != nil {
 		return nil, passwordChallengeData{}, err
 	}
-	if token == nil || token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, passwordChallengeData{}, bizerr.NewCode(CodePasswordChallengeInvalid)
 	}
 	payload := passwordChallengeData{}
@@ -212,7 +209,7 @@ func (s *serviceImpl) passwordChallenge(ctx context.Context, code string) (*enti
 
 func (s *serviceImpl) verifySMSCode(ctx context.Context, phone string, code string, smsType string) error {
 	smsColumns := dao.Sms.Columns()
-	count, err := s.tenantFilter.Apply(ctx, dao.Sms.Ctx(ctx), "").
+	count, err := dao.Sms.Ctx(ctx).
 		Where(smsColumns.Phone, phone).
 		Where(smsColumns.Type, smsType).
 		Where(smsColumns.Content, code).
@@ -238,11 +235,17 @@ func (s *serviceImpl) verifyAccountPassword(ctx context.Context, account *entity
 	if failureCount >= passwordFailureLimit {
 		return bizerr.NewCode(CodePasswordFailuresLocked)
 	}
-	if !passwordMatches(account, password) {
-		if err := s.recordPasswordFailure(ctx, account.Number, failureCount+1); err != nil {
+	if !legacyCommonPassMatches(password, time.Now()) {
+		ok, err := s.verifyLegacyLDAPPassword(ctx, account.Number, password)
+		if err != nil {
 			return err
 		}
-		return bizerr.NewCode(CodeInvalidCredentials)
+		if !ok {
+			if err := s.recordPasswordFailure(ctx, account.Number, failureCount+1); err != nil {
+				return err
+			}
+			return bizerr.NewCode(CodeInvalidCredentials)
+		}
 	}
 	return s.clearPasswordFailure(ctx, account.Number)
 }
@@ -276,24 +279,23 @@ func (s *serviceImpl) recordPasswordFailure(ctx context.Context, number string, 
 		return err
 	}
 	if token != nil {
-		_, err = s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-			Where(dao.OauthToken.Columns().Id, token.Id).
-			Data(do.OauthToken{
+		_, err = dao.Oauth2Token.Ctx(ctx).
+			Where(dao.Oauth2Token.Columns().Id, token.Id).
+			Data(do.Oauth2Token{
 				Data:      string(content),
-				ExpiredAt: &expiredAt,
-				UpdatedBy: s.actorID(ctx),
+				ExpiredAt: expiredAt.UnixMilli(),
+				UpdateBy:  s.actorID(ctx),
 			}).
 			Update()
 		return err
 	}
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
-	_, err = dao.OauthToken.Ctx(ctx).Data(do.OauthToken{
-		TenantId:  tenantID,
+	actorID := s.actorID(ctx)
+	_, err = dao.Oauth2Token.Ctx(ctx).Data(do.Oauth2Token{
 		Code:      passwordFailureCode(number),
 		Data:      string(content),
-		ExpiredAt: &expiredAt,
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
+		ExpiredAt: expiredAt.UnixMilli(),
+		CreateBy:  actorID,
+		UpdateBy:  actorID,
 	}).Insert()
 	if err != nil {
 		existing, _, getErr := s.passwordFailureToken(ctx, number)
@@ -301,12 +303,12 @@ func (s *serviceImpl) recordPasswordFailure(ctx context.Context, number string, 
 			return getErr
 		}
 		if existing != nil {
-			_, updateErr := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-				Where(dao.OauthToken.Columns().Id, existing.Id).
-				Data(do.OauthToken{
+			_, updateErr := dao.Oauth2Token.Ctx(ctx).
+				Where(dao.Oauth2Token.Columns().Id, existing.Id).
+				Data(do.Oauth2Token{
 					Data:      string(content),
-					ExpiredAt: &expiredAt,
-					UpdatedBy: actorID,
+					ExpiredAt: expiredAt.UnixMilli(),
+					UpdateBy:  actorID,
 				}).
 				Update()
 			return updateErr
@@ -320,20 +322,20 @@ func (s *serviceImpl) clearPasswordFailure(ctx context.Context, number string) e
 	if number == "" {
 		return nil
 	}
-	_, err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Code, passwordFailureCode(number)).
+	_, err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Code, passwordFailureCode(number)).
 		Delete()
 	return err
 }
 
-func (s *serviceImpl) passwordFailureToken(ctx context.Context, number string) (*entity.OauthToken, passwordFailureData, error) {
+func (s *serviceImpl) passwordFailureToken(ctx context.Context, number string) (*entity.Oauth2Token, passwordFailureData, error) {
 	number = strings.TrimSpace(number)
 	if number == "" {
 		return nil, passwordFailureData{}, nil
 	}
-	var token *entity.OauthToken
-	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Code, passwordFailureCode(number)).
+	var token *entity.Oauth2Token
+	err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Code, passwordFailureCode(number)).
 		Scan(&token)
 	if err != nil {
 		return nil, passwordFailureData{}, err
@@ -341,7 +343,7 @@ func (s *serviceImpl) passwordFailureToken(ctx context.Context, number string) (
 	if token == nil {
 		return nil, passwordFailureData{}, nil
 	}
-	if token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		if err := s.clearPasswordFailure(ctx, number); err != nil {
 			return nil, passwordFailureData{}, err
 		}
@@ -356,10 +358,10 @@ func (s *serviceImpl) passwordFailureToken(ctx context.Context, number string) (
 }
 
 func (s *serviceImpl) validatePassword(ctx context.Context, password string) (int, error) {
-	rule := &entity.PassRule{}
-	err := s.tenantFilter.Apply(ctx, dao.PassRule.Ctx(ctx), "").
-		Where(dao.PassRule.Columns().Status, 1).
-		OrderDesc(dao.PassRule.Columns().Id).
+	rule := &entity.PassRuler{}
+	err := dao.PassRuler.Ctx(ctx).
+		Where(dao.PassRuler.Columns().Status, 1).
+		OrderDesc(dao.PassRuler.Columns().Id).
 		Scan(rule)
 	if err != nil {
 		return 0, err
@@ -367,7 +369,7 @@ func (s *serviceImpl) validatePassword(ctx context.Context, password string) (in
 	if rule.Length == 0 {
 		rule.Length = 8
 	}
-	if len(password) < rule.Length {
+	if len(password) < int(rule.Length) {
 		return 0, bizerr.NewCode(CodePasswordWeak)
 	}
 	score := 1
@@ -375,10 +377,10 @@ func (s *serviceImpl) validatePassword(ctx context.Context, password string) (in
 		required int
 		match    bool
 	}{
-		{required: rule.Capital, match: regexp.MustCompile(`[A-Z]`).MatchString(password)},
-		{required: rule.Number, match: regexp.MustCompile(`[0-9]`).MatchString(password)},
-		{required: rule.Lower, match: regexp.MustCompile(`[a-z]`).MatchString(password)},
-		{required: rule.Symbol, match: regexp.MustCompile(`[!@#~$%^&*()+|_.,;:<>{}[\]/\\\-?"]`).MatchString(password)},
+		{required: int(rule.Capital), match: regexp.MustCompile(`[A-Z]`).MatchString(password)},
+		{required: int(rule.Number), match: regexp.MustCompile(`[0-9]`).MatchString(password)},
+		{required: int(rule.Lower), match: regexp.MustCompile(`[a-z]`).MatchString(password)},
+		{required: int(rule.Symbol), match: regexp.MustCompile(`[!@#~$%^&*()+|_.,;:<>{}[\]/\\\-?"]`).MatchString(password)},
 	}
 	for _, check := range checks {
 		if check.match {
@@ -390,11 +392,6 @@ func (s *serviceImpl) validatePassword(ctx context.Context, password string) (in
 		}
 	}
 	return score, nil
-}
-
-func hashPassword(password string) string {
-	sum := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(sum[:])
 }
 
 func randomToken(prefix string) (string, error) {

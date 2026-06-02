@@ -22,33 +22,31 @@ type GroupAppBlacklistDao struct {
 // GroupAppBlacklistColumns defines and stores column names for the table plugin_linapro_uidentity_cas_group_app_blacklist.
 type GroupAppBlacklistColumns struct {
 	Id        string //
-	TenantId  string //
 	Name      string //
 	AppId     string //
 	GroupId   string //
 	EffectAt  string //
 	ExpireAt  string //
-	CreatedBy string //
-	UpdatedBy string //
 	CreatedAt string //
 	UpdatedAt string //
 	DeletedAt string //
+	CreateBy  string //
+	UpdateBy  string //
 }
 
 // groupAppBlacklistColumns holds the columns for the table plugin_linapro_uidentity_cas_group_app_blacklist.
 var groupAppBlacklistColumns = GroupAppBlacklistColumns{
 	Id:        "id",
-	TenantId:  "tenant_id",
 	Name:      "name",
 	AppId:     "app_id",
 	GroupId:   "group_id",
 	EffectAt:  "effect_at",
 	ExpireAt:  "expire_at",
-	CreatedBy: "created_by",
-	UpdatedBy: "updated_by",
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
 	DeletedAt: "deleted_at",
+	CreateBy:  "create_by",
+	UpdateBy:  "update_by",
 }
 
 // NewGroupAppBlacklistDao creates and returns a new DAO object for table data access.

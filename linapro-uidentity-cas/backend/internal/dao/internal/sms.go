@@ -22,33 +22,31 @@ type SmsDao struct {
 // SmsColumns defines and stores column names for the table plugin_linapro_uidentity_cas_sms.
 type SmsColumns struct {
 	Id        string //
-	TenantId  string //
 	Phone     string //
 	Type      string //
 	Content   string //
 	Status    string //
 	RespMsg   string //
-	CreatedBy string //
-	UpdatedBy string //
 	CreatedAt string //
 	UpdatedAt string //
 	DeletedAt string //
+	CreateBy  string //
+	UpdateBy  string //
 }
 
 // smsColumns holds the columns for the table plugin_linapro_uidentity_cas_sms.
 var smsColumns = SmsColumns{
 	Id:        "id",
-	TenantId:  "tenant_id",
 	Phone:     "phone",
 	Type:      "type",
 	Content:   "content",
 	Status:    "status",
 	RespMsg:   "resp_msg",
-	CreatedBy: "created_by",
-	UpdatedBy: "updated_by",
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
 	DeletedAt: "deleted_at",
+	CreateBy:  "create_by",
+	UpdateBy:  "update_by",
 }
 
 // NewSmsDao creates and returns a new DAO object for table data access.

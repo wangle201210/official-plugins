@@ -18,7 +18,7 @@ import (
 
 func TestResourceAccountAuditLifecycle(t *testing.T) {
 	ctx := context.Background()
-	configureUIdentityTestDB(t, ctx, dao.Account.Table(), dao.AccountDetail.Table(), dao.AccountChangeLog.Table())
+	configureUIdentityTestDB(t, ctx, dao.Account.Table(), dao.AccountDetails.Table(), dao.AccountChangeLog.Table())
 
 	tenantID := int(time.Now().UnixNano()%1000000) + 910000
 	actorID := 8812
@@ -30,16 +30,15 @@ func TestResourceAccountAuditLifecycle(t *testing.T) {
 		}},
 	}
 
-	cleanupAccountAuditTestRows(t, ctx, tenantID)
+	cleanupAccountAuditTestRows(t, ctx, number)
 	t.Cleanup(func() {
-		cleanupAccountAuditTestRows(t, ctx, tenantID)
+		cleanupAccountAuditTestRows(t, ctx, number)
 	})
 
 	accountID, err := service.CreateResource(ctx, "accounts", map[string]any{
-		"number":       number,
-		"name":         "Audit User",
-		"phone":        "15500008812",
-		"passwordHash": "do-not-store-me",
+		"number": number,
+		"name":   "Audit User",
+		"phone":  "15500008812",
 	})
 	if err != nil {
 		t.Fatalf("create account resource: %v", err)
@@ -85,7 +84,7 @@ func accountAuditLog(t *testing.T, ctx context.Context, tenantID int, accountID 
 	t.Helper()
 	var logRow *entity.AccountChangeLog
 	err := dao.AccountChangeLog.Ctx(ctx).
-		Where(do.AccountChangeLog{TenantId: tenantID, AccountId: accountID, TableName: tableName, Action: action}).
+		Where(do.AccountChangeLog{AccountId: accountID, TableName: tableName, Action: action}).
 		OrderDesc(dao.AccountChangeLog.Columns().Id).
 		Scan(&logRow)
 	if err != nil {
@@ -94,12 +93,12 @@ func accountAuditLog(t *testing.T, ctx context.Context, tenantID int, accountID 
 	return logRow
 }
 
-func cleanupAccountAuditTestRows(t *testing.T, ctx context.Context, tenantID int) {
+func cleanupAccountAuditTestRows(t *testing.T, ctx context.Context, number string) {
 	t.Helper()
 	var accountIDs []int64
 	if rows, err := dao.Account.Ctx(ctx).Unscoped().
 		Fields(dao.Account.Columns().Id).
-		Where(do.Account{TenantId: tenantID}).
+		Where(dao.Account.Columns().Number, number).
 		Array(); err == nil {
 		for _, id := range rows {
 			if value := id.Int64(); value > 0 {
@@ -110,16 +109,18 @@ func cleanupAccountAuditTestRows(t *testing.T, ctx context.Context, tenantID int
 		t.Fatalf("list audit cleanup accounts: %v", err)
 	}
 	if len(accountIDs) > 0 {
-		if _, err := dao.AccountDetail.Ctx(ctx).Unscoped().WhereIn(dao.AccountDetail.Columns().AccountId, accountIDs).Delete(); err != nil {
+		if _, err := dao.AccountDetails.Ctx(ctx).Unscoped().WhereIn(dao.AccountDetails.Columns().AccountId, accountIDs).Delete(); err != nil {
 			t.Fatalf("cleanup audit account details: %v", err)
 		}
 		if _, err := dao.Account.Ctx(ctx).Unscoped().WhereIn(dao.Account.Columns().Id, accountIDs).Delete(); err != nil {
 			t.Fatalf("cleanup audit accounts: %v", err)
 		}
 	}
-	if _, err := dao.AccountChangeLog.Ctx(ctx).Unscoped().
-		Where(do.AccountChangeLog{TenantId: tenantID}).
-		Delete(); err != nil {
-		t.Fatalf("cleanup audit logs: %v", err)
+	if len(accountIDs) > 0 {
+		if _, err := dao.AccountChangeLog.Ctx(ctx).Unscoped().
+			WhereIn(dao.AccountChangeLog.Columns().AccountId, accountIDs).
+			Delete(); err != nil {
+			t.Fatalf("cleanup audit logs: %v", err)
+		}
 	}
 }

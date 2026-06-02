@@ -21,46 +21,42 @@ type AccountDao struct {
 
 // AccountColumns defines and stores column names for the table plugin_linapro_uidentity_cas_account.
 type AccountColumns struct {
-	Id                string //
-	TenantId          string // Owning tenant ID, 0 means platform
-	Number            string // Stable account number
-	Name              string // Account display name
-	Phone             string // Mobile phone number
-	PasswordHash      string // Password hash managed by the plugin
-	EffectAt          string //
-	ExpireAt          string //
-	PasswordUpdatedAt string //
-	PassLevel         string // Password strength level: 0=invalid, higher is stronger
-	ContainerId       string // Container ID
-	UnitId            string // Primary unit ID
-	Status            string // Account status: 0=not active, 1=normal, 2=locked
-	CreatedBy         string //
-	UpdatedBy         string //
-	CreatedAt         string //
-	UpdatedAt         string //
-	DeletedAt         string //
+	Id          string //
+	Number      string //
+	Name        string //
+	Phone       string //
+	EffectAt    string //
+	ExpireAt    string //
+	GroupId     string //
+	PassLevel   string //
+	ContainerId string //
+	UnitId      string //
+	Status      string //
+	CreatedAt   string //
+	UpdatedAt   string //
+	DeletedAt   string //
+	CreateBy    string //
+	UpdateBy    string //
 }
 
 // accountColumns holds the columns for the table plugin_linapro_uidentity_cas_account.
 var accountColumns = AccountColumns{
-	Id:                "id",
-	TenantId:          "tenant_id",
-	Number:            "number",
-	Name:              "name",
-	Phone:             "phone",
-	PasswordHash:      "password_hash",
-	EffectAt:          "effect_at",
-	ExpireAt:          "expire_at",
-	PasswordUpdatedAt: "password_updated_at",
-	PassLevel:         "pass_level",
-	ContainerId:       "container_id",
-	UnitId:            "unit_id",
-	Status:            "status",
-	CreatedBy:         "created_by",
-	UpdatedBy:         "updated_by",
-	CreatedAt:         "created_at",
-	UpdatedAt:         "updated_at",
-	DeletedAt:         "deleted_at",
+	Id:          "id",
+	Number:      "number",
+	Name:        "name",
+	Phone:       "phone",
+	EffectAt:    "effect_at",
+	ExpireAt:    "expire_at",
+	GroupId:     "group_id",
+	PassLevel:   "pass_level",
+	ContainerId: "container_id",
+	UnitId:      "unit_id",
+	Status:      "status",
+	CreatedAt:   "created_at",
+	UpdatedAt:   "updated_at",
+	DeletedAt:   "deleted_at",
+	CreateBy:    "create_by",
+	UpdateBy:    "update_by",
 }
 
 // NewAccountDao creates and returns a new DAO object for table data access.

@@ -57,22 +57,20 @@ func (s *serviceImpl) CreateRuntimeWechatRebindState(ctx context.Context, in Wec
 	if err != nil {
 		return nil, err
 	}
-	tenantID := s.tenantID(ctx)
 	expiredAt := time.Now().Add(activationTTL)
 	millis := expiredAt.UnixMilli()
 	payload := wechatRebindStateData{
 		Kind:      ticketKindWechatRebind,
 		State:     state,
-		TenantID:  tenantID,
 		Number:    account.Number,
 		AccountID: account.Id,
 		Callback:  strings.TrimSpace(in.Callback),
 		Status:    wechatRebindStatusPending,
 		ExpiredAt: millis,
 	}
-	if err := s.createRuntimeToken(ctx, do.OauthToken{
+	if err := s.createRuntimeToken(ctx, do.Oauth2Token{
 		Code:      ticketCodePrefixWechatRebind + state,
-		ExpiredAt: &expiredAt,
+		ExpiredAt: expiredAt.UnixMilli(),
 	}, payload); err != nil {
 		return nil, err
 	}
@@ -104,12 +102,12 @@ func (s *serviceImpl) CompleteRuntimeWechatRebind(ctx context.Context, in Wechat
 		payload.ErrorCode = CodeUnsupportedExternalFlow.RuntimeCode()
 		payload.Message = CodeUnsupportedExternalFlow.Fallback()
 		payload.RedirectURL = s.wechatRebindRedirectURL(ctx, payload)
-		if err := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); err != nil {
+		if err := s.updateRuntimePayload(ctx, token.Id, payload); err != nil {
 			return nil, err
 		}
 		return wechatRebindResult(payload), nil
 	}
-	if err := s.bindUnionIDToAccountForTenant(ctx, token.TenantId, payload.AccountID, unionID); err != nil {
+	if err := s.bindUnionIDToAccount(ctx, payload.AccountID, unionID); err != nil {
 		payload.Status = wechatRebindStatusFailed
 		if meta, ok := bizerr.As(err); ok {
 			payload.ErrorCode = meta.RuntimeCode()
@@ -118,7 +116,7 @@ func (s *serviceImpl) CompleteRuntimeWechatRebind(ctx context.Context, in Wechat
 			payload.Message = err.Error()
 		}
 		payload.RedirectURL = s.wechatRebindRedirectURL(ctx, payload)
-		if updateErr := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); updateErr != nil {
+		if updateErr := s.updateRuntimePayload(ctx, token.Id, payload); updateErr != nil {
 			return nil, updateErr
 		}
 		return nil, err
@@ -126,14 +124,14 @@ func (s *serviceImpl) CompleteRuntimeWechatRebind(ctx context.Context, in Wechat
 	payload.UnionID = unionID
 	payload.Status = wechatRebindStatusSuccess
 	payload.RedirectURL = s.wechatRebindRedirectURL(ctx, payload)
-	account, err := s.getAccountByIDForTenant(ctx, token.TenantId, payload.AccountID)
+	account, err := s.getAccountByID(ctx, payload.AccountID)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.recordAccountActiveLogForTenant(ctx, token.TenantId, account, unionID, accountActiveLogTypeActivation); err != nil {
+	if err := s.recordAccountActiveLog(ctx, account, unionID, accountActiveLogTypeActivation); err != nil {
 		return nil, err
 	}
-	if err := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); err != nil {
+	if err := s.updateRuntimePayload(ctx, token.Id, payload); err != nil {
 		return nil, err
 	}
 	return wechatRebindResult(payload), nil
@@ -151,87 +149,39 @@ func (s *serviceImpl) GetRuntimeWechatRebindState(ctx context.Context, in Wechat
 	return wechatRebindResult(payload), nil
 }
 
-func (s *serviceImpl) wechatRebindState(ctx context.Context, state string) (*entity.OauthToken, *wechatRebindStateData, error) {
-	model := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "")
+func (s *serviceImpl) wechatRebindState(ctx context.Context, state string) (*entity.Oauth2Token, *wechatRebindStateData, error) {
+	model := dao.Oauth2Token.Ctx(ctx)
 	return s.wechatRebindStateByModel(ctx, model, state)
 }
 
-func (s *serviceImpl) wechatRebindStateUnscoped(ctx context.Context, state string) (*entity.OauthToken, *wechatRebindStateData, error) {
-	return s.wechatRebindStateByModel(ctx, dao.OauthToken.Ctx(ctx), state)
+func (s *serviceImpl) wechatRebindStateUnscoped(ctx context.Context, state string) (*entity.Oauth2Token, *wechatRebindStateData, error) {
+	return s.wechatRebindStateByModel(ctx, dao.Oauth2Token.Ctx(ctx), state)
 }
 
-func (s *serviceImpl) wechatRebindStateByModel(ctx context.Context, model *gdb.Model, state string) (*entity.OauthToken, *wechatRebindStateData, error) {
+func (s *serviceImpl) wechatRebindStateByModel(ctx context.Context, model *gdb.Model, state string) (*entity.Oauth2Token, *wechatRebindStateData, error) {
 	trimmed := strings.TrimSpace(state)
 	if trimmed == "" {
 		return nil, nil, bizerr.NewCode(CodeWechatRebindInvalid)
 	}
-	var token *entity.OauthToken
+	var token *entity.Oauth2Token
 	err := model.
-		Where(dao.OauthToken.Columns().Code, ticketCodePrefixWechatRebind+trimmed).
+		Where(dao.Oauth2Token.Columns().Code, ticketCodePrefixWechatRebind+trimmed).
 		Scan(&token)
 	if err != nil {
 		return nil, nil, err
 	}
-	if token == nil || token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+	if token == nil || runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeWechatRebindInvalid)
 	}
 	payload := &wechatRebindStateData{}
 	if err := json.Unmarshal([]byte(token.Data), payload); err != nil {
 		return nil, nil, bizerr.NewCode(CodeWechatRebindInvalid)
 	}
-	if payload.Kind != ticketKindWechatRebind || payload.State != trimmed || payload.TenantID != token.TenantId {
+	if payload.Kind != ticketKindWechatRebind || payload.State != trimmed {
 		return nil, nil, bizerr.NewCode(CodeWechatRebindInvalid)
 	}
-	payload.ExpiredAt = token.ExpiredAt.UnixMilli()
+	payload.ExpiredAt = token.ExpiredAt
 	return token, payload, nil
-}
-
-func (s *serviceImpl) updateRuntimePayloadForTenant(ctx context.Context, tenantID int, tokenID int64, payload any) error {
-	content, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	_, err = dao.OauthToken.Ctx(ctx).
-		Where(dao.OauthToken.Columns().TenantId, tenantID).
-		Where(dao.OauthToken.Columns().Id, tokenID).
-		Data(do.OauthToken{Data: string(content), UpdatedBy: s.actorID(ctx)}).
-		Update()
-	return err
-}
-
-func (s *serviceImpl) bindUnionIDToAccountForTenant(ctx context.Context, tenantID int, accountID int64, unionID string) error {
-	trimmed := strings.TrimSpace(unionID)
-	if trimmed == "" {
-		return bizerr.NewCode(CodeUnionIDChallengeInvalid)
-	}
-	count, err := dao.AccountDetail.Ctx(ctx).
-		Where(dao.AccountDetail.Columns().TenantId, tenantID).
-		Where(dao.AccountDetail.Columns().Wechat, trimmed).
-		WhereNot(dao.AccountDetail.Columns().AccountId, accountID).
-		Count()
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		return bizerr.NewCode(CodeContactConflict)
-	}
-	existing, err := dao.AccountDetail.Ctx(ctx).
-		Where(dao.AccountDetail.Columns().TenantId, tenantID).
-		Where(dao.AccountDetail.Columns().AccountId, accountID).
-		Count()
-	if err != nil {
-		return err
-	}
-	if existing == 0 {
-		return s.createAccountDetailWithAuditForTenant(ctx, tenantID, do.AccountDetail{
-			TenantId:  tenantID,
-			AccountId: accountID,
-			Wechat:    trimmed,
-			CreatedBy: s.actorID(ctx),
-			UpdatedBy: s.actorID(ctx),
-		}, accountID)
-	}
-	return s.updateAccountDetailWithAuditForTenant(ctx, tenantID, accountID, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)})
 }
 
 func (s *serviceImpl) wechatRebindRedirectURL(ctx context.Context, payload *wechatRebindStateData) string {

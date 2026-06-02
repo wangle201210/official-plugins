@@ -37,19 +37,19 @@ type totalByApp struct {
 
 // Stats returns aggregate identity and authentication statistics.
 func (s *serviceImpl) Stats(ctx context.Context) (*StatsOutput, error) {
-	accountCount, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").Count()
+	accountCount, err := dao.Account.Ctx(ctx).Count()
 	if err != nil {
 		return nil, err
 	}
-	appCount, err := s.tenantFilter.Apply(ctx, dao.Application.Ctx(ctx), "").Count()
+	appCount, err := dao.Applications.Ctx(ctx).Count()
 	if err != nil {
 		return nil, err
 	}
-	casCount, err := s.tenantFilter.Apply(ctx, dao.CasLoginLog.Ctx(ctx), "").Count()
+	casCount, err := dao.CasLoginLog.Ctx(ctx).Count()
 	if err != nil {
 		return nil, err
 	}
-	oauthCount, err := s.tenantFilter.Apply(ctx, dao.OauthLog.Ctx(ctx), "").Count()
+	oauthCount, err := dao.OauthLog.Ctx(ctx).Count()
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (s *serviceImpl) Stats(ctx context.Context) (*StatsOutput, error) {
 func (s *serviceImpl) userByContainer(ctx context.Context) ([]*StatItem, error) {
 	rows := make([]*totalByContainer, 0)
 	accountColumns := dao.Account.Columns()
-	err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	err := dao.Account.Ctx(ctx).
 		Fields(accountColumns.ContainerId, "COUNT(*) AS total").
 		Group(accountColumns.ContainerId).
 		Scan(&rows)
@@ -110,7 +110,7 @@ func (s *serviceImpl) casByAccountType(ctx context.Context) ([]*StatItem, error)
 	accountColumns := dao.Account.Columns()
 	loginColumns := dao.CasLoginLog.Columns()
 	rows := make([]*totalByContainer, 0)
-	err := s.tenantFilter.Apply(ctx, dao.CasLoginLog.Ctx(ctx), "").
+	err := dao.CasLoginLog.Ctx(ctx).
 		LeftJoin(dao.Account.Table()+" a", "a."+accountColumns.Id+"="+dao.CasLoginLog.Table()+"."+loginColumns.AccountId).
 		Fields("a."+accountColumns.ContainerId+" AS container_id", "COUNT(*) AS total").
 		Group("a." + accountColumns.ContainerId).
@@ -122,8 +122,8 @@ func (s *serviceImpl) casByAccountType(ctx context.Context) ([]*StatItem, error)
 }
 
 func (s *serviceImpl) containerStats(ctx context.Context, rows []*totalByContainer) ([]*StatItem, error) {
-	containerColumns := dao.Container.Columns()
-	result, err := s.tenantFilter.Apply(ctx, dao.Container.Ctx(ctx), "").
+	containerColumns := dao.Containers.Columns()
+	result, err := dao.Containers.Ctx(ctx).
 		Fields(containerColumns.Id, containerColumns.Alias).
 		All()
 	if err != nil {
@@ -154,8 +154,8 @@ func (s *serviceImpl) containerStats(ctx context.Context, rows []*totalByContain
 
 func (s *serviceImpl) appByType(ctx context.Context) ([]*StatItem, error) {
 	rows := make([]*totalByAccessModel, 0)
-	columns := dao.Application.Columns()
-	err := s.tenantFilter.Apply(ctx, dao.Application.Ctx(ctx), "").
+	columns := dao.Applications.Columns()
+	err := dao.Applications.Ctx(ctx).
 		Fields(columns.AccessModel, "COUNT(*) AS total").
 		Group(columns.AccessModel).
 		Scan(&rows)
@@ -172,7 +172,7 @@ func (s *serviceImpl) appByType(ctx context.Context) ([]*StatItem, error) {
 func (s *serviceImpl) passLevelStats(ctx context.Context) ([]*StatItem, error) {
 	rows := make([]*totalByPassLevel, 0)
 	columns := dao.Account.Columns()
-	err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	err := dao.Account.Ctx(ctx).
 		Fields(columns.PassLevel, "COUNT(*) AS total").
 		Group(columns.PassLevel).
 		Scan(&rows)
@@ -189,7 +189,7 @@ func (s *serviceImpl) passLevelStats(ctx context.Context) ([]*StatItem, error) {
 func (s *serviceImpl) loginTypeStats(ctx context.Context) ([]*StatItem, error) {
 	rows := make([]*totalByLoginType, 0)
 	columns := dao.CasLoginLog.Columns()
-	err := s.tenantFilter.Apply(ctx, dao.CasLoginLog.Ctx(ctx), "").
+	err := dao.CasLoginLog.Ctx(ctx).
 		Fields(columns.LoginType, "COUNT(*) AS total").
 		Group(columns.LoginType).
 		Scan(&rows)
@@ -206,7 +206,7 @@ func (s *serviceImpl) loginTypeStats(ctx context.Context) ([]*StatItem, error) {
 func (s *serviceImpl) loginAppStats(ctx context.Context) ([]*StatItem, error) {
 	rows := make([]*totalByApp, 0)
 	columns := dao.CasLoginLog.Columns()
-	err := s.tenantFilter.Apply(ctx, dao.CasLoginLog.Ctx(ctx), "").
+	err := dao.CasLoginLog.Ctx(ctx).
 		Fields(columns.AppId, "COUNT(*) AS total").
 		Group(columns.AppId).
 		Scan(&rows)
@@ -219,8 +219,8 @@ func (s *serviceImpl) loginAppStats(ctx context.Context) ([]*StatItem, error) {
 			appIDs = append(appIDs, row.AppId)
 		}
 	}
-	appColumns := dao.Application.Columns()
-	names, err := s.nameMap(ctx, dao.Application.Ctx(ctx), appColumns.Id, appColumns.Alias, appIDs)
+	appColumns := dao.Applications.Columns()
+	names, err := s.nameMap(ctx, dao.Applications.Ctx(ctx), appColumns.Id, appColumns.Alias, appIDs)
 	if err != nil {
 		return nil, err
 	}

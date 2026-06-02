@@ -22,31 +22,29 @@ type AccountAppRoleDao struct {
 // AccountAppRoleColumns defines and stores column names for the table plugin_linapro_uidentity_cas_account_app_role.
 type AccountAppRoleColumns struct {
 	Id                 string //
-	TenantId           string //
 	GiveAccountId      string //
 	EmpoweredAccountId string //
 	AppId              string //
 	ExpireAt           string //
-	CreatedBy          string //
-	UpdatedBy          string //
 	CreatedAt          string //
 	UpdatedAt          string //
 	DeletedAt          string //
+	CreateBy           string //
+	UpdateBy           string //
 }
 
 // accountAppRoleColumns holds the columns for the table plugin_linapro_uidentity_cas_account_app_role.
 var accountAppRoleColumns = AccountAppRoleColumns{
 	Id:                 "id",
-	TenantId:           "tenant_id",
 	GiveAccountId:      "give_account_id",
 	EmpoweredAccountId: "empowered_account_id",
 	AppId:              "app_id",
 	ExpireAt:           "expire_at",
-	CreatedBy:          "created_by",
-	UpdatedBy:          "updated_by",
 	CreatedAt:          "created_at",
 	UpdatedAt:          "updated_at",
 	DeletedAt:          "deleted_at",
+	CreateBy:           "create_by",
+	UpdateBy:           "update_by",
 }
 
 // NewAccountAppRoleDao creates and returns a new DAO object for table data access.

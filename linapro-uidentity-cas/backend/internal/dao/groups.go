@@ -8,15 +8,15 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao/internal"
 )
 
-// applicationDao is the data access object for the table plugin_linapro_uidentity_cas_application.
+// groupsDao is the data access object for the table groups.
 // You can define custom methods on it to extend its functionality as needed.
-type applicationDao struct {
-	*internal.ApplicationDao
+type groupsDao struct {
+	*internal.GroupsDao
 }
 
 var (
-	// Application is a globally accessible object for table plugin_linapro_uidentity_cas_application operations.
-	Application = applicationDao{internal.NewApplicationDao()}
+	// Groups is a globally accessible object for table groups operations.
+	Groups = groupsDao{internal.NewGroupsDao()}
 )
 
 // Add your custom methods and functionality below.

@@ -10,19 +10,16 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// OauthToken is the golang structure of table plugin_linapro_uidentity_cas_oauth_token for DAO operations like Where/Data.
-type OauthToken struct {
-	g.Meta    `orm:"table:plugin_linapro_uidentity_cas_oauth_token, do:true"`
+// Units is the golang structure of table plugin_linapro_uidentity_cas_units for DAO operations like Where/Data.
+type Units struct {
+	g.Meta    `orm:"table:plugin_linapro_uidentity_cas_units, do:true"`
 	Id        any        //
-	TenantId  any        //
-	ExpiredAt *time.Time //
+	Name      any        //
+	Alias     any        //
 	Code      any        //
-	Access    any        //
-	Refresh   any        //
-	Data      any        //
-	CreatedBy any        //
-	UpdatedBy any        //
 	CreatedAt *time.Time //
 	UpdatedAt *time.Time //
 	DeletedAt *time.Time //
+	CreateBy  any        //
+	UpdateBy  any        //
 }

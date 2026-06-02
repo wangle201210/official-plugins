@@ -7,6 +7,7 @@ package jobs
 import (
 	"context"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/gogf/gf/contrib/drivers/oracle/v2"
@@ -410,27 +411,31 @@ func (s *serviceImpl) upsertOracleUnits(ctx context.Context, tenantID int, rows 
 		}
 		unit := existing[code]
 		if unit == nil {
-			id, err := dao.Unit.Ctx(ctx).Data(do.Unit{
-				TenantId:  tenantID,
-				Name:      name,
-				Code:      code,
-				CreatedBy: int64(0),
-				UpdatedBy: int64(0),
+			parsedCode, parseErr := strconv.ParseInt(code, 10, 64)
+			if parseErr != nil {
+				stats.errNum++
+				logger.Warningf(ctx, "uidentity oracle dept code is not numeric code=%s", code)
+				continue
+			}
+			id, err := dao.Units.Ctx(ctx).Data(do.Units{
+				Name:     name,
+				Code:     parsedCode,
+				CreateBy: int64(0),
+				UpdateBy: int64(0),
 			}).InsertAndGetId()
 			if err != nil {
 				stats.errNum++
 				logger.Warningf(ctx, "uidentity oracle dept create failed code=%s err=%v", code, err)
 				continue
 			}
-			existing[code] = &entity.Unit{Id: id, TenantId: tenantID, Code: code, Name: name}
+			existing[code] = &entity.Units{Id: id, Code: parsedCode, Name: name}
 			stats.createNum++
 			continue
 		}
 		if name != unit.Name {
-			_, err := dao.Unit.Ctx(ctx).
-				Where(dao.Unit.Columns().TenantId, tenantID).
-				Where(dao.Unit.Columns().Id, unit.Id).
-				Data(do.Unit{Name: name, UpdatedBy: int64(0)}).
+			_, err := dao.Units.Ctx(ctx).
+				Where(dao.Units.Columns().Id, unit.Id).
+				Data(do.Units{Name: name, UpdateBy: int64(0)}).
 				Update()
 			if err != nil {
 				stats.errNum++
@@ -444,22 +449,31 @@ func (s *serviceImpl) upsertOracleUnits(ctx context.Context, tenantID int, rows 
 	return nil
 }
 
-func unitsByCodes(ctx context.Context, tenantID int, codes []string) (map[string]*entity.Unit, error) {
-	result := make(map[string]*entity.Unit, len(codes))
+func unitsByCodes(ctx context.Context, tenantID int, codes []string) (map[string]*entity.Units, error) {
+	result := make(map[string]*entity.Units, len(codes))
 	if len(codes) == 0 {
 		return result, nil
 	}
-	var units []*entity.Unit
-	err := dao.Unit.Ctx(ctx).
-		Where(dao.Unit.Columns().TenantId, tenantID).
-		WhereIn(dao.Unit.Columns().Code, codes).
+	var units []*entity.Units
+	codeValues := make([]int64, 0, len(codes))
+	for _, code := range codes {
+		parsed, err := strconv.ParseInt(strings.TrimSpace(code), 10, 64)
+		if err == nil && parsed > 0 {
+			codeValues = append(codeValues, parsed)
+		}
+	}
+	if len(codeValues) == 0 {
+		return result, nil
+	}
+	err := dao.Units.Ctx(ctx).
+		WhereIn(dao.Units.Columns().Code, codeValues).
 		Scan(&units)
 	if err != nil {
 		return nil, err
 	}
 	for _, unit := range units {
 		if unit != nil {
-			result[unit.Code] = unit
+			result[strconv.FormatInt(unit.Code, 10)] = unit
 		}
 	}
 	return result, nil

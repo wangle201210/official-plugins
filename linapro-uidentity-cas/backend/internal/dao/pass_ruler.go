@@ -8,15 +8,15 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao/internal"
 )
 
-// passRuleDao is the data access object for the table plugin_linapro_uidentity_cas_pass_rule.
+// passRulerDao is the data access object for the table pass_ruler.
 // You can define custom methods on it to extend its functionality as needed.
-type passRuleDao struct {
-	*internal.PassRuleDao
+type passRulerDao struct {
+	*internal.PassRulerDao
 }
 
 var (
-	// PassRule is a globally accessible object for table plugin_linapro_uidentity_cas_pass_rule operations.
-	PassRule = passRuleDao{internal.NewPassRuleDao()}
+	// PassRuler is a globally accessible object for table pass_ruler operations.
+	PassRuler = passRulerDao{internal.NewPassRulerDao()}
 )
 
 // Add your custom methods and functionality below.

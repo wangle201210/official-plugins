@@ -11,74 +11,72 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// UnitDao is the data access object for the table plugin_linapro_uidentity_cas_unit.
-type UnitDao struct {
+// UnitsDao is the data access object for the table plugin_linapro_uidentity_cas_units.
+type UnitsDao struct {
 	table    string             // table is the underlying table name of the DAO.
 	group    string             // group is the database configuration group name of the current DAO.
-	columns  UnitColumns        // columns contains all the column names of Table for convenient usage.
+	columns  UnitsColumns       // columns contains all the column names of Table for convenient usage.
 	handlers []gdb.ModelHandler // handlers for customized model modification.
 }
 
-// UnitColumns defines and stores column names for the table plugin_linapro_uidentity_cas_unit.
-type UnitColumns struct {
+// UnitsColumns defines and stores column names for the table plugin_linapro_uidentity_cas_units.
+type UnitsColumns struct {
 	Id        string //
-	TenantId  string //
 	Name      string //
 	Alias     string //
 	Code      string //
-	CreatedBy string //
-	UpdatedBy string //
 	CreatedAt string //
 	UpdatedAt string //
 	DeletedAt string //
+	CreateBy  string //
+	UpdateBy  string //
 }
 
-// unitColumns holds the columns for the table plugin_linapro_uidentity_cas_unit.
-var unitColumns = UnitColumns{
+// unitsColumns holds the columns for the table plugin_linapro_uidentity_cas_units.
+var unitsColumns = UnitsColumns{
 	Id:        "id",
-	TenantId:  "tenant_id",
 	Name:      "name",
 	Alias:     "alias",
 	Code:      "code",
-	CreatedBy: "created_by",
-	UpdatedBy: "updated_by",
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
 	DeletedAt: "deleted_at",
+	CreateBy:  "create_by",
+	UpdateBy:  "update_by",
 }
 
-// NewUnitDao creates and returns a new DAO object for table data access.
-func NewUnitDao(handlers ...gdb.ModelHandler) *UnitDao {
-	return &UnitDao{
+// NewUnitsDao creates and returns a new DAO object for table data access.
+func NewUnitsDao(handlers ...gdb.ModelHandler) *UnitsDao {
+	return &UnitsDao{
 		group:    "default",
-		table:    "plugin_linapro_uidentity_cas_unit",
-		columns:  unitColumns,
+		table:    "plugin_linapro_uidentity_cas_units",
+		columns:  unitsColumns,
 		handlers: handlers,
 	}
 }
 
 // DB retrieves and returns the underlying raw database management object of the current DAO.
-func (dao *UnitDao) DB() gdb.DB {
+func (dao *UnitsDao) DB() gdb.DB {
 	return g.DB(dao.group)
 }
 
 // Table returns the table name of the current DAO.
-func (dao *UnitDao) Table() string {
+func (dao *UnitsDao) Table() string {
 	return dao.table
 }
 
 // Columns returns all column names of the current DAO.
-func (dao *UnitDao) Columns() UnitColumns {
+func (dao *UnitsDao) Columns() UnitsColumns {
 	return dao.columns
 }
 
 // Group returns the database configuration group name of the current DAO.
-func (dao *UnitDao) Group() string {
+func (dao *UnitsDao) Group() string {
 	return dao.group
 }
 
 // Ctx creates and returns a Model for the current DAO. It automatically sets the context for the current operation.
-func (dao *UnitDao) Ctx(ctx context.Context) *gdb.Model {
+func (dao *UnitsDao) Ctx(ctx context.Context) *gdb.Model {
 	model := dao.DB().Model(dao.table)
 	for _, handler := range dao.handlers {
 		model = handler(model)
@@ -92,6 +90,6 @@ func (dao *UnitDao) Ctx(ctx context.Context) *gdb.Model {
 //
 // Note: Do not commit or roll back the transaction in function f,
 // as it is automatically handled by this function.
-func (dao *UnitDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
+func (dao *UnitsDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
 	return dao.Ctx(ctx).Transaction(ctx, f)
 }

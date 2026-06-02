@@ -42,7 +42,7 @@ func (f testTenantFilter) Apply(_ context.Context, model *gdb.Model, qualifier s
 
 func TestRebindUnionIDToAccountMigratesExistingBinding(t *testing.T) {
 	ctx := context.Background()
-	configureUIdentityTestDB(t, ctx, dao.Account.Table(), dao.AccountDetail.Table(), dao.AccountActiveLog.Table())
+	configureUIdentityTestDB(t, ctx, dao.Account.Table(), dao.AccountDetails.Table(), dao.AccountActiveLog.Table())
 
 	tenantID := 909001
 	actorID := 7721
@@ -67,21 +67,21 @@ func TestRebindUnionIDToAccountMigratesExistingBinding(t *testing.T) {
 			UserID:   actorID,
 		}},
 	}
-	account := &entity.Account{Id: newAccountID, TenantId: tenantID, Number: newNumber, Phone: "15500000002"}
+	account := &entity.Account{Id: newAccountID, Number: newNumber, Phone: "15500000002"}
 	if err := service.rebindUnionIDToAccount(ctx, account, unionID); err != nil {
 		t.Fatalf("rebindUnionIDToAccount returned error: %v", err)
 	}
 
-	var oldDetail *entity.AccountDetail
-	if err := dao.AccountDetail.Ctx(ctx).Unscoped().Where(do.AccountDetail{TenantId: tenantID, AccountId: oldAccountID}).Scan(&oldDetail); err != nil {
+	var oldDetail *entity.AccountDetails
+	if err := dao.AccountDetails.Ctx(ctx).Unscoped().Where(do.AccountDetails{AccountId: oldAccountID}).Scan(&oldDetail); err != nil {
 		t.Fatalf("query old account detail: %v", err)
 	}
 	if oldDetail == nil || oldDetail.Wechat != "" {
 		t.Fatalf("expected old account union ID to be cleared, got %#v", oldDetail)
 	}
 
-	var newDetail *entity.AccountDetail
-	if err := dao.AccountDetail.Ctx(ctx).Unscoped().Where(do.AccountDetail{TenantId: tenantID, AccountId: newAccountID}).Scan(&newDetail); err != nil {
+	var newDetail *entity.AccountDetails
+	if err := dao.AccountDetails.Ctx(ctx).Unscoped().Where(do.AccountDetails{AccountId: newAccountID}).Scan(&newDetail); err != nil {
 		t.Fatalf("query new account detail: %v", err)
 	}
 	if newDetail == nil || newDetail.Wechat != unionID {
@@ -89,10 +89,10 @@ func TestRebindUnionIDToAccountMigratesExistingBinding(t *testing.T) {
 	}
 
 	var logRow *entity.AccountActiveLog
-	if err := dao.AccountActiveLog.Ctx(ctx).Where(do.AccountActiveLog{TenantId: tenantID, Number: newNumber, Wechat: unionID}).Scan(&logRow); err != nil {
+	if err := dao.AccountActiveLog.Ctx(ctx).Where(do.AccountActiveLog{Number: newNumber, Wechat: unionID}).Scan(&logRow); err != nil {
 		t.Fatalf("query account active log: %v", err)
 	}
-	if logRow == nil || logRow.Type != int(accountActiveLogTypeUnionBind) || logRow.Phone != account.Phone {
+	if logRow == nil || logRow.Type != int64(accountActiveLogTypeUnionBind) || logRow.Phone != account.Phone {
 		t.Fatalf("expected union-bind active log, got %#v", logRow)
 	}
 }
@@ -132,11 +132,10 @@ func configureUIdentityTestDB(t *testing.T, ctx context.Context, tables ...strin
 func insertUIdentityTestAccount(t *testing.T, ctx context.Context, tenantID int, number string, phone string) int64 {
 	t.Helper()
 	id, err := dao.Account.Ctx(ctx).Data(do.Account{
-		TenantId: tenantID,
-		Number:   number,
-		Name:     number,
-		Phone:    phone,
-		Status:   AccountStatusNormal,
+		Number: number,
+		Name:   number,
+		Phone:  phone,
+		Status: AccountStatusNormal,
 	}).InsertAndGetId()
 	if err != nil {
 		t.Fatalf("insert account %s: %v", number, err)
@@ -146,8 +145,7 @@ func insertUIdentityTestAccount(t *testing.T, ctx context.Context, tenantID int,
 
 func insertUIdentityTestDetail(t *testing.T, ctx context.Context, tenantID int, accountID int64, unionID string) {
 	t.Helper()
-	if _, err := dao.AccountDetail.Ctx(ctx).Data(do.AccountDetail{
-		TenantId:  tenantID,
+	if _, err := dao.AccountDetails.Ctx(ctx).Data(do.AccountDetails{
 		AccountId: accountID,
 		Wechat:    unionID,
 	}).Insert(); err != nil {
@@ -160,7 +158,6 @@ func cleanupUIdentityTestRows(t *testing.T, ctx context.Context, tenantID int, o
 	var accountIDs []int64
 	if rows, err := dao.Account.Ctx(ctx).Unscoped().
 		Fields(dao.Account.Columns().Id).
-		Where(do.Account{TenantId: tenantID}).
 		WhereIn(dao.Account.Columns().Number, []string{oldNumber, newNumber}).
 		Array(); err == nil {
 		for _, id := range rows {
@@ -173,7 +170,7 @@ func cleanupUIdentityTestRows(t *testing.T, ctx context.Context, tenantID int, o
 	}
 
 	if len(accountIDs) > 0 {
-		if _, err := dao.AccountDetail.Ctx(ctx).Unscoped().WhereIn(dao.AccountDetail.Columns().AccountId, accountIDs).Delete(); err != nil {
+		if _, err := dao.AccountDetails.Ctx(ctx).Unscoped().WhereIn(dao.AccountDetails.Columns().AccountId, accountIDs).Delete(); err != nil {
 			t.Fatalf("cleanup account details: %v", err)
 		}
 		if _, err := dao.Account.Ctx(ctx).Unscoped().WhereIn(dao.Account.Columns().Id, accountIDs).Delete(); err != nil {
@@ -181,7 +178,6 @@ func cleanupUIdentityTestRows(t *testing.T, ctx context.Context, tenantID int, o
 		}
 	}
 	if _, err := dao.AccountActiveLog.Ctx(ctx).Unscoped().
-		Where(do.AccountActiveLog{TenantId: tenantID}).
 		Where(dao.AccountActiveLog.Columns().Wechat, unionID).
 		Delete(); err != nil {
 		t.Fatalf("cleanup account active logs: %v", err)

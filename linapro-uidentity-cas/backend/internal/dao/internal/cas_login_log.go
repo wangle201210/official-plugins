@@ -22,7 +22,6 @@ type CasLoginLogDao struct {
 // CasLoginLogColumns defines and stores column names for the table plugin_linapro_uidentity_cas_cas_login_log.
 type CasLoginLogColumns struct {
 	Id              string //
-	TenantId        string //
 	AccountId       string //
 	ChoiceAccountId string //
 	AppId           string //
@@ -35,17 +34,16 @@ type CasLoginLogColumns struct {
 	Remark          string //
 	Msg             string //
 	LoginType       string //
-	CreatedBy       string //
-	UpdatedBy       string //
 	CreatedAt       string //
 	UpdatedAt       string //
 	DeletedAt       string //
+	CreateBy        string //
+	UpdateBy        string //
 }
 
 // casLoginLogColumns holds the columns for the table plugin_linapro_uidentity_cas_cas_login_log.
 var casLoginLogColumns = CasLoginLogColumns{
 	Id:              "id",
-	TenantId:        "tenant_id",
 	AccountId:       "account_id",
 	ChoiceAccountId: "choice_account_id",
 	AppId:           "app_id",
@@ -58,11 +56,11 @@ var casLoginLogColumns = CasLoginLogColumns{
 	Remark:          "remark",
 	Msg:             "msg",
 	LoginType:       "login_type",
-	CreatedBy:       "created_by",
-	UpdatedBy:       "updated_by",
 	CreatedAt:       "created_at",
 	UpdatedAt:       "updated_at",
 	DeletedAt:       "deleted_at",
+	CreateBy:        "create_by",
+	UpdateBy:        "update_by",
 }
 
 // NewCasLoginLogDao creates and returns a new DAO object for table data access.

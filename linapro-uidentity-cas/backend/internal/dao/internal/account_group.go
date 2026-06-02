@@ -21,24 +21,14 @@ type AccountGroupDao struct {
 
 // AccountGroupColumns defines and stores column names for the table plugin_linapro_uidentity_cas_account_group.
 type AccountGroupColumns struct {
-	Id        string //
-	TenantId  string //
 	AccountId string //
-	GroupId   string //
-	CreatedBy string //
-	CreatedAt string //
-	UpdatedAt string //
+	GroupsId  string //
 }
 
 // accountGroupColumns holds the columns for the table plugin_linapro_uidentity_cas_account_group.
 var accountGroupColumns = AccountGroupColumns{
-	Id:        "id",
-	TenantId:  "tenant_id",
 	AccountId: "account_id",
-	GroupId:   "group_id",
-	CreatedBy: "created_by",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
+	GroupsId:  "groups_id",
 }
 
 // NewAccountGroupDao creates and returns a new DAO object for table data access.

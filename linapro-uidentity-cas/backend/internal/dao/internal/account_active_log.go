@@ -22,31 +22,21 @@ type AccountActiveLogDao struct {
 // AccountActiveLogColumns defines and stores column names for the table plugin_linapro_uidentity_cas_account_active_log.
 type AccountActiveLogColumns struct {
 	Id        string //
-	TenantId  string //
 	Number    string //
 	Phone     string //
 	Wechat    string //
-	Type      string // Legacy activation log type: 0=activation or Wechat rebind callback, 1=union ID bind
-	CreatedBy string //
-	UpdatedBy string //
 	CreatedAt string //
-	UpdatedAt string //
-	DeletedAt string //
+	Type      string //
 }
 
 // accountActiveLogColumns holds the columns for the table plugin_linapro_uidentity_cas_account_active_log.
 var accountActiveLogColumns = AccountActiveLogColumns{
 	Id:        "id",
-	TenantId:  "tenant_id",
 	Number:    "number",
 	Phone:     "phone",
 	Wechat:    "wechat",
-	Type:      "type",
-	CreatedBy: "created_by",
-	UpdatedBy: "updated_by",
 	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
+	Type:      "type",
 }
 
 // NewAccountActiveLogDao creates and returns a new DAO object for table data access.

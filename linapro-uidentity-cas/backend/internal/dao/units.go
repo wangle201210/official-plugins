@@ -8,15 +8,15 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao/internal"
 )
 
-// unitDao is the data access object for the table plugin_linapro_uidentity_cas_unit.
+// unitsDao is the data access object for the table units.
 // You can define custom methods on it to extend its functionality as needed.
-type unitDao struct {
-	*internal.UnitDao
+type unitsDao struct {
+	*internal.UnitsDao
 }
 
 var (
-	// Unit is a globally accessible object for table plugin_linapro_uidentity_cas_unit operations.
-	Unit = unitDao{internal.NewUnitDao()}
+	// Units is a globally accessible object for table units operations.
+	Units = unitsDao{internal.NewUnitsDao()}
 )
 
 // Add your custom methods and functionality below.

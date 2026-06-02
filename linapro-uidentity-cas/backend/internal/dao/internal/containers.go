@@ -11,72 +11,74 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// GroupDao is the data access object for the table plugin_linapro_uidentity_cas_group.
-type GroupDao struct {
+// ContainersDao is the data access object for the table plugin_linapro_uidentity_cas_containers.
+type ContainersDao struct {
 	table    string             // table is the underlying table name of the DAO.
 	group    string             // group is the database configuration group name of the current DAO.
-	columns  GroupColumns       // columns contains all the column names of Table for convenient usage.
+	columns  ContainersColumns  // columns contains all the column names of Table for convenient usage.
 	handlers []gdb.ModelHandler // handlers for customized model modification.
 }
 
-// GroupColumns defines and stores column names for the table plugin_linapro_uidentity_cas_group.
-type GroupColumns struct {
-	Id        string //
-	TenantId  string //
-	Name      string //
-	Alias     string //
-	CreatedBy string //
-	UpdatedBy string //
-	CreatedAt string //
-	UpdatedAt string //
-	DeletedAt string //
+// ContainersColumns defines and stores column names for the table plugin_linapro_uidentity_cas_containers.
+type ContainersColumns struct {
+	Id           string //
+	Name         string //
+	Alias        string //
+	AccountCount string //
+	AdminCount   string //
+	CreatedAt    string //
+	UpdatedAt    string //
+	DeletedAt    string //
+	CreateBy     string //
+	UpdateBy     string //
 }
 
-// groupColumns holds the columns for the table plugin_linapro_uidentity_cas_group.
-var groupColumns = GroupColumns{
-	Id:        "id",
-	TenantId:  "tenant_id",
-	Name:      "name",
-	Alias:     "alias",
-	CreatedBy: "created_by",
-	UpdatedBy: "updated_by",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
+// containersColumns holds the columns for the table plugin_linapro_uidentity_cas_containers.
+var containersColumns = ContainersColumns{
+	Id:           "id",
+	Name:         "name",
+	Alias:        "alias",
+	AccountCount: "account_count",
+	AdminCount:   "admin_count",
+	CreatedAt:    "created_at",
+	UpdatedAt:    "updated_at",
+	DeletedAt:    "deleted_at",
+	CreateBy:     "create_by",
+	UpdateBy:     "update_by",
 }
 
-// NewGroupDao creates and returns a new DAO object for table data access.
-func NewGroupDao(handlers ...gdb.ModelHandler) *GroupDao {
-	return &GroupDao{
+// NewContainersDao creates and returns a new DAO object for table data access.
+func NewContainersDao(handlers ...gdb.ModelHandler) *ContainersDao {
+	return &ContainersDao{
 		group:    "default",
-		table:    "plugin_linapro_uidentity_cas_group",
-		columns:  groupColumns,
+		table:    "plugin_linapro_uidentity_cas_containers",
+		columns:  containersColumns,
 		handlers: handlers,
 	}
 }
 
 // DB retrieves and returns the underlying raw database management object of the current DAO.
-func (dao *GroupDao) DB() gdb.DB {
+func (dao *ContainersDao) DB() gdb.DB {
 	return g.DB(dao.group)
 }
 
 // Table returns the table name of the current DAO.
-func (dao *GroupDao) Table() string {
+func (dao *ContainersDao) Table() string {
 	return dao.table
 }
 
 // Columns returns all column names of the current DAO.
-func (dao *GroupDao) Columns() GroupColumns {
+func (dao *ContainersDao) Columns() ContainersColumns {
 	return dao.columns
 }
 
 // Group returns the database configuration group name of the current DAO.
-func (dao *GroupDao) Group() string {
+func (dao *ContainersDao) Group() string {
 	return dao.group
 }
 
 // Ctx creates and returns a Model for the current DAO. It automatically sets the context for the current operation.
-func (dao *GroupDao) Ctx(ctx context.Context) *gdb.Model {
+func (dao *ContainersDao) Ctx(ctx context.Context) *gdb.Model {
 	model := dao.DB().Model(dao.table)
 	for _, handler := range dao.handlers {
 		model = handler(model)
@@ -90,6 +92,6 @@ func (dao *GroupDao) Ctx(ctx context.Context) *gdb.Model {
 //
 // Note: Do not commit or roll back the transaction in function f,
 // as it is automatically handled by this function.
-func (dao *GroupDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
+func (dao *ContainersDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
 	return dao.Ctx(ctx).Transaction(ctx, f)
 }

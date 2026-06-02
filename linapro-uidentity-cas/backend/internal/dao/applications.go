@@ -8,15 +8,15 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao/internal"
 )
 
-// oauthTokenDao is the data access object for the table plugin_linapro_uidentity_cas_oauth_token.
+// applicationsDao is the data access object for the table applications.
 // You can define custom methods on it to extend its functionality as needed.
-type oauthTokenDao struct {
-	*internal.OauthTokenDao
+type applicationsDao struct {
+	*internal.ApplicationsDao
 }
 
 var (
-	// OauthToken is a globally accessible object for table plugin_linapro_uidentity_cas_oauth_token operations.
-	OauthToken = oauthTokenDao{internal.NewOauthTokenDao()}
+	// Applications is a globally accessible object for table applications operations.
+	Applications = applicationsDao{internal.NewApplicationsDao()}
 )
 
 // Add your custom methods and functionality below.

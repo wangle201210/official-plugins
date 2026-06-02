@@ -167,7 +167,6 @@ func (s *serviceImpl) ldapObjectClass(ctx context.Context) ([]string, error) {
 func ldapAccountPage(ctx context.Context, tenantID int, page int, pageSize int) ([]*entity.Account, error) {
 	var accounts []*entity.Account
 	err := dao.Account.Ctx(ctx).
-		Where(dao.Account.Columns().TenantId, tenantID).
 		OrderAsc(dao.Account.Columns().Id).
 		Offset(page * pageSize).
 		Limit(pageSize).
@@ -178,7 +177,7 @@ func ldapAccountPage(ctx context.Context, tenantID int, page int, pageSize int) 
 	return accounts, nil
 }
 
-func ldapAccountRelations(ctx context.Context, tenantID int, accounts []*entity.Account) (map[int64]*entity.AccountDetail, map[int64]*entity.Container, error) {
+func ldapAccountRelations(ctx context.Context, tenantID int, accounts []*entity.Account) (map[int64]*entity.AccountDetails, map[int64]*entity.Containers, error) {
 	accountIDs := make(map[int64]struct{}, len(accounts))
 	containerIDs := make(map[int64]struct{}, len(accounts))
 	for _, account := range accounts {
@@ -188,12 +187,11 @@ func ldapAccountRelations(ctx context.Context, tenantID int, accounts []*entity.
 		accountIDs[account.Id] = struct{}{}
 		containerIDs[account.ContainerId] = struct{}{}
 	}
-	details := make(map[int64]*entity.AccountDetail, len(accounts))
+	details := make(map[int64]*entity.AccountDetails, len(accounts))
 	if ids := int64sFromSet(accountIDs); len(ids) > 0 {
-		var rows []*entity.AccountDetail
-		if err := dao.AccountDetail.Ctx(ctx).
-			Where(dao.AccountDetail.Columns().TenantId, tenantID).
-			WhereIn(dao.AccountDetail.Columns().AccountId, ids).
+		var rows []*entity.AccountDetails
+		if err := dao.AccountDetails.Ctx(ctx).
+			WhereIn(dao.AccountDetails.Columns().AccountId, ids).
 			Scan(&rows); err != nil {
 			return nil, nil, err
 		}
@@ -203,12 +201,11 @@ func ldapAccountRelations(ctx context.Context, tenantID int, accounts []*entity.
 			}
 		}
 	}
-	containers := make(map[int64]*entity.Container, len(containerIDs))
+	containers := make(map[int64]*entity.Containers, len(containerIDs))
 	if ids := int64sFromSet(containerIDs); len(ids) > 0 {
-		var rows []*entity.Container
-		if err := dao.Container.Ctx(ctx).
-			Where(dao.Container.Columns().TenantId, tenantID).
-			WhereIn(dao.Container.Columns().Id, ids).
+		var rows []*entity.Containers
+		if err := dao.Containers.Ctx(ctx).
+			WhereIn(dao.Containers.Columns().Id, ids).
 			Scan(&rows); err != nil {
 			return nil, nil, err
 		}
@@ -221,7 +218,7 @@ func ldapAccountRelations(ctx context.Context, tenantID int, accounts []*entity.
 	return details, containers, nil
 }
 
-func syncOneLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetail, container *entity.Container) (changed bool, added bool, err error) {
+func syncOneLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetails, container *entity.Containers) (changed bool, added bool, err error) {
 	if account == nil || strings.TrimSpace(account.Number) == "" {
 		return false, false, pluginJobUnsupported()
 	}
@@ -253,7 +250,7 @@ func syncOneLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Acco
 	return changed, false, nil
 }
 
-func moveLDAPAccountToContainer(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, target *entity.Container) error {
+func moveLDAPAccountToContainer(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, target *entity.Containers) error {
 	if account == nil || strings.TrimSpace(account.Number) == "" {
 		return pluginJobUnsupported()
 	}
@@ -300,7 +297,7 @@ func searchLDAPAccount(conn *ldap.Conn, baseDN string, number string) (*ldap.Ent
 	return result.Entries[0], nil
 }
 
-func addLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetail, container *entity.Container) error {
+func addLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetails, container *entity.Containers) error {
 	req, err := buildLDAPAddRequest(cfg, account, detail, container)
 	if err != nil {
 		return err
@@ -308,7 +305,7 @@ func addLDAPAccount(conn *ldap.Conn, cfg ldapJobConfig, account *entity.Account,
 	return conn.Add(req)
 }
 
-func buildLDAPAddRequest(cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetail, container *entity.Container) (*ldap.AddRequest, error) {
+func buildLDAPAddRequest(cfg ldapJobConfig, account *entity.Account, detail *entity.AccountDetails, container *entity.Containers) (*ldap.AddRequest, error) {
 	password, err := generateLDAPSSHA(cfg.defaultPassword)
 	if err != nil {
 		return nil, err
@@ -334,7 +331,7 @@ func buildLDAPAddRequest(cfg ldapJobConfig, account *entity.Account, detail *ent
 	return req, nil
 }
 
-func buildLDAPModify(req *ldap.ModifyRequest, entry *ldap.Entry, account *entity.Account, detail *entity.AccountDetail, container *entity.Container) bool {
+func buildLDAPModify(req *ldap.ModifyRequest, entry *ldap.Entry, account *entity.Account, detail *entity.AccountDetails, container *entity.Containers) bool {
 	changed := false
 	replace := func(name string, value string) {
 		if strings.TrimSpace(value) == "" {

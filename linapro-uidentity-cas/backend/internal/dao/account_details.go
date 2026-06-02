@@ -8,15 +8,15 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao/internal"
 )
 
-// groupDao is the data access object for the table plugin_linapro_uidentity_cas_group.
+// accountDetailsDao is the data access object for the table account_details.
 // You can define custom methods on it to extend its functionality as needed.
-type groupDao struct {
-	*internal.GroupDao
+type accountDetailsDao struct {
+	*internal.AccountDetailsDao
 }
 
 var (
-	// Group is a globally accessible object for table plugin_linapro_uidentity_cas_group operations.
-	Group = groupDao{internal.NewGroupDao()}
+	// AccountDetails is a globally accessible object for table account_details operations.
+	AccountDetails = accountDetailsDao{internal.NewAccountDetailsDao()}
 )
 
 // Add your custom methods and functionality below.

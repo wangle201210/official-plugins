@@ -55,8 +55,8 @@ func TestResourceFilterAPINameMatchesOldDTOAliases(t *testing.T) {
 		"zymc":            "major",
 		"bjmc":            "className",
 		"interval":        "intervalDays",
-		"createBy":        "createdBy",
-		"updateBy":        "updatedBy",
+		"createBy":        "createBy",
+		"updateBy":        "updateBy",
 		"account_ids":     "",
 		"callbackUrl":     "callbackUrl",
 		"choiceAccountId": "choiceAccountId",
@@ -79,8 +79,8 @@ func TestProjectRecordAddsLegacyResourceAliases(t *testing.T) {
 		"graduatedAt":  "2028",
 		"major":        "Computer Science",
 		"className":    "Class 1",
-		"createdBy":    int64(11),
-		"updatedBy":    int64(12),
+		"createBy":     int64(11),
+		"updateBy":     int64(12),
 	}
 	addLegacyResourceResponseAliases(record, &resourceDefinition{name: "account-details"})
 	if record["nj"] != "2024" || record["xymc"] != "College" || record["xydm"] != "C001" || record["xq"] != "North" {

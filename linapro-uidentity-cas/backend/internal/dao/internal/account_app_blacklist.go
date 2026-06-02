@@ -22,33 +22,31 @@ type AccountAppBlacklistDao struct {
 // AccountAppBlacklistColumns defines and stores column names for the table plugin_linapro_uidentity_cas_account_app_blacklist.
 type AccountAppBlacklistColumns struct {
 	Id        string //
-	TenantId  string //
 	Name      string //
 	AppId     string //
 	AccountId string //
 	EffectAt  string //
 	ExpireAt  string //
-	CreatedBy string //
-	UpdatedBy string //
 	CreatedAt string //
 	UpdatedAt string //
 	DeletedAt string //
+	CreateBy  string //
+	UpdateBy  string //
 }
 
 // accountAppBlacklistColumns holds the columns for the table plugin_linapro_uidentity_cas_account_app_blacklist.
 var accountAppBlacklistColumns = AccountAppBlacklistColumns{
 	Id:        "id",
-	TenantId:  "tenant_id",
 	Name:      "name",
 	AppId:     "app_id",
 	AccountId: "account_id",
 	EffectAt:  "effect_at",
 	ExpireAt:  "expire_at",
-	CreatedBy: "created_by",
-	UpdatedBy: "updated_by",
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
 	DeletedAt: "deleted_at",
+	CreateBy:  "create_by",
+	UpdateBy:  "update_by",
 }
 
 // NewAccountAppBlacklistDao creates and returns a new DAO object for table data access.

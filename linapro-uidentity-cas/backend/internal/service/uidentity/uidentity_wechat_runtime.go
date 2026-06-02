@@ -70,9 +70,9 @@ func (s *serviceImpl) CreateWechatLoginQR(ctx context.Context, in WechatLoginQRI
 		Callback: strings.TrimSpace(in.Callback),
 		Status:   wechatLoginStatusPending,
 	}
-	if err := s.createRuntimeToken(ctx, do.OauthToken{
+	if err := s.createRuntimeToken(ctx, do.Oauth2Token{
 		Code:      ticketCodePrefixWechatLogin + state,
-		ExpiredAt: &expiredAt,
+		ExpiredAt: expiredAt.UnixMilli(),
 	}, payload); err != nil {
 		return nil, err
 	}
@@ -183,8 +183,8 @@ func (s *serviceImpl) GetWechatLoginQRResult(ctx context.Context, state string) 
 	}
 	result := wechatLoginResult(payload)
 	if payload.Status != wechatLoginStatusPending {
-		_, err = s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-			Where(dao.OauthToken.Columns().Id, token.Id).
+		_, err = dao.Oauth2Token.Ctx(ctx).
+			Where(dao.Oauth2Token.Columns().Id, token.Id).
 			Delete()
 		if err != nil {
 			return nil, err
@@ -195,7 +195,7 @@ func (s *serviceImpl) GetWechatLoginQRResult(ctx context.Context, state string) 
 
 func (s *serviceImpl) completeUnboundWechatLogin(
 	ctx context.Context,
-	token *entity.OauthToken,
+	token *entity.Oauth2Token,
 	payload *wechatLoginStateData,
 	unionID string,
 ) (*WechatLoginQRResultOutput, error) {
@@ -213,19 +213,19 @@ func (s *serviceImpl) completeUnboundWechatLogin(
 	return wechatLoginResult(payload), nil
 }
 
-func (s *serviceImpl) wechatLoginState(ctx context.Context, state string) (*entity.OauthToken, *wechatLoginStateData, error) {
+func (s *serviceImpl) wechatLoginState(ctx context.Context, state string) (*entity.Oauth2Token, *wechatLoginStateData, error) {
 	trimmed := strings.TrimSpace(state)
 	if trimmed == "" {
 		return nil, nil, bizerr.NewCode(CodeWechatLoginInvalid)
 	}
-	var token *entity.OauthToken
-	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Code, ticketCodePrefixWechatLogin+trimmed).
+	var token *entity.Oauth2Token
+	err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Code, ticketCodePrefixWechatLogin+trimmed).
 		Scan(&token)
 	if err != nil {
 		return nil, nil, err
 	}
-	if token == nil || token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+	if token == nil || runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeWechatLoginInvalid)
 	}
 	payload := &wechatLoginStateData{}

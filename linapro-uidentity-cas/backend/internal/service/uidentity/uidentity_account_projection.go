@@ -16,12 +16,11 @@ import (
 
 // ensureAccountDetail creates an empty detail row for a newly created account.
 func (s *serviceImpl) ensureAccountDetail(ctx context.Context, accountID int64) error {
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
-	return s.createAccountDetailWithAudit(ctx, do.AccountDetail{
+	actorID := s.actorID(ctx)
+	return s.createAccountDetailWithAudit(ctx, do.AccountDetails{
 		AccountId: accountID,
-		TenantId:  tenantID,
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
+		CreateBy:  actorID,
+		UpdateBy:  actorID,
 	}, accountID)
 }
 
@@ -56,11 +55,11 @@ func (s *serviceImpl) decorateAccountRecords(ctx context.Context, records []Reco
 			}
 		}
 	}
-	containerNames, err := s.nameMap(ctx, dao.Container.Ctx(ctx), dao.Container.Columns().Id, dao.Container.Columns().Alias, containerIDs)
+	containerNames, err := s.nameMap(ctx, dao.Containers.Ctx(ctx), dao.Containers.Columns().Id, dao.Containers.Columns().Alias, containerIDs)
 	if err != nil {
 		return err
 	}
-	unitNames, err := s.nameMap(ctx, dao.Unit.Ctx(ctx), dao.Unit.Columns().Id, dao.Unit.Columns().Alias, unitIDs)
+	unitNames, err := s.nameMap(ctx, dao.Units.Ctx(ctx), dao.Units.Columns().Id, dao.Units.Columns().Alias, unitIDs)
 	if err != nil {
 		return err
 	}
@@ -81,7 +80,7 @@ func (s *serviceImpl) nameMap(ctx context.Context, model *gdb.Model, idColumn st
 	if len(ids) == 0 {
 		return names, nil
 	}
-	result, err := s.tenantFilter.Apply(ctx, model, "").
+	result, err := model.
 		Fields(idColumn, nameColumn).
 		WhereIn(idColumn, ids).
 		All()
@@ -100,9 +99,9 @@ func (s *serviceImpl) accountGroupNames(ctx context.Context, accountIDs []int64)
 		return groupNames, nil
 	}
 	accountGroupColumns := dao.AccountGroup.Columns()
-	groupColumns := dao.Group.Columns()
-	relations, err := s.tenantFilter.Apply(ctx, dao.AccountGroup.Ctx(ctx), "").
-		Fields(accountGroupColumns.AccountId, accountGroupColumns.GroupId).
+	groupColumns := dao.Groups.Columns()
+	relations, err := dao.AccountGroup.Ctx(ctx).
+		Fields(accountGroupColumns.AccountId, accountGroupColumns.GroupsId).
 		WhereIn(accountGroupColumns.AccountId, accountIDs).
 		All()
 	if err != nil {
@@ -111,7 +110,7 @@ func (s *serviceImpl) accountGroupNames(ctx context.Context, accountIDs []int64)
 	groupIDs := make([]int64, 0, len(relations))
 	seen := make(map[int64]struct{}, len(relations))
 	for _, relation := range relations {
-		groupID := relation[accountGroupColumns.GroupId].Int64()
+		groupID := relation[accountGroupColumns.GroupsId].Int64()
 		if groupID > 0 {
 			if _, ok := seen[groupID]; !ok {
 				groupIDs = append(groupIDs, groupID)
@@ -119,13 +118,13 @@ func (s *serviceImpl) accountGroupNames(ctx context.Context, accountIDs []int64)
 			}
 		}
 	}
-	names, err := s.nameMap(ctx, dao.Group.Ctx(ctx), groupColumns.Id, groupColumns.Alias, groupIDs)
+	names, err := s.nameMap(ctx, dao.Groups.Ctx(ctx), groupColumns.Id, groupColumns.Alias, groupIDs)
 	if err != nil {
 		return nil, err
 	}
 	for _, relation := range relations {
 		accountID := relation[accountGroupColumns.AccountId].Int64()
-		groupID := relation[accountGroupColumns.GroupId].Int64()
+		groupID := relation[accountGroupColumns.GroupsId].Int64()
 		if name := strings.TrimSpace(names[groupID]); name != "" {
 			groupNames[accountID] = append(groupNames[accountID], name)
 		}

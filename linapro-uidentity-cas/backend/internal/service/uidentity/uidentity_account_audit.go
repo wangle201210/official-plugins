@@ -40,7 +40,7 @@ func (s *serviceImpl) updateAccountWithAudit(ctx context.Context, accountID int6
 	return s.recordAccountAudit(ctx, accountID, accountAuditTableAccount, accountAuditActionUpdate, func(ctx context.Context, accountID int64) (Record, error) {
 		return s.accountAuditRecord(ctx, accountID)
 	}, func(ctx context.Context, accountID int64) (Record, error) {
-		_, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+		_, err := dao.Account.Ctx(ctx).
 			Where(dao.Account.Columns().Id, accountID).
 			OmitNilData().
 			Data(data).
@@ -52,25 +52,8 @@ func (s *serviceImpl) updateAccountWithAudit(ctx context.Context, accountID int6
 	})
 }
 
-func (s *serviceImpl) updateAccountWithAuditForTenant(ctx context.Context, tenantID int, accountID int64, data any) error {
-	return s.recordAccountAuditForTenant(ctx, tenantID, accountID, accountAuditTableAccount, accountAuditActionUpdate, func(ctx context.Context, tenantID int, accountID int64) (Record, error) {
-		return s.accountAuditRecordForTenant(ctx, tenantID, accountID)
-	}, func(ctx context.Context, tenantID int, accountID int64) (Record, error) {
-		_, err := dao.Account.Ctx(ctx).
-			Where(dao.Account.Columns().TenantId, tenantID).
-			Where(dao.Account.Columns().Id, accountID).
-			OmitNilData().
-			Data(data).
-			Update()
-		if err != nil {
-			return nil, err
-		}
-		return s.accountAuditRecordForTenant(ctx, tenantID, accountID)
-	})
-}
-
 func (s *serviceImpl) createAccountDetailWithAudit(ctx context.Context, data any, accountID int64) error {
-	if _, err := dao.AccountDetail.Ctx(ctx).Data(data).Insert(); err != nil {
+	if _, err := dao.AccountDetails.Ctx(ctx).Data(data).Insert(); err != nil {
 		return err
 	}
 	return s.recordAccountAudit(ctx, accountID, accountAuditTableDetail, accountAuditActionCreate, nil, func(ctx context.Context, accountID int64) (Record, error) {
@@ -78,21 +61,12 @@ func (s *serviceImpl) createAccountDetailWithAudit(ctx context.Context, data any
 	})
 }
 
-func (s *serviceImpl) createAccountDetailWithAuditForTenant(ctx context.Context, tenantID int, data any, accountID int64) error {
-	if _, err := dao.AccountDetail.Ctx(ctx).Data(data).Insert(); err != nil {
-		return err
-	}
-	return s.recordAccountAuditForTenant(ctx, tenantID, accountID, accountAuditTableDetail, accountAuditActionCreate, nil, func(ctx context.Context, tenantID int, accountID int64) (Record, error) {
-		return s.accountDetailAuditRecordForTenant(ctx, tenantID, accountID)
-	})
-}
-
 func (s *serviceImpl) updateAccountDetailWithAudit(ctx context.Context, accountID int64, data any) error {
 	return s.recordAccountAudit(ctx, accountID, accountAuditTableDetail, accountAuditActionUpdate, func(ctx context.Context, accountID int64) (Record, error) {
 		return s.accountDetailAuditRecord(ctx, accountID)
 	}, func(ctx context.Context, accountID int64) (Record, error) {
-		_, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-			Where(dao.AccountDetail.Columns().AccountId, accountID).
+		_, err := dao.AccountDetails.Ctx(ctx).
+			Where(dao.AccountDetails.Columns().AccountId, accountID).
 			OmitNilData().
 			Data(data).
 			Update()
@@ -100,29 +74,12 @@ func (s *serviceImpl) updateAccountDetailWithAudit(ctx context.Context, accountI
 			return nil, err
 		}
 		return s.accountDetailAuditRecord(ctx, accountID)
-	})
-}
-
-func (s *serviceImpl) updateAccountDetailWithAuditForTenant(ctx context.Context, tenantID int, accountID int64, data any) error {
-	return s.recordAccountAuditForTenant(ctx, tenantID, accountID, accountAuditTableDetail, accountAuditActionUpdate, func(ctx context.Context, tenantID int, accountID int64) (Record, error) {
-		return s.accountDetailAuditRecordForTenant(ctx, tenantID, accountID)
-	}, func(ctx context.Context, tenantID int, accountID int64) (Record, error) {
-		_, err := dao.AccountDetail.Ctx(ctx).
-			Where(dao.AccountDetail.Columns().TenantId, tenantID).
-			Where(dao.AccountDetail.Columns().AccountId, accountID).
-			OmitNilData().
-			Data(data).
-			Update()
-		if err != nil {
-			return nil, err
-		}
-		return s.accountDetailAuditRecordForTenant(ctx, tenantID, accountID)
 	})
 }
 
 func (s *serviceImpl) deleteResourceWithAccountAudit(ctx context.Context, def *resourceDefinition, idList []int64) error {
 	if def.name != "accounts" && def.name != "account-details" {
-		_, err := s.tenantFilter.Apply(ctx, def.model(ctx), "").
+		_, err := def.model(ctx).
 			WhereIn(def.idColumn, idList).
 			Delete()
 		return err
@@ -146,7 +103,7 @@ func (s *serviceImpl) deleteAccountWithAudit(ctx context.Context, accountID int6
 	if err != nil {
 		return err
 	}
-	if _, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	if _, err := dao.Account.Ctx(ctx).
 		Where(dao.Account.Columns().Id, accountID).
 		Delete(); err != nil {
 		return err
@@ -159,8 +116,8 @@ func (s *serviceImpl) deleteAccountDetailWithAudit(ctx context.Context, accountI
 	if err != nil {
 		return err
 	}
-	if _, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-		Where(dao.AccountDetail.Columns().AccountId, accountID).
+	if _, err := dao.AccountDetails.Ctx(ctx).
+		Where(dao.AccountDetails.Columns().AccountId, accountID).
 		Delete(); err != nil {
 		return err
 	}
@@ -183,47 +140,22 @@ func (s *serviceImpl) recordAccountAudit(ctx context.Context, accountID int64, t
 	return s.insertAccountAudit(ctx, accountID, tableName, action, previous, current)
 }
 
-func (s *serviceImpl) recordAccountAuditForTenant(ctx context.Context, tenantID int, accountID int64, tableName string, action string, oldData func(context.Context, int, int64) (Record, error), writeData func(context.Context, int, int64) (Record, error)) error {
-	var previous Record
-	if oldData != nil {
-		record, err := oldData(ctx, tenantID, accountID)
-		if err != nil {
-			return err
-		}
-		previous = record
-	}
-	current, err := writeData(ctx, tenantID, accountID)
-	if err != nil {
-		return err
-	}
-	return s.insertAccountAuditForTenant(ctx, tenantID, accountID, tableName, action, previous, current)
-}
-
 func (s *serviceImpl) insertAccountAudit(ctx context.Context, accountID int64, tableName string, action string, oldData Record, newData Record) error {
-	return s.insertAccountAuditForTenant(ctx, s.tenantID(ctx), accountID, tableName, action, oldData, newData)
-}
-
-func (s *serviceImpl) insertAccountAuditForTenant(ctx context.Context, tenantID int, accountID int64, tableName string, action string, oldData Record, newData Record) error {
 	actorID := s.actorID(ctx)
 	_, err := dao.AccountChangeLog.Ctx(ctx).Data(do.AccountChangeLog{
-		TenantId:  tenantID,
 		AccountId: accountID,
 		TableName: tableName,
 		Action:    action,
 		DataOld:   marshalAuditRecord(oldData),
 		DataNew:   marshalAuditRecord(newData),
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
+		CreateBy:  actorID,
+		UpdateBy:  actorID,
 	}).Insert()
 	return err
 }
 
 func (s *serviceImpl) accountAuditRecord(ctx context.Context, accountID int64) (Record, error) {
-	return s.accountAuditRecordByModel(ctx, accountID, s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), ""))
-}
-
-func (s *serviceImpl) accountAuditRecordForTenant(ctx context.Context, tenantID int, accountID int64) (Record, error) {
-	return s.accountAuditRecordByModel(ctx, accountID, dao.Account.Ctx(ctx).Where(dao.Account.Columns().TenantId, tenantID))
+	return s.accountAuditRecordByModel(ctx, accountID, dao.Account.Ctx(ctx))
 }
 
 func (s *serviceImpl) accountAuditRecordByModel(ctx context.Context, accountID int64, model *gdb.Model) (Record, error) {
@@ -244,18 +176,14 @@ func (s *serviceImpl) accountAuditRecordByModel(ctx context.Context, accountID i
 }
 
 func (s *serviceImpl) accountDetailAuditRecord(ctx context.Context, accountID int64) (Record, error) {
-	return s.accountDetailAuditRecordByModel(ctx, accountID, s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), ""))
-}
-
-func (s *serviceImpl) accountDetailAuditRecordForTenant(ctx context.Context, tenantID int, accountID int64) (Record, error) {
-	return s.accountDetailAuditRecordByModel(ctx, accountID, dao.AccountDetail.Ctx(ctx).Where(dao.AccountDetail.Columns().TenantId, tenantID))
+	return s.accountDetailAuditRecordByModel(ctx, accountID, dao.AccountDetails.Ctx(ctx))
 }
 
 func (s *serviceImpl) accountDetailAuditRecordByModel(ctx context.Context, accountID int64, model *gdb.Model) (Record, error) {
 	def := s.accountDetailResource()
 	result, err := model.
 		Fields(projectionFields(def)...).
-		Where(dao.AccountDetail.Columns().AccountId, accountID).
+		Where(dao.AccountDetails.Columns().AccountId, accountID).
 		One()
 	if err != nil {
 		return nil, err
@@ -268,11 +196,11 @@ func (s *serviceImpl) accountDetailAuditRecordByModel(ctx context.Context, accou
 
 func (s *serviceImpl) accountDetailRecordsByWechat(ctx context.Context, unionID string, excludedAccountID int64) ([]Record, error) {
 	def := s.accountDetailResource()
-	model := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
+	model := dao.AccountDetails.Ctx(ctx).
 		Fields(projectionFields(def)...).
-		Where(dao.AccountDetail.Columns().Wechat, unionID)
+		Where(dao.AccountDetails.Columns().Wechat, unionID)
 	if excludedAccountID > 0 {
-		model = model.WhereNot(dao.AccountDetail.Columns().AccountId, excludedAccountID)
+		model = model.WhereNot(dao.AccountDetails.Columns().AccountId, excludedAccountID)
 	}
 	result, err := model.All()
 	if err != nil {
@@ -282,17 +210,13 @@ func (s *serviceImpl) accountDetailRecordsByWechat(ctx context.Context, unionID 
 }
 
 func (s *serviceImpl) insertAccountDetailUpdateAudits(ctx context.Context, oldRecords []Record) error {
-	return s.insertAccountDetailUpdateAuditsForTenant(ctx, s.tenantID(ctx), oldRecords)
-}
-
-func (s *serviceImpl) insertAccountDetailUpdateAuditsForTenant(ctx context.Context, tenantID int, oldRecords []Record) error {
 	for _, oldRecord := range oldRecords {
 		accountID := recordAccountID(oldRecord)
-		newRecord, err := s.accountDetailAuditRecordForTenant(ctx, tenantID, accountID)
+		newRecord, err := s.accountDetailAuditRecord(ctx, accountID)
 		if err != nil {
 			return err
 		}
-		if err := s.insertAccountAuditForTenant(ctx, tenantID, accountID, accountAuditTableDetail, accountAuditActionUpdate, oldRecord, newRecord); err != nil {
+		if err := s.insertAccountAudit(ctx, accountID, accountAuditTableDetail, accountAuditActionUpdate, oldRecord, newRecord); err != nil {
 			return err
 		}
 	}

@@ -57,15 +57,15 @@ func (s *serviceImpl) StartActivation(ctx context.Context, in ActivationStartInp
 		Number:    account.Number,
 		Stage:     "base",
 	}
-	if err := s.createRuntimeToken(ctx, do.OauthToken{
+	if err := s.createRuntimeToken(ctx, do.Oauth2Token{
 		Code:      ticketCodePrefixActivation + challengeID,
-		ExpiredAt: &expiredAt,
+		ExpiredAt: expiredAt.UnixMilli(),
 	}, payload); err != nil {
 		return nil, err
 	}
 	return &ActivationOutput{
 		ChallengeID: challengeID,
-		NeedFace:    strings.TrimSpace(detail.Face) == "",
+		NeedFace:    detail.Face == 0,
 		Status:      account.Status,
 	}, nil
 }
@@ -76,7 +76,7 @@ func (s *serviceImpl) RecordActivationFace(ctx context.Context, in ActivationFac
 	if err != nil {
 		return nil, err
 	}
-	if err := s.updateAccountDetailWithAudit(ctx, payload.AccountID, do.AccountDetail{Face: strings.TrimSpace(in.FaceURL), UpdatedBy: s.actorID(ctx)}); err != nil {
+	if err := s.updateAccountDetailWithAudit(ctx, payload.AccountID, do.AccountDetails{Face: strings.TrimSpace(in.FaceURL), UpdateBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	payload.Stage = "face"
@@ -96,12 +96,16 @@ func (s *serviceImpl) SetActivationPassword(ctx context.Context, in ActivationPa
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now()
+	account, err := s.getAccountByID(ctx, payload.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.syncLegacyLDAPPassword(ctx, account.Number, in.Password); err != nil {
+		return nil, err
+	}
 	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{
-		PasswordHash:      hashPassword(in.Password),
-		PasswordUpdatedAt: &now,
-		PassLevel:         level,
-		UpdatedBy:         s.actorID(ctx),
+		PassLevel: level,
+		UpdateBy:  s.actorID(ctx),
 	}); err != nil {
 		return nil, err
 	}
@@ -124,7 +128,7 @@ func (s *serviceImpl) SetActivationPhone(ctx context.Context, in ActivationPhone
 	if err := s.ensurePhoneAvailable(ctx, in.Phone, payload.AccountID); err != nil {
 		return nil, err
 	}
-	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Phone: strings.TrimSpace(in.Phone), Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}); err != nil {
+	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Phone: strings.TrimSpace(in.Phone), Status: AccountStatusNormal, UpdateBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	payload.Stage = "phone"
@@ -143,7 +147,7 @@ func (s *serviceImpl) SetActivationWechat(ctx context.Context, in ActivationWech
 	if err := s.bindUnionIDToAccount(ctx, payload.AccountID, in.UnionID); err != nil {
 		return nil, err
 	}
-	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}); err != nil {
+	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Status: AccountStatusNormal, UpdateBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	account, err := s.getAccountByID(ctx, payload.AccountID)
@@ -202,12 +206,12 @@ func (s *serviceImpl) CompleteActivationWechat(ctx context.Context, in Activatio
 		payload.ErrorCode = CodeUnsupportedExternalFlow.RuntimeCode()
 		payload.Message = CodeUnsupportedExternalFlow.Fallback()
 		payload.RedirectURL = s.activationWechatRedirectURL(ctx, payload, in.State)
-		if err := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); err != nil {
+		if err := s.updateRuntimePayload(ctx, token.Id, payload); err != nil {
 			return nil, err
 		}
 		return activationWechatResult(in.State, payload), nil
 	}
-	if err := s.bindUnionIDToAccountForTenant(ctx, token.TenantId, payload.AccountID, unionID); err != nil {
+	if err := s.bindUnionIDToAccount(ctx, payload.AccountID, unionID); err != nil {
 		payload.Stage = "wechat"
 		payload.WechatStatus = activationWechatStatusFailed
 		if meta, ok := bizerr.As(err); ok {
@@ -217,26 +221,26 @@ func (s *serviceImpl) CompleteActivationWechat(ctx context.Context, in Activatio
 			payload.Message = err.Error()
 		}
 		payload.RedirectURL = s.activationWechatRedirectURL(ctx, payload, in.State)
-		if updateErr := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); updateErr != nil {
+		if updateErr := s.updateRuntimePayload(ctx, token.Id, payload); updateErr != nil {
 			return nil, updateErr
 		}
 		return nil, err
 	}
-	if err := s.updateAccountWithAuditForTenant(ctx, token.TenantId, payload.AccountID, do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}); err != nil {
+	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Status: AccountStatusNormal, UpdateBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
-	account, err := s.getAccountByIDForTenant(ctx, token.TenantId, payload.AccountID)
+	account, err := s.getAccountByID(ctx, payload.AccountID)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.recordAccountActiveLogForTenant(ctx, token.TenantId, account, unionID, accountActiveLogTypeActivation); err != nil {
+	if err := s.recordAccountActiveLog(ctx, account, unionID, accountActiveLogTypeActivation); err != nil {
 		return nil, err
 	}
 	payload.Stage = "wechat"
 	payload.WechatStatus = activationWechatStatusSuccess
 	payload.UnionID = unionID
 	payload.RedirectURL = s.activationWechatRedirectURL(ctx, payload, in.State)
-	if err := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); err != nil {
+	if err := s.updateRuntimePayload(ctx, token.Id, payload); err != nil {
 		return nil, err
 	}
 	return activationWechatResult(in.State, payload), nil
@@ -280,9 +284,9 @@ func (s *serviceImpl) LookupUnionID(ctx context.Context, unionID string) (*Union
 	}
 	expiredAt := time.Now().Add(unionBindTTL)
 	payload := unionIDChallengeData{UnionID: strings.TrimSpace(unionID)}
-	if err := s.createRuntimeToken(ctx, do.OauthToken{
+	if err := s.createRuntimeToken(ctx, do.Oauth2Token{
 		Code:      ticketCodePrefixUnionBind + challengeID,
-		ExpiredAt: &expiredAt,
+		ExpiredAt: expiredAt.UnixMilli(),
 	}, payload); err != nil {
 		return nil, err
 	}
@@ -323,8 +327,8 @@ func (s *serviceImpl) BindUnionID(ctx context.Context, in UnionIDBindInput) (*Un
 	if err := s.rebindUnionIDToAccount(ctx, account, payload.UnionID); err != nil {
 		return nil, err
 	}
-	if _, err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Id, token.Id).
+	if _, err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Id, token.Id).
 		Delete(); err != nil {
 		return nil, err
 	}
@@ -352,7 +356,7 @@ func (s *serviceImpl) ChangeRuntimePhone(ctx context.Context, in ChangePhoneInpu
 	if err := s.ensurePhoneAvailable(ctx, in.Phone, account.Id); err != nil {
 		return err
 	}
-	return s.updateAccountWithAudit(ctx, account.Id, do.Account{Phone: strings.TrimSpace(in.Phone), UpdatedBy: s.actorID(ctx)})
+	return s.updateAccountWithAudit(ctx, account.Id, do.Account{Phone: strings.TrimSpace(in.Phone), UpdateBy: s.actorID(ctx)})
 }
 
 // ChangeRuntimeEmail updates one account email.
@@ -361,7 +365,7 @@ func (s *serviceImpl) ChangeRuntimeEmail(ctx context.Context, number string, ema
 	if err != nil {
 		return err
 	}
-	return s.updateAccountDetail(ctx, account.Id, do.AccountDetail{Email: strings.TrimSpace(email), UpdatedBy: s.actorID(ctx)})
+	return s.updateAccountDetail(ctx, account.Id, do.AccountDetails{Email: strings.TrimSpace(email), UpdateBy: s.actorID(ctx)})
 }
 
 // ChangeRuntimeQQ updates one account QQ.
@@ -370,7 +374,7 @@ func (s *serviceImpl) ChangeRuntimeQQ(ctx context.Context, number string, qq str
 	if err != nil {
 		return err
 	}
-	return s.updateAccountDetail(ctx, account.Id, do.AccountDetail{Qq: strings.TrimSpace(qq), UpdatedBy: s.actorID(ctx)})
+	return s.updateAccountDetail(ctx, account.Id, do.AccountDetails{Qq: strings.TrimSpace(qq), UpdateBy: s.actorID(ctx)})
 }
 
 // UnbindRuntimeWechat clears one account Wechat union ID.
@@ -379,7 +383,7 @@ func (s *serviceImpl) UnbindRuntimeWechat(ctx context.Context, number string) er
 	if err != nil {
 		return err
 	}
-	return s.updateAccountDetail(ctx, account.Id, do.AccountDetail{Wechat: "", UpdatedBy: s.actorID(ctx)})
+	return s.updateAccountDetail(ctx, account.Id, do.AccountDetails{Wechat: "", UpdateBy: s.actorID(ctx)})
 }
 
 // GetRuntimeUserInfo returns runtime user projection.
@@ -417,17 +421,17 @@ func (s *serviceImpl) ListRuntimeApplications(ctx context.Context, in UserApplic
 	if err != nil {
 		return nil, err
 	}
-	model := s.tenantFilter.Apply(ctx, dao.Application.Ctx(ctx), "").
-		Where(dao.Application.Columns().Status, ApplicationStatusEnabled)
+	model := dao.Applications.Ctx(ctx).
+		Where(dao.Applications.Columns().Status, ApplicationStatusEnabled)
 	if len(blockedIDs) > 0 {
-		model = model.WhereNotIn(dao.Application.Columns().Id, blockedIDs)
+		model = model.WhereNotIn(dao.Applications.Columns().Id, blockedIDs)
 	}
 	total, err := model.Count()
 	if err != nil {
 		return nil, err
 	}
-	var apps []*entity.Application
-	if err := model.OrderAsc(dao.Application.Columns().Id).
+	var apps []*entity.Applications
+	if err := model.OrderAsc(dao.Applications.Columns().Id).
 		Page(normalizedPageNum(in.PageNum), normalizedPageSize(in.PageSize)).
 		Scan(&apps); err != nil {
 		return nil, err
@@ -450,7 +454,7 @@ func (s *serviceImpl) ListRuntimeAppRoles(ctx context.Context, in UserAppRoleLis
 		return nil, err
 	}
 	cols := dao.AccountAppRole.Columns()
-	model := s.tenantFilter.Apply(ctx, dao.AccountAppRole.Ctx(ctx), "").
+	model := dao.AccountAppRole.Ctx(ctx).
 		Where(cols.GiveAccountId, account.Id)
 	total, err := model.Count()
 	if err != nil {
@@ -480,14 +484,13 @@ func (s *serviceImpl) CreateRuntimeAppRole(ctx context.Context, in UserAppRoleCr
 	if _, err := s.runtimeApplication(ctx, in.AppID); err != nil {
 		return 0, err
 	}
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
+	actorID := s.actorID(ctx)
 	data := do.AccountAppRole{
-		TenantId:           tenantID,
 		GiveAccountId:      give.Id,
 		EmpoweredAccountId: empowered.Id,
 		AppId:              in.AppID,
-		CreatedBy:          actorID,
-		UpdatedBy:          actorID,
+		CreateBy:           actorID,
+		UpdateBy:           actorID,
 	}
 	if in.ExpireAt != nil {
 		expireAt := time.UnixMilli(*in.ExpireAt)
@@ -503,7 +506,7 @@ func (s *serviceImpl) UpdateRuntimeAppRole(ctx context.Context, in UserAppRoleUp
 		return err
 	}
 	var role *entity.AccountAppRole
-	if err := s.tenantFilter.Apply(ctx, dao.AccountAppRole.Ctx(ctx), "").
+	if err := dao.AccountAppRole.Ctx(ctx).
 		Where(dao.AccountAppRole.Columns().Id, in.ID).
 		Scan(&role); err != nil {
 		return err
@@ -511,12 +514,12 @@ func (s *serviceImpl) UpdateRuntimeAppRole(ctx context.Context, in UserAppRoleUp
 	if role == nil || role.GiveAccountId != give.Id {
 		return bizerr.NewCode(CodeAccessDenied)
 	}
-	data := do.AccountAppRole{UpdatedBy: s.actorID(ctx)}
+	data := do.AccountAppRole{UpdateBy: s.actorID(ctx)}
 	if in.ExpireAt != nil {
 		expireAt := time.UnixMilli(*in.ExpireAt)
 		data.ExpireAt = &expireAt
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.AccountAppRole.Ctx(ctx), "").
+	_, err = dao.AccountAppRole.Ctx(ctx).
 		Where(dao.AccountAppRole.Columns().Id, in.ID).
 		OmitNilData().
 		Data(data).
@@ -524,28 +527,28 @@ func (s *serviceImpl) UpdateRuntimeAppRole(ctx context.Context, in UserAppRoleUp
 	return err
 }
 
-func (s *serviceImpl) activationChallenge(ctx context.Context, challengeID string) (*entity.OauthToken, *activationChallengeData, error) {
-	model := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "")
+func (s *serviceImpl) activationChallenge(ctx context.Context, challengeID string) (*entity.Oauth2Token, *activationChallengeData, error) {
+	model := dao.Oauth2Token.Ctx(ctx)
 	return s.activationChallengeByModel(ctx, model, challengeID)
 }
 
-func (s *serviceImpl) activationChallengeUnscoped(ctx context.Context, challengeID string) (*entity.OauthToken, *activationChallengeData, error) {
-	return s.activationChallengeByModel(ctx, dao.OauthToken.Ctx(ctx), challengeID)
+func (s *serviceImpl) activationChallengeUnscoped(ctx context.Context, challengeID string) (*entity.Oauth2Token, *activationChallengeData, error) {
+	return s.activationChallengeByModel(ctx, dao.Oauth2Token.Ctx(ctx), challengeID)
 }
 
-func (s *serviceImpl) activationChallengeByModel(ctx context.Context, model *gdb.Model, challengeID string) (*entity.OauthToken, *activationChallengeData, error) {
+func (s *serviceImpl) activationChallengeByModel(ctx context.Context, model *gdb.Model, challengeID string) (*entity.Oauth2Token, *activationChallengeData, error) {
 	trimmed := strings.TrimSpace(challengeID)
 	if trimmed == "" {
 		return nil, nil, bizerr.NewCode(CodeActivationInvalid)
 	}
-	var token *entity.OauthToken
+	var token *entity.Oauth2Token
 	err := model.
-		Where(dao.OauthToken.Columns().Code, ticketCodePrefixActivation+trimmed).
+		Where(dao.Oauth2Token.Columns().Code, ticketCodePrefixActivation+trimmed).
 		Scan(&token)
 	if err != nil {
 		return nil, nil, err
 	}
-	if token == nil || token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeActivationInvalid)
 	}
 	payload := &activationChallengeData{}
@@ -555,15 +558,15 @@ func (s *serviceImpl) activationChallengeByModel(ctx context.Context, model *gdb
 	return token, payload, nil
 }
 
-func (s *serviceImpl) unionIDChallenge(ctx context.Context, challengeID string) (*entity.OauthToken, *unionIDChallengeData, error) {
-	var token *entity.OauthToken
-	err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Code, ticketCodePrefixUnionBind+challengeID).
+func (s *serviceImpl) unionIDChallenge(ctx context.Context, challengeID string) (*entity.Oauth2Token, *unionIDChallengeData, error) {
+	var token *entity.Oauth2Token
+	err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Code, ticketCodePrefixUnionBind+challengeID).
 		Scan(&token)
 	if err != nil {
 		return nil, nil, err
 	}
-	if token == nil || token.ExpiredAt == nil || token.ExpiredAt.Before(time.Now()) {
+	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeUnionIDChallengeInvalid)
 	}
 	payload := &unionIDChallengeData{}
@@ -578,26 +581,25 @@ func (s *serviceImpl) updateRuntimePayload(ctx context.Context, tokenID int64, p
 	if err != nil {
 		return err
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
-		Where(dao.OauthToken.Columns().Id, tokenID).
-		Data(do.OauthToken{Data: string(content), UpdatedBy: s.actorID(ctx)}).
+	_, err = dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Id, tokenID).
+		Data(do.Oauth2Token{Data: string(content), UpdateBy: s.actorID(ctx)}).
 		Update()
 	return err
 }
 
-func (s *serviceImpl) updateAccountDetail(ctx context.Context, accountID int64, data do.AccountDetail) error {
-	count, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-		Where(dao.AccountDetail.Columns().AccountId, accountID).
+func (s *serviceImpl) updateAccountDetail(ctx context.Context, accountID int64, data do.AccountDetails) error {
+	count, err := dao.AccountDetails.Ctx(ctx).
+		Where(dao.AccountDetails.Columns().AccountId, accountID).
 		Count()
 	if err != nil {
 		return err
 	}
 	if count == 0 {
-		tenantID, actorID := s.baseOwnedDO(ctx, true)
-		data.TenantId = tenantID
+		actorID := s.actorID(ctx)
 		data.AccountId = accountID
-		data.CreatedBy = actorID
-		data.UpdatedBy = actorID
+		data.CreateBy = actorID
+		data.UpdateBy = actorID
 		return s.createAccountDetailWithAudit(ctx, data, accountID)
 	}
 	return s.updateAccountDetailWithAudit(ctx, accountID, data)
@@ -608,9 +610,9 @@ func (s *serviceImpl) bindUnionIDToAccount(ctx context.Context, accountID int64,
 	if trimmed == "" {
 		return bizerr.NewCode(CodeUnionIDChallengeInvalid)
 	}
-	count, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-		Where(dao.AccountDetail.Columns().Wechat, trimmed).
-		WhereNot(dao.AccountDetail.Columns().AccountId, accountID).
+	count, err := dao.AccountDetails.Ctx(ctx).
+		Where(dao.AccountDetails.Columns().Wechat, trimmed).
+		WhereNot(dao.AccountDetails.Columns().AccountId, accountID).
 		Count()
 	if err != nil {
 		return err
@@ -618,7 +620,7 @@ func (s *serviceImpl) bindUnionIDToAccount(ctx context.Context, accountID int64,
 	if count > 0 {
 		return bizerr.NewCode(CodeContactConflict)
 	}
-	return s.updateAccountDetail(ctx, accountID, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)})
+	return s.updateAccountDetail(ctx, accountID, do.AccountDetails{Wechat: trimmed, UpdateBy: s.actorID(ctx)})
 }
 
 // rebindUnionIDToAccount moves one UnionID from any previous account to account.
@@ -627,16 +629,16 @@ func (s *serviceImpl) rebindUnionIDToAccount(ctx context.Context, account *entit
 	if trimmed == "" || account == nil {
 		return bizerr.NewCode(CodeUnionIDChallengeInvalid)
 	}
-	return dao.AccountDetail.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
-		detailCols := dao.AccountDetail.Columns()
+	return dao.AccountDetails.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+		detailCols := dao.AccountDetails.Columns()
 		oldRecords, err := s.accountDetailRecordsByWechat(ctx, trimmed, account.Id)
 		if err != nil {
 			return err
 		}
-		_, err = s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
+		_, err = dao.AccountDetails.Ctx(ctx).
 			Where(detailCols.Wechat, trimmed).
 			WhereNot(detailCols.AccountId, account.Id).
-			Data(do.AccountDetail{Wechat: "", UpdatedBy: s.actorID(ctx)}).
+			Data(do.AccountDetails{Wechat: "", UpdateBy: s.actorID(ctx)}).
 			Update()
 		if err != nil {
 			return err
@@ -644,51 +646,23 @@ func (s *serviceImpl) rebindUnionIDToAccount(ctx context.Context, account *entit
 		if err := s.insertAccountDetailUpdateAudits(ctx, oldRecords); err != nil {
 			return err
 		}
-		if err := s.updateAccountDetail(ctx, account.Id, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)}); err != nil {
+		if err := s.updateAccountDetail(ctx, account.Id, do.AccountDetails{Wechat: trimmed, UpdateBy: s.actorID(ctx)}); err != nil {
 			return err
 		}
 		return s.recordAccountActiveLog(ctx, account, trimmed, accountActiveLogTypeUnionBind)
 	})
 }
 
-// getAccountByIDForTenant loads one account from an explicit tenant boundary.
-func (s *serviceImpl) getAccountByIDForTenant(ctx context.Context, tenantID int, accountID int64) (*entity.Account, error) {
-	var account *entity.Account
-	err := dao.Account.Ctx(ctx).
-		Where(dao.Account.Columns().TenantId, tenantID).
-		Where(dao.Account.Columns().Id, accountID).
-		Scan(&account)
-	if err != nil {
-		return nil, err
-	}
-	if account == nil {
-		return nil, bizerr.NewCode(CodeResourceNotFound)
-	}
-	return account, nil
-}
-
-// recordAccountActiveLog writes one legacy activation log in the current tenant.
+// recordAccountActiveLog writes one global legacy activation log.
 func (s *serviceImpl) recordAccountActiveLog(ctx context.Context, account *entity.Account, unionID string, logType accountActiveLogType) error {
 	if account == nil {
 		return bizerr.NewCode(CodeResourceNotFound)
 	}
-	return s.recordAccountActiveLogForTenant(ctx, s.tenantID(ctx), account, unionID, logType)
-}
-
-// recordAccountActiveLogForTenant writes one legacy activation log for tenantID.
-func (s *serviceImpl) recordAccountActiveLogForTenant(ctx context.Context, tenantID int, account *entity.Account, unionID string, logType accountActiveLogType) error {
-	if account == nil {
-		return bizerr.NewCode(CodeResourceNotFound)
-	}
-	actorID := s.actorID(ctx)
 	_, err := dao.AccountActiveLog.Ctx(ctx).Data(do.AccountActiveLog{
-		TenantId:  tenantID,
-		Number:    strings.TrimSpace(account.Number),
-		Phone:     strings.TrimSpace(account.Phone),
-		Wechat:    strings.TrimSpace(unionID),
-		Type:      int(logType),
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
+		Number: strings.TrimSpace(account.Number),
+		Phone:  strings.TrimSpace(account.Phone),
+		Wechat: strings.TrimSpace(unionID),
+		Type:   int64(logType),
 	}).Insert()
 	return err
 }
@@ -734,7 +708,7 @@ func activationWechatResult(state string, payload *activationChallengeData) *Act
 }
 
 func (s *serviceImpl) ensurePhoneAvailable(ctx context.Context, phone string, accountID int64) error {
-	count, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
+	count, err := dao.Account.Ctx(ctx).
 		Where(dao.Account.Columns().Phone, strings.TrimSpace(phone)).
 		WhereNot(dao.Account.Columns().Id, accountID).
 		Count()
@@ -773,7 +747,7 @@ func (s *serviceImpl) blockedApplicationIDs(ctx context.Context, accountID int64
 	now := time.Now()
 	blocked := make(map[int64]struct{})
 	accountCols := dao.AccountAppBlacklist.Columns()
-	accountRows, err := s.tenantFilter.Apply(ctx, dao.AccountAppBlacklist.Ctx(ctx), "").
+	accountRows, err := dao.AccountAppBlacklist.Ctx(ctx).
 		Fields(accountCols.AppId).
 		Where(accountCols.AccountId, accountID).
 		Where("("+accountCols.EffectAt+" IS NULL OR "+accountCols.EffectAt+" <= ?)", now).
@@ -785,8 +759,8 @@ func (s *serviceImpl) blockedApplicationIDs(ctx context.Context, accountID int64
 	for _, row := range accountRows {
 		blocked[row[accountCols.AppId].Int64()] = struct{}{}
 	}
-	groupIDs, err := s.tenantFilter.Apply(ctx, dao.AccountGroup.Ctx(ctx), "").
-		Fields(dao.AccountGroup.Columns().GroupId).
+	groupIDs, err := dao.AccountGroup.Ctx(ctx).
+		Fields(dao.AccountGroup.Columns().GroupsId).
 		Where(dao.AccountGroup.Columns().AccountId, accountID).
 		Array()
 	if err != nil {
@@ -794,7 +768,7 @@ func (s *serviceImpl) blockedApplicationIDs(ctx context.Context, accountID int64
 	}
 	if len(groupIDs) > 0 {
 		groupCols := dao.GroupAppBlacklist.Columns()
-		groupRows, err := s.tenantFilter.Apply(ctx, dao.GroupAppBlacklist.Ctx(ctx), "").
+		groupRows, err := dao.GroupAppBlacklist.Ctx(ctx).
 			Fields(groupCols.AppId).
 			WhereIn(groupCols.GroupId, groupIDs).
 			Where("("+groupCols.EffectAt+" IS NULL OR "+groupCols.EffectAt+" <= ?)", now).

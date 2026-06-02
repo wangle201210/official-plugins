@@ -1,4 +1,4 @@
-// Package uidentity implements tenant-scoped identity, CAS, OAuth, password,
+// Package uidentity implements global identity, CAS, OAuth, password,
 // blacklist, audit, and statistics services for the linapro-uidentity-cas
 // source plugin. It owns only plugin-prefixed tables and consumes host
 // capabilities through explicit constructor injection.
@@ -38,21 +38,21 @@ const (
 // Service defines UIdentity resource CRUD, runtime authentication, password,
 // OAuth, audit, and statistics behavior.
 type Service interface {
-	// ListResource returns a tenant-scoped paged list for one supported resource.
+	// ListResource returns a global paged list for one supported resource.
 	// It applies database-side filtering, ordering, pagination, and batch
 	// projection before returning API-ready records.
 	ListResource(ctx context.Context, in ResourceListInput) (*ResourceListOutput, error)
-	// GetResource returns one tenant-visible resource record by ID or a
-	// structured not-found error when absent or outside tenant scope.
+	// GetResource returns one global resource record by ID or a structured
+	// not-found error when absent.
 	GetResource(ctx context.Context, resource string, id int64) (Record, error)
 	// CreateResource creates one resource record from API field values and
-	// returns the new ID. Audit fields and tenant ownership are filled from ctx.
+	// returns the new ID. Audit fields are filled from ctx.
 	CreateResource(ctx context.Context, resource string, body map[string]any) (int64, error)
 	// UpdateResource updates one resource record by ID from partial API field
-	// values. It returns not-found when the row is outside tenant scope.
+	// values. It returns not-found when the row is absent.
 	UpdateResource(ctx context.Context, resource string, id int64, body map[string]any) error
-	// DeleteResource soft-deletes or hard-deletes supported records after
-	// tenant visibility checks. IDs are capped and validated before delete.
+	// DeleteResource soft-deletes or hard-deletes supported records. IDs are
+	// capped and validated before delete.
 	DeleteResource(ctx context.Context, resource string, ids string) error
 	// ListLegacyJobLogs returns scheduler logs projected into the old
 	// uidentity/admin job-log shape without owning scheduler state.
@@ -69,13 +69,13 @@ type Service interface {
 	// writing data and returns the number of importable rows.
 	CheckAccountImport(ctx context.Context, in AccountImportInput) (*AccountImportCheckOutput, error)
 	// ImportAccounts imports or updates plugin account rows from one legacy
-	// workbook, matching existing accounts by tenant-scoped account number.
+	// workbook, matching existing accounts by global account number.
 	ImportAccounts(ctx context.Context, in AccountImportInput) (*AccountImportOutput, error)
-	// ResetAccountPassword resets one account password using active password
-	// rules and records plugin-owned password metadata.
+	// ResetAccountPassword resets one account password through the legacy LDAP
+	// password store and records the resulting pass level.
 	ResetAccountPassword(ctx context.Context, accountID int64, newPassword string) error
 	// UnlockPasswordFailures clears short-lived runtime password failure
-	// counters for tenant-visible account numbers.
+	// counters for global account numbers.
 	UnlockPasswordFailures(ctx context.Context, numbers []string) ([]string, error)
 	// CreatePasswordChallenge creates a short-lived self-service password reset
 	// challenge for an account number and returns its account status.
@@ -207,7 +207,7 @@ type Service interface {
 	// runtime account.
 	ListRuntimeAppRoles(ctx context.Context, in UserAppRoleListInput) (*ResourceListOutput, error)
 	// CreateRuntimeAppRole creates one delegated account-app role for a runtime
-	// account after resolving both accounts in tenant scope.
+	// account after resolving both global accounts.
 	CreateRuntimeAppRole(ctx context.Context, in UserAppRoleCreateInput) (int64, error)
 	// UpdateRuntimeAppRole updates delegated role expiration when owned by the
 	// runtime granting account.

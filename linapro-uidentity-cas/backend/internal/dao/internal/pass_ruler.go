@@ -11,86 +11,84 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// PassRuleDao is the data access object for the table plugin_linapro_uidentity_cas_pass_rule.
-type PassRuleDao struct {
+// PassRulerDao is the data access object for the table plugin_linapro_uidentity_cas_pass_ruler.
+type PassRulerDao struct {
 	table    string             // table is the underlying table name of the DAO.
 	group    string             // group is the database configuration group name of the current DAO.
-	columns  PassRuleColumns    // columns contains all the column names of Table for convenient usage.
+	columns  PassRulerColumns   // columns contains all the column names of Table for convenient usage.
 	handlers []gdb.ModelHandler // handlers for customized model modification.
 }
 
-// PassRuleColumns defines and stores column names for the table plugin_linapro_uidentity_cas_pass_rule.
-type PassRuleColumns struct {
+// PassRulerColumns defines and stores column names for the table plugin_linapro_uidentity_cas_pass_ruler.
+type PassRulerColumns struct {
 	Id             string //
-	TenantId       string //
 	Name           string //
 	Capital        string //
 	Lower          string //
 	Number         string //
 	Symbol         string //
 	Length         string //
-	IntervalDays   string //
+	Interval       string //
 	IntervalStatus string //
-	Status         string // Rule status: 0=disabled, 1=enabled
-	CreatedBy      string //
-	UpdatedBy      string //
+	Status         string //
 	CreatedAt      string //
 	UpdatedAt      string //
 	DeletedAt      string //
+	CreateBy       string //
+	UpdateBy       string //
 }
 
-// passRuleColumns holds the columns for the table plugin_linapro_uidentity_cas_pass_rule.
-var passRuleColumns = PassRuleColumns{
+// passRulerColumns holds the columns for the table plugin_linapro_uidentity_cas_pass_ruler.
+var passRulerColumns = PassRulerColumns{
 	Id:             "id",
-	TenantId:       "tenant_id",
 	Name:           "name",
 	Capital:        "capital",
 	Lower:          "lower",
 	Number:         "number",
 	Symbol:         "symbol",
 	Length:         "length",
-	IntervalDays:   "interval_days",
+	Interval:       "interval",
 	IntervalStatus: "interval_status",
 	Status:         "status",
-	CreatedBy:      "created_by",
-	UpdatedBy:      "updated_by",
 	CreatedAt:      "created_at",
 	UpdatedAt:      "updated_at",
 	DeletedAt:      "deleted_at",
+	CreateBy:       "create_by",
+	UpdateBy:       "update_by",
 }
 
-// NewPassRuleDao creates and returns a new DAO object for table data access.
-func NewPassRuleDao(handlers ...gdb.ModelHandler) *PassRuleDao {
-	return &PassRuleDao{
+// NewPassRulerDao creates and returns a new DAO object for table data access.
+func NewPassRulerDao(handlers ...gdb.ModelHandler) *PassRulerDao {
+	return &PassRulerDao{
 		group:    "default",
-		table:    "plugin_linapro_uidentity_cas_pass_rule",
-		columns:  passRuleColumns,
+		table:    "plugin_linapro_uidentity_cas_pass_ruler",
+		columns:  passRulerColumns,
 		handlers: handlers,
 	}
 }
 
 // DB retrieves and returns the underlying raw database management object of the current DAO.
-func (dao *PassRuleDao) DB() gdb.DB {
+func (dao *PassRulerDao) DB() gdb.DB {
 	return g.DB(dao.group)
 }
 
 // Table returns the table name of the current DAO.
-func (dao *PassRuleDao) Table() string {
+func (dao *PassRulerDao) Table() string {
 	return dao.table
 }
 
 // Columns returns all column names of the current DAO.
-func (dao *PassRuleDao) Columns() PassRuleColumns {
+func (dao *PassRulerDao) Columns() PassRulerColumns {
 	return dao.columns
 }
 
 // Group returns the database configuration group name of the current DAO.
-func (dao *PassRuleDao) Group() string {
+func (dao *PassRulerDao) Group() string {
 	return dao.group
 }
 
 // Ctx creates and returns a Model for the current DAO. It automatically sets the context for the current operation.
-func (dao *PassRuleDao) Ctx(ctx context.Context) *gdb.Model {
+func (dao *PassRulerDao) Ctx(ctx context.Context) *gdb.Model {
 	model := dao.DB().Model(dao.table)
 	for _, handler := range dao.handlers {
 		model = handler(model)
@@ -104,6 +102,6 @@ func (dao *PassRuleDao) Ctx(ctx context.Context) *gdb.Model {
 //
 // Note: Do not commit or roll back the transaction in function f,
 // as it is automatically handled by this function.
-func (dao *PassRuleDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
+func (dao *PassRulerDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
 	return dao.Ctx(ctx).Transaction(ctx, f)
 }

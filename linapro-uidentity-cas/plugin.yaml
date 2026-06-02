@@ -10,10 +10,10 @@ version: v0.1.0
 # Source plugins are compiled with the host through the official plugin bundle.
 type: source
 
-# Identity data is tenant-aware and must be governed by tenant installation state.
-scope_nature: tenant_aware
-supports_multi_tenant: true
-default_install_mode: tenant_scoped
+# Legacy uidentity/admin data is global and is not partitioned by LinaPro tenant.
+scope_nature: platform_only
+supports_multi_tenant: false
+default_install_mode: global
 
 # Backend-only plugin that ports the uidentity/admin identity, CAS, OAuth, and audit APIs.
 description: Provides backend identity, CAS, OAuth, password policy, blacklist, and audit services.

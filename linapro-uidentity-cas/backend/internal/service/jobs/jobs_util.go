@@ -8,12 +8,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha1"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -245,7 +244,6 @@ func int64sFromSet(values map[int64]struct{}) []int64 {
 
 func (s *serviceImpl) insertAccountAudit(ctx context.Context, tenantID int, accountID int64, tableName string, action string, oldData any, newData any) error {
 	_, err := dao.AccountChangeLog.Ctx(ctx).Data(do.AccountChangeLog{
-		TenantId:  tenantID,
 		AccountId: accountID,
 		TableName: tableName,
 		Action:    action,
@@ -271,60 +269,52 @@ func accountAuditRecord(account *entity.Account) map[string]any {
 		return nil
 	}
 	return map[string]any{
-		"id":                account.Id,
-		"tenantId":          account.TenantId,
-		"number":            account.Number,
-		"name":              account.Name,
-		"phone":             account.Phone,
-		"effectAt":          account.EffectAt,
-		"expireAt":          account.ExpireAt,
-		"passwordUpdatedAt": account.PasswordUpdatedAt,
-		"passLevel":         account.PassLevel,
-		"containerId":       account.ContainerId,
-		"unitId":            account.UnitId,
-		"status":            account.Status,
-		"createdBy":         account.CreatedBy,
-		"updatedBy":         account.UpdatedBy,
-		"createdAt":         account.CreatedAt,
-		"updatedAt":         account.UpdatedAt,
-		"deletedAt":         account.DeletedAt,
+		"id":          account.Id,
+		"number":      account.Number,
+		"name":        account.Name,
+		"phone":       account.Phone,
+		"effectAt":    account.EffectAt,
+		"expireAt":    account.ExpireAt,
+		"passLevel":   account.PassLevel,
+		"containerId": account.ContainerId,
+		"unitId":      account.UnitId,
+		"status":      account.Status,
+		"createBy":    account.CreateBy,
+		"updateBy":    account.UpdateBy,
+		"createdAt":   account.CreatedAt,
+		"updatedAt":   account.UpdatedAt,
+		"deletedAt":   account.DeletedAt,
 	}
 }
 
-func detailAuditRecord(detail *entity.AccountDetail) map[string]any {
+func detailAuditRecord(detail *entity.AccountDetails) map[string]any {
 	if detail == nil {
 		return nil
 	}
 	return map[string]any{
-		"accountId":    detail.AccountId,
-		"tenantId":     detail.TenantId,
-		"birthday":     detail.Birthday,
-		"email":        detail.Email,
-		"gender":       detail.Gender,
-		"qq":           detail.Qq,
-		"wechat":       detail.Wechat,
-		"idcard":       detail.Idcard,
-		"avatar":       detail.Avatar,
-		"source":       detail.Source,
-		"grade":        detail.Grade,
-		"college":      detail.College,
-		"collegeCode":  detail.CollegeCode,
-		"campus":       detail.Campus,
-		"schoolSystem": detail.SchoolSystem,
-		"graduatedAt":  detail.GraduatedAt,
-		"major":        detail.Major,
-		"className":    detail.ClassName,
-		"face":         detail.Face,
-		"createdBy":    detail.CreatedBy,
-		"updatedBy":    detail.UpdatedBy,
-		"createdAt":    detail.CreatedAt,
-		"updatedAt":    detail.UpdatedAt,
+		"accountId": detail.AccountId,
+		"birthday":  detail.Birthday,
+		"email":     detail.Email,
+		"gender":    detail.Gender,
+		"qq":        detail.Qq,
+		"wechat":    detail.Wechat,
+		"idcard":    detail.Idcard,
+		"avatar":    detail.Avatar,
+		"source":    detail.Source,
+		"nj":        detail.Nj,
+		"xymc":      detail.Xymc,
+		"xydm":      detail.Xydm,
+		"xq":        detail.Xq,
+		"xz":        detail.Xz,
+		"yjbysj":    detail.Yjbysj,
+		"zymc":      detail.Zymc,
+		"bjmc":      detail.Bjmc,
+		"face":      detail.Face,
+		"createBy":  detail.CreateBy,
+		"updateBy":  detail.UpdateBy,
+		"createdAt": detail.CreatedAt,
+		"updatedAt": detail.UpdatedAt,
 	}
-}
-
-func hashAccountPassword(password string) string {
-	sum := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(sum[:])
 }
 
 func generateLDAPSSHA(password string) (string, error) {
@@ -341,6 +331,35 @@ func generateLDAPSSHA(password string) (string, error) {
 	}
 	ssha := append(hash.Sum(nil), salt...)
 	return "{SSHA}" + base64.StdEncoding.EncodeToString(ssha), nil
+}
+
+func legacyBirthdayTime(value string) *time.Time {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	for _, layout := range []string{time.DateOnly, time.DateTime, "20060102"} {
+		parsed, err := time.ParseInLocation(layout, trimmed, time.Local)
+		if err == nil {
+			return &parsed
+		}
+	}
+	return nil
+}
+
+func legacyBirthdayText(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.Format(time.DateOnly)
+}
+
+func legacyFaceValue(value string) int64 {
+	parsed, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return parsed
 }
 
 func scanAllPages[T any](ctx context.Context, model *gdb.Model, pageSize int, handle func([]*T) error) error {

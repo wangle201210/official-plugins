@@ -13,14 +13,14 @@ import (
 
 func TestMovableChangeContainerAccountIDsOnlyReturnsLDAPSuccesses(t *testing.T) {
 	ctx := context.Background()
-	target := &entity.Container{Id: 5, Name: legacyContainerAlumni}
+	target := &entity.Containers{Id: 5, Name: legacyContainerAlumni}
 	accounts := []*entity.Account{
 		{Id: 101, Number: "ok-101"},
 		{Id: 102, Number: "bad-102"},
 		{Id: 103, Number: "ok-103"},
 	}
 
-	ids, failed := movableChangeContainerAccountIDs(ctx, accounts, target, func(_ context.Context, account *entity.Account, _ *entity.Container) error {
+	ids, failed := movableChangeContainerAccountIDs(ctx, accounts, target, func(_ context.Context, account *entity.Account, _ *entity.Containers) error {
 		if account.Number == "bad-102" {
 			return errors.New("ldap move failed")
 		}
@@ -35,7 +35,7 @@ func TestMovableChangeContainerAccountIDsOnlyReturnsLDAPSuccesses(t *testing.T) 
 }
 
 func TestMovableChangeContainerAccountIDsTreatsMissingAccountAsFailure(t *testing.T) {
-	ids, failed := movableChangeContainerAccountIDs(context.Background(), []*entity.Account{nil}, &entity.Container{Name: legacyContainerAlumni}, func(context.Context, *entity.Account, *entity.Container) error {
+	ids, failed := movableChangeContainerAccountIDs(context.Background(), []*entity.Account{nil}, &entity.Containers{Name: legacyContainerAlumni}, func(context.Context, *entity.Account, *entity.Containers) error {
 		t.Fatal("mover should not be called for missing account")
 		return nil
 	})

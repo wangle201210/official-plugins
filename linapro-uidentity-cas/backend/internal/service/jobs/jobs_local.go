@@ -66,25 +66,20 @@ type jobRunStats struct {
 
 func executeContainerAccountJob(ctx context.Context, tenantID int) (jobRunStats, error) {
 	accountCols := dao.Account.Columns()
-	containerCols := dao.Container.Columns()
 	tableAccount := dao.Account.Table()
-	tableContainer := dao.Container.Table()
+	tableContainer := dao.Containers.Table()
 	accountCountSubquery := fmt.Sprintf(
-		`(SELECT COUNT(*) FROM %s WHERE %s.%s = %d AND %s.%s IS NULL AND %s.%s = %s.%s)`,
+		`(SELECT COUNT(*) FROM %s WHERE %s.%s IS NULL AND %s.%s = %s.%s)`,
 		tableAccount,
-		tableAccount,
-		accountCols.TenantId,
-		tenantID,
 		tableAccount,
 		accountCols.DeletedAt,
 		tableAccount,
 		accountCols.ContainerId,
 		tableContainer,
-		containerCols.Id,
+		dao.Containers.Columns().Id,
 	)
-	result, err := dao.Container.Ctx(ctx).
-		Where(containerCols.TenantId, tenantID).
-		Data(do.Container{AccountCount: gdb.Raw(accountCountSubquery)}).
+	result, err := dao.Containers.Ctx(ctx).
+		Data(do.Containers{AccountCount: gdb.Raw(accountCountSubquery)}).
 		Update()
 	if err != nil {
 		return jobRunStats{}, err
@@ -96,22 +91,22 @@ func executeContainerAccountJob(ctx context.Context, tenantID int) (jobRunStats,
 	return jobRunStats{updateNum: affected}, nil
 }
 
-type changeContainerMover func(ctx context.Context, account *entity.Account, target *entity.Container) error
+type changeContainerMover func(ctx context.Context, account *entity.Account, target *entity.Containers) error
 
 func (s *serviceImpl) changeContainerMover(ctx context.Context) (changeContainerMover, func()) {
 	cfg, cfgErr := s.ldapJobConfig(ctx)
 	if cfgErr != nil {
-		return func(context.Context, *entity.Account, *entity.Container) error {
+		return func(context.Context, *entity.Account, *entity.Containers) error {
 			return cfgErr
 		}, func() {}
 	}
 	conn, connErr := openLDAPConn(cfg)
 	if connErr != nil {
-		return func(context.Context, *entity.Account, *entity.Container) error {
+		return func(context.Context, *entity.Account, *entity.Containers) error {
 			return connErr
 		}, func() {}
 	}
-	return func(ctx context.Context, account *entity.Account, target *entity.Container) error {
+	return func(ctx context.Context, account *entity.Account, target *entity.Containers) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
@@ -164,12 +159,11 @@ func legacyContainerIDByName(ctx context.Context, tenantID int, name string) (in
 	return container.Id, nil
 }
 
-func legacyContainerByName(ctx context.Context, tenantID int, name string) (*entity.Container, error) {
-	var container *entity.Container
-	cols := dao.Container.Columns()
-	err := dao.Container.Ctx(ctx).
+func legacyContainerByName(ctx context.Context, tenantID int, name string) (*entity.Containers, error) {
+	var container *entity.Containers
+	cols := dao.Containers.Columns()
+	err := dao.Containers.Ctx(ctx).
 		Fields(cols.Id, cols.Name).
-		Where(cols.TenantId, tenantID).
 		Where(cols.Name, strings.TrimSpace(name)).
 		Scan(&container)
 	if err != nil {
@@ -182,13 +176,12 @@ func legacyContainerByName(ctx context.Context, tenantID int, name string) (*ent
 }
 
 func graduatingAccountPage(ctx context.Context, tenantID int, graduationYear int, page int, pageSize int) ([]*entity.Account, error) {
-	detailCols := dao.AccountDetail.Columns()
+	detailCols := dao.AccountDetails.Columns()
 	yearText := fmt.Sprintf("%d", graduationYear)
-	var details []*entity.AccountDetail
-	err := dao.AccountDetail.Ctx(ctx).
+	var details []*entity.AccountDetails
+	err := dao.AccountDetails.Ctx(ctx).
 		Fields(detailCols.AccountId).
-		Where(detailCols.TenantId, tenantID).
-		Where(detailCols.GraduatedAt, yearText).
+		Where(detailCols.Yjbysj, yearText).
 		OrderAsc(detailCols.AccountId).
 		Offset(page * pageSize).
 		Limit(pageSize).
@@ -226,7 +219,6 @@ func legacyAccountsByIDs(ctx context.Context, tenantID int, accountIDs []int64) 
 	}
 	var accounts []*entity.Account
 	err := dao.Account.Ctx(ctx).
-		Where(dao.Account.Columns().TenantId, tenantID).
 		WhereIn(dao.Account.Columns().Id, accountIDs).
 		Scan(&accounts)
 	if err != nil {
@@ -240,7 +232,7 @@ func legacyAccountsByIDs(ctx context.Context, tenantID int, accountIDs []int64) 
 	return result, nil
 }
 
-func movableChangeContainerAccountIDs(ctx context.Context, accounts []*entity.Account, target *entity.Container, mover changeContainerMover) ([]int64, int64) {
+func movableChangeContainerAccountIDs(ctx context.Context, accounts []*entity.Account, target *entity.Containers, mover changeContainerMover) ([]int64, int64) {
 	accountIDs := make([]int64, 0, len(accounts))
 	var failed int64
 	for _, account := range accounts {
@@ -263,7 +255,6 @@ func updateAccountsContainerByIDs(ctx context.Context, tenantID int, accountIDs 
 		return 0, nil
 	}
 	result, err := dao.Account.Ctx(ctx).
-		Where(dao.Account.Columns().TenantId, tenantID).
 		WhereIn(dao.Account.Columns().Id, accountIDs).
 		Data(do.Account{ContainerId: containerID}).
 		Update()

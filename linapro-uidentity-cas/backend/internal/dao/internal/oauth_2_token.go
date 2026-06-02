@@ -11,74 +11,76 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// OauthLogDao is the data access object for the table plugin_linapro_uidentity_cas_oauth_log.
-type OauthLogDao struct {
+// Oauth2TokenDao is the data access object for the table plugin_linapro_uidentity_cas_oauth2_token.
+type Oauth2TokenDao struct {
 	table    string             // table is the underlying table name of the DAO.
 	group    string             // group is the database configuration group name of the current DAO.
-	columns  OauthLogColumns    // columns contains all the column names of Table for convenient usage.
+	columns  Oauth2TokenColumns // columns contains all the column names of Table for convenient usage.
 	handlers []gdb.ModelHandler // handlers for customized model modification.
 }
 
-// OauthLogColumns defines and stores column names for the table plugin_linapro_uidentity_cas_oauth_log.
-type OauthLogColumns struct {
-	Id          string //
-	UserId      string //
-	AppId       string //
-	RedirectUri string //
-	Scope       string //
-	CreatedAt   string //
-	UpdatedAt   string //
-	DeletedAt   string //
-	CreateBy    string //
-	UpdateBy    string //
+// Oauth2TokenColumns defines and stores column names for the table plugin_linapro_uidentity_cas_oauth2_token.
+type Oauth2TokenColumns struct {
+	Id        string //
+	ExpiredAt string //
+	Code      string //
+	Access    string //
+	Refresh   string //
+	Data      string //
+	CreatedAt string //
+	UpdatedAt string //
+	DeletedAt string //
+	CreateBy  string //
+	UpdateBy  string //
 }
 
-// oauthLogColumns holds the columns for the table plugin_linapro_uidentity_cas_oauth_log.
-var oauthLogColumns = OauthLogColumns{
-	Id:          "id",
-	UserId:      "user_id",
-	AppId:       "app_id",
-	RedirectUri: "redirect_uri",
-	Scope:       "scope",
-	CreatedAt:   "created_at",
-	UpdatedAt:   "updated_at",
-	DeletedAt:   "deleted_at",
-	CreateBy:    "create_by",
-	UpdateBy:    "update_by",
+// oauth2TokenColumns holds the columns for the table plugin_linapro_uidentity_cas_oauth2_token.
+var oauth2TokenColumns = Oauth2TokenColumns{
+	Id:        "id",
+	ExpiredAt: "expired_at",
+	Code:      "code",
+	Access:    "access",
+	Refresh:   "refresh",
+	Data:      "data",
+	CreatedAt: "created_at",
+	UpdatedAt: "updated_at",
+	DeletedAt: "deleted_at",
+	CreateBy:  "create_by",
+	UpdateBy:  "update_by",
 }
 
-// NewOauthLogDao creates and returns a new DAO object for table data access.
-func NewOauthLogDao(handlers ...gdb.ModelHandler) *OauthLogDao {
-	return &OauthLogDao{
+// NewOauth2TokenDao creates and returns a new DAO object for table data access.
+func NewOauth2TokenDao(handlers ...gdb.ModelHandler) *Oauth2TokenDao {
+	return &Oauth2TokenDao{
 		group:    "default",
-		table:    "plugin_linapro_uidentity_cas_oauth_log",
-		columns:  oauthLogColumns,
+		table:    "plugin_linapro_uidentity_cas_oauth2_token",
+		columns:  oauth2TokenColumns,
 		handlers: handlers,
 	}
 }
 
 // DB retrieves and returns the underlying raw database management object of the current DAO.
-func (dao *OauthLogDao) DB() gdb.DB {
+func (dao *Oauth2TokenDao) DB() gdb.DB {
 	return g.DB(dao.group)
 }
 
 // Table returns the table name of the current DAO.
-func (dao *OauthLogDao) Table() string {
+func (dao *Oauth2TokenDao) Table() string {
 	return dao.table
 }
 
 // Columns returns all column names of the current DAO.
-func (dao *OauthLogDao) Columns() OauthLogColumns {
+func (dao *Oauth2TokenDao) Columns() Oauth2TokenColumns {
 	return dao.columns
 }
 
 // Group returns the database configuration group name of the current DAO.
-func (dao *OauthLogDao) Group() string {
+func (dao *Oauth2TokenDao) Group() string {
 	return dao.group
 }
 
 // Ctx creates and returns a Model for the current DAO. It automatically sets the context for the current operation.
-func (dao *OauthLogDao) Ctx(ctx context.Context) *gdb.Model {
+func (dao *Oauth2TokenDao) Ctx(ctx context.Context) *gdb.Model {
 	model := dao.DB().Model(dao.table)
 	for _, handler := range dao.handlers {
 		model = handler(model)
@@ -92,6 +94,6 @@ func (dao *OauthLogDao) Ctx(ctx context.Context) *gdb.Model {
 //
 // Note: Do not commit or roll back the transaction in function f,
 // as it is automatically handled by this function.
-func (dao *OauthLogDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
+func (dao *Oauth2TokenDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
 	return dao.Ctx(ctx).Transaction(ctx, f)
 }

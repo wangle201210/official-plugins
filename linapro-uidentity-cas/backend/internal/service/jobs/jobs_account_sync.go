@@ -56,7 +56,7 @@ type syncContext struct {
 	tenantID      int
 	containerID   int64
 	groupID       int64
-	unitsByCode   map[string]*entity.Unit
+	unitsByCode   map[string]*entity.Units
 	newUserCutoff time.Time
 }
 
@@ -139,19 +139,17 @@ func (s *serviceImpl) createOracleAccount(ctx context.Context, syncCtx *syncCont
 		phone = input.number
 	}
 	data := do.Account{
-		TenantId:     syncCtx.tenantID,
-		Number:       input.number,
-		Name:         input.name,
-		Phone:        phone,
-		PasswordHash: hashAccountPassword(input.number),
-		EffectAt:     &now,
-		ExpireAt:     defaultExpireAt(),
-		PassLevel:    0,
-		ContainerId:  syncCtx.containerID,
-		UnitId:       unitID(syncCtx.unitsByCode, input.unitCode),
-		Status:       statusValue(input.statusRaw, true, syncCtx.newUserCutoff),
-		CreatedBy:    int64(0),
-		UpdatedBy:    int64(0),
+		Number:      input.number,
+		Name:        input.name,
+		Phone:       phone,
+		EffectAt:    &now,
+		ExpireAt:    defaultExpireAt(),
+		PassLevel:   0,
+		ContainerId: syncCtx.containerID,
+		UnitId:      unitID(syncCtx.unitsByCode, input.unitCode),
+		Status:      statusValue(input.statusRaw, true, syncCtx.newUserCutoff),
+		CreateBy:    int64(0),
+		UpdateBy:    int64(0),
 	}
 	accountID, err := dao.Account.Ctx(ctx).Data(data).InsertAndGetId()
 	if err != nil && phone != input.number {
@@ -165,7 +163,7 @@ func (s *serviceImpl) createOracleAccount(ctx context.Context, syncCtx *syncCont
 		return err
 	}
 	detail := detailDO(syncCtx.tenantID, accountID, input.detail, true)
-	if _, err = dao.AccountDetail.Ctx(ctx).Data(detail).Insert(); err != nil {
+	if _, err = dao.AccountDetails.Ctx(ctx).Data(detail).Insert(); err != nil {
 		return err
 	}
 	if err := s.insertAccountAudit(ctx, syncCtx.tenantID, accountID, legacyAuditTableDetail, legacyAuditCreate, nil, detail); err != nil {
@@ -173,10 +171,8 @@ func (s *serviceImpl) createOracleAccount(ctx context.Context, syncCtx *syncCont
 	}
 	if syncCtx.groupID > 0 {
 		_, err = dao.AccountGroup.Ctx(ctx).Data(do.AccountGroup{
-			TenantId:  syncCtx.tenantID,
 			AccountId: accountID,
-			GroupId:   syncCtx.groupID,
-			CreatedBy: int64(0),
+			GroupsId:  syncCtx.groupID,
 		}).Insert()
 		if err != nil {
 			return err
@@ -186,8 +182,8 @@ func (s *serviceImpl) createOracleAccount(ctx context.Context, syncCtx *syncCont
 	return nil
 }
 
-func (s *serviceImpl) updateOracleAccount(ctx context.Context, syncCtx *syncContext, input *accountSyncInput, account *entity.Account, detail *entity.AccountDetail, phoneOwners map[string]map[int64]struct{}, stats *jobRunStats) error {
-	accountData := do.Account{UpdatedBy: int64(0)}
+func (s *serviceImpl) updateOracleAccount(ctx context.Context, syncCtx *syncContext, input *accountSyncInput, account *entity.Account, detail *entity.AccountDetails, phoneOwners map[string]map[int64]struct{}, stats *jobRunStats) error {
+	accountData := do.Account{UpdateBy: int64(0)}
 	accountChanged := false
 	if input.name != "" && input.name != account.Name {
 		accountData.Name = input.name
@@ -230,7 +226,6 @@ func (s *serviceImpl) updateOracleAccount(ctx context.Context, syncCtx *syncCont
 func (s *serviceImpl) updateAccountFromJob(ctx context.Context, syncCtx *syncContext, account *entity.Account, data do.Account) error {
 	_, err := dao.Account.Ctx(ctx).
 		Unscoped().
-		Where(dao.Account.Columns().TenantId, syncCtx.tenantID).
 		Where(dao.Account.Columns().Id, account.Id).
 		OmitNilData().
 		Data(data).
@@ -244,7 +239,7 @@ func (s *serviceImpl) updateAccountFromJob(ctx context.Context, syncCtx *syncCon
 	return s.insertAccountAudit(ctx, syncCtx.tenantID, account.Id, legacyAuditTableAccount, legacyAuditUpdate, accountAuditRecord(account), mergeAccountAudit(account, data))
 }
 
-func (s *serviceImpl) upsertDetailFromJob(ctx context.Context, syncCtx *syncContext, accountID int64, detail *entity.AccountDetail, input accountDetailSyncInput, stats *jobRunStats) (bool, error) {
+func (s *serviceImpl) upsertDetailFromJob(ctx context.Context, syncCtx *syncContext, accountID int64, detail *entity.AccountDetails, input accountDetailSyncInput, stats *jobRunStats) (bool, error) {
 	if detail == nil {
 		return false, nil
 	}
@@ -252,9 +247,8 @@ func (s *serviceImpl) upsertDetailFromJob(ctx context.Context, syncCtx *syncCont
 	if !changed {
 		return false, nil
 	}
-	_, err := dao.AccountDetail.Ctx(ctx).
-		Where(dao.AccountDetail.Columns().TenantId, syncCtx.tenantID).
-		Where(dao.AccountDetail.Columns().AccountId, accountID).
+	_, err := dao.AccountDetails.Ctx(ctx).
+		Where(dao.AccountDetails.Columns().AccountId, accountID).
 		OmitNilData().
 		Data(data).
 		Update()
@@ -266,11 +260,10 @@ func (s *serviceImpl) upsertDetailFromJob(ctx context.Context, syncCtx *syncCont
 }
 
 func legacyGroupIDByName(ctx context.Context, tenantID int, name string) (int64, error) {
-	var group *entity.Group
-	err := dao.Group.Ctx(ctx).
-		Fields(dao.Group.Columns().Id).
-		Where(dao.Group.Columns().TenantId, tenantID).
-		Where(dao.Group.Columns().Name, strings.TrimSpace(name)).
+	var group *entity.Groups
+	err := dao.Groups.Ctx(ctx).
+		Fields(dao.Groups.Columns().Id).
+		Where(dao.Groups.Columns().Name, strings.TrimSpace(name)).
 		Scan(&group)
 	if err != nil {
 		return 0, err
@@ -289,7 +282,6 @@ func legacyAccountsByNumbers(ctx context.Context, tenantID int, numbers []string
 	var accounts []*entity.Account
 	err := dao.Account.Ctx(ctx).
 		Unscoped().
-		Where(dao.Account.Columns().TenantId, tenantID).
 		WhereIn(dao.Account.Columns().Number, numbers).
 		Scan(&accounts)
 	if err != nil {
@@ -303,15 +295,14 @@ func legacyAccountsByNumbers(ctx context.Context, tenantID int, numbers []string
 	return result, nil
 }
 
-func legacyAccountDetailsByIDs(ctx context.Context, tenantID int, accountIDs []int64) (map[int64]*entity.AccountDetail, error) {
-	result := make(map[int64]*entity.AccountDetail, len(accountIDs))
+func legacyAccountDetailsByIDs(ctx context.Context, tenantID int, accountIDs []int64) (map[int64]*entity.AccountDetails, error) {
+	result := make(map[int64]*entity.AccountDetails, len(accountIDs))
 	if len(accountIDs) == 0 {
 		return result, nil
 	}
-	var details []*entity.AccountDetail
-	err := dao.AccountDetail.Ctx(ctx).
-		Where(dao.AccountDetail.Columns().TenantId, tenantID).
-		WhereIn(dao.AccountDetail.Columns().AccountId, accountIDs).
+	var details []*entity.AccountDetails
+	err := dao.AccountDetails.Ctx(ctx).
+		WhereIn(dao.AccountDetails.Columns().AccountId, accountIDs).
 		Scan(&details)
 	if err != nil {
 		return nil, err
@@ -333,7 +324,6 @@ func legacyPhoneOwnersByPhone(ctx context.Context, tenantID int, phones []string
 	err := dao.Account.Ctx(ctx).
 		Unscoped().
 		Fields(dao.Account.Columns().Id, dao.Account.Columns().Phone).
-		Where(dao.Account.Columns().TenantId, tenantID).
 		WhereIn(dao.Account.Columns().Phone, phones).
 		Scan(&accounts)
 	if err != nil {
@@ -364,65 +354,63 @@ func phoneUsedByOther(owners map[string]map[int64]struct{}, phone string, accoun
 	return false
 }
 
-func legacyUnitsByCode(ctx context.Context, tenantID int) (map[string]*entity.Unit, error) {
-	var units []*entity.Unit
-	err := dao.Unit.Ctx(ctx).
-		Fields(dao.Unit.Columns().Id, dao.Unit.Columns().Code).
-		Where(dao.Unit.Columns().TenantId, tenantID).
+func legacyUnitsByCode(ctx context.Context, tenantID int) (map[string]*entity.Units, error) {
+	var units []*entity.Units
+	err := dao.Units.Ctx(ctx).
+		Fields(dao.Units.Columns().Id, dao.Units.Columns().Code).
 		Scan(&units)
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]*entity.Unit, len(units))
+	result := make(map[string]*entity.Units, len(units))
 	for _, unit := range units {
-		if unit != nil && unit.Code != "" {
-			result[unit.Code] = unit
+		if unit != nil && unit.Code > 0 {
+			result[strconv.FormatInt(unit.Code, 10)] = unit
 		}
 	}
 	return result, nil
 }
 
-func unitID(units map[string]*entity.Unit, code string) int64 {
+func unitID(units map[string]*entity.Units, code string) int64 {
 	if unit, ok := units[strings.TrimSpace(code)]; ok && unit != nil {
 		return unit.Id
 	}
 	return 0
 }
 
-func detailDO(tenantID int, accountID int64, input accountDetailSyncInput, create bool) do.AccountDetail {
-	data := do.AccountDetail{
+func detailDO(tenantID int, accountID int64, input accountDetailSyncInput, create bool) do.AccountDetails {
+	data := do.AccountDetails{
 		AccountId: accountID,
-		TenantId:  tenantID,
-		UpdatedBy: int64(0),
+		UpdateBy:  int64(0),
 	}
 	if create {
-		data.CreatedBy = int64(0)
+		data.CreateBy = int64(0)
 	}
 	if input.source == "" {
 		input.source = legacySourceSync
 	}
 	data.Source = input.source
 	data.Idcard = input.idcard
-	data.Birthday = input.birthday
+	data.Birthday = legacyBirthdayTime(input.birthday)
 	data.Email = input.email
 	data.Gender = input.gender
 	data.Qq = input.qq
 	data.Wechat = input.wechat
 	data.Avatar = input.avatar
-	data.Grade = input.grade
-	data.College = input.college
-	data.CollegeCode = input.collegeCode
-	data.Campus = input.campus
-	data.SchoolSystem = input.schoolSystem
-	data.GraduatedAt = input.graduatedAt
-	data.Major = input.major
-	data.ClassName = input.className
-	data.Face = input.face
+	data.Nj = input.grade
+	data.Xymc = input.college
+	data.Xydm = input.collegeCode
+	data.Xq = input.campus
+	data.Xz = input.schoolSystem
+	data.Yjbysj = input.graduatedAt
+	data.Zymc = input.major
+	data.Bjmc = input.className
+	data.Face = legacyFaceValue(input.face)
 	return data
 }
 
-func changedDetailDO(detail *entity.AccountDetail, input accountDetailSyncInput) (do.AccountDetail, bool) {
-	data := do.AccountDetail{UpdatedBy: int64(0)}
+func changedDetailDO(detail *entity.AccountDetails, input accountDetailSyncInput) (do.AccountDetails, bool) {
+	data := do.AccountDetails{UpdateBy: int64(0)}
 	changed := false
 	setString := func(next string, current string, target *any) {
 		if next != "" && next != current {
@@ -431,20 +419,26 @@ func changedDetailDO(detail *entity.AccountDetail, input accountDetailSyncInput)
 		}
 	}
 	setString(input.idcard, detail.Idcard, &data.Idcard)
-	setString(input.birthday, detail.Birthday, &data.Birthday)
+	if input.birthday != "" && legacyBirthdayText(detail.Birthday) != input.birthday {
+		data.Birthday = legacyBirthdayTime(input.birthday)
+		changed = true
+	}
 	setString(input.email, detail.Email, &data.Email)
 	setString(input.qq, detail.Qq, &data.Qq)
 	setString(input.wechat, detail.Wechat, &data.Wechat)
 	setString(input.avatar, detail.Avatar, &data.Avatar)
-	setString(input.grade, detail.Grade, &data.Grade)
-	setString(input.college, detail.College, &data.College)
-	setString(input.collegeCode, detail.CollegeCode, &data.CollegeCode)
-	setString(input.campus, detail.Campus, &data.Campus)
-	setString(input.schoolSystem, detail.SchoolSystem, &data.SchoolSystem)
-	setString(input.graduatedAt, detail.GraduatedAt, &data.GraduatedAt)
-	setString(input.major, detail.Major, &data.Major)
-	setString(input.className, detail.ClassName, &data.ClassName)
-	setString(input.face, detail.Face, &data.Face)
+	setString(input.grade, detail.Nj, &data.Nj)
+	setString(input.college, detail.Xymc, &data.Xymc)
+	setString(input.collegeCode, detail.Xydm, &data.Xydm)
+	setString(input.campus, detail.Xq, &data.Xq)
+	setString(input.schoolSystem, detail.Xz, &data.Xz)
+	setString(input.graduatedAt, detail.Yjbysj, &data.Yjbysj)
+	setString(input.major, detail.Zymc, &data.Zymc)
+	setString(input.className, detail.Bjmc, &data.Bjmc)
+	if nextFace := legacyFaceValue(input.face); nextFace > 0 && nextFace != detail.Face {
+		data.Face = nextFace
+		changed = true
+	}
 	if input.gender > 0 && input.gender != detail.Gender {
 		data.Gender = input.gender
 		changed = true
@@ -462,11 +456,11 @@ func mergeAccountAudit(account *entity.Account, data do.Account) map[string]any 
 	mergeAuditValue(result, "containerId", data.ContainerId)
 	mergeAuditValue(result, "unitId", data.UnitId)
 	mergeAuditValue(result, "status", data.Status)
-	mergeAuditValue(result, "updatedBy", data.UpdatedBy)
+	mergeAuditValue(result, "updateBy", data.UpdateBy)
 	return result
 }
 
-func mergeDetailAudit(detail *entity.AccountDetail, data do.AccountDetail) map[string]any {
+func mergeDetailAudit(detail *entity.AccountDetails, data do.AccountDetails) map[string]any {
 	result := detailAuditRecord(detail)
 	if result == nil {
 		result = map[string]any{}
@@ -479,16 +473,16 @@ func mergeDetailAudit(detail *entity.AccountDetail, data do.AccountDetail) map[s
 	mergeAuditValue(result, "idcard", data.Idcard)
 	mergeAuditValue(result, "avatar", data.Avatar)
 	mergeAuditValue(result, "source", data.Source)
-	mergeAuditValue(result, "grade", data.Grade)
-	mergeAuditValue(result, "college", data.College)
-	mergeAuditValue(result, "collegeCode", data.CollegeCode)
-	mergeAuditValue(result, "campus", data.Campus)
-	mergeAuditValue(result, "schoolSystem", data.SchoolSystem)
-	mergeAuditValue(result, "graduatedAt", data.GraduatedAt)
-	mergeAuditValue(result, "major", data.Major)
-	mergeAuditValue(result, "className", data.ClassName)
+	mergeAuditValue(result, "nj", data.Nj)
+	mergeAuditValue(result, "xymc", data.Xymc)
+	mergeAuditValue(result, "xydm", data.Xydm)
+	mergeAuditValue(result, "xq", data.Xq)
+	mergeAuditValue(result, "xz", data.Xz)
+	mergeAuditValue(result, "yjbysj", data.Yjbysj)
+	mergeAuditValue(result, "zymc", data.Zymc)
+	mergeAuditValue(result, "bjmc", data.Bjmc)
 	mergeAuditValue(result, "face", data.Face)
-	mergeAuditValue(result, "updatedBy", data.UpdatedBy)
+	mergeAuditValue(result, "updateBy", data.UpdateBy)
 	return result
 }
 

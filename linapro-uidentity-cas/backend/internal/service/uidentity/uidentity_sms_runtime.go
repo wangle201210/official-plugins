@@ -39,7 +39,7 @@ func (s *serviceImpl) SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSen
 		return nil, bizerr.NewCode(CodeImportInvalid)
 	}
 	smsCols := dao.Sms.Columns()
-	sentCount, err := s.tenantFilter.Apply(ctx, dao.Sms.Ctx(ctx), "").
+	sentCount, err := dao.Sms.Ctx(ctx).
 		Where(smsCols.Phone, phone).
 		Where(smsCols.Type, smsType).
 		Where(smsCols.Status, smsStatusSuccess).
@@ -51,17 +51,16 @@ func (s *serviceImpl) SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSen
 	if sentCount >= smsLocalMaxCount {
 		return nil, bizerr.NewCode(CodeSMSRateLimited)
 	}
-	tenantID, actorID := s.baseOwnedDO(ctx, true)
+	actorID := s.actorID(ctx)
 	code := fmt.Sprintf("%06d", smsCodeMin+rand.Intn(smsCodeMax-smsCodeMin+1))
 	id, err := dao.Sms.Ctx(ctx).Data(do.Sms{
-		TenantId:  tenantID,
-		Phone:     phone,
-		Type:      smsType,
-		Content:   code,
-		Status:    smsStatusSuccess,
-		RespMsg:   "recorded by plugin-local SMS sender",
-		CreatedBy: actorID,
-		UpdatedBy: actorID,
+		Phone:    phone,
+		Type:     smsType,
+		Content:  code,
+		Status:   smsStatusSuccess,
+		RespMsg:  "recorded by plugin-local SMS sender",
+		CreateBy: actorID,
+		UpdateBy: actorID,
 	}).InsertAndGetId()
 	if err != nil {
 		return nil, err

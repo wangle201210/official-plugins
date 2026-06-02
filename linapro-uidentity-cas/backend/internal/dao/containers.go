@@ -8,15 +8,15 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao/internal"
 )
 
-// containerDao is the data access object for the table plugin_linapro_uidentity_cas_container.
+// containersDao is the data access object for the table containers.
 // You can define custom methods on it to extend its functionality as needed.
-type containerDao struct {
-	*internal.ContainerDao
+type containersDao struct {
+	*internal.ContainersDao
 }
 
 var (
-	// Container is a globally accessible object for table plugin_linapro_uidentity_cas_container operations.
-	Container = containerDao{internal.NewContainerDao()}
+	// Containers is a globally accessible object for table containers operations.
+	Containers = containersDao{internal.NewContainersDao()}
 )
 
 // Add your custom methods and functionality below.

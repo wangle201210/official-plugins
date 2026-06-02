@@ -22,7 +22,6 @@ type AccountChangeLogDao struct {
 // AccountChangeLogColumns defines and stores column names for the table plugin_linapro_uidentity_cas_account_change_log.
 type AccountChangeLogColumns struct {
 	Id        string //
-	TenantId  string //
 	AccountId string //
 	TableName string //
 	Action    string //
@@ -30,17 +29,16 @@ type AccountChangeLogColumns struct {
 	DataNew   string //
 	ErrMsg    string //
 	ErrNumber string //
-	CreatedBy string //
-	UpdatedBy string //
 	CreatedAt string //
 	UpdatedAt string //
 	DeletedAt string //
+	CreateBy  string //
+	UpdateBy  string //
 }
 
 // accountChangeLogColumns holds the columns for the table plugin_linapro_uidentity_cas_account_change_log.
 var accountChangeLogColumns = AccountChangeLogColumns{
 	Id:        "id",
-	TenantId:  "tenant_id",
 	AccountId: "account_id",
 	TableName: "table_name",
 	Action:    "action",
@@ -48,11 +46,11 @@ var accountChangeLogColumns = AccountChangeLogColumns{
 	DataNew:   "data_new",
 	ErrMsg:    "err_msg",
 	ErrNumber: "err_number",
-	CreatedBy: "created_by",
-	UpdatedBy: "updated_by",
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
 	DeletedAt: "deleted_at",
+	CreateBy:  "create_by",
+	UpdateBy:  "update_by",
 }
 
 // NewAccountChangeLogDao creates and returns a new DAO object for table data access.

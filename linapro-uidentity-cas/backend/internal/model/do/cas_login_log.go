@@ -14,7 +14,6 @@ import (
 type CasLoginLog struct {
 	g.Meta          `orm:"table:plugin_linapro_uidentity_cas_cas_login_log, do:true"`
 	Id              any        //
-	TenantId        any        //
 	AccountId       any        //
 	ChoiceAccountId any        //
 	AppId           any        //
@@ -27,9 +26,9 @@ type CasLoginLog struct {
 	Remark          any        //
 	Msg             any        //
 	LoginType       any        //
-	CreatedBy       any        //
-	UpdatedBy       any        //
 	CreatedAt       *time.Time //
 	UpdatedAt       *time.Time //
 	DeletedAt       *time.Time //
+	CreateBy        any        //
+	UpdateBy        any        //
 }

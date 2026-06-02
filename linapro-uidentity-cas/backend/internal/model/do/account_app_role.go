@@ -14,14 +14,13 @@ import (
 type AccountAppRole struct {
 	g.Meta             `orm:"table:plugin_linapro_uidentity_cas_account_app_role, do:true"`
 	Id                 any        //
-	TenantId           any        //
 	GiveAccountId      any        //
 	EmpoweredAccountId any        //
 	AppId              any        //
 	ExpireAt           *time.Time //
-	CreatedBy          any        //
-	UpdatedBy          any        //
 	CreatedAt          *time.Time //
 	UpdatedAt          *time.Time //
 	DeletedAt          *time.Time //
+	CreateBy           any        //
+	UpdateBy           any        //
 }

@@ -21,8 +21,9 @@ func TestImportRowBlank(t *testing.T) {
 func TestImportBirthdayNormalizesDate(t *testing.T) {
 	t.Parallel()
 
-	if got := importBirthday("2026-06-01 08:30:00"); got != "2026-06-01" {
-		t.Fatalf("expected date-only birthday, got %q", got)
+	got := importBirthday("2026-06-01 08:30:00")
+	if got == nil || got.Format("2006-01-02") != "2026-06-01" {
+		t.Fatalf("expected date-only birthday, got %v", got)
 	}
 }
 
