@@ -1450,7 +1450,12 @@ func legacyRequestID(r *ghttp.Request) string {
 func legacyRequestMap(r *ghttp.Request) map[string]any {
 	data := r.GetRequestMap()
 	if data == nil {
-		return map[string]any{}
+		data = map[string]any{}
+	}
+	for name, rawValue := range r.GetRouterMap() {
+		if value := strings.TrimSpace(rawValue); value != "" {
+			data[name] = value
+		}
 	}
 	if id := legacyRouterID(r); id > 0 {
 		data["id"] = id
@@ -1753,7 +1758,20 @@ func legacyDeleteIDPayload(r *ghttp.Request) any {
 }
 
 func legacyRouterID(r *ghttp.Request) int64 {
-	return gconv.Int64(r.GetRouter("id").String())
+	for _, name := range legacyRouterIDParamNames() {
+		if id := gconv.Int64(strings.TrimSpace(r.GetRouter(name).String())); id > 0 {
+			return id
+		}
+	}
+	return 0
+}
+
+func legacyRouterIDParamNames() []string {
+	return []string{
+		"id", "tableId", "table_id", "columnId", "column_id", "dictCode", "dict_code",
+		"dictId", "dict_id", "roleId", "role_id", "userId", "user_id", "deptId",
+		"dept_id", "postId", "post_id", "jobId", "job_id",
+	}
 }
 
 func legacyClientID(r *ghttp.Request) string {

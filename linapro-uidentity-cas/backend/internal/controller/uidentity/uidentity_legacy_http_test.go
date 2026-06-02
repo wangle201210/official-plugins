@@ -316,6 +316,41 @@ func TestLegacyAdminLoginRouteUsesOldFieldsAndTopLevelToken(t *testing.T) {
 	}
 }
 
+func TestLegacyGenMutationRoutesKeepOldEmptyData(t *testing.T) {
+	service := &legacyHTTPFakeService{}
+	baseURL := startLegacyHTTPTestServer(t, "gen-mutation", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.GET("/gen/toproject/{tableId}", controller.LegacyGenToProject)
+		group.GET("/gen/apitofile/{tableId}", controller.LegacyGenAPIToFile)
+		group.GET("/gen/todb/{tableId}", controller.LegacyGenToDB)
+	})
+	cases := []struct {
+		path string
+		msg  string
+	}{
+		{path: "/api/v1/gen/toproject/11", msg: "Code generated successfully！"},
+		{path: "/api/v1/gen/apitofile/12", msg: "Code generated successfully！"},
+		{path: "/api/v1/gen/todb/13", msg: "数据生成成功！"},
+	}
+	for _, tc := range cases {
+		resp, err := http.Get(baseURL + tc.path)
+		if err != nil {
+			t.Fatalf("call legacy gen route %s: %v", tc.path, err)
+		}
+		defer closeHTTPResponse(t, resp)
+
+		var payload map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode legacy gen response %s: %v", tc.path, err)
+		}
+		if payload["code"] != float64(legacyStatusOK) || payload["msg"] != tc.msg || payload["data"] != "" {
+			t.Fatalf("legacy gen response mismatch for %s: %#v", tc.path, payload)
+		}
+	}
+	if service.genToProjectTableID != 11 || service.genAPIToFileTableID != 12 || service.genToDBTableID != 13 {
+		t.Fatalf("legacy gen routes did not pass table ids: %#v", service)
+	}
+}
+
 func TestLegacySysJobSnapshotsCoverOldExecutableJobs(t *testing.T) {
 	records := legacySysJobSnapshots()
 	if len(records) != 9 {
@@ -335,7 +370,10 @@ func TestLegacySysJobSnapshotsCoverOldExecutableJobs(t *testing.T) {
 type legacyHTTPFakeService struct {
 	uidentitysvc.Service
 
-	passwordLoginInput uidentitysvc.PasswordLoginInput
+	passwordLoginInput  uidentitysvc.PasswordLoginInput
+	genToProjectTableID int64
+	genAPIToFileTableID int64
+	genToDBTableID      int64
 }
 
 func (s *legacyHTTPFakeService) LoginByPassword(_ context.Context, in uidentitysvc.PasswordLoginInput) (*uidentitysvc.RuntimeLoginOutput, error) {
@@ -350,6 +388,21 @@ func (s *legacyHTTPFakeService) LoginByPassword(_ context.Context, in uidentitys
 
 func (s *legacyHTTPFakeService) LegacyRedirectConfig(context.Context) (*uidentitysvc.LegacyRedirectConfigOutput, error) {
 	return &uidentitysvc.LegacyRedirectConfigOutput{DefaultAppID: "portal"}, nil
+}
+
+func (s *legacyHTTPFakeService) LegacyGenToProject(_ context.Context, tableID int64) (uidentitysvc.Record, error) {
+	s.genToProjectTableID = tableID
+	return uidentitysvc.Record{"paths": []string{"must-not-leak"}}, nil
+}
+
+func (s *legacyHTTPFakeService) LegacyGenAPIToFile(_ context.Context, tableID int64) (uidentitysvc.Record, error) {
+	s.genAPIToFileTableID = tableID
+	return uidentitysvc.Record{"path": "must-not-leak"}, nil
+}
+
+func (s *legacyHTTPFakeService) LegacyGenToDB(_ context.Context, tableID int64) (uidentitysvc.Record, error) {
+	s.genToDBTableID = tableID
+	return uidentitysvc.Record{"inserted": 12}, nil
 }
 
 type legacyWechatHTTPFakeService struct {

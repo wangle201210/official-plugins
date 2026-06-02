@@ -254,32 +254,32 @@ func (c *LegacyController) LegacyGenPreview(r *ghttp.Request) {
 
 // LegacyGenToProject handles old GET /api/v1/gen/toproject/{tableId}.
 func (c *LegacyController) LegacyGenToProject(r *ghttp.Request) {
-	out, err := c.uidentitySvc.LegacyGenToProject(r.Context(), legacyRouterID(r))
+	_, err := c.uidentitySvc.LegacyGenToProject(r.Context(), legacyRouterID(r))
 	if err != nil {
 		legacyError(r, err)
 		return
 	}
-	legacyOKWithMsg(r, out, "Code generated successfully！")
+	legacyOKWithMsg(r, "", "Code generated successfully！")
 }
 
 // LegacyGenAPIToFile handles old GET /api/v1/gen/apitofile/{tableId}.
 func (c *LegacyController) LegacyGenAPIToFile(r *ghttp.Request) {
-	out, err := c.uidentitySvc.LegacyGenAPIToFile(r.Context(), legacyRouterID(r))
+	_, err := c.uidentitySvc.LegacyGenAPIToFile(r.Context(), legacyRouterID(r))
 	if err != nil {
 		legacyError(r, err)
 		return
 	}
-	legacyOKWithMsg(r, out, "Code generated successfully！")
+	legacyOKWithMsg(r, "", "Code generated successfully！")
 }
 
 // LegacyGenToDB handles old GET /api/v1/gen/todb/{tableId}.
 func (c *LegacyController) LegacyGenToDB(r *ghttp.Request) {
-	out, err := c.uidentitySvc.LegacyGenToDB(r.Context(), legacyRouterID(r))
+	_, err := c.uidentitySvc.LegacyGenToDB(r.Context(), legacyRouterID(r))
 	if err != nil {
 		legacyError(r, err)
 		return
 	}
-	legacyOKWithMsg(r, out, "数据生成成功！")
+	legacyOKWithMsg(r, "", "数据生成成功！")
 }
 
 // LegacyGetInfo handles GET /api/v1/getinfo.
