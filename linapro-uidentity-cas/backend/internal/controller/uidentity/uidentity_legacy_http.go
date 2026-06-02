@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"lina-core/pkg/bizerr"
+	"lina-core/pkg/logger"
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
@@ -120,6 +121,22 @@ func (c *LegacyController) AdminRefreshToken(r *ghttp.Request) {
 	payload["token"] = tgt
 	payload["expire"] = legacyAdminLoginExpire()
 	legacyOKWithMsg(r, payload, legacyMsgLoginSuccess)
+}
+
+// AdminLogout handles old POST /api/v1/logout with the old code/msg-only envelope.
+func (c *LegacyController) AdminLogout(r *ghttp.Request) {
+	if err := c.uidentitySvc.RecordLegacyAdminLogout(r.Context(), uidentitysvc.LegacyAdminLogoutInput{
+		Username:  legacyStringParam(r, "username", "userName", "UserName"),
+		IP:        r.GetClientIp(),
+		UserAgent: r.GetHeader("User-Agent"),
+	}); err != nil {
+		logger.Warningf(r.Context(), "legacy admin logout log failed err=%v", err)
+	}
+	r.Response.WriteJson(map[string]any{
+		"code": legacyStatusOK,
+		"msg":  legacyMsgLogoutSuccess,
+	})
+	r.Exit()
 }
 
 // Captcha handles old GET /api/v1/captcha.

@@ -316,6 +316,40 @@ func TestLegacyAdminLoginRouteUsesOldFieldsAndTopLevelToken(t *testing.T) {
 	}
 }
 
+func TestLegacyAdminLogoutKeepsOldEnvelopeAndRecordsLogout(t *testing.T) {
+	service := &legacyHTTPFakeService{}
+	baseURL := startLegacyHTTPTestServer(t, "admin-logout", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.POST("/logout", controller.AdminLogout)
+	})
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/logout?username=legacy-admin", http.NoBody)
+	if err != nil {
+		t.Fatalf("create legacy logout request: %v", err)
+	}
+	req.Header.Set("User-Agent", "legacy-agent")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("call legacy admin logout: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode legacy logout response: %v", err)
+	}
+	if payload["code"] != float64(legacyStatusOK) || payload["msg"] != legacyMsgLogoutSuccess {
+		t.Fatalf("legacy logout envelope mismatch: %#v", payload)
+	}
+	if _, ok := payload["data"]; ok {
+		t.Fatalf("legacy logout must not include data: %#v", payload)
+	}
+	if _, ok := payload["requestId"]; ok {
+		t.Fatalf("legacy logout must not include requestId: %#v", payload)
+	}
+	if service.logoutInput.Username != "legacy-admin" || service.logoutInput.UserAgent != "legacy-agent" {
+		t.Fatalf("legacy logout did not record old audit fields: %#v", service.logoutInput)
+	}
+}
+
 func TestLegacyGenMutationRoutesKeepOldEmptyData(t *testing.T) {
 	service := &legacyHTTPFakeService{}
 	baseURL := startLegacyHTTPTestServer(t, "gen-mutation", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
@@ -371,6 +405,7 @@ type legacyHTTPFakeService struct {
 	uidentitysvc.Service
 
 	passwordLoginInput  uidentitysvc.PasswordLoginInput
+	logoutInput         uidentitysvc.LegacyAdminLogoutInput
 	genToProjectTableID int64
 	genAPIToFileTableID int64
 	genToDBTableID      int64
@@ -388,6 +423,11 @@ func (s *legacyHTTPFakeService) LoginByPassword(_ context.Context, in uidentitys
 
 func (s *legacyHTTPFakeService) LegacyRedirectConfig(context.Context) (*uidentitysvc.LegacyRedirectConfigOutput, error) {
 	return &uidentitysvc.LegacyRedirectConfigOutput{DefaultAppID: "portal"}, nil
+}
+
+func (s *legacyHTTPFakeService) RecordLegacyAdminLogout(_ context.Context, in uidentitysvc.LegacyAdminLogoutInput) error {
+	s.logoutInput = in
+	return nil
 }
 
 func (s *legacyHTTPFakeService) LegacyGenToProject(_ context.Context, tableID int64) (uidentitysvc.Record, error) {

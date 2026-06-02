@@ -230,6 +230,77 @@ func TestLegacyGetInfoProjectsOldShapeAndPermissions(t *testing.T) {
 	}
 }
 
+func TestLegacyAdminLogoutWritesSysLoginLog(t *testing.T) {
+	ctx := context.Background()
+	configureUIdentityTestDB(t, ctx, dao.SysLoginLog.Table())
+	actorID := int64(91001 + time.Now().UnixNano()%100000)
+	service := &serviceImpl{tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{UserID: int(actorID)}}}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	username := "legacy-logout-" + suffix
+	t.Cleanup(func() {
+		if _, err := dao.SysLoginLog.Ctx(ctx).Unscoped().Where(dao.SysLoginLog.Columns().Username, username).Delete(); err != nil {
+			t.Fatalf("cleanup sys login log: %v", err)
+		}
+	})
+
+	if err := service.RecordLegacyAdminLogout(ctx, LegacyAdminLogoutInput{
+		Username:  username,
+		IP:        "127.0.0.1",
+		UserAgent: "Mozilla/5.0 (Macintosh) Firefox/120.0",
+	}); err != nil {
+		t.Fatalf("RecordLegacyAdminLogout: %v", err)
+	}
+	var row struct {
+		Username string `json:"username"`
+		Status   string `json:"status"`
+		Ipaddr   string `json:"ipaddr"`
+		Msg      string `json:"msg"`
+		Remark   string `json:"remark"`
+		CreateBy int64  `json:"createBy"`
+		UpdateBy int64  `json:"updateBy"`
+	}
+	if err := dao.SysLoginLog.Ctx(ctx).
+		Fields("username", "status", "ipaddr", "msg", "remark", "create_by", "update_by").
+		Where(dao.SysLoginLog.Columns().Username, username).
+		OrderDesc(dao.SysLoginLog.Columns().Id).
+		Scan(&row); err != nil {
+		t.Fatalf("query sys login log: %v", err)
+	}
+	if row.Username != username || row.Status != legacyAdminLogoutStatus ||
+		row.Ipaddr != "127.0.0.1" || row.Msg != legacyAdminLogoutMessage ||
+		row.Remark != "Mozilla/5.0 (Macintosh) Firefox/120.0" ||
+		row.CreateBy != actorID || row.UpdateBy != actorID {
+		t.Fatalf("unexpected legacy logout log row: %#v", row)
+	}
+}
+
+func TestLegacyAdminLogoutHonorsLoggerDBSwitch(t *testing.T) {
+	ctx := context.Background()
+	configureUIdentityTestDB(t, ctx, dao.SysLoginLog.Table())
+	service := &serviceImpl{
+		configSvc:    newLegacyConfigTestService(t, "legacy:\n  logger:\n    enabledDB: false\n"),
+		tenantFilter: testTenantFilter{},
+	}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	username := "legacy-logout-disabled-" + suffix
+	t.Cleanup(func() {
+		if _, err := dao.SysLoginLog.Ctx(ctx).Unscoped().Where(dao.SysLoginLog.Columns().Username, username).Delete(); err != nil {
+			t.Fatalf("cleanup disabled sys login log: %v", err)
+		}
+	})
+
+	if err := service.RecordLegacyAdminLogout(ctx, LegacyAdminLogoutInput{Username: username}); err != nil {
+		t.Fatalf("RecordLegacyAdminLogout with disabled logger: %v", err)
+	}
+	count, err := dao.SysLoginLog.Ctx(ctx).Where(dao.SysLoginLog.Columns().Username, username).Count()
+	if err != nil {
+		t.Fatalf("count disabled sys login log: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("disabled legacy logger wrote %d rows for %s", count, username)
+	}
+}
+
 func TestLegacySystemProfileProjectsUserRolesPosts(t *testing.T) {
 	ctx := context.Background()
 	configureUIdentityTestDB(t, ctx, dao.SysUser.Table(), dao.SysRole.Table(), dao.SysPost.Table(), dao.SysDept.Table())

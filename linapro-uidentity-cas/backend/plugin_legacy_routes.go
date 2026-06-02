@@ -345,7 +345,7 @@ func registerLegacyPublicRoutes(group pluginhost.RouteGroup, legacyController *u
 }
 
 func registerLegacyProtectedRoutes(group pluginhost.RouteGroup, legacyController *uidentitycontroller.LegacyController) {
-	group.POST("/logout", legacyController.LegacyExternalOK("logout"))
+	group.POST("/logout", legacyController.AdminLogout)
 	group.GET("/roleMenuTreeselect/{roleId}", legacyController.LegacyRoleMenuTreeselect)
 	group.GET("/roleDeptTreeselect/{roleId}", legacyController.LegacyRoleDeptTreeselect)
 	group.GET("/sys-user", legacyController.LegacySystemList("sys-users"))

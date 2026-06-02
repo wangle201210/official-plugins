@@ -128,6 +128,11 @@ type Service interface {
 	// LegacySystemProfile returns old /user/profile data as user, roles, and
 	// posts records for the current business user context.
 	LegacySystemProfile(ctx context.Context) (Record, error)
+	// RecordLegacyAdminLogout writes the old sys_login_log logout audit row for
+	// POST /api/v1/logout. Username falls back to the authenticated context when
+	// the caller passes an empty value; IP and UserAgent may be empty, matching
+	// the old logger's best-effort audit semantics.
+	RecordLegacyAdminLogout(ctx context.Context, in LegacyAdminLogoutInput) error
 	// UpdateLegacySysUserAvatar updates one old sys_user avatar field.
 	UpdateLegacySysUserAvatar(ctx context.Context, userID int64, avatar string) error
 	// UpdateLegacySysUserPassword updates one old sys_user password field.

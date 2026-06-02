@@ -11,9 +11,11 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/util/gconv"
+	"github.com/mssola/useragent"
 	"golang.org/x/crypto/bcrypt"
 
 	"lina-core/pkg/bizerr"
+	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 )
@@ -23,6 +25,10 @@ const (
 	legacyAllPermission       = "*:*:*"
 	legacySystemAdminRoleKey  = "admin"
 	legacySystemAdminRoleName = "系统管理员"
+	legacyAdminLogoutStatus   = "2"
+	legacyAdminLogoutMessage  = "退出成功"
+
+	configKeyLegacyLoggerEnabledDB = "legacy.logger.enabledDB"
 )
 
 type legacySystemResourceDefinition struct {
@@ -505,6 +511,60 @@ func (s *serviceImpl) LegacySystemProfile(ctx context.Context) (Record, error) {
 		posts = append(posts, post)
 	}
 	return Record{"user": user, "roles": roles, "posts": posts}, nil
+}
+
+// LegacyAdminLogoutInput carries the old logout audit fields.
+type LegacyAdminLogoutInput struct {
+	Username  string // Legacy username, usually from JWT nice/userName.
+	IP        string // Client IP address recorded in sys_login_log.ipaddr.
+	UserAgent string // Raw request user agent recorded in sys_login_log.remark.
+}
+
+// RecordLegacyAdminLogout writes one old sys_login_log logout audit row.
+func (s *serviceImpl) RecordLegacyAdminLogout(ctx context.Context, in LegacyAdminLogoutInput) error {
+	enabled, err := s.legacyLoggerEnabledDB(ctx)
+	if err != nil || !enabled {
+		return err
+	}
+	username := strings.TrimSpace(in.Username)
+	if username == "" {
+		username = s.currentUsername(ctx)
+	}
+	now := time.Now()
+	ua := useragent.New(strings.TrimSpace(in.UserAgent))
+	browserName, browserVersion := ua.Browser()
+	actorID := s.actorID(ctx)
+	_, err = dao.SysLoginLog.Ctx(ctx).Data(do.SysLoginLog{
+		Username:      username,
+		Status:        legacyAdminLogoutStatus,
+		Ipaddr:        strings.TrimSpace(in.IP),
+		LoginLocation: "",
+		Browser:       strings.TrimSpace(browserName + " " + browserVersion),
+		Os:            ua.OS(),
+		Platform:      ua.Platform(),
+		LoginTime:     &now,
+		Remark:        strings.TrimSpace(in.UserAgent),
+		Msg:           legacyAdminLogoutMessage,
+		CreateBy:      actorID,
+		UpdateBy:      actorID,
+	}).Insert()
+	return err
+}
+
+func (s *serviceImpl) legacyLoggerEnabledDB(ctx context.Context) (bool, error) {
+	if s.configSvc == nil {
+		return true, nil
+	}
+	return s.configSvc.Bool(ctx, configKeyLegacyLoggerEnabledDB, true)
+}
+
+func (s *serviceImpl) currentUsername(ctx context.Context) string {
+	if s.bizCtxSvc != nil {
+		if username := strings.TrimSpace(s.bizCtxSvc.Current(ctx).Username); username != "" {
+			return username
+		}
+	}
+	return strings.TrimSpace(plugincontract.CurrentFromContext(ctx).Username)
 }
 
 // UpdateLegacySysUserAvatar updates old sys_user.avatar.
