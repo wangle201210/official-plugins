@@ -218,6 +218,117 @@ func (s *serviceImpl) LegacyRoleMenuTreeSelect(ctx context.Context, roleID int64
 	return Record{"menus": tree, "checkedKeys": checked}, nil
 }
 
+// UpdateLegacySysRoleStatus updates old sys_role.status.
+func (s *serviceImpl) UpdateLegacySysRoleStatus(ctx context.Context, roleID int64, status string) error {
+	if roleID <= 0 || strings.TrimSpace(status) == "" {
+		return bizerr.NewCode(CodeResourceNotFound)
+	}
+	cols := dao.SysRole.Columns()
+	result, err := dao.SysRole.Ctx(ctx).
+		Where(cols.RoleId, roleID).
+		OmitNilData().
+		Data(do.SysRole{Status: strings.TrimSpace(status), UpdateBy: s.actorID(ctx)}).
+		Update()
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return bizerr.NewCode(CodeResourceNotFound)
+	}
+	return nil
+}
+
+// UpdateLegacySysRoleDataScope updates old role data_scope and dept relations.
+func (s *serviceImpl) UpdateLegacySysRoleDataScope(ctx context.Context, roleID int64, dataScope string, deptIDs []int64) error {
+	if roleID <= 0 || strings.TrimSpace(dataScope) == "" {
+		return bizerr.NewCode(CodeResourceNotFound)
+	}
+	deptIDs = uniquePositiveInt64s(deptIDs)
+	return dao.SysRole.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		roleCols := dao.SysRole.Columns()
+		result, err := tx.Model(dao.SysRole.Table()).Safe().Ctx(ctx).
+			Where(roleCols.RoleId, roleID).
+			OmitNilData().
+			Data(do.SysRole{DataScope: strings.TrimSpace(dataScope), UpdateBy: s.actorID(ctx)}).
+			Update()
+		if err != nil {
+			return err
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected == 0 {
+			return bizerr.NewCode(CodeResourceNotFound)
+		}
+		relationCols := dao.SysRoleDept.Columns()
+		if _, err := tx.Model(dao.SysRoleDept.Table()).Safe().Ctx(ctx).
+			Where(relationCols.RoleId, roleID).
+			Delete(); err != nil {
+			return err
+		}
+		if len(deptIDs) == 0 {
+			return nil
+		}
+		deptCols := dao.SysDept.Columns()
+		rows, err := tx.Model(dao.SysDept.Table()).Safe().Ctx(ctx).
+			Fields(deptCols.DeptId).
+			WhereIn(deptCols.DeptId, deptIDs).
+			All()
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			deptID := row[deptCols.DeptId].Int64()
+			if deptID <= 0 {
+				continue
+			}
+			if _, err := tx.Model(dao.SysRoleDept.Table()).Safe().Ctx(ctx).
+				Data(do.SysRoleDept{RoleId: roleID, DeptId: deptID}).
+				Insert(); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// LegacySysTablesTree returns old generator table rows with nested columns.
+func (s *serviceImpl) LegacySysTablesTree(ctx context.Context, filters map[string]any) ([]Record, error) {
+	def, err := s.legacySystemDefinition("sys-tables")
+	if err != nil {
+		return nil, err
+	}
+	tableCols := dao.SysTables.Columns()
+	rows, err := s.applyLegacySystemFilters(ctx, def.model(ctx), def, filters).
+		Fields(projectionFields(&def.resourceDefinition)...).
+		OrderAsc(tableCols.TableId).
+		All()
+	if err != nil {
+		return nil, err
+	}
+	tables := projectResult(rows, &def.resourceDefinition)
+	tableIDs := make([]int64, 0, len(tables))
+	for _, table := range tables {
+		if tableID := gconv.Int64(table["tableId"]); tableID > 0 {
+			tableIDs = append(tableIDs, tableID)
+		}
+	}
+	columnsByTable, err := s.legacyColumnsByTableIDs(ctx, uniquePositiveInt64s(tableIDs))
+	if err != nil {
+		return nil, err
+	}
+	for _, table := range tables {
+		tableID := gconv.Int64(table["tableId"])
+		table["columns"] = columnsByTable[tableID]
+	}
+	return tables, nil
+}
+
 // LegacyDictTypeOptions returns old dictionary type option rows.
 func (s *serviceImpl) LegacyDictTypeOptions(ctx context.Context) ([]Record, error) {
 	def, err := s.legacySystemDefinition("dict-types")
@@ -752,7 +863,8 @@ func legacySystemFieldAliases() map[string]string {
 		"operParam": "operParam", "oper_param": "operParam", "operTime": "operTime", "oper_time": "operTime",
 		"jsonResult": "jsonResult", "json_result": "jsonResult", "latencyTime": "latencyTime", "latency_time": "latencyTime",
 		"userAgent": "userAgent", "user_agent": "userAgent", "beginTime": "beginTime", "endTime": "endTime",
-		"tableId": "tableId", "table_id": "tableId", "tableComment": "tableComment", "table_comment": "tableComment",
+		"tableId": "tableId", "table_id": "tableId", "tableName": "tableName", "table_name": "tableName",
+		"tableComment": "tableComment", "table_comment": "tableComment",
 		"className": "className", "class_name": "className", "columnId": "columnId", "column_id": "columnId",
 		"columnName": "columnName", "column_name": "columnName", "columnComment": "columnComment", "column_comment": "columnComment",
 		"goField": "goField", "go_field": "goField", "jsonField": "jsonField", "json_field": "jsonField",
@@ -1258,6 +1370,41 @@ func (s *serviceImpl) legacyRolePermissions(ctx context.Context, roleID int64) (
 		}
 		seen[permission] = struct{}{}
 		result = append(result, permission)
+	}
+	return result, nil
+}
+
+func (s *serviceImpl) legacyColumnsByTableIDs(ctx context.Context, tableIDs []int64) (map[int64][]Record, error) {
+	result := make(map[int64][]Record, len(tableIDs))
+	if len(tableIDs) == 0 {
+		return result, nil
+	}
+	def, err := s.legacySystemDefinition("sys-columns")
+	if err != nil {
+		return nil, err
+	}
+	cols := dao.SysColumns.Columns()
+	rows, err := dao.SysColumns.Ctx(ctx).
+		Fields(projectionFields(&def.resourceDefinition)...).
+		WhereIn(cols.TableId, tableIDs).
+		OrderAsc(cols.TableId).
+		OrderAsc(cols.Sort).
+		OrderAsc(cols.ColumnId).
+		All()
+	if err != nil {
+		return nil, err
+	}
+	for _, column := range projectResult(rows, &def.resourceDefinition) {
+		tableID := gconv.Int64(column["tableId"])
+		if tableID <= 0 {
+			continue
+		}
+		result[tableID] = append(result[tableID], column)
+	}
+	for _, tableID := range tableIDs {
+		if _, ok := result[tableID]; !ok {
+			result[tableID] = []Record{}
+		}
 	}
 	return result, nil
 }

@@ -84,6 +84,15 @@ type Service interface {
 	// LegacyRoleMenuTreeSelect returns menu label tree data and role checked
 	// keys in the old roleMenuTreeselect shape.
 	LegacyRoleMenuTreeSelect(ctx context.Context, roleID int64) (Record, error)
+	// UpdateLegacySysRoleStatus updates one old sys_role.status value from the
+	// old /role-status payload. It returns not-found when the role is absent.
+	UpdateLegacySysRoleStatus(ctx context.Context, roleID int64, status string) error
+	// UpdateLegacySysRoleDataScope updates one old sys_role.data_scope value and
+	// replaces sys_role_dept rows with the supplied old deptIds payload.
+	UpdateLegacySysRoleDataScope(ctx context.Context, roleID int64, dataScope string, deptIDs []int64) error
+	// LegacySysTablesTree returns old gen/tabletree rows with nested columns
+	// read from plugin-prefixed sys_tables and sys_columns compatibility tables.
+	LegacySysTablesTree(ctx context.Context, filters map[string]any) ([]Record, error)
 	// LegacyDictTypeOptions returns old dictionary type option rows.
 	LegacyDictTypeOptions(ctx context.Context) ([]Record, error)
 	// LegacyDictDataOptions returns old dictionary data label/value options for

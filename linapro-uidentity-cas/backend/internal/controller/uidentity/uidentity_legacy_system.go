@@ -5,6 +5,7 @@
 package uidentity
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -134,6 +135,27 @@ func (c *LegacyController) LegacyRoleMenuTreeselect(r *ghttp.Request) {
 	legacyOKWithMsg(r, out, legacyMsgQuerySuccess)
 }
 
+// LegacyRoleStatus handles PUT /api/v1/role-status.
+func (c *LegacyController) LegacyRoleStatus(r *ghttp.Request) {
+	roleID := legacyInt64Param(r, "roleId", "role_id", "id")
+	if err := c.uidentitySvc.UpdateLegacySysRoleStatus(r.Context(), roleID, legacyStringParam(r, "status")); err != nil {
+		legacyErrorWithMsg(r, err, fmt.Sprintf("更新角色状态失败，失败原因：%s ", err.Error()))
+		return
+	}
+	legacyOKWithMsg(r, roleID, fmt.Sprintf("更新角色 %v 状态成功！", roleID))
+}
+
+// LegacyRoleDataScope handles PUT /api/v1/roledatascope.
+func (c *LegacyController) LegacyRoleDataScope(r *ghttp.Request) {
+	roleID := legacyInt64Param(r, "roleId", "role_id", "id")
+	deptIDs := legacyInt64ListParam(r, "deptIds", "dept_ids")
+	if err := c.uidentitySvc.UpdateLegacySysRoleDataScope(r.Context(), roleID, legacyStringParam(r, "dataScope", "data_scope"), deptIDs); err != nil {
+		legacyErrorWithMsg(r, err, fmt.Sprintf("更新角色数据权限失败！错误详情：%s", err.Error()))
+		return
+	}
+	legacyOKWithMsg(r, nil, legacyMsgOK)
+}
+
 // LegacyDictTypeOptions handles GET /api/v1/dict/type-option-select.
 func (c *LegacyController) LegacyDictTypeOptions(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyDictTypeOptions(r.Context())
@@ -198,6 +220,16 @@ func (c *LegacyController) LegacySetConfigUpdate(r *ghttp.Request) {
 		return
 	}
 	legacyOKWithMsg(r, "", "更新成功")
+}
+
+// LegacySysTablesTree handles GET /api/v1/gen/tabletree.
+func (c *LegacyController) LegacySysTablesTree(r *ghttp.Request) {
+	out, err := c.uidentitySvc.LegacySysTablesTree(r.Context(), legacyRequestMap(r))
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOKWithMsg(r, out, "")
 }
 
 // LegacyGetInfo handles GET /api/v1/getinfo.

@@ -226,6 +226,102 @@ func TestLegacyGetInfoProjectsOldShapeAndPermissions(t *testing.T) {
 	}
 }
 
+func TestLegacyRoleActionsUpdateCompatibilityTables(t *testing.T) {
+	ctx := context.Background()
+	configureUIdentityTestDB(t, ctx, dao.SysRole.Table(), dao.SysDept.Table(), dao.SysRoleDept.Table())
+	service := &serviceImpl{tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{UserID: 7031}}}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	cleanupLegacySystemRows(t, ctx, suffix)
+	t.Cleanup(func() { cleanupLegacySystemRows(t, ctx, suffix) })
+
+	roleID, err := dao.SysRole.Ctx(ctx).Data(do.SysRole{
+		RoleName:  "Legacy Action Role " + suffix,
+		RoleKey:   "legacy_action_role_" + suffix,
+		Status:    "1",
+		DataScope: "1",
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert role: %v", err)
+	}
+	deptA := insertLegacySystemDept(t, ctx, 0, "Legacy Action Dept A "+suffix, 1)
+	deptB := insertLegacySystemDept(t, ctx, 0, "Legacy Action Dept B "+suffix, 2)
+	if _, err := dao.SysRoleDept.Ctx(ctx).Data(do.SysRoleDept{RoleId: roleID, DeptId: deptA}).Insert(); err != nil {
+		t.Fatalf("insert role dept: %v", err)
+	}
+
+	if err := service.UpdateLegacySysRoleStatus(ctx, roleID, "0"); err != nil {
+		t.Fatalf("UpdateLegacySysRoleStatus: %v", err)
+	}
+	role, err := service.GetLegacySystemResource(ctx, "roles", roleID)
+	if err != nil {
+		t.Fatalf("GetLegacySystemResource: %v", err)
+	}
+	if role["status"] != "0" {
+		t.Fatalf("role status not updated: %#v", role)
+	}
+
+	if err := service.UpdateLegacySysRoleDataScope(ctx, roleID, "2", []int64{deptB, deptB, -1, 0}); err != nil {
+		t.Fatalf("UpdateLegacySysRoleDataScope: %v", err)
+	}
+	role, err = service.GetLegacySystemResource(ctx, "roles", roleID)
+	if err != nil {
+		t.Fatalf("GetLegacySystemResource after scope update: %v", err)
+	}
+	if role["dataScope"] != "2" {
+		t.Fatalf("role data scope not updated: %#v", role)
+	}
+	checked, err := service.legacyRoleDeptIDs(ctx, roleID)
+	if err != nil {
+		t.Fatalf("legacyRoleDeptIDs: %v", err)
+	}
+	if !reflect.DeepEqual(checked, []int64{deptB}) {
+		t.Fatalf("unexpected role dept IDs: %#v", checked)
+	}
+}
+
+func TestLegacySysTablesTreeReadsTablesAndColumns(t *testing.T) {
+	ctx := context.Background()
+	configureUIdentityTestDB(t, ctx, dao.SysTables.Table(), dao.SysColumns.Table())
+	service := &serviceImpl{tenantFilter: testTenantFilter{}}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	cleanupLegacySystemRows(t, ctx, suffix)
+	t.Cleanup(func() { cleanupLegacySystemRows(t, ctx, suffix) })
+
+	tableID, err := dao.SysTables.Ctx(ctx).Data(do.SysTables{
+		TableName:    "legacy_table_" + suffix,
+		TableComment: "Legacy Table " + suffix,
+		ClassName:    "LegacyTable" + suffix,
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert sys table: %v", err)
+	}
+	if _, err := dao.SysColumns.Ctx(ctx).Data(do.SysColumns{
+		TableId:       tableID,
+		ColumnName:    "legacy_column_" + suffix,
+		ColumnComment: "Legacy Column " + suffix,
+		GoField:       "LegacyColumn",
+		JsonField:     "legacyColumn",
+		Sort:          1,
+	}).Insert(); err != nil {
+		t.Fatalf("insert sys column: %v", err)
+	}
+
+	tree, err := service.LegacySysTablesTree(ctx, map[string]any{"tableName": "legacy_table_" + suffix})
+	if err != nil {
+		t.Fatalf("LegacySysTablesTree: %v", err)
+	}
+	if len(tree) != 1 || tree[0]["tableName"] != "legacy_table_"+suffix {
+		t.Fatalf("unexpected table tree rows: %#v", tree)
+	}
+	columns, ok := tree[0]["columns"].([]Record)
+	if !ok || len(columns) != 1 {
+		t.Fatalf("table columns missing: %#v", tree[0]["columns"])
+	}
+	if columns[0]["columnName"] != "legacy_column_"+suffix || columns[0]["jsonField"] != "legacyColumn" {
+		t.Fatalf("unexpected table column projection: %#v", columns)
+	}
+}
+
 func insertLegacySystemDept(t *testing.T, ctx context.Context, parentID int64, name string, sort int) int64 {
 	t.Helper()
 	id, err := dao.SysDept.Ctx(ctx).Data(do.SysDept{
@@ -283,6 +379,21 @@ func cleanupLegacySystemRows(t *testing.T, ctx context.Context, suffix string) {
 	if _, err := dao.SysRoleDept.Ctx(ctx).Where(dao.SysRoleDept.Columns().RoleId, 7711).Delete(); err != nil {
 		t.Fatalf("cleanup sys role dept: %v", err)
 	}
+	if rows, err := dao.SysRole.Ctx(ctx).Unscoped().Fields(dao.SysRole.Columns().RoleId).WhereLike(dao.SysRole.Columns().RoleKey, "%"+suffix).Array(); err == nil {
+		ids := make([]int64, 0, len(rows))
+		for _, row := range rows {
+			if id := row.Int64(); id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) > 0 {
+			if _, err := dao.SysRoleDept.Ctx(ctx).WhereIn(dao.SysRoleDept.Columns().RoleId, ids).Delete(); err != nil {
+				t.Fatalf("cleanup dynamic sys role dept: %v", err)
+			}
+		}
+	} else {
+		t.Fatalf("query sys roles for dept cleanup: %v", err)
+	}
 	if _, err := dao.SysDept.Ctx(ctx).Unscoped().WhereLike(dao.SysDept.Columns().DeptName, "%"+suffix).Delete(); err != nil {
 		t.Fatalf("cleanup sys dept: %v", err)
 	}
@@ -309,6 +420,24 @@ func cleanupLegacySystemRows(t *testing.T, ctx context.Context, suffix string) {
 	}
 	if _, err := dao.SysUser.Ctx(ctx).Unscoped().WhereLike(dao.SysUser.Columns().Username, "%"+suffix).Delete(); err != nil {
 		t.Fatalf("cleanup sys user: %v", err)
+	}
+	if rows, err := dao.SysTables.Ctx(ctx).Unscoped().Fields(dao.SysTables.Columns().TableId).WhereLike(dao.SysTables.Columns().TableName, "%"+suffix).Array(); err == nil {
+		ids := make([]int64, 0, len(rows))
+		for _, row := range rows {
+			if id := row.Int64(); id > 0 {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) > 0 {
+			if _, err := dao.SysColumns.Ctx(ctx).Unscoped().WhereIn(dao.SysColumns.Columns().TableId, ids).Delete(); err != nil {
+				t.Fatalf("cleanup sys columns: %v", err)
+			}
+		}
+	} else {
+		t.Fatalf("query sys tables for cleanup: %v", err)
+	}
+	if _, err := dao.SysTables.Ctx(ctx).Unscoped().WhereLike(dao.SysTables.Columns().TableName, "%"+suffix).Delete(); err != nil {
+		t.Fatalf("cleanup sys tables: %v", err)
 	}
 	if _, err := dao.SysRole.Ctx(ctx).Unscoped().WhereLike(dao.SysRole.Columns().RoleKey, "%"+suffix).Delete(); err != nil {
 		t.Fatalf("cleanup sys role: %v", err)
