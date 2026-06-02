@@ -307,53 +307,6 @@ CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_account_active_log (
 COMMENT ON TABLE plugin_linapro_uidentity_cas_account_active_log IS 'Legacy-compatible account activation and Wechat binding audit log';
 COMMENT ON COLUMN plugin_linapro_uidentity_cas_account_active_log."type" IS 'Legacy activation log type: 0=activation or Wechat rebind callback, 1=union ID bind';
 
-CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_sys_job (
-    "job_id"          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    "tenant_id"       INT          NOT NULL DEFAULT 0,
-    "job_name"        VARCHAR(255) NOT NULL DEFAULT '',
-    "job_group"       VARCHAR(255) NOT NULL DEFAULT '',
-    "job_type"        SMALLINT     NOT NULL DEFAULT 0,
-    "cron_expression" VARCHAR(255) NOT NULL DEFAULT '',
-    "invoke_target"   VARCHAR(500) NOT NULL DEFAULT '',
-    "args"            VARCHAR(500) NOT NULL DEFAULT '',
-    "misfire_policy"  SMALLINT     NOT NULL DEFAULT 0,
-    "concurrent"      SMALLINT     NOT NULL DEFAULT 0,
-    "status"          SMALLINT     NOT NULL DEFAULT 1,
-    "entry_id"        BIGINT       NOT NULL DEFAULT 0,
-    "created_by"      BIGINT       NOT NULL DEFAULT 0,
-    "updated_by"      BIGINT       NOT NULL DEFAULT 0,
-    "created_at"      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at"      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "deleted_at"      TIMESTAMP    NULL DEFAULT NULL
-);
-
-COMMENT ON TABLE plugin_linapro_uidentity_cas_sys_job IS 'Legacy-compatible UIdentity job definition table';
-COMMENT ON COLUMN plugin_linapro_uidentity_cas_sys_job."job_type" IS 'Job type: 1=http, 2=exec or plugin-defined executor';
-COMMENT ON COLUMN plugin_linapro_uidentity_cas_sys_job."misfire_policy" IS 'Misfire policy copied from legacy sys_job semantics';
-COMMENT ON COLUMN plugin_linapro_uidentity_cas_sys_job."concurrent" IS 'Concurrent execution flag: 0=disallow, 1=allow';
-COMMENT ON COLUMN plugin_linapro_uidentity_cas_sys_job."status" IS 'Job status: 1=disabled, 2=enabled';
-COMMENT ON COLUMN plugin_linapro_uidentity_cas_sys_job."entry_id" IS 'Runtime scheduler entry ID, 0 means not scheduled';
-
-CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_job_log (
-    "id"         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    "tenant_id"  INT          NOT NULL DEFAULT 0,
-    "job_id"     BIGINT       NOT NULL DEFAULT 0,
-    "job_name"   VARCHAR(128) NOT NULL DEFAULT '',
-    "start_at"   TIMESTAMP    NULL DEFAULT NULL,
-    "end_at"     TIMESTAMP    NULL DEFAULT NULL,
-    "create_num" BIGINT       NOT NULL DEFAULT 0,
-    "update_num" BIGINT       NOT NULL DEFAULT 0,
-    "delete_num" BIGINT       NOT NULL DEFAULT 0,
-    "err_num"    BIGINT       NOT NULL DEFAULT 0,
-    "created_by" BIGINT       NOT NULL DEFAULT 0,
-    "updated_by" BIGINT       NOT NULL DEFAULT 0,
-    "created_at" TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "deleted_at" TIMESTAMP    NULL DEFAULT NULL
-);
-
-COMMENT ON TABLE plugin_linapro_uidentity_cas_job_log IS 'Legacy-compatible UIdentity job execution log table';
-
 CREATE UNIQUE INDEX IF NOT EXISTS uk_pluicas_account_number ON plugin_linapro_uidentity_cas_account ("tenant_id", "number") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_account_phone ON plugin_linapro_uidentity_cas_account ("tenant_id", "phone") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_account_status ON plugin_linapro_uidentity_cas_account ("tenant_id", "status") WHERE "deleted_at" IS NULL;
@@ -394,11 +347,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_pluicas_oauth_access ON plugin_linapro_uide
 CREATE INDEX IF NOT EXISTS idx_pluicas_change_account ON plugin_linapro_uidentity_cas_account_change_log ("tenant_id", "account_id", "created_at") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_active_log_number ON plugin_linapro_uidentity_cas_account_active_log ("tenant_id", "number", "created_at") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_active_log_wechat ON plugin_linapro_uidentity_cas_account_active_log ("tenant_id", "wechat", "created_at") WHERE "deleted_at" IS NULL;
-CREATE INDEX IF NOT EXISTS idx_pluicas_sys_job_status ON plugin_linapro_uidentity_cas_sys_job ("tenant_id", "status") WHERE "deleted_at" IS NULL;
-CREATE INDEX IF NOT EXISTS idx_pluicas_sys_job_group ON plugin_linapro_uidentity_cas_sys_job ("tenant_id", "job_group") WHERE "deleted_at" IS NULL;
-CREATE INDEX IF NOT EXISTS idx_pluicas_sys_job_entry ON plugin_linapro_uidentity_cas_sys_job ("tenant_id", "entry_id") WHERE "deleted_at" IS NULL;
-CREATE INDEX IF NOT EXISTS idx_pluicas_job_log_job ON plugin_linapro_uidentity_cas_job_log ("tenant_id", "job_id", "created_at") WHERE "deleted_at" IS NULL;
-CREATE INDEX IF NOT EXISTS idx_pluicas_job_log_time ON plugin_linapro_uidentity_cas_job_log ("tenant_id", "start_at", "end_at") WHERE "deleted_at" IS NULL;
 
 INSERT INTO plugin_linapro_uidentity_cas_pass_rule (
     "tenant_id", "name", "capital", "lower", "number", "symbol", "length",

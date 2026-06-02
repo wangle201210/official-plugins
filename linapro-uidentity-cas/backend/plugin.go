@@ -1,33 +1,25 @@
 // Package backend wires the linapro-uidentity-cas source plugin into the host
-// plugin registry. It owns plugin route registration and starts the plugin-local
-// legacy sys_job scheduler, while all UIdentity business behavior remains in plugin
-// services instead of changing lina-core host contracts.
+// plugin registry. It owns plugin route and managed scheduled-job handler
+// registration while all UIdentity business behavior remains in plugin services
+// instead of changing lina-core host contracts.
 package backend
 
 import (
 	"context"
-	"sync"
 
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/os/gcron"
 
 	"lina-core/pkg/plugin/capability"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
 	"lina-core/pkg/plugin/pluginhost"
 	uidentitycas "lina-plugin-linapro-uidentity-cas"
 	uidentitycontroller "lina-plugin-linapro-uidentity-cas/backend/internal/controller/uidentity"
-	uidentitycron "lina-plugin-linapro-uidentity-cas/backend/internal/service/cron"
+	uidentityjobs "lina-plugin-linapro-uidentity-cas/backend/internal/service/jobs"
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
 const (
 	// pluginID is the immutable identifier published by the embedded source plugin.
 	pluginID = "linapro-uidentity-cas"
-	// legacyJobBootstrapName is the plugin-local GoFrame cron entry that waits
-	// until the plugin is enabled before loading legacy sys_job rows.
-	legacyJobBootstrapName = "linapro-uidentity-cas-legacy-job-bootstrap"
-	// legacyJobBootstrapPattern controls how often the plugin-local bootstrap retries.
-	legacyJobBootstrapPattern = "@every 30s"
 )
 
 // init registers the linapro-uidentity-cas source plugin and its host callbacks.
@@ -41,23 +33,17 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
+	if err := plugin.Cron().RegisterCron(
+		pluginhost.ExtensionPointCronRegister,
+		pluginhost.CallbackExecutionModeBlocking,
+		registerManagedJobs,
+	); err != nil {
+		panic(err)
+	}
 	if err := pluginhost.RegisterSourcePlugin(plugin); err != nil {
 		panic(err)
 	}
 }
-
-var (
-	// uidentityJobCron is the shared plugin-local GoFrame scheduler.
-	uidentityJobCron = uidentitycron.New(pluginID)
-	// uidentityJobCronStartMu protects plugin-local scheduler startup state.
-	uidentityJobCronStartMu sync.Mutex
-	// uidentityJobCronStarted reports whether enabled legacy jobs were reloaded.
-	uidentityJobCronStarted bool
-	// uidentityJobCronStarting reports an in-flight legacy job reload.
-	uidentityJobCronStarting bool
-	// uidentityJobCronBootstrapRegistered reports whether the retry bootstrap was registered.
-	uidentityJobCronBootstrapRegistered bool
-)
 
 // registerRoutes validates host dependencies before binding UIdentity CAS routes.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
@@ -73,14 +59,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if scopedServices.Config() == nil {
 		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
 	}
-	if err := ensureLegacyJobScheduler(ctx, scopedServices.PluginState()); err != nil {
-		return err
-	}
 	uidentitySvc := uidentitysvc.New(
 		scopedServices.BizCtx(),
 		scopedServices.Config(),
 		services.TenantFilter(),
-		uidentityJobCron,
 	)
 	uidentityController := uidentitycontroller.NewV1(uidentitySvc)
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
@@ -169,65 +151,14 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	return nil
 }
 
-// ensureLegacyJobScheduler starts immediately when possible and otherwise
-// registers a plugin-local GoFrame retry entry that waits for enablement.
-func ensureLegacyJobScheduler(ctx context.Context, pluginState plugincontract.PluginStateService) error {
-	started, err := startLegacyJobScheduler(ctx, pluginState)
-	if err != nil || started {
-		return err
+// registerManagedJobs contributes old uidentity/admin job registry entries as
+// LinaPro managed scheduled-job handlers. Scheduling, persistence, logs, and
+// trigger control stay in the host task-management module.
+func registerManagedJobs(ctx context.Context, registrar pluginhost.CronRegistrar) error {
+	services := registrar.Services()
+	if services == nil || services.Config() == nil {
+		return gerror.New("linapro-uidentity-cas jobs require plugin-scoped config service")
 	}
-
-	uidentityJobCronStartMu.Lock()
-	defer uidentityJobCronStartMu.Unlock()
-	if uidentityJobCronStarted || uidentityJobCronBootstrapRegistered {
-		return nil
-	}
-	if gcron.Search(legacyJobBootstrapName) != nil {
-		uidentityJobCronBootstrapRegistered = true
-		return nil
-	}
-	_, err = gcron.AddSingleton(ctx, legacyJobBootstrapPattern, func(jobCtx context.Context) {
-		started, startErr := startLegacyJobScheduler(jobCtx, pluginState)
-		if startErr != nil {
-			return
-		}
-		if started {
-			gcron.Remove(legacyJobBootstrapName)
-		}
-	}, legacyJobBootstrapName)
-	if err != nil {
-		return err
-	}
-	uidentityJobCronBootstrapRegistered = true
-	return nil
-}
-
-// startLegacyJobScheduler reloads plugin-owned enabled sys_job rows into the
-// shared GoFrame cron instance after host services become available.
-func startLegacyJobScheduler(ctx context.Context, pluginState plugincontract.PluginStateService) (bool, error) {
-	if pluginState == nil {
-		return false, nil
-	}
-	if !pluginState.IsEnabledAuthoritative(ctx, pluginID) {
-		return false, nil
-	}
-	uidentityJobCronStartMu.Lock()
-	if uidentityJobCronStarted || uidentityJobCronStarting {
-		uidentityJobCronStartMu.Unlock()
-		return uidentityJobCronStarted, nil
-	}
-	uidentityJobCronStarting = true
-	uidentityJobCronStartMu.Unlock()
-
-	err := uidentityJobCron.Start(ctx, pluginState, nil)
-
-	uidentityJobCronStartMu.Lock()
-	defer uidentityJobCronStartMu.Unlock()
-	uidentityJobCronStarting = false
-	if err != nil {
-		return false, err
-	}
-	uidentityJobCronStarted = true
-	uidentityJobCronBootstrapRegistered = false
-	return true, nil
+	jobSvc := uidentityjobs.New(services.BizCtx(), services.Config(), services.TenantFilter())
+	return jobSvc.Register(ctx, registrar)
 }

@@ -77,8 +77,4 @@ var (
 	CodeLegacyUploadFailed = bizerr.MustDefine("UIDENTITY_LEGACY_UPLOAD_FAILED", "Legacy upload storage failed", gcode.CodeInternalError)
 	// CodeLegacyLogInvalid reports an invalid bounded log snapshot request.
 	CodeLegacyLogInvalid = bizerr.MustDefine("UIDENTITY_LEGACY_LOG_INVALID", "Legacy log snapshot request is invalid", gcode.CodeInvalidParameter)
-	// CodeLegacyJobDisabled reports a start request for a disabled legacy job.
-	CodeLegacyJobDisabled = bizerr.MustDefine("UIDENTITY_LEGACY_JOB_DISABLED", "Legacy job is disabled", gcode.CodeInvalidParameter)
-	// CodeLegacyJobSchedulerUnavailable reports that plugin cron was not injected at startup.
-	CodeLegacyJobSchedulerUnavailable = bizerr.MustDefine("UIDENTITY_LEGACY_JOB_SCHEDULER_UNAVAILABLE", "Legacy job scheduler is unavailable", gcode.CodeInternalError)
 )

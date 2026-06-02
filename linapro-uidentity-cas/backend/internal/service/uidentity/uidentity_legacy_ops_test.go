@@ -43,12 +43,3 @@ func TestReadTailLines(t *testing.T) {
 		t.Fatalf("unexpected tail lines: %#v", lines)
 	}
 }
-
-func TestParseLegacyJobID(t *testing.T) {
-	if got := parseLegacyJobID(" 42 "); got != 42 {
-		t.Fatalf("unexpected job id: %d", got)
-	}
-	if got := parseLegacyJobID("bad"); got != 0 {
-		t.Fatalf("expected invalid job id to become 0, got %d", got)
-	}
-}

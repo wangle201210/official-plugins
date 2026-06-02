@@ -31,9 +31,9 @@ type LegacyLogSnapshotReq struct {
 
 // LegacyExternalActionReq defines legacy external action boundary requests.
 type LegacyExternalActionReq struct {
-	g.Meta `path:"/uidentity/legacy/external-actions" method:"post" tags:"UIdentity Legacy Operations" summary:"Run legacy external action" dc:"Expose a stable plugin boundary for old LDAP, external file storage, monitor, and job actions. job_start and job_remove update plugin-owned job runtime state; unconfigured external executors return a structured unsupported-flow error." permission:"uidentity:cas:write"`
-	Type   string `json:"type" v:"required" dc:"External action type: ldap_sync, ldap_password_sync, file_external_upload, job_start, job_remove, monitor_external" eg:"job_start"`
-	Target string `json:"target" dc:"Optional target identifier such as account number, application client ID, job ID, or external resource key" eg:"1"`
+	g.Meta `path:"/uidentity/legacy/external-actions" method:"post" tags:"UIdentity Legacy Operations" summary:"Run legacy external action" dc:"Expose a stable plugin boundary for old LDAP, external file storage, and monitor actions. Scheduled jobs are provided through LinaPro task management; unconfigured external executors return a structured unsupported-flow error." permission:"uidentity:cas:write"`
+	Type   string `json:"type" v:"required" dc:"External action type: ldap_sync, ldap_password_sync, file_external_upload, monitor_external" eg:"ldap_sync"`
+	Target string `json:"target" dc:"Optional target identifier such as account number, application client ID, or external resource key" eg:"A001"`
 }
 
 // LegacyUploadFile carries one uploaded file response.
