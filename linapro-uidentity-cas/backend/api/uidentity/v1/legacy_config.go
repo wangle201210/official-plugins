@@ -27,9 +27,9 @@ type LegacyTokenConfigReq struct {
 
 // LegacyCASConfigRes returns legacy CAS endpoint metadata.
 type LegacyCASConfigRes struct {
-	LoginAddr  string `json:"LoginAddr" dc:"CAS login endpoint address shown to old admin clients" eg:"/api/v1/uidentity/cas/password-logins"`
-	LogoutAddr string `json:"LogoutAddr" dc:"CAS logout endpoint address shown to old admin clients" eg:"/api/v1/uidentity/cas/tickets/{ticket}"`
-	RestAddr   string `json:"RestAddr" dc:"CAS service-validation endpoint address shown to old admin clients" eg:"/api/v1/uidentity/legacy/cas/service-validations.xml"`
+	LoginAddr  string `json:"LoginAddr" dc:"CAS login endpoint address shown to old admin clients" eg:"/api/v1/cas/login"`
+	LogoutAddr string `json:"LogoutAddr" dc:"CAS logout endpoint address shown to old admin clients" eg:"/api/v1/cas/tickets/{ticket}"`
+	RestAddr   string `json:"RestAddr" dc:"CAS service-validation endpoint address shown to old admin clients" eg:"/sso/serviceValidate"`
 	Docs       string `json:"Docs" dc:"CAS integration documentation URL or text pointer" eg:"https://example.com/docs/cas"`
 }
 
@@ -42,18 +42,18 @@ type LegacyLDAPConfigRes struct {
 
 // LegacyOAuthConfigRes returns legacy OAuth endpoint metadata.
 type LegacyOAuthConfigRes struct {
-	Authorization string `json:"Authorization" dc:"OAuth authorization-code issue endpoint address shown to old admin clients" eg:"/api/v1/uidentity/oauth/authorization-codes"`
-	GetTokenAddr  string `json:"GetTokenAddr" dc:"OAuth access-token exchange endpoint address shown to old admin clients" eg:"/api/v1/uidentity/oauth/access-tokens"`
-	UserInfoAddr  string `json:"UserInfoAddr" dc:"OAuth user-info endpoint address shown to old admin clients" eg:"/api/v1/uidentity/oauth/access-tokens/{accessToken}/user-info"`
+	Authorization string `json:"Authorization" dc:"OAuth authorization-code issue endpoint address shown to old admin clients" eg:"/api/v1/oauth/auth"`
+	GetTokenAddr  string `json:"GetTokenAddr" dc:"OAuth access-token exchange endpoint address shown to old admin clients" eg:"/api/v1/oauth/token"`
+	UserInfoAddr  string `json:"UserInfoAddr" dc:"OAuth user-info endpoint address shown to old admin clients" eg:"/api/v1/oauth/test"`
 	LogoutAddr    string `json:"LogoutAddr" dc:"OAuth logout endpoint address shown to old admin clients" eg:""`
-	PingAddr      string `json:"PingAddr" dc:"OAuth ping endpoint address shown to old admin clients" eg:"/api/v1/uidentity/legacy/health"`
+	PingAddr      string `json:"PingAddr" dc:"OAuth ping endpoint address shown to old admin clients" eg:"/api/v1/health"`
 	Docs          string `json:"Docs" dc:"OAuth integration documentation URL or text pointer" eg:"https://example.com/docs/oauth"`
 }
 
 // LegacyTokenConfigRes returns legacy runtime token endpoint metadata.
 type LegacyTokenConfigRes struct {
-	GetAddr   string `json:"GetAddr" dc:"Runtime token issue endpoint address shown to old admin clients" eg:"/api/v1/uidentity/runtime-tokens"`
-	CheckAddr string `json:"CheckAddr" dc:"Runtime token user-info endpoint address shown to old admin clients" eg:"/api/v1/uidentity/runtime-tokens/{accessToken}/user-info"`
+	GetAddr   string `json:"GetAddr" dc:"Runtime token issue endpoint address shown to old admin clients" eg:"/api/v1/token/get"`
+	CheckAddr string `json:"CheckAddr" dc:"Runtime token user-info endpoint address shown to old admin clients" eg:"/api/v1/token/getUserInfoByToken"`
 	TokenDocs string `json:"TokenDocs" dc:"Runtime token integration documentation URL or text pointer" eg:"https://example.com/docs/token"`
 	CasDocs   string `json:"CasDocs" dc:"CAS integration documentation URL or text pointer" eg:"https://example.com/docs/cas"`
 }

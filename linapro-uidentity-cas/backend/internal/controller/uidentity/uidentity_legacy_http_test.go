@@ -4,9 +4,16 @@
 package uidentity
 
 import (
+	"context"
+	"encoding/json"
 	"encoding/xml"
+	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/util/guid"
+	"github.com/mojocn/base64Captcha"
 
 	"lina-core/pkg/bizerr"
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
@@ -207,6 +214,108 @@ func TestLegacyWechatCallbackTextResponseEchoesText(t *testing.T) {
 	}
 }
 
+func TestLegacyWechatRoutesDelegateToQRCodeRuntime(t *testing.T) {
+	service := &legacyWechatHTTPFakeService{}
+	baseURL := startLegacyWechatTestServer(t, service)
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+
+	loginResp, err := client.Get(baseURL + "/api/v1/wechat/login?appid=portal&cascallback=https%3A%2F%2Fold.example%2Fcallback")
+	if err != nil {
+		t.Fatalf("call legacy wechat login: %v", err)
+	}
+	closeHTTPResponse(t, loginResp)
+	if service.qrInput.ClientID != "portal" || service.qrInput.Callback != "https://old.example/callback" {
+		t.Fatalf("legacy wechat login did not pass old params to QR service: %#v", service.qrInput)
+	}
+
+	callbackResp, err := client.Get(baseURL + "/api/v1/wechat/loginCallback?state=qr-state&appid=portal&code=wx-code&unionID=union-1&cascallback=choose")
+	if err != nil {
+		t.Fatalf("call legacy wechat callback: %v", err)
+	}
+	closeHTTPResponse(t, callbackResp)
+	if callbackResp.StatusCode != http.StatusFound {
+		t.Fatalf("legacy wechat callback status = %d, want %d", callbackResp.StatusCode, http.StatusFound)
+	}
+	if service.callbackInput.State != "qr-state" || service.callbackInput.ClientID != "portal" ||
+		service.callbackInput.Code != "wx-code" || service.callbackInput.UnionID != "union-1" ||
+		service.callbackInput.Callback != "choose" {
+		t.Fatalf("legacy wechat callback did not pass old params to QR callback service: %#v", service.callbackInput)
+	}
+}
+
+func TestLegacyCaptchaRouteReturnsOldEnvelopeAndStoresAnswer(t *testing.T) {
+	baseURL := startLegacyHTTPTestServer(t, "captcha", &legacyHTTPFakeService{}, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.GET("/captcha", controller.Captcha)
+	})
+	resp, err := http.Get(baseURL + "/api/v1/captcha")
+	if err != nil {
+		t.Fatalf("call legacy captcha: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode captcha response: %v", err)
+	}
+	id, ok := payload["id"].(string)
+	if !ok || id == "" {
+		t.Fatalf("captcha id missing: %#v", payload)
+	}
+	image, ok := payload["data"].(string)
+	if !ok || image == "" {
+		t.Fatalf("captcha image missing: %#v", payload)
+	}
+	if payload["code"] != float64(legacyStatusOK) || payload["msg"] != "success" {
+		t.Fatalf("captcha envelope mismatch: %#v", payload)
+	}
+	answer := base64Captcha.DefaultMemStore.Get(id, false)
+	if answer == "" {
+		t.Fatalf("captcha answer not stored for id %s", id)
+	}
+	if !base64Captcha.DefaultMemStore.Verify(id, answer, true) {
+		t.Fatalf("stored captcha answer could not be verified")
+	}
+}
+
+func TestLegacyAdminLoginRouteUsesOldFieldsAndTopLevelToken(t *testing.T) {
+	service := &legacyHTTPFakeService{}
+	baseURL := startLegacyHTTPTestServer(t, "admin-login", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.POST("/login", controller.AdminLogin)
+	})
+	captchaID, captchaAnswer, captchaErr := base64Captcha.NewCaptcha(base64Captcha.DefaultDriverDigit, base64Captcha.DefaultMemStore).Generate()
+	if captchaErr != nil {
+		t.Fatalf("generate captcha for login test: %v", captchaErr)
+	}
+	resp, err := http.PostForm(baseURL+"/api/v1/login", url.Values{
+		"UserName": []string{"A001"},
+		"Password": []string{"secret"},
+		"appid":    []string{"portal"},
+		"UUID":     []string{captchaID},
+		"Code":     []string{base64Captcha.DefaultMemStore.Get(captchaID, false)},
+	})
+	if captchaAnswer == "" {
+		t.Fatal("captcha image should not be empty")
+	}
+	if err != nil {
+		t.Fatalf("call legacy admin login: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+
+	if service.passwordLoginInput.ClientID != "portal" || service.passwordLoginInput.Number != "A001" ||
+		service.passwordLoginInput.Password != "secret" {
+		t.Fatalf("legacy admin login did not pass old fields: %#v", service.passwordLoginInput)
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode legacy admin login response: %v", err)
+	}
+	if payload["token"] != "TGT-1" || payload["expire"] == "" {
+		t.Fatalf("legacy admin login top-level token missing: %#v", payload)
+	}
+}
+
 func TestLegacySysJobSnapshotsCoverOldExecutableJobs(t *testing.T) {
 	records := legacySysJobSnapshots()
 	if len(records) != 9 {
@@ -220,6 +329,98 @@ func TestLegacySysJobSnapshotsCoverOldExecutableJobs(t *testing.T) {
 		if _, ok := names[name]; !ok {
 			t.Fatalf("legacy sysjob snapshot missing %s", name)
 		}
+	}
+}
+
+type legacyHTTPFakeService struct {
+	uidentitysvc.Service
+
+	passwordLoginInput uidentitysvc.PasswordLoginInput
+}
+
+func (s *legacyHTTPFakeService) LoginByPassword(_ context.Context, in uidentitysvc.PasswordLoginInput) (*uidentitysvc.RuntimeLoginOutput, error) {
+	s.passwordLoginInput = in
+	return &uidentitysvc.RuntimeLoginOutput{
+		CallbackURL: "https://app.example/callback?ticket=ST-1",
+		TGT:         "TGT-1",
+		ST:          "ST-1",
+		User:        &uidentitysvc.RuntimeAccount{Number: "A001"},
+	}, nil
+}
+
+func (s *legacyHTTPFakeService) LegacyRedirectConfig(context.Context) (*uidentitysvc.LegacyRedirectConfigOutput, error) {
+	return &uidentitysvc.LegacyRedirectConfigOutput{DefaultAppID: "portal"}, nil
+}
+
+type legacyWechatHTTPFakeService struct {
+	uidentitysvc.Service
+
+	qrInput       uidentitysvc.WechatLoginQRInput
+	callbackInput uidentitysvc.WechatLoginCallbackInput
+}
+
+func (s *legacyWechatHTTPFakeService) CreateWechatLoginQR(_ context.Context, in uidentitysvc.WechatLoginQRInput) (*uidentitysvc.WechatLoginQROutput, error) {
+	s.qrInput = in
+	return &uidentitysvc.WechatLoginQROutput{State: "qr-state", URL: "https://wechat.example/qr"}, nil
+}
+
+func (s *legacyWechatHTTPFakeService) CompleteWechatLoginQR(_ context.Context, in uidentitysvc.WechatLoginCallbackInput) (*uidentitysvc.WechatLoginQRResultOutput, error) {
+	s.callbackInput = in
+	return &uidentitysvc.WechatLoginQRResultOutput{ChallengeID: "bind-uuid"}, nil
+}
+
+func (s *legacyWechatHTTPFakeService) LegacyRedirectConfig(context.Context) (*uidentitysvc.LegacyRedirectConfigOutput, error) {
+	return &uidentitysvc.LegacyRedirectConfigOutput{WechatLoginRedirect: "https://old.example/wechat-result"}, nil
+}
+
+func startLegacyWechatTestServer(t *testing.T, service *legacyWechatHTTPFakeService) string {
+	t.Helper()
+
+	server := ghttp.GetServer("legacy-wechat-test-" + guid.S())
+	server.SetPort(0)
+	server.SetDumpRouterMap(false)
+	controller := NewLegacy(service)
+	server.Group("/api/v1", func(group *ghttp.RouterGroup) {
+		group.GET("/wechat/login", controller.WechatLogin)
+		group.GET("/wechat/loginCallback", controller.WechatLoginCallback)
+	})
+	if err := server.Start(); err != nil {
+		t.Fatalf("start legacy wechat test server: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := server.Shutdown(); err != nil {
+			t.Fatalf("shutdown legacy wechat test server: %v", err)
+		}
+	})
+	return "http://" + server.GetListenedAddress()
+}
+
+func startLegacyHTTPTestServer(t *testing.T, name string, service uidentitysvc.Service, register func(*ghttp.RouterGroup, *LegacyController)) string {
+	t.Helper()
+
+	server := ghttp.GetServer("legacy-" + name + "-test-" + guid.S())
+	server.SetPort(0)
+	server.SetDumpRouterMap(false)
+	controller := NewLegacy(service)
+	server.Group("/api/v1", func(group *ghttp.RouterGroup) {
+		register(group, controller)
+	})
+	if err := server.Start(); err != nil {
+		t.Fatalf("start legacy %s test server: %v", name, err)
+	}
+	t.Cleanup(func() {
+		if err := server.Shutdown(); err != nil {
+			t.Fatalf("shutdown legacy %s test server: %v", name, err)
+		}
+	})
+	return "http://" + server.GetListenedAddress()
+}
+
+func closeHTTPResponse(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	if err := response.Body.Close(); err != nil {
+		t.Fatalf("close HTTP response: %v", err)
 	}
 }
 

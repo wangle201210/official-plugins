@@ -16,6 +16,7 @@ import (
 
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/util/gconv"
+	"github.com/mojocn/base64Captcha"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"lina-core/pkg/bizerr"
@@ -58,6 +59,108 @@ type LegacyController struct {
 // NewLegacy creates one old-contract compatibility controller.
 func NewLegacy(uidentitySvc uidentitysvc.Service) *LegacyController {
 	return &LegacyController{uidentitySvc: uidentitySvc}
+}
+
+// AdminLogin handles old POST /api/v1/login with legacy field names.
+func (c *LegacyController) AdminLogin(r *ghttp.Request) {
+	if !legacyVerifyCaptcha(r) {
+		legacyErrorWithMsg(r, bizerr.NewCode(uidentitysvc.CodeSMSCaptchaInvalid), "验证码错误")
+		return
+	}
+	out, err := c.uidentitySvc.LoginByPassword(r.Context(), uidentitysvc.PasswordLoginInput{
+		ClientID: c.legacyAdminLoginClientID(r),
+		Number:   legacyStringParam(r, "username", "UserName", "number"),
+		Password: legacyStringParam(r, "password", "Password"),
+	})
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacySetTGTCookie(r, out)
+	payload := map[string]any{
+		"token":   out.TGT,
+		"expire":  legacyAdminLoginExpire(),
+		"tgt":     out.TGT,
+		"st":      out.ST,
+		"user":    legacyRuntimeAccountPayload(out.User),
+		"users":   legacyRuntimeAccountPayloads(out.Users),
+		"message": legacyMsgLoginSuccess,
+	}
+	r.Response.WriteJson(map[string]any{
+		"code":      legacyStatusOK,
+		"msg":       legacyMsgLoginSuccess,
+		"expire":    payload["expire"],
+		"token":     payload["token"],
+		"data":      payload,
+		"requestId": legacyRequestID(r),
+	})
+	r.Exit()
+}
+
+// AdminRefreshToken handles old GET /api/v1/refresh_token.
+func (c *LegacyController) AdminRefreshToken(r *ghttp.Request) {
+	tgt := legacyStringParam(r, "token", "tgt", "refreshToken", "refresh_token")
+	if tgt == "" {
+		tgt = r.Cookie.Get(legacyTGTCookieName).String()
+	}
+	if tgt == "" {
+		legacyError(r, bizerr.NewCode(uidentitysvc.CodeTicketInvalid))
+		return
+	}
+	out, err := c.uidentitySvc.IssueServiceTicketFromTGT(r.Context(), uidentitysvc.ServiceTicketInput{
+		ClientID:  c.legacyAdminLoginClientID(r),
+		TGT:       tgt,
+		AccountID: legacyInt64Param(r, "accountId", "account_id", "userId", "user_id"),
+	})
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	payload := legacyServiceTicketPayload(out, tgt)
+	payload["token"] = tgt
+	payload["expire"] = legacyAdminLoginExpire()
+	legacyOKWithMsg(r, payload, legacyMsgLoginSuccess)
+}
+
+// Captcha handles old GET /api/v1/captcha.
+func (c *LegacyController) Captcha(r *ghttp.Request) {
+	id, image, err := base64Captcha.NewCaptcha(base64Captcha.DefaultDriverDigit, base64Captcha.DefaultMemStore).Generate()
+	if err != nil {
+		legacyErrorWithMsg(r, err, "验证码获取失败")
+		return
+	}
+	r.Response.WriteJson(map[string]any{
+		"code": legacyStatusOK,
+		"data": image,
+		"id":   id,
+		"msg":  "success",
+	})
+	r.Exit()
+}
+
+func (c *LegacyController) legacyAdminLoginClientID(r *ghttp.Request) string {
+	clientID := legacyClientID(r)
+	if clientID != "" || c == nil || c.uidentitySvc == nil {
+		return clientID
+	}
+	cfg, err := c.uidentitySvc.LegacyRedirectConfig(r.Context())
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.DefaultAppID)
+}
+
+func legacyAdminLoginExpire() string {
+	return time.Now().Add(legacyTGTCookieMaxAge).Format(time.RFC3339)
+}
+
+func legacyVerifyCaptcha(r *ghttp.Request) bool {
+	uuid := legacyStringParam(r, "uuid", "UUID")
+	code := legacyStringParam(r, "code", "Code")
+	if strings.TrimSpace(uuid) == "" || strings.TrimSpace(code) == "" {
+		return false
+	}
+	return base64Captcha.DefaultMemStore.Verify(uuid, code, true)
 }
 
 // ResourceList handles old CRUD list routes such as GET /api/v1/account.
@@ -398,6 +501,12 @@ func (c *LegacyController) SSOLogout(r *ghttp.Request) {
 		return
 	}
 	legacyOKWithMsg(r, nil, "退出成功")
+}
+
+// RootRedirect keeps the old root page redirecting to the SSO login shell.
+func (c *LegacyController) RootRedirect(r *ghttp.Request) {
+	r.Response.RedirectTo("/sso/login")
+	r.Exit()
 }
 
 // SSOLoginToken handles POST /ssologin/getToken.
@@ -860,16 +969,14 @@ func (c *LegacyController) SmsSend(r *ghttp.Request) {
 	legacyOKWithMsg(r, nil, "发送成功")
 }
 
-// WechatLogin keeps the old commented-out Wechat login endpoint as empty 200.
+// WechatLogin keeps the old Wechat login route usable as a QR login creator.
 func (c *LegacyController) WechatLogin(r *ghttp.Request) {
-	r.Response.WriteStatus(http.StatusOK)
-	r.Exit()
+	c.CasGetLoginQR(r)
 }
 
-// WechatLoginCallback keeps the old commented-out Wechat callback as empty 200.
+// WechatLoginCallback keeps the old Wechat callback route usable as a QR login callback.
 func (c *LegacyController) WechatLoginCallback(r *ghttp.Request) {
-	r.Response.WriteStatus(http.StatusOK)
-	r.Exit()
+	c.CasLoginByQR(r)
 }
 
 // WechatCallback keeps the old root Wechat OA callback address available.
@@ -925,6 +1032,12 @@ func (c *LegacyController) Upload(r *ghttp.Request) {
 // Health handles old /api/v1/health.
 func (c *LegacyController) Health(r *ghttp.Request) {
 	r.Response.WriteStatus(http.StatusOK)
+	r.Exit()
+}
+
+// LegacyStatic keeps old static/documentation paths reachable without page assets.
+func (c *LegacyController) LegacyStatic(r *ghttp.Request) {
+	r.Response.WriteStatus(http.StatusNotFound)
 	r.Exit()
 }
 
@@ -1039,6 +1152,42 @@ func (c *LegacyController) SysJobGet(r *ghttp.Request) {
 // SysJobExternalAction reports old sysjob mutation routes as host-owned gf jobs.
 func (c *LegacyController) SysJobExternalAction(actionType string) ghttp.HandlerFunc {
 	return c.ExternalAction(actionType)
+}
+
+// LegacyEmptyPage keeps old management list routes reachable with an empty page.
+func (c *LegacyController) LegacyEmptyPage(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		pageIndex, pageSize := legacyPage(r)
+		legacyPageOK(r, []map[string]any{}, 0, pageIndex, pageSize)
+	}
+}
+
+// LegacyEmptyList keeps old option routes reachable with an empty list payload.
+func (c *LegacyController) LegacyEmptyList(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyOKWithMsg(r, []map[string]any{}, legacyMsgQuerySuccess)
+	}
+}
+
+// LegacyEmptyTree keeps old tree routes reachable with old response envelope.
+func (c *LegacyController) LegacyEmptyTree(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyOKWithMsg(r, []map[string]any{}, legacyMsgQuerySuccess)
+	}
+}
+
+// LegacyNotFound keeps old detail routes reachable with a structured not-found.
+func (c *LegacyController) LegacyNotFound(_ string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyError(r, bizerr.NewCode(uidentitysvc.CodeResourceNotFound))
+	}
+}
+
+// LegacyExternalOK keeps old non-CAS host/tool actions reachable as no-op actions.
+func (c *LegacyController) LegacyExternalOK(actionType string) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		legacyOKWithMsg(r, map[string]any{"type": actionType, "success": true}, legacyMsgOK)
+	}
 }
 
 // JobLogList keeps the old job-log list route while logs stay host-owned.

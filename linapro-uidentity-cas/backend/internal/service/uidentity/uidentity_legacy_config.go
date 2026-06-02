@@ -27,16 +27,16 @@ const (
 	configKeyLegacySSOLogin       = "legacy.sso.loginRedirect"
 	configKeyLegacySSOLogout      = "legacy.sso.logoutRedirect"
 
-	defaultLegacyCASLoginAddr   = "/api/v1/uidentity/cas/password-logins"
-	defaultLegacyCASLogoutAddr  = "/api/v1/uidentity/cas/tickets/{ticket}"
-	defaultLegacyCASRestAddr    = "/api/v1/uidentity/legacy/cas/service-validations.xml"
+	defaultLegacyCASLoginAddr   = "/api/v1/cas/login"
+	defaultLegacyCASLogoutAddr  = "/api/v1/cas/tickets/{ticket}"
+	defaultLegacyCASRestAddr    = "/sso/serviceValidate"
 	defaultLegacyLDAPVersion    = "unsupported"
-	defaultLegacyOAuthAuthorize = "/api/v1/uidentity/oauth/authorization-codes"
-	defaultLegacyOAuthToken     = "/api/v1/uidentity/oauth/access-tokens"
-	defaultLegacyOAuthUserInfo  = "/api/v1/uidentity/oauth/access-tokens/{accessToken}/user-info"
-	defaultLegacyOAuthPing      = "/api/v1/uidentity/legacy/health"
-	defaultLegacyTokenGet       = "/api/v1/uidentity/runtime-tokens"
-	defaultLegacyTokenCheck     = "/api/v1/uidentity/runtime-tokens/{accessToken}/user-info"
+	defaultLegacyOAuthAuthorize = "/api/v1/oauth/auth"
+	defaultLegacyOAuthToken     = "/api/v1/oauth/token"
+	defaultLegacyOAuthUserInfo  = "/api/v1/oauth/test"
+	defaultLegacyOAuthPing      = "/api/v1/health"
+	defaultLegacyTokenGet       = "/api/v1/token/get"
+	defaultLegacyTokenCheck     = "/api/v1/token/getUserInfoByToken"
 )
 
 // LegacyCASConfig returns legacy CAS endpoint metadata from plugin config.

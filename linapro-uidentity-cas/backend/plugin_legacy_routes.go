@@ -41,6 +41,9 @@ var legacyResourceRoutes = []legacyResourceRoute{
 }
 
 var legacyPublicRoutes = []legacyRouteSpec{
+	{Method: "POST", Path: "/login"},
+	{Method: "GET", Path: "/refresh_token"},
+	{Method: "GET", Path: "/captcha"},
 	{Method: "POST", Path: "/account/updatePasswordGetUser"},
 	{Method: "POST", Path: "/account/updatePasswordBySelfPhone"},
 	{Method: "POST", Path: "/account/updatePasswordBySelf"},
@@ -94,6 +97,44 @@ var legacyPublicRoutes = []legacyRouteSpec{
 }
 
 var legacyProtectedRoutes = []legacyRouteSpec{
+	{Method: "POST", Path: "/logout"},
+	{Method: "GET", Path: "/roleMenuTreeselect/{roleId}"},
+	{Method: "GET", Path: "/roleDeptTreeselect/{roleId}"},
+	{Method: "GET", Path: "/sys-user"},
+	{Method: "GET", Path: "/sys-user/{id}"},
+	{Method: "POST", Path: "/sys-user"},
+	{Method: "PUT", Path: "/sys-user"},
+	{Method: "DELETE", Path: "/sys-user"},
+	{Method: "POST", Path: "/user/avatar"},
+	{Method: "PUT", Path: "/user/pwd/set"},
+	{Method: "PUT", Path: "/user/pwd/reset"},
+	{Method: "PUT", Path: "/user/status"},
+	{Method: "GET", Path: "/getinfo"},
+	{Method: "GET", Path: "/sys-login-log"},
+	{Method: "GET", Path: "/sys-login-log/{id}"},
+	{Method: "DELETE", Path: "/sys-login-log"},
+	{Method: "GET", Path: "/sys-opera-log"},
+	{Method: "GET", Path: "/sys-opera-log/{id}"},
+	{Method: "DELETE", Path: "/sys-opera-log"},
+	{Method: "GET", Path: "/sys-api"},
+	{Method: "GET", Path: "/sys-api/{id}"},
+	{Method: "PUT", Path: "/sys-api/{id}"},
+	{Method: "DELETE", Path: "/menu"},
+	{Method: "PUT", Path: "/role-status"},
+	{Method: "PUT", Path: "/roledatascope"},
+	{Method: "DELETE", Path: "/dept"},
+	{Method: "GET", Path: "/menurole"},
+	{Method: "DELETE", Path: "/post"},
+	{Method: "GET", Path: "/deptTree"},
+	{Method: "DELETE", Path: "/dict/data"},
+	{Method: "GET", Path: "/dict/type-option-select"},
+	{Method: "DELETE", Path: "/dict/type"},
+	{Method: "GET", Path: "/dict-data/option-select"},
+	{Method: "GET", Path: "/configKey/{configKey}"},
+	{Method: "GET", Path: "/app-config"},
+	{Method: "GET", Path: "/set-config"},
+	{Method: "PUT", Path: "/set-config"},
+	{Method: "DELETE", Path: "/config"},
 	{Method: "GET", Path: "/sysjob"},
 	{Method: "GET", Path: "/sysjob/{id}"},
 	{Method: "POST", Path: "/sysjob"},
@@ -117,8 +158,19 @@ var legacyProtectedRoutes = []legacyRouteSpec{
 	{Method: "GET", Path: "/server-monitor"},
 	{Method: "POST", Path: "/public/uploadFile"},
 	{Method: "GET", Path: "/log/watch"},
-	{Method: "POST", Path: "/job/start"},
-	{Method: "POST", Path: "/job/remove"},
+	{Method: "GET", Path: "/gen/preview/{tableId}"},
+	{Method: "GET", Path: "/gen/toproject/{tableId}"},
+	{Method: "GET", Path: "/gen/apitofile/{tableId}"},
+	{Method: "GET", Path: "/gen/todb/{tableId}"},
+	{Method: "GET", Path: "/gen/tabletree"},
+	{Method: "GET", Path: "/db/tables/page"},
+	{Method: "GET", Path: "/db/columns/page"},
+	{Method: "GET", Path: "/sys/tables/page"},
+	{Method: "POST", Path: "/sys/tables/info"},
+	{Method: "PUT", Path: "/sys/tables/info"},
+	{Method: "DELETE", Path: "/sys/tables/info/{tableId}"},
+	{Method: "GET", Path: "/sys/tables/info/{tableId}"},
+	{Method: "GET", Path: "/sys/tables/info"},
 }
 
 var legacyRootSSORoutes = []legacyRouteSpec{
@@ -133,6 +185,53 @@ var legacyRootWechatRoutes = []legacyRouteSpec{
 	{Method: "ALL", Path: "/wechat/callback"},
 	{Method: "ALL", Path: "/MP_verify_5osfGmdqMLsyyzYp.txt"},
 	{Method: "ALL", Path: "/EcEOCIhE9w.txt"},
+}
+
+var legacyRootSystemRoutes = []legacyRouteSpec{
+	{Method: "GET", Path: "/"},
+	{Method: "GET", Path: "/info"},
+	{Method: "GET", Path: "/swagger/admin/*any"},
+	{Method: "GET", Path: "/ws/{id}/{channel}"},
+	{Method: "GET", Path: "/wslogout/{id}/{channel}"},
+	{Method: "GET", Path: "/static/*filepath"},
+	{Method: "HEAD", Path: "/static/*filepath"},
+	{Method: "GET", Path: "/form-generator/*filepath"},
+	{Method: "HEAD", Path: "/form-generator/*filepath"},
+	{Method: "GET", Path: "/logs/*filepath"},
+	{Method: "HEAD", Path: "/logs/*filepath"},
+}
+
+var legacyHostCoveredOldRoutes = []legacyRouteSpec{
+	{Method: "GET", Path: "/user/profile"},
+	{Method: "GET", Path: "/role"},
+	{Method: "GET", Path: "/role/{id}"},
+	{Method: "POST", Path: "/role"},
+	{Method: "PUT", Path: "/role/{id}"},
+	{Method: "DELETE", Path: "/role"},
+	{Method: "GET", Path: "/menu"},
+	{Method: "GET", Path: "/menu/{id}"},
+	{Method: "POST", Path: "/menu"},
+	{Method: "PUT", Path: "/menu/{id}"},
+	{Method: "GET", Path: "/dept"},
+	{Method: "GET", Path: "/dept/{id}"},
+	{Method: "POST", Path: "/dept"},
+	{Method: "PUT", Path: "/dept/{id}"},
+	{Method: "GET", Path: "/post"},
+	{Method: "GET", Path: "/post/{id}"},
+	{Method: "POST", Path: "/post"},
+	{Method: "PUT", Path: "/post/{id}"},
+	{Method: "GET", Path: "/dict/data"},
+	{Method: "GET", Path: "/dict/data/{dictCode}"},
+	{Method: "POST", Path: "/dict/data"},
+	{Method: "PUT", Path: "/dict/data/{dictCode}"},
+	{Method: "GET", Path: "/dict/type"},
+	{Method: "GET", Path: "/dict/type/{id}"},
+	{Method: "POST", Path: "/dict/type"},
+	{Method: "PUT", Path: "/dict/type/{id}"},
+	{Method: "GET", Path: "/config"},
+	{Method: "GET", Path: "/config/{id}"},
+	{Method: "POST", Path: "/config"},
+	{Method: "PUT", Path: "/config/{id}"},
 }
 
 func registerLegacyRoutes(routes pluginhost.RouteRegistrar, middlewares pluginhost.RouteMiddlewares, legacyController *uidentitycontroller.LegacyController) {
@@ -162,6 +261,17 @@ func registerLegacyRoutes(routes pluginhost.RouteRegistrar, middlewares pluginho
 	})
 	routes.Group("/", func(group pluginhost.RouteGroup) {
 		registerLegacyBaseMiddlewares(group, middlewares)
+		group.GET("/", legacyController.RootRedirect)
+		group.GET("/info", legacyController.Health)
+		group.GET("/swagger/admin/*any", legacyController.LegacyStatic)
+		group.GET("/ws/{id}/{channel}", legacyController.LegacyExternalOK("websocket"))
+		group.GET("/wslogout/{id}/{channel}", legacyController.LegacyExternalOK("websocket-logout"))
+		group.GET("/static/*filepath", legacyController.LegacyStatic)
+		group.HEAD("/static/*filepath", legacyController.LegacyStatic)
+		group.GET("/form-generator/*filepath", legacyController.LegacyStatic)
+		group.HEAD("/form-generator/*filepath", legacyController.LegacyStatic)
+		group.GET("/logs/*filepath", legacyController.LegacyStatic)
+		group.HEAD("/logs/*filepath", legacyController.LegacyStatic)
 		group.ALL("/wechat/callback", legacyController.WechatCallback)
 		group.ALL("/MP_verify_5osfGmdqMLsyyzYp.txt", legacyController.WechatVerifyMP)
 		group.ALL("/EcEOCIhE9w.txt", legacyController.WechatVerifyEc)
@@ -179,9 +289,12 @@ func registerLegacyBaseMiddlewares(group pluginhost.RouteGroup, middlewares plug
 }
 
 func registerLegacyPublicRoutes(group pluginhost.RouteGroup, legacyController *uidentitycontroller.LegacyController) {
+	group.POST("/login", legacyController.AdminLogin)
+	group.GET("/refresh_token", legacyController.AdminRefreshToken)
 	group.POST("/account/updatePasswordGetUser", legacyController.AccountPasswordChallenge)
 	group.POST("/account/updatePasswordBySelfPhone", legacyController.AccountPasswordPhoneVerify)
 	group.POST("/account/updatePasswordBySelf", legacyController.AccountPasswordSelfReset)
+	group.GET("/captcha", legacyController.Captcha)
 	group.GET("/health", legacyController.Health)
 	group.GET("/metrics", legacyController.Metrics)
 	group.GET("/cas/login", legacyController.CasLoginByCookie)
@@ -232,6 +345,44 @@ func registerLegacyPublicRoutes(group pluginhost.RouteGroup, legacyController *u
 }
 
 func registerLegacyProtectedRoutes(group pluginhost.RouteGroup, legacyController *uidentitycontroller.LegacyController) {
+	group.POST("/logout", legacyController.LegacyExternalOK("logout"))
+	group.GET("/roleMenuTreeselect/{roleId}", legacyController.LegacyEmptyTree("roleMenuTreeselect"))
+	group.GET("/roleDeptTreeselect/{roleId}", legacyController.LegacyEmptyTree("roleDeptTreeselect"))
+	group.GET("/sys-user", legacyController.LegacyEmptyPage("sys-user"))
+	group.GET("/sys-user/{id}", legacyController.LegacyNotFound("sys-user"))
+	group.POST("/sys-user", legacyController.LegacyExternalOK("sys-user-create"))
+	group.PUT("/sys-user", legacyController.LegacyExternalOK("sys-user-update"))
+	group.DELETE("/sys-user", legacyController.LegacyExternalOK("sys-user-delete"))
+	group.POST("/user/avatar", legacyController.LegacyExternalOK("user-avatar"))
+	group.PUT("/user/pwd/set", legacyController.LegacyExternalOK("user-pwd-set"))
+	group.PUT("/user/pwd/reset", legacyController.LegacyExternalOK("user-pwd-reset"))
+	group.PUT("/user/status", legacyController.LegacyExternalOK("user-status"))
+	group.GET("/getinfo", legacyController.LegacyExternalOK("getinfo"))
+	group.GET("/sys-login-log", legacyController.LegacyEmptyPage("sys-login-log"))
+	group.GET("/sys-login-log/{id}", legacyController.LegacyNotFound("sys-login-log"))
+	group.DELETE("/sys-login-log", legacyController.LegacyExternalOK("sys-login-log-delete"))
+	group.GET("/sys-opera-log", legacyController.LegacyEmptyPage("sys-opera-log"))
+	group.GET("/sys-opera-log/{id}", legacyController.LegacyNotFound("sys-opera-log"))
+	group.DELETE("/sys-opera-log", legacyController.LegacyExternalOK("sys-opera-log-delete"))
+	group.GET("/sys-api", legacyController.LegacyEmptyPage("sys-api"))
+	group.GET("/sys-api/{id}", legacyController.LegacyNotFound("sys-api"))
+	group.PUT("/sys-api/{id}", legacyController.LegacyExternalOK("sys-api-update"))
+	group.DELETE("/menu", legacyController.LegacyExternalOK("menu-delete"))
+	group.PUT("/role-status", legacyController.LegacyExternalOK("role-status"))
+	group.PUT("/roledatascope", legacyController.LegacyExternalOK("role-data-scope"))
+	group.DELETE("/dept", legacyController.LegacyExternalOK("dept-delete"))
+	group.GET("/menurole", legacyController.LegacyEmptyTree("menurole"))
+	group.DELETE("/post", legacyController.LegacyExternalOK("post-delete"))
+	group.GET("/deptTree", legacyController.LegacyEmptyTree("deptTree"))
+	group.DELETE("/dict/data", legacyController.LegacyExternalOK("dict-data-delete"))
+	group.GET("/dict/type-option-select", legacyController.LegacyEmptyList("dict-type-option-select"))
+	group.DELETE("/dict/type", legacyController.LegacyExternalOK("dict-type-delete"))
+	group.GET("/dict-data/option-select", legacyController.LegacyEmptyList("dict-data-option-select"))
+	group.GET("/configKey/{configKey}", legacyController.LegacyNotFound("config-key"))
+	group.GET("/app-config", legacyController.LegacyExternalOK("app-config"))
+	group.GET("/set-config", legacyController.LegacyExternalOK("set-config"))
+	group.PUT("/set-config", legacyController.LegacyExternalOK("set-config-update"))
+	group.DELETE("/config", legacyController.LegacyExternalOK("config-delete"))
 	group.GET("/sysjob", legacyController.SysJobList)
 	group.GET("/sysjob/{id}", legacyController.SysJobGet)
 	group.POST("/sysjob", legacyController.SysJobExternalAction("sysjob-create"))
@@ -255,8 +406,19 @@ func registerLegacyProtectedRoutes(group pluginhost.RouteGroup, legacyController
 	group.GET("/server-monitor", legacyController.ServerMonitor)
 	group.POST("/public/uploadFile", legacyController.Upload)
 	group.GET("/log/watch", legacyController.LogSnapshot)
-	group.POST("/job/start", legacyController.ExternalAction("job-start"))
-	group.POST("/job/remove", legacyController.ExternalAction("job-remove"))
+	group.GET("/gen/preview/{tableId}", legacyController.LegacyExternalOK("gen-preview"))
+	group.GET("/gen/toproject/{tableId}", legacyController.LegacyExternalOK("gen-toproject"))
+	group.GET("/gen/apitofile/{tableId}", legacyController.LegacyExternalOK("gen-apitofile"))
+	group.GET("/gen/todb/{tableId}", legacyController.LegacyExternalOK("gen-todb"))
+	group.GET("/gen/tabletree", legacyController.LegacyEmptyTree("gen-tabletree"))
+	group.GET("/db/tables/page", legacyController.LegacyEmptyPage("db-tables"))
+	group.GET("/db/columns/page", legacyController.LegacyEmptyPage("db-columns"))
+	group.GET("/sys/tables/page", legacyController.LegacyEmptyPage("sys-tables"))
+	group.POST("/sys/tables/info", legacyController.LegacyExternalOK("sys-tables-info-create"))
+	group.PUT("/sys/tables/info", legacyController.LegacyExternalOK("sys-tables-info-update"))
+	group.DELETE("/sys/tables/info/{tableId}", legacyController.LegacyExternalOK("sys-tables-info-delete"))
+	group.GET("/sys/tables/info/{tableId}", legacyController.LegacyNotFound("sys-tables-info"))
+	group.GET("/sys/tables/info", legacyController.LegacyEmptyList("sys-tables-info"))
 }
 
 func registerLegacyResourceRoutes(group pluginhost.RouteGroup, legacyController *uidentitycontroller.LegacyController) {
@@ -270,11 +432,12 @@ func registerLegacyResourceRoutes(group pluginhost.RouteGroup, legacyController 
 }
 
 func allLegacyRouteSpecs() []legacyRouteSpec {
-	result := make([]legacyRouteSpec, 0, len(legacyPublicRoutes)+len(legacyProtectedRoutes)+len(legacyRootSSORoutes)+len(legacyRootWechatRoutes)+len(legacyResourceRoutes)*5)
+	result := make([]legacyRouteSpec, 0, len(legacyPublicRoutes)+len(legacyProtectedRoutes)+len(legacyRootSSORoutes)+len(legacyRootWechatRoutes)+len(legacyRootSystemRoutes)+len(legacyResourceRoutes)*5)
 	result = append(result, legacyPublicRoutes...)
 	result = append(result, legacyProtectedRoutes...)
 	result = append(result, legacyRootSSORoutes...)
 	result = append(result, legacyRootWechatRoutes...)
+	result = append(result, legacyRootSystemRoutes...)
 	for _, route := range legacyResourceRoutes {
 		result = append(result,
 			legacyRouteSpec{Method: "GET", Path: route.Path},
