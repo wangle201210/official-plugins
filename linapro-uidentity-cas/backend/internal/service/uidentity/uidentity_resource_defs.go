@@ -145,6 +145,15 @@ func (s *serviceImpl) accountChangeLogResource() *resourceDefinition {
 	}, func(ctx context.Context) *gdb.Model { return dao.AccountChangeLog.Ctx(ctx) }, s.accountChangeLogData)
 }
 
+func (s *serviceImpl) accountActiveLogResource() *resourceDefinition {
+	cols := dao.AccountActiveLog.Columns()
+	return relationResource("account-active-logs", dao.AccountActiveLog.Table(), cols.Id, map[string]string{
+		"id": cols.Id, "tenantId": cols.TenantId, "number": cols.Number, "phone": cols.Phone, "wechat": cols.Wechat,
+		"type": cols.Type, "createdBy": cols.CreatedBy, "updatedBy": cols.UpdatedBy,
+		"createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt, "deletedAt": cols.DeletedAt,
+	}, func(ctx context.Context) *gdb.Model { return dao.AccountActiveLog.Ctx(ctx) }, s.accountActiveLogData)
+}
+
 func (s *serviceImpl) sysJobResource() *resourceDefinition {
 	cols := dao.SysJob.Columns()
 	return &resourceDefinition{

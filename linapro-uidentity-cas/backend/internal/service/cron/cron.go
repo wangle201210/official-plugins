@@ -39,6 +39,14 @@ const (
 	legacyJobRunLease = 50 * time.Minute
 )
 
+// legacy exec target names copied from the old jobs registry.
+const (
+	legacyExecTargetWannaT              = "wannat"
+	legacyExecTargetContainerAccount    = "containeraccount"
+	legacyExecTargetNewContainerAccount = "newcontaineraccount"
+	legacyExecTargetChangeContainer     = "changecontainer"
+)
+
 // Service defines plugin-owned legacy job scheduling behavior.
 type Service interface {
 	// Start reloads all enabled legacy sys_job rows into the shared GoFrame cron.

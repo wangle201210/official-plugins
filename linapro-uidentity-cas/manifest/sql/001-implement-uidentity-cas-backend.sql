@@ -290,6 +290,23 @@ CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_account_change_log (
     "deleted_at" TIMESTAMP    NULL DEFAULT NULL
 );
 
+CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_account_active_log (
+    "id"         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    "tenant_id"  INT          NOT NULL DEFAULT 0,
+    "number"     VARCHAR(128) NOT NULL DEFAULT '',
+    "phone"      VARCHAR(64)  NOT NULL DEFAULT '',
+    "wechat"     VARCHAR(128) NOT NULL DEFAULT '',
+    "type"       SMALLINT     NOT NULL DEFAULT 0,
+    "created_by" BIGINT       NOT NULL DEFAULT 0,
+    "updated_by" BIGINT       NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP    NULL DEFAULT NULL
+);
+
+COMMENT ON TABLE plugin_linapro_uidentity_cas_account_active_log IS 'Legacy-compatible account activation and Wechat binding audit log';
+COMMENT ON COLUMN plugin_linapro_uidentity_cas_account_active_log."type" IS 'Legacy activation log type: 0=activation or Wechat rebind callback, 1=union ID bind';
+
 CREATE TABLE IF NOT EXISTS plugin_linapro_uidentity_cas_sys_job (
     "job_id"          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "tenant_id"       INT          NOT NULL DEFAULT 0,
@@ -343,6 +360,7 @@ CREATE INDEX IF NOT EXISTS idx_pluicas_account_status ON plugin_linapro_uidentit
 CREATE INDEX IF NOT EXISTS idx_pluicas_account_container ON plugin_linapro_uidentity_cas_account ("tenant_id", "container_id") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_account_unit ON plugin_linapro_uidentity_cas_account ("tenant_id", "unit_id") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_detail_tenant ON plugin_linapro_uidentity_cas_account_detail ("tenant_id", "account_id");
+CREATE INDEX IF NOT EXISTS idx_pluicas_detail_graduated_at ON plugin_linapro_uidentity_cas_account_detail ("tenant_id", "graduated_at", "account_id");
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_pluicas_group_name ON plugin_linapro_uidentity_cas_group ("tenant_id", "name") WHERE "deleted_at" IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_pluicas_unit_code ON plugin_linapro_uidentity_cas_unit ("tenant_id", "code") WHERE "deleted_at" IS NULL;
@@ -374,6 +392,8 @@ CREATE INDEX IF NOT EXISTS idx_pluicas_oauth_log_app ON plugin_linapro_uidentity
 CREATE UNIQUE INDEX IF NOT EXISTS uk_pluicas_oauth_code ON plugin_linapro_uidentity_cas_oauth_token ("tenant_id", "code") WHERE "deleted_at" IS NULL AND "code" <> '';
 CREATE UNIQUE INDEX IF NOT EXISTS uk_pluicas_oauth_access ON plugin_linapro_uidentity_cas_oauth_token ("tenant_id", "access") WHERE "deleted_at" IS NULL AND "access" <> '';
 CREATE INDEX IF NOT EXISTS idx_pluicas_change_account ON plugin_linapro_uidentity_cas_account_change_log ("tenant_id", "account_id", "created_at") WHERE "deleted_at" IS NULL;
+CREATE INDEX IF NOT EXISTS idx_pluicas_active_log_number ON plugin_linapro_uidentity_cas_account_active_log ("tenant_id", "number", "created_at") WHERE "deleted_at" IS NULL;
+CREATE INDEX IF NOT EXISTS idx_pluicas_active_log_wechat ON plugin_linapro_uidentity_cas_account_active_log ("tenant_id", "wechat", "created_at") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_sys_job_status ON plugin_linapro_uidentity_cas_sys_job ("tenant_id", "status") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_sys_job_group ON plugin_linapro_uidentity_cas_sys_job ("tenant_id", "job_group") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_pluicas_sys_job_entry ON plugin_linapro_uidentity_cas_sys_job ("tenant_id", "entry_id") WHERE "deleted_at" IS NULL;

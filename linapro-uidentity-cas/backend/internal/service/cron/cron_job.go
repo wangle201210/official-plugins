@@ -185,9 +185,9 @@ func (s *serviceImpl) runJob(ctx context.Context, tenantID int, jobID int64) {
 	defer releaseEntry()
 
 	startAt := time.Now()
-	err = s.executeJob(runCtx, job)
+	stats, err := s.executeJob(runCtx, job)
 	endAt := time.Now()
-	if logErr := insertJobLog(runCtx, job, startAt, endAt, err); logErr != nil {
+	if logErr := insertJobLog(runCtx, job, stats, startAt, endAt, err); logErr != nil {
 		logger.Warningf(runCtx, "uidentity legacy job log failed tenant=%d jobId=%d err=%v", tenantID, jobID, logErr)
 	}
 	if err != nil {
@@ -197,15 +197,22 @@ func (s *serviceImpl) runJob(ctx context.Context, tenantID int, jobID int64) {
 	logger.Infof(runCtx, "uidentity legacy job execution finished tenant=%d jobId=%d", tenantID, jobID)
 }
 
+// jobRunStats carries legacy job_log counters produced by local executors.
+type jobRunStats struct {
+	createNum int64
+	updateNum int64
+	deleteNum int64
+}
+
 // executeJob dispatches one runnable legacy job by its stored job_type.
-func (s *serviceImpl) executeJob(ctx context.Context, job *entity.SysJob) error {
+func (s *serviceImpl) executeJob(ctx context.Context, job *entity.SysJob) (jobRunStats, error) {
 	switch job.JobType {
 	case jobTypeHTTP:
-		return s.executeHTTPJob(ctx, job)
+		return jobRunStats{}, s.executeHTTPJob(ctx, job)
 	case jobTypeExec:
 		return executeExecJob(ctx, job)
 	default:
-		return bizerr.NewCode(CodeJobInvalid)
+		return jobRunStats{}, bizerr.NewCode(CodeJobInvalid)
 	}
 }
 
@@ -243,25 +250,27 @@ func (s *serviceImpl) executeHTTPJob(ctx context.Context, job *entity.SysJob) er
 }
 
 // executeExecJob dispatches plugin-local exec jobs and rejects external targets.
-func executeExecJob(ctx context.Context, job *entity.SysJob) error {
+func executeExecJob(ctx context.Context, job *entity.SysJob) (jobRunStats, error) {
 	switch normalizeExecTarget(job.InvokeTarget) {
-	case "wannat":
+	case legacyExecTargetWannaT:
 		for i := 0; i < 3; i++ {
 			logger.Infof(ctx, "uidentity legacy WannaT job tick=%d", i+1)
 			if !sleepWithContext(ctx, time.Second) {
-				return ctx.Err()
+				return jobRunStats{}, ctx.Err()
 			}
 		}
-		return nil
-	case "containeraccount", "newcontaineraccount":
+		return jobRunStats{}, nil
+	case legacyExecTargetContainerAccount, legacyExecTargetNewContainerAccount:
 		return executeContainerAccountJob(ctx, job.TenantId)
+	case legacyExecTargetChangeContainer:
+		return executeChangeContainerJob(ctx, job.TenantId, time.Now().Year())
 	default:
-		return bizerr.NewCode(CodeJobExecutorUnsupported)
+		return jobRunStats{}, bizerr.NewCode(CodeJobExecutorUnsupported)
 	}
 }
 
 // executeContainerAccountJob refreshes container account counts with one set-based update.
-func executeContainerAccountJob(ctx context.Context, tenantID int) error {
+func executeContainerAccountJob(ctx context.Context, tenantID int) (jobRunStats, error) {
 	accountCols := dao.Account.Columns()
 	containerCols := dao.Container.Columns()
 	tableAccount := dao.Account.Table()
@@ -279,11 +288,72 @@ func executeContainerAccountJob(ctx context.Context, tenantID int) error {
 		tableContainer,
 		containerCols.Id,
 	)
-	_, err := dao.Container.Ctx(ctx).
+	result, err := dao.Container.Ctx(ctx).
 		Where(containerCols.TenantId, tenantID).
 		Data(do.Container{AccountCount: gdb.Raw(accountCountSubquery)}).
 		Update()
-	return err
+	if err != nil {
+		return jobRunStats{}, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return jobRunStats{}, err
+	}
+	return jobRunStats{updateNum: affected}, nil
+}
+
+// executeChangeContainerJob moves this year's graduating accounts into xy.
+func executeChangeContainerJob(ctx context.Context, tenantID int, graduationYear int) (jobRunStats, error) {
+	containerID, err := legacyContainerIDByName(ctx, tenantID, "xy")
+	if err != nil {
+		return jobRunStats{}, err
+	}
+	return updateGraduatingAccountContainer(ctx, tenantID, containerID, graduationYear)
+}
+
+// legacyContainerIDByName returns the tenant-local container ID for one name.
+func legacyContainerIDByName(ctx context.Context, tenantID int, name string) (int64, error) {
+	var container *entity.Container
+	cols := dao.Container.Columns()
+	err := dao.Container.Ctx(ctx).
+		Fields(cols.Id).
+		Where(cols.TenantId, tenantID).
+		Where(cols.Name, strings.TrimSpace(name)).
+		Scan(&container)
+	if err != nil {
+		return 0, err
+	}
+	if container == nil || container.Id <= 0 {
+		return 0, bizerr.NewCode(CodeJobExecutorUnsupported)
+	}
+	return container.Id, nil
+}
+
+// updateGraduatingAccountContainer updates all accounts matching graduationYear.
+func updateGraduatingAccountContainer(ctx context.Context, tenantID int, containerID int64, graduationYear int) (jobRunStats, error) {
+	if tenantID <= 0 || containerID <= 0 || graduationYear <= 0 {
+		return jobRunStats{}, bizerr.NewCode(CodeJobInvalid)
+	}
+	accountCols := dao.Account.Columns()
+	detailCols := dao.AccountDetail.Columns()
+	yearText := fmt.Sprintf("%d", graduationYear)
+	subquery := dao.AccountDetail.Ctx(ctx).
+		Fields(detailCols.AccountId).
+		Where(detailCols.TenantId, tenantID).
+		Where(detailCols.GraduatedAt, yearText)
+	result, err := dao.Account.Ctx(ctx).
+		Where(accountCols.TenantId, tenantID).
+		WhereIn(accountCols.Id, subquery).
+		Data(do.Account{ContainerId: containerID}).
+		Update()
+	if err != nil {
+		return jobRunStats{}, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return jobRunStats{}, err
+	}
+	return jobRunStats{updateNum: affected}, nil
 }
 
 // loadRunnableJob returns the job only when it is still enabled and scheduled.
@@ -398,18 +468,21 @@ func releaseStaleRunningJob(ctx context.Context, job *entity.SysJob) (bool, erro
 }
 
 // insertJobLog stores the legacy job run result in the plugin job log table.
-func insertJobLog(ctx context.Context, job *entity.SysJob, startAt time.Time, endAt time.Time, runErr error) error {
+func insertJobLog(ctx context.Context, job *entity.SysJob, stats jobRunStats, startAt time.Time, endAt time.Time, runErr error) error {
 	errNum := int64(0)
 	if runErr != nil {
 		errNum = 1
 	}
 	_, err := dao.JobLog.Ctx(ctx).Data(do.JobLog{
-		TenantId: job.TenantId,
-		JobId:    job.JobId,
-		JobName:  job.JobName,
-		StartAt:  &startAt,
-		EndAt:    &endAt,
-		ErrNum:   errNum,
+		TenantId:  job.TenantId,
+		JobId:     job.JobId,
+		JobName:   job.JobName,
+		StartAt:   &startAt,
+		EndAt:     &endAt,
+		CreateNum: stats.createNum,
+		UpdateNum: stats.updateNum,
+		DeleteNum: stats.deleteNum,
+		ErrNum:    errNum,
 	}).Insert()
 	return err
 }

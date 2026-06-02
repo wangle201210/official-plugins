@@ -18,6 +18,16 @@ import (
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
 
+// accountActiveLogType identifies legacy account_active_log event categories.
+type accountActiveLogType int
+
+const (
+	// accountActiveLogTypeActivation records activation and Wechat rebind callbacks.
+	accountActiveLogTypeActivation accountActiveLogType = 0
+	// accountActiveLogTypeUnionBind records explicit UnionID binding requests.
+	accountActiveLogTypeUnionBind accountActiveLogType = 1
+)
+
 // StartActivation creates an activation challenge after base info matches.
 func (s *serviceImpl) StartActivation(ctx context.Context, in ActivationStartInput) (*ActivationOutput, error) {
 	account, err := s.getAccountByNumber(ctx, in.Number)
@@ -148,6 +158,13 @@ func (s *serviceImpl) SetActivationWechat(ctx context.Context, in ActivationWech
 		Update(); err != nil {
 		return nil, err
 	}
+	account, err := s.getAccountByID(ctx, payload.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.recordAccountActiveLog(ctx, account, strings.TrimSpace(in.UnionID), accountActiveLogTypeActivation); err != nil {
+		return nil, err
+	}
 	payload.Stage = "wechat"
 	payload.WechatStatus = activationWechatStatusSuccess
 	payload.UnionID = strings.TrimSpace(in.UnionID)
@@ -222,6 +239,13 @@ func (s *serviceImpl) CompleteActivationWechat(ctx context.Context, in Activatio
 		Where(dao.Account.Columns().Id, payload.AccountID).
 		Data(do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}).
 		Update(); err != nil {
+		return nil, err
+	}
+	account, err := s.getAccountByIDForTenant(ctx, token.TenantId, payload.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.recordAccountActiveLogForTenant(ctx, token.TenantId, account, unionID, accountActiveLogTypeActivation); err != nil {
 		return nil, err
 	}
 	payload.Stage = "wechat"
@@ -312,7 +336,7 @@ func (s *serviceImpl) BindUnionID(ctx context.Context, in UnionIDBindInput) (*Un
 	if err != nil {
 		return nil, err
 	}
-	if err := s.bindUnionIDToAccount(ctx, account.Id, payload.UnionID); err != nil {
+	if err := s.rebindUnionIDToAccount(ctx, account, payload.UnionID); err != nil {
 		return nil, err
 	}
 	if _, err := s.tenantFilter.Apply(ctx, dao.OauthToken.Ctx(ctx), "").
@@ -621,6 +645,71 @@ func (s *serviceImpl) bindUnionIDToAccount(ctx context.Context, accountID int64,
 		return bizerr.NewCode(CodeContactConflict)
 	}
 	return s.updateAccountDetail(ctx, accountID, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)})
+}
+
+// rebindUnionIDToAccount moves one UnionID from any previous account to account.
+func (s *serviceImpl) rebindUnionIDToAccount(ctx context.Context, account *entity.Account, unionID string) error {
+	trimmed := strings.TrimSpace(unionID)
+	if trimmed == "" || account == nil {
+		return bizerr.NewCode(CodeUnionIDChallengeInvalid)
+	}
+	return dao.AccountDetail.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+		detailCols := dao.AccountDetail.Columns()
+		_, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
+			Where(detailCols.Wechat, trimmed).
+			WhereNot(detailCols.AccountId, account.Id).
+			Data(do.AccountDetail{Wechat: "", UpdatedBy: s.actorID(ctx)}).
+			Update()
+		if err != nil {
+			return err
+		}
+		if err := s.updateAccountDetail(ctx, account.Id, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)}); err != nil {
+			return err
+		}
+		return s.recordAccountActiveLog(ctx, account, trimmed, accountActiveLogTypeUnionBind)
+	})
+}
+
+// getAccountByIDForTenant loads one account from an explicit tenant boundary.
+func (s *serviceImpl) getAccountByIDForTenant(ctx context.Context, tenantID int, accountID int64) (*entity.Account, error) {
+	var account *entity.Account
+	err := dao.Account.Ctx(ctx).
+		Where(dao.Account.Columns().TenantId, tenantID).
+		Where(dao.Account.Columns().Id, accountID).
+		Scan(&account)
+	if err != nil {
+		return nil, err
+	}
+	if account == nil {
+		return nil, bizerr.NewCode(CodeResourceNotFound)
+	}
+	return account, nil
+}
+
+// recordAccountActiveLog writes one legacy activation log in the current tenant.
+func (s *serviceImpl) recordAccountActiveLog(ctx context.Context, account *entity.Account, unionID string, logType accountActiveLogType) error {
+	if account == nil {
+		return bizerr.NewCode(CodeResourceNotFound)
+	}
+	return s.recordAccountActiveLogForTenant(ctx, s.tenantID(ctx), account, unionID, logType)
+}
+
+// recordAccountActiveLogForTenant writes one legacy activation log for tenantID.
+func (s *serviceImpl) recordAccountActiveLogForTenant(ctx context.Context, tenantID int, account *entity.Account, unionID string, logType accountActiveLogType) error {
+	if account == nil {
+		return bizerr.NewCode(CodeResourceNotFound)
+	}
+	actorID := s.actorID(ctx)
+	_, err := dao.AccountActiveLog.Ctx(ctx).Data(do.AccountActiveLog{
+		TenantId:  tenantID,
+		Number:    strings.TrimSpace(account.Number),
+		Phone:     strings.TrimSpace(account.Phone),
+		Wechat:    strings.TrimSpace(unionID),
+		Type:      int(logType),
+		CreatedBy: actorID,
+		UpdatedBy: actorID,
+	}).Insert()
+	return err
 }
 
 func (s *serviceImpl) activationWechatRedirectURL(ctx context.Context, payload *activationChallengeData, state string) string {

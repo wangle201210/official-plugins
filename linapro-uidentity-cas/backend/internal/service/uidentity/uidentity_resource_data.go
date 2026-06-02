@@ -184,6 +184,18 @@ func (s *serviceImpl) accountChangeLogData(ctx context.Context, body map[string]
 	return data, nil
 }
 
+func (s *serviceImpl) accountActiveLogData(ctx context.Context, body map[string]any, create bool) (any, error) {
+	tenantID, actorID := s.baseOwnedDO(ctx, create)
+	data := do.AccountActiveLog{UpdatedBy: actorID}
+	if create {
+		data.TenantId = tenantID
+		data.CreatedBy = actorID
+	}
+	copyStringFields(body, map[string]*any{"number": &data.Number, "phone": &data.Phone, "wechat": &data.Wechat})
+	copyIntFields(body, map[string]*any{"type": &data.Type})
+	return data, nil
+}
+
 func (s *serviceImpl) sysJobData(ctx context.Context, body map[string]any, create bool) (any, error) {
 	tenantID, actorID := s.baseOwnedDO(ctx, create)
 	data := do.SysJob{UpdatedBy: actorID}

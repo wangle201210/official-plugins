@@ -126,6 +126,13 @@ func (s *serviceImpl) CompleteRuntimeWechatRebind(ctx context.Context, in Wechat
 	payload.UnionID = unionID
 	payload.Status = wechatRebindStatusSuccess
 	payload.RedirectURL = s.wechatRebindRedirectURL(ctx, payload)
+	account, err := s.getAccountByIDForTenant(ctx, token.TenantId, payload.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.recordAccountActiveLogForTenant(ctx, token.TenantId, account, unionID, accountActiveLogTypeActivation); err != nil {
+		return nil, err
+	}
 	if err := s.updateRuntimePayloadForTenant(ctx, token.TenantId, token.Id, payload); err != nil {
 		return nil, err
 	}

@@ -3,11 +3,21 @@
 package cron
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
+
+	_ "lina-core/pkg/dbdriver"
+	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
+	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
+
+const cronTestDBLink = "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/linapro?sslmode=disable"
 
 func TestJobCronNameAndEntryID(t *testing.T) {
 	name := jobCronName(3, 7)
@@ -78,8 +88,11 @@ func TestValidateJobDefinition(t *testing.T) {
 }
 
 func TestNormalizeExecTarget(t *testing.T) {
-	if got := normalizeExecTarget(" WannaT "); got != "wannat" {
+	if got := normalizeExecTarget(" WannaT "); got != legacyExecTargetWannaT {
 		t.Fatalf("unexpected normalized target: %s", got)
+	}
+	if got := normalizeExecTarget(" ChangeContainer "); got != legacyExecTargetChangeContainer {
+		t.Fatalf("unexpected normalized change-container target: %s", got)
 	}
 }
 
@@ -92,5 +105,156 @@ func TestNormalizeCronExpression(t *testing.T) {
 	}
 	if _, err := normalizeCronExpression("* *"); err == nil {
 		t.Fatal("expected invalid cron expression to fail")
+	}
+}
+
+func TestUpdateGraduatingAccountContainer(t *testing.T) {
+	ctx := context.Background()
+	configureCronTestDB(t, ctx, dao.Account.Table(), dao.AccountDetail.Table(), dao.Container.Table())
+
+	tenantID := 900000 + int(time.Now().UnixNano()%1000000)
+	year := 2099
+	token := fmt.Sprintf("%d", time.Now().UnixNano())
+	numberGraduating := "grad-" + token
+	numberOther := "other-" + token
+
+	cleanupCronContainerRows(t, ctx, tenantID, numberGraduating, numberOther)
+	t.Cleanup(func() {
+		cleanupCronContainerRows(t, ctx, tenantID, numberGraduating, numberOther)
+	})
+
+	containerID, err := dao.Container.Ctx(ctx).Data(do.Container{
+		TenantId: tenantID,
+		Name:     "xy",
+		Alias:    "xy",
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert xy container: %v", err)
+	}
+	graduatingAccountID := insertCronAccount(t, ctx, tenantID, numberGraduating, 1)
+	otherAccountID := insertCronAccount(t, ctx, tenantID, numberOther, 1)
+	insertCronAccountDetail(t, ctx, tenantID, graduatingAccountID, year)
+	insertCronAccountDetail(t, ctx, tenantID, otherAccountID, year+1)
+
+	stats, err := executeChangeContainerJob(ctx, tenantID, year)
+	if err != nil {
+		t.Fatalf("execute change-container job: %v", err)
+	}
+	if stats.updateNum != 1 {
+		t.Fatalf("expected one changed account, got %d", stats.updateNum)
+	}
+
+	graduatingContainerID := accountContainerID(t, ctx, tenantID, graduatingAccountID)
+	if graduatingContainerID != containerID {
+		t.Fatalf("expected graduating account container %d, got %d", containerID, graduatingContainerID)
+	}
+	otherContainerID := accountContainerID(t, ctx, tenantID, otherAccountID)
+	if otherContainerID != 1 {
+		t.Fatalf("expected non-graduating account to keep container 1, got %d", otherContainerID)
+	}
+}
+
+func configureCronTestDB(t *testing.T, ctx context.Context, tables ...string) {
+	t.Helper()
+
+	originalConfig := gdb.GetAllConfig()
+	if err := gdb.SetConfig(gdb.Config{
+		gdb.DefaultGroupName: gdb.ConfigGroup{{Link: cronTestDBLink}},
+	}); err != nil {
+		t.Fatalf("configure cron test database failed: %v", err)
+	}
+	db := g.DB()
+	t.Cleanup(func() {
+		if err := db.Close(ctx); err != nil {
+			t.Errorf("close cron test database failed: %v", err)
+		}
+		if err := gdb.SetConfig(originalConfig); err != nil {
+			t.Errorf("restore cron test database config failed: %v", err)
+		}
+	})
+	if _, err := db.Exec(ctx, "SELECT 1"); err != nil {
+		t.Skipf("database is unavailable: %v", err)
+	}
+	for _, table := range tables {
+		value, err := db.GetValue(ctx, fmt.Sprintf("SELECT to_regclass('public.%s')", table))
+		if err != nil {
+			t.Skipf("database table check failed: %v", err)
+		}
+		if value == nil || value.IsNil() || value.String() == "" {
+			t.Skipf("database table %s is unavailable", table)
+		}
+	}
+}
+
+func insertCronAccount(t *testing.T, ctx context.Context, tenantID int, number string, containerID int64) int64 {
+	t.Helper()
+	id, err := dao.Account.Ctx(ctx).Data(do.Account{
+		TenantId:    tenantID,
+		Number:      number,
+		Name:        number,
+		Phone:       number,
+		ContainerId: containerID,
+		Status:      1,
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert account %s: %v", number, err)
+	}
+	return id
+}
+
+func insertCronAccountDetail(t *testing.T, ctx context.Context, tenantID int, accountID int64, graduationYear int) {
+	t.Helper()
+	if _, err := dao.AccountDetail.Ctx(ctx).Data(do.AccountDetail{
+		TenantId:    tenantID,
+		AccountId:   accountID,
+		GraduatedAt: fmt.Sprintf("%d", graduationYear),
+	}).Insert(); err != nil {
+		t.Fatalf("insert account detail %d: %v", accountID, err)
+	}
+}
+
+func accountContainerID(t *testing.T, ctx context.Context, tenantID int, accountID int64) int64 {
+	t.Helper()
+	var account *entity.Account
+	if err := dao.Account.Ctx(ctx).Unscoped().
+		Fields(dao.Account.Columns().Id, dao.Account.Columns().ContainerId).
+		Where(do.Account{TenantId: tenantID, Id: accountID}).
+		Scan(&account); err != nil {
+		t.Fatalf("query account %d: %v", accountID, err)
+	}
+	if account == nil {
+		t.Fatalf("account %d not found", accountID)
+	}
+	return account.ContainerId
+}
+
+func cleanupCronContainerRows(t *testing.T, ctx context.Context, tenantID int, numbers ...string) {
+	t.Helper()
+	var accountIDs []int64
+	if rows, err := dao.Account.Ctx(ctx).Unscoped().
+		Fields(dao.Account.Columns().Id).
+		Where(do.Account{TenantId: tenantID}).
+		WhereIn(dao.Account.Columns().Number, numbers).
+		Array(); err == nil {
+		for _, id := range rows {
+			if value := id.Int64(); value > 0 {
+				accountIDs = append(accountIDs, value)
+			}
+		}
+	} else {
+		t.Fatalf("list cron cleanup accounts: %v", err)
+	}
+	if len(accountIDs) > 0 {
+		if _, err := dao.AccountDetail.Ctx(ctx).Unscoped().WhereIn(dao.AccountDetail.Columns().AccountId, accountIDs).Delete(); err != nil {
+			t.Fatalf("cleanup cron account details: %v", err)
+		}
+		if _, err := dao.Account.Ctx(ctx).Unscoped().WhereIn(dao.Account.Columns().Id, accountIDs).Delete(); err != nil {
+			t.Fatalf("cleanup cron accounts: %v", err)
+		}
+	}
+	if _, err := dao.Container.Ctx(ctx).Unscoped().
+		Where(do.Container{TenantId: tenantID, Name: "xy"}).
+		Delete(); err != nil {
+		t.Fatalf("cleanup cron containers: %v", err)
 	}
 }
