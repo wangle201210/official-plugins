@@ -76,10 +76,7 @@ func (s *serviceImpl) RecordActivationFace(ctx context.Context, in ActivationFac
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-		Where(dao.AccountDetail.Columns().AccountId, payload.AccountID).
-		Data(do.AccountDetail{Face: strings.TrimSpace(in.FaceURL), UpdatedBy: s.actorID(ctx)}).
-		Update(); err != nil {
+	if err := s.updateAccountDetailWithAudit(ctx, payload.AccountID, do.AccountDetail{Face: strings.TrimSpace(in.FaceURL), UpdatedBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	payload.Stage = "face"
@@ -100,15 +97,12 @@ func (s *serviceImpl) SetActivationPassword(ctx context.Context, in ActivationPa
 		return nil, err
 	}
 	now := time.Now()
-	if _, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
-		Where(dao.Account.Columns().Id, payload.AccountID).
-		Data(do.Account{
-			PasswordHash:      hashPassword(in.Password),
-			PasswordUpdatedAt: &now,
-			PassLevel:         level,
-			UpdatedBy:         s.actorID(ctx),
-		}).
-		Update(); err != nil {
+	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{
+		PasswordHash:      hashPassword(in.Password),
+		PasswordUpdatedAt: &now,
+		PassLevel:         level,
+		UpdatedBy:         s.actorID(ctx),
+	}); err != nil {
 		return nil, err
 	}
 	payload.Stage = "password"
@@ -130,10 +124,7 @@ func (s *serviceImpl) SetActivationPhone(ctx context.Context, in ActivationPhone
 	if err := s.ensurePhoneAvailable(ctx, in.Phone, payload.AccountID); err != nil {
 		return nil, err
 	}
-	if _, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
-		Where(dao.Account.Columns().Id, payload.AccountID).
-		Data(do.Account{Phone: strings.TrimSpace(in.Phone), Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}).
-		Update(); err != nil {
+	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Phone: strings.TrimSpace(in.Phone), Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	payload.Stage = "phone"
@@ -152,10 +143,7 @@ func (s *serviceImpl) SetActivationWechat(ctx context.Context, in ActivationWech
 	if err := s.bindUnionIDToAccount(ctx, payload.AccountID, in.UnionID); err != nil {
 		return nil, err
 	}
-	if _, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
-		Where(dao.Account.Columns().Id, payload.AccountID).
-		Data(do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}).
-		Update(); err != nil {
+	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	account, err := s.getAccountByID(ctx, payload.AccountID)
@@ -234,11 +222,7 @@ func (s *serviceImpl) CompleteActivationWechat(ctx context.Context, in Activatio
 		}
 		return nil, err
 	}
-	if _, err := dao.Account.Ctx(ctx).
-		Where(dao.Account.Columns().TenantId, token.TenantId).
-		Where(dao.Account.Columns().Id, payload.AccountID).
-		Data(do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}).
-		Update(); err != nil {
+	if err := s.updateAccountWithAuditForTenant(ctx, token.TenantId, payload.AccountID, do.Account{Status: AccountStatusNormal, UpdatedBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	account, err := s.getAccountByIDForTenant(ctx, token.TenantId, payload.AccountID)
@@ -368,11 +352,7 @@ func (s *serviceImpl) ChangeRuntimePhone(ctx context.Context, in ChangePhoneInpu
 	if err := s.ensurePhoneAvailable(ctx, in.Phone, account.Id); err != nil {
 		return err
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
-		Where(dao.Account.Columns().Id, account.Id).
-		Data(do.Account{Phone: strings.TrimSpace(in.Phone), UpdatedBy: s.actorID(ctx)}).
-		Update()
-	return err
+	return s.updateAccountWithAudit(ctx, account.Id, do.Account{Phone: strings.TrimSpace(in.Phone), UpdatedBy: s.actorID(ctx)})
 }
 
 // ChangeRuntimeEmail updates one account email.
@@ -618,15 +598,9 @@ func (s *serviceImpl) updateAccountDetail(ctx context.Context, accountID int64, 
 		data.AccountId = accountID
 		data.CreatedBy = actorID
 		data.UpdatedBy = actorID
-		_, err = dao.AccountDetail.Ctx(ctx).Data(data).Insert()
-		return err
+		return s.createAccountDetailWithAudit(ctx, data, accountID)
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-		Where(dao.AccountDetail.Columns().AccountId, accountID).
-		OmitNilData().
-		Data(data).
-		Update()
-	return err
+	return s.updateAccountDetailWithAudit(ctx, accountID, data)
 }
 
 func (s *serviceImpl) bindUnionIDToAccount(ctx context.Context, accountID int64, unionID string) error {
@@ -655,12 +629,19 @@ func (s *serviceImpl) rebindUnionIDToAccount(ctx context.Context, account *entit
 	}
 	return dao.AccountDetail.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
 		detailCols := dao.AccountDetail.Columns()
-		_, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
+		oldRecords, err := s.accountDetailRecordsByWechat(ctx, trimmed, account.Id)
+		if err != nil {
+			return err
+		}
+		_, err = s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
 			Where(detailCols.Wechat, trimmed).
 			WhereNot(detailCols.AccountId, account.Id).
 			Data(do.AccountDetail{Wechat: "", UpdatedBy: s.actorID(ctx)}).
 			Update()
 		if err != nil {
+			return err
+		}
+		if err := s.insertAccountDetailUpdateAudits(ctx, oldRecords); err != nil {
 			return err
 		}
 		if err := s.updateAccountDetail(ctx, account.Id, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)}); err != nil {

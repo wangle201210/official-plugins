@@ -152,20 +152,25 @@ func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body 
 		return 0, err
 	}
 	if def.name == "account-details" {
-		_, err := def.model(ctx).Data(data).Insert()
+		accountID := int64Field(body, "accountId")
+		if err := s.createAccountDetailWithAudit(ctx, data, accountID); err != nil {
+			return 0, err
+		}
+		return accountID, nil
+	}
+	if def.name == "accounts" {
+		id, err := s.createAccountWithAudit(ctx, data)
 		if err != nil {
 			return 0, err
 		}
-		return int64Field(body, "accountId"), nil
+		if err := s.ensureAccountDetail(ctx, id); err != nil {
+			return 0, err
+		}
+		return id, nil
 	}
 	id, err := def.model(ctx).Data(data).InsertAndGetId()
 	if err != nil {
 		return 0, err
-	}
-	if def.name == "accounts" {
-		if err := s.ensureAccountDetail(ctx, id); err != nil {
-			return 0, err
-		}
 	}
 	return id, nil
 }
@@ -182,6 +187,12 @@ func (s *serviceImpl) UpdateResource(ctx context.Context, resource string, id in
 	data, err := def.data(ctx, body, false)
 	if err != nil {
 		return err
+	}
+	if def.name == "accounts" {
+		return s.updateAccountWithAudit(ctx, id, data)
+	}
+	if def.name == "account-details" {
+		return s.updateAccountDetailWithAudit(ctx, id, data)
 	}
 	_, err = s.tenantFilter.Apply(ctx, def.model(ctx), "").
 		Where(def.idColumn, id).
@@ -213,10 +224,7 @@ func (s *serviceImpl) DeleteResource(ctx context.Context, resource string, ids s
 	if count != len(idList) {
 		return bizerr.NewCode(CodeResourceNotFound)
 	}
-	_, err = s.tenantFilter.Apply(ctx, def.model(ctx), "").
-		WhereIn(def.idColumn, idList).
-		Delete()
-	return err
+	return s.deleteResourceWithAccountAudit(ctx, def, idList)
 }
 
 func (s *serviceImpl) applyResourceFilters(ctx context.Context, def *resourceDefinition, in ResourceListInput) *gdb.Model {

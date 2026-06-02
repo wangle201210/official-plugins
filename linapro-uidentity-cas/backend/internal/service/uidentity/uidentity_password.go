@@ -56,17 +56,13 @@ func (s *serviceImpl) ResetAccountPassword(ctx context.Context, accountID int64,
 		return err
 	}
 	now := time.Now()
-	_, err = s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
-		Where(dao.Account.Columns().Id, account.Id).
-		Data(do.Account{
-			PasswordHash:      hashPassword(newPassword),
-			PasswordUpdatedAt: &now,
-			PassLevel:         level,
-			Status:            AccountStatusNormal,
-			UpdatedBy:         s.actorID(ctx),
-		}).
-		Update()
-	return err
+	return s.updateAccountWithAudit(ctx, account.Id, do.Account{
+		PasswordHash:      hashPassword(newPassword),
+		PasswordUpdatedAt: &now,
+		PassLevel:         level,
+		Status:            AccountStatusNormal,
+		UpdatedBy:         s.actorID(ctx),
+	})
 }
 
 // UnlockPasswordFailures clears short-lived password failure counters.

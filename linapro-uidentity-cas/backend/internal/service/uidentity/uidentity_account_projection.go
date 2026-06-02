@@ -17,13 +17,12 @@ import (
 // ensureAccountDetail creates an empty detail row for a newly created account.
 func (s *serviceImpl) ensureAccountDetail(ctx context.Context, accountID int64) error {
 	tenantID, actorID := s.baseOwnedDO(ctx, true)
-	_, err := dao.AccountDetail.Ctx(ctx).Data(do.AccountDetail{
+	return s.createAccountDetailWithAudit(ctx, do.AccountDetail{
 		AccountId: accountID,
 		TenantId:  tenantID,
 		CreatedBy: actorID,
 		UpdatedBy: actorID,
-	}).Insert()
-	return err
+	}, accountID)
 }
 
 // decorateAccountRecords adds related container/unit/group projections in batch.

@@ -223,21 +223,15 @@ func (s *serviceImpl) bindUnionIDToAccountForTenant(ctx context.Context, tenantI
 		return err
 	}
 	if existing == 0 {
-		_, err = dao.AccountDetail.Ctx(ctx).Data(do.AccountDetail{
+		return s.createAccountDetailWithAuditForTenant(ctx, tenantID, do.AccountDetail{
 			TenantId:  tenantID,
 			AccountId: accountID,
 			Wechat:    trimmed,
 			CreatedBy: s.actorID(ctx),
 			UpdatedBy: s.actorID(ctx),
-		}).Insert()
-		return err
+		}, accountID)
 	}
-	_, err = dao.AccountDetail.Ctx(ctx).
-		Where(dao.AccountDetail.Columns().TenantId, tenantID).
-		Where(dao.AccountDetail.Columns().AccountId, accountID).
-		Data(do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)}).
-		Update()
-	return err
+	return s.updateAccountDetailWithAuditForTenant(ctx, tenantID, accountID, do.AccountDetail{Wechat: trimmed, UpdatedBy: s.actorID(ctx)})
 }
 
 func (s *serviceImpl) wechatRebindRedirectURL(ctx context.Context, payload *wechatRebindStateData) string {

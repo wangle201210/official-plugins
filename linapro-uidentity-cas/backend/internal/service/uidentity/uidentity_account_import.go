@@ -183,13 +183,12 @@ func (s *serviceImpl) createImportedAccount(ctx context.Context, row map[string]
 		CreatedBy:   actorID,
 		UpdatedBy:   actorID,
 	}
-	accountID, err := dao.Account.Ctx(ctx).Data(accountData).InsertAndGetId()
+	accountID, err := s.createAccountWithAudit(ctx, accountData)
 	if err != nil {
 		return err
 	}
 	detailData := importedAccountDetailDO(ctx, s, accountID, row, true)
-	_, err = dao.AccountDetail.Ctx(ctx).Data(detailData).Insert()
-	return err
+	return s.createAccountDetailWithAudit(ctx, detailData, accountID)
 }
 
 func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity.Account, row map[string]string, unitIDs map[string]int64, containerIDs map[string]int64) error {
@@ -215,11 +214,7 @@ func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity
 	if value := strings.TrimSpace(row["unit_code"]); value != "" {
 		accountData.UnitId = unitIDs[value]
 	}
-	if _, err := s.tenantFilter.Apply(ctx, dao.Account.Ctx(ctx), "").
-		Where(dao.Account.Columns().Id, account.Id).
-		OmitNilData().
-		Data(accountData).
-		Update(); err != nil {
+	if err := s.updateAccountWithAudit(ctx, account.Id, accountData); err != nil {
 		return err
 	}
 	count, err := s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
@@ -230,15 +225,9 @@ func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity
 	}
 	detailData := importedAccountDetailDO(ctx, s, account.Id, row, count == 0)
 	if count == 0 {
-		_, err = dao.AccountDetail.Ctx(ctx).Data(detailData).Insert()
-		return err
+		return s.createAccountDetailWithAudit(ctx, detailData, account.Id)
 	}
-	_, err = s.tenantFilter.Apply(ctx, dao.AccountDetail.Ctx(ctx), "").
-		Where(dao.AccountDetail.Columns().AccountId, account.Id).
-		OmitNilData().
-		Data(detailData).
-		Update()
-	return err
+	return s.updateAccountDetailWithAudit(ctx, account.Id, detailData)
 }
 
 func importedAccountDetailDO(ctx context.Context, s *serviceImpl, accountID int64, row map[string]string, create bool) do.AccountDetail {
