@@ -81,6 +81,9 @@ type Service interface {
 	// LegacyMenuRoleTree returns menu records visible for the current legacy
 	// role context. Without a role it returns all menu records as a tree.
 	LegacyMenuRoleTree(ctx context.Context, roleID int64) ([]Record, error)
+	// LegacyMenuTree returns the old full-record menu tree for /api/v1/menu,
+	// applying old query filters before tree assembly.
+	LegacyMenuTree(ctx context.Context, filters map[string]any) ([]Record, error)
 	// LegacyRoleMenuTreeSelect returns menu label tree data and role checked
 	// keys in the old roleMenuTreeselect shape.
 	LegacyRoleMenuTreeSelect(ctx context.Context, roleID int64) (Record, error)
@@ -110,6 +113,9 @@ type Service interface {
 	// LegacyGetInfo returns old /getinfo profile, role, permission, and button
 	// metadata for the current business user context.
 	LegacyGetInfo(ctx context.Context) (Record, error)
+	// LegacySystemProfile returns old /user/profile data as user, roles, and
+	// posts records for the current business user context.
+	LegacySystemProfile(ctx context.Context) (Record, error)
 	// UpdateLegacySysUserAvatar updates one old sys_user avatar field.
 	UpdateLegacySysUserAvatar(ctx context.Context, userID int64, avatar string) error
 	// UpdateLegacySysUserPassword updates one old sys_user password field.

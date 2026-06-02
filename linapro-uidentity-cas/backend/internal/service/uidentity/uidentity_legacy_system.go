@@ -178,12 +178,21 @@ func (s *serviceImpl) LegacyRoleDeptTreeSelect(ctx context.Context, roleID int64
 
 // LegacyMenuRoleTree returns old menu role tree rows.
 func (s *serviceImpl) LegacyMenuRoleTree(ctx context.Context, roleID int64) ([]Record, error) {
+	return s.legacyMenuTree(ctx, nil, roleID)
+}
+
+// LegacyMenuTree returns old menu list rows as a full menu tree.
+func (s *serviceImpl) LegacyMenuTree(ctx context.Context, filters map[string]any) ([]Record, error) {
+	return s.legacyMenuTree(ctx, filters, 0)
+}
+
+func (s *serviceImpl) legacyMenuTree(ctx context.Context, filters map[string]any, roleID int64) ([]Record, error) {
 	def, err := s.legacySystemDefinition("menus")
 	if err != nil {
 		return nil, err
 	}
 	cols := dao.SysMenu.Columns()
-	model := def.model(ctx).
+	model := s.applyLegacySystemFilters(ctx, def.model(ctx), def, filters).
 		Fields(projectionFields(&def.resourceDefinition)...).
 		OrderAsc(cols.Sort).
 		OrderAsc(cols.MenuId)
@@ -472,6 +481,30 @@ func (s *serviceImpl) LegacyGetInfo(ctx context.Context) (Record, error) {
 		"name":         name,
 		"code":         200,
 	}, nil
+}
+
+// LegacySystemProfile returns old /user/profile user, roles, and posts data.
+func (s *serviceImpl) LegacySystemProfile(ctx context.Context) (Record, error) {
+	userID := s.actorID(ctx)
+	if userID <= 0 {
+		return nil, bizerr.NewCode(CodeResourceNotFound)
+	}
+	user, err := s.GetLegacySystemResource(ctx, "sys-users", userID)
+	if err != nil {
+		return nil, err
+	}
+	if dept, err := s.legacyDeptRecord(ctx, gconv.Int64(user["deptId"])); err == nil && len(dept) > 0 {
+		user["dept"] = dept
+	}
+	roles := []Record{}
+	if role, err := s.legacyRoleRecord(ctx, gconv.Int64(user["roleId"])); err == nil && len(role) > 0 {
+		roles = append(roles, role)
+	}
+	posts := []Record{}
+	if post, err := s.legacyPostRecord(ctx, gconv.Int64(user["postId"])); err == nil && len(post) > 0 {
+		posts = append(posts, post)
+	}
+	return Record{"user": user, "roles": roles, "posts": posts}, nil
 }
 
 // UpdateLegacySysUserAvatar updates old sys_user.avatar.
@@ -1343,6 +1376,20 @@ func (s *serviceImpl) legacyRoleRecord(ctx context.Context, roleID int64) (Recor
 		return Record{}, nil
 	}
 	return s.GetLegacySystemResource(ctx, "roles", roleID)
+}
+
+func (s *serviceImpl) legacyDeptRecord(ctx context.Context, deptID int64) (Record, error) {
+	if deptID <= 0 {
+		return Record{}, nil
+	}
+	return s.GetLegacySystemResource(ctx, "depts", deptID)
+}
+
+func (s *serviceImpl) legacyPostRecord(ctx context.Context, postID int64) (Record, error) {
+	if postID <= 0 {
+		return Record{}, nil
+	}
+	return s.GetLegacySystemResource(ctx, "posts", postID)
 }
 
 func (s *serviceImpl) legacyRolePermissions(ctx context.Context, roleID int64) ([]string, error) {

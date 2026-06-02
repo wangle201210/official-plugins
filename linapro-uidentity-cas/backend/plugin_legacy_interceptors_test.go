@@ -1,5 +1,6 @@
-// This file covers legacy route response adapters that wrap host-owned
-// system-management routes after host authentication and handlers have run.
+// This file verifies old host-colliding routes are dispatched to plugin-owned
+// legacy handlers after bearer authentication instead of being served by host
+// system-management handlers.
 
 package backend
 
@@ -15,33 +16,31 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/util/guid"
 
+	"lina-core/pkg/plugin/capability/contract"
 	"lina-core/pkg/plugin/pluginhost"
+	uidentitycontroller "lina-plugin-linapro-uidentity-cas/backend/internal/controller/uidentity"
+	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
-func TestLegacyRouteInterceptorRewritesHostListResponse(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "role-list", true, func(group *ghttp.RouterGroup) {
+func TestLegacyRouteInterceptorDispatchesToPluginListHandler(t *testing.T) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "role-list", true, authSvc, service, func(group *ghttp.RouterGroup) {
 		group.GET("/role", func(r *ghttp.Request) {
-			if got := r.GetRequest("pageNum").String(); got != "3" {
-				t.Fatalf("expected legacy pageIndex to be aliased to pageNum, got %q", got)
-			}
-			if got := r.GetRequest("name").String(); got != "admin" {
-				t.Fatalf("expected legacy roleName to be aliased to name, got %q", got)
-			}
-			r.Response.WriteJson(map[string]any{
-				"code":    0,
-				"message": "OK",
-				"data": map[string]any{
-					"list":  []map[string]any{{"id": 1, "name": "admin"}},
-					"total": 1,
-				},
-			})
+			t.Fatal("host /role handler must not run for old compatibility route")
 		})
 	})
 
-	body := g.Client().GetContent(
-		context.Background(),
-		server+"/api/v1/role?pageIndex=3&pageSize=7&roleName=admin",
-	)
+	body := legacyInterceptorGet(t, server+"/api/v1/role?pageIndex=3&pageSize=7&roleName=admin")
+	if authSvc.header != "Bearer test-token" {
+		t.Fatalf("expected bearer auth to receive authorization header, got %q", authSvc.header)
+	}
+	if service.lastList.Resource != "roles" || service.lastList.PageNum != 3 || service.lastList.PageSize != 7 {
+		t.Fatalf("unexpected list input: %#v", service.lastList)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(service.lastList.Filters["name"])); got != "admin" {
+		t.Fatalf("expected roleName alias to populate name filter, got %q", got)
+	}
 	for _, want := range []string{
 		`"code":200`,
 		`"msg":"查询成功"`,
@@ -57,89 +56,108 @@ func TestLegacyRouteInterceptorRewritesHostListResponse(t *testing.T) {
 	}
 }
 
-func TestLegacyRouteInterceptorKeepsUnauthorizedHostResponse(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "role-unauthorized", true, func(group *ghttp.RouterGroup) {
+func TestLegacyRouteInterceptorRejectsMissingBearer(t *testing.T) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "missing-bearer", true, authSvc, service, func(group *ghttp.RouterGroup) {
 		group.GET("/role", func(r *ghttp.Request) {
-			r.Response.WriteStatus(http.StatusUnauthorized)
+			t.Fatal("host /role handler must not run without bearer")
 		})
 	})
 
 	resp, err := g.Client().Get(context.Background(), server+"/api/v1/role")
 	if err != nil {
-		t.Fatalf("request legacy host route: %v", err)
+		t.Fatalf("request legacy route without bearer: %v", err)
 	}
 	defer resp.Close()
-	body := resp.ReadAllString()
 	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("expected host unauthorized status to remain, got %d body %s", resp.StatusCode, body)
+		t.Fatalf("expected unauthorized, got %d body %s", resp.StatusCode, resp.ReadAllString())
 	}
-	if strings.Contains(body, `"code":200`) {
-		t.Fatalf("expected unauthorized response not to be rewritten as old success, got %s", body)
+	if service.listCalls != 0 {
+		t.Fatalf("expected service not to be called, got %d calls", service.listCalls)
 	}
 }
 
-func TestLegacyRouteInterceptorAliasesLegacyJSONBody(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "role-create", true, func(group *ghttp.RouterGroup) {
-		group.POST("/role", func(r *ghttp.Request) {
-			if got := r.GetRequest("name").String(); got != "legacy-admin" {
-				t.Fatalf("expected legacy roleName to be aliased to name, got %q", got)
-			}
-			if got := r.GetRequest("key").String(); got != "legacy_admin" {
-				t.Fatalf("expected legacy roleKey to be aliased to key, got %q", got)
-			}
-			r.Response.WriteJson(map[string]any{
-				"code": 0,
-				"data": map[string]any{"id": 7},
-			})
+func TestLegacyRouteInterceptorAliasesJSONAndPathParams(t *testing.T) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "role-update", true, authSvc, service, func(group *ghttp.RouterGroup) {
+		group.PUT("/role/{id}", func(r *ghttp.Request) {
+			t.Fatal("host /role/{id} handler must not run for old compatibility route")
 		})
 	})
 
-	body := g.Client().ContentJson().PostContent(
-		context.Background(),
-		server+"/api/v1/role",
-		`{"roleName":"legacy-admin","roleKey":"legacy_admin"}`,
-	)
+	body := g.Client().
+		Header(map[string]string{"Authorization": "Bearer test-token"}).
+		ContentJson().
+		PutContent(
+			context.Background(),
+			server+"/api/v1/role/7",
+			`{"roleName":"legacy-admin","roleKey":"legacy_admin","roleSort":9}`,
+		)
+	if service.lastUpdateResource != "roles" || service.lastUpdateID != 7 {
+		t.Fatalf("unexpected update target resource=%q id=%d", service.lastUpdateResource, service.lastUpdateID)
+	}
+	for key, want := range map[string]string{"name": "legacy-admin", "key": "legacy_admin", "sort": "9"} {
+		if got := fmt.Sprint(service.lastUpdateBody[key]); got != want {
+			t.Fatalf("expected %s=%q after legacy aliasing, got %q in %#v", key, want, got, service.lastUpdateBody)
+		}
+	}
 	for _, want := range []string{
 		`"code":200`,
-		`"msg":"创建成功"`,
+		`"msg":"修改成功"`,
 		`"data":7`,
 	} {
 		if !strings.Contains(body, want) {
-			t.Fatalf("expected legacy create response to contain %s, got %s", want, body)
+			t.Fatalf("expected legacy update response to contain %s, got %s", want, body)
 		}
 	}
 }
 
-func TestLegacyRouteInterceptorMapsHostMenuTreeResponse(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "menu-tree", true, func(group *ghttp.RouterGroup) {
-		group.GET("/menu", func(r *ghttp.Request) {
-			r.Response.WriteJson(map[string]any{
-				"code": 0,
-				"data": map[string]any{
-					"list": []map[string]any{
-						{
-							"id":       10,
-							"name":     "系统管理",
-							"type":     "M",
-							"perms":    "system:menu:list",
-							"isCache":  0,
-							"parentId": 0,
-							"children": []map[string]any{{"id": 11, "name": "菜单", "type": "C"}},
-						},
-					},
-				},
-			})
+func TestLegacyRouteInterceptorInjectsDictCodePathParam(t *testing.T) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "dict-data-get", true, authSvc, service, func(group *ghttp.RouterGroup) {
+		group.GET("/dict/data/{dictCode}", func(r *ghttp.Request) {
+			t.Fatal("host /dict/data/{dictCode} handler must not run for old compatibility route")
 		})
 	})
 
-	body := g.Client().GetContent(context.Background(), server+"/api/v1/menu")
+	body := legacyInterceptorGet(t, server+"/api/v1/dict/data/21")
+	if service.lastGetResource != "dict-data" || service.lastGetID != 21 {
+		t.Fatalf("unexpected get target resource=%q id=%d", service.lastGetResource, service.lastGetID)
+	}
+	for _, want := range []string{
+		`"code":200`,
+		`"msg":"查询成功"`,
+		`"dictCode":21`,
+		`"dictLabel":"正常"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected legacy dict response to contain %s, got %s", want, body)
+		}
+	}
+}
+
+func TestLegacyRouteInterceptorMapsMenuListToOldTree(t *testing.T) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "menu-tree", true, authSvc, service, func(group *ghttp.RouterGroup) {
+		group.GET("/menu", func(r *ghttp.Request) {
+			t.Fatal("host /menu handler must not run for old compatibility route")
+		})
+	})
+
+	body := legacyInterceptorGet(t, server+"/api/v1/menu?title=系统")
+	if service.lastMenuFilters["title"] != "系统" {
+		t.Fatalf("expected title filter to reach menu tree handler, got %#v", service.lastMenuFilters)
+	}
 	for _, want := range []string{
 		`"menuId":10`,
 		`"menuName":"系统管理"`,
 		`"menuType":"M"`,
 		`"permission":"system:menu:list"`,
-		`"noCache":true`,
-		`"menuId":11`,
+		`"children"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected legacy menu response to contain %s, got %s", want, body)
@@ -147,81 +165,24 @@ func TestLegacyRouteInterceptorMapsHostMenuTreeResponse(t *testing.T) {
 	}
 }
 
-func TestLegacyRouteInterceptorMapsHostDictAndConfigResponses(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "dict-config", true, func(group *ghttp.RouterGroup) {
-		group.GET("/dict/data", func(r *ghttp.Request) {
-			if got := r.GetRequest("type").String(); got != "sys_normal_disable" {
-				t.Fatalf("expected dictType query to be aliased to type, got %q", got)
-			}
-			r.Response.WriteJson(map[string]any{
-				"code": 0,
-				"data": map[string]any{
-					"items": []map[string]any{{"id": 21, "label": "正常", "value": "2", "type": "sys_normal_disable"}},
-					"total": 1,
-				},
-			})
-		})
-		group.GET("/config/9", func(r *ghttp.Request) {
-			r.Response.WriteJson(map[string]any{
-				"code": 0,
-				"data": map[string]any{
-					"item": map[string]any{"id": 9, "name": "CAS", "key": "cas.url", "value": "https://cas.example.com"},
-				},
-			})
-		})
-	})
-
-	dictBody := g.Client().GetContent(context.Background(), server+"/api/v1/dict/data?dictType=sys_normal_disable")
-	for _, want := range []string{
-		`"dictCode":21`,
-		`"dictLabel":"正常"`,
-		`"dictValue":"2"`,
-		`"dictType":"sys_normal_disable"`,
-	} {
-		if !strings.Contains(dictBody, want) {
-			t.Fatalf("expected legacy dict response to contain %s, got %s", want, dictBody)
-		}
-	}
-
-	configBody := g.Client().GetContent(context.Background(), server+"/api/v1/config/9")
-	for _, want := range []string{
-		`"id":9`,
-		`"configId":9`,
-		`"configName":"CAS"`,
-		`"configKey":"cas.url"`,
-		`"configValue":"https://cas.example.com"`,
-	} {
-		if !strings.Contains(configBody, want) {
-			t.Fatalf("expected legacy config response to contain %s, got %s", want, configBody)
-		}
-	}
-}
-
-func TestLegacyRouteInterceptorMapsHostProfileResponse(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "profile", true, func(group *ghttp.RouterGroup) {
+func TestLegacyRouteInterceptorMapsProfileFromPluginService(t *testing.T) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "profile", true, authSvc, service, func(group *ghttp.RouterGroup) {
 		group.GET("/user/profile", func(r *ghttp.Request) {
-			r.Response.WriteJson(map[string]any{
-				"code": 0,
-				"data": map[string]any{
-					"user":    map[string]any{"id": 3, "name": "管理员", "username": "admin", "dept": map[string]any{"id": 2, "name": "研发部"}},
-					"roles":   []map[string]any{{"id": 1, "name": "admin", "key": "admin"}},
-					"posts":   []map[string]any{{"id": 5, "name": "工程师", "code": "engineer"}},
-					"roleIds": []int{1},
-					"postIds": []int{5},
-				},
-			})
+			t.Fatal("host /user/profile handler must not run for old compatibility route")
 		})
 	})
 
-	body := g.Client().GetContent(context.Background(), server+"/api/v1/user/profile")
+	body := legacyInterceptorGet(t, server+"/api/v1/user/profile")
+	if !service.profileCalled {
+		t.Fatal("expected plugin profile service to be called")
+	}
 	for _, want := range []string{
 		`"userId":3`,
 		`"nickName":"管理员"`,
-		`"deptId":2`,
 		`"deptName":"研发部"`,
-		`"roleId":1`,
 		`"roleName":"admin"`,
-		`"postId":5`,
 		`"postName":"工程师"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -231,7 +192,9 @@ func TestLegacyRouteInterceptorMapsHostProfileResponse(t *testing.T) {
 }
 
 func TestLegacyRouteInterceptorBypassesNonLegacyRoutes(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "modern-route", true, func(group *ghttp.RouterGroup) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "modern-route", true, authSvc, service, func(group *ghttp.RouterGroup) {
 		group.GET("/modern", func(r *ghttp.Request) {
 			r.Response.WriteJson(map[string]any{"host": true})
 		})
@@ -243,29 +206,39 @@ func TestLegacyRouteInterceptorBypassesNonLegacyRoutes(t *testing.T) {
 	}
 }
 
-func TestLegacyRouteInterceptorDisabledPluginBypassesResponseRewrite(t *testing.T) {
-	server := startLegacyInterceptorServer(t, "disabled", false, func(group *ghttp.RouterGroup) {
+func TestLegacyRouteInterceptorDisabledPluginBypassesMiddleware(t *testing.T) {
+	service := &legacyInterceptorFakeService{}
+	authSvc := &legacyInterceptorFakeAuth{}
+	server := startLegacyInterceptorServer(t, "disabled", false, authSvc, service, func(group *ghttp.RouterGroup) {
 		group.GET("/role", func(r *ghttp.Request) {
-			r.Response.WriteJson(map[string]any{
-				"code": 0,
-				"data": map[string]any{
-					"list":  []map[string]any{},
-					"total": 0,
-				},
-			})
+			r.Response.WriteJson(map[string]any{"host": true})
 		})
 	})
 
 	body := g.Client().GetContent(context.Background(), server+"/api/v1/role")
-	if strings.Contains(body, `"msg":"查询成功"`) {
-		t.Fatalf("expected disabled plugin middleware to bypass rewrite, got %s", body)
+	if !strings.Contains(body, `"host":true`) {
+		t.Fatalf("expected disabled plugin middleware to bypass dispatch, got %s", body)
 	}
-	if !strings.Contains(body, `"code":0`) {
-		t.Fatalf("expected original host response to remain, got %s", body)
+	if service.listCalls != 0 {
+		t.Fatalf("expected disabled plugin not to call service, got %d calls", service.listCalls)
 	}
 }
 
-func startLegacyInterceptorServer(t *testing.T, name string, enabled bool, register func(group *ghttp.RouterGroup)) string {
+func legacyInterceptorGet(t *testing.T, url string) string {
+	t.Helper()
+	return g.Client().
+		Header(map[string]string{"Authorization": "Bearer test-token"}).
+		GetContent(context.Background(), url)
+}
+
+func startLegacyInterceptorServer(
+	t *testing.T,
+	name string,
+	enabled bool,
+	authSvc contract.AuthService,
+	service uidentitysvc.Service,
+	register func(group *ghttp.RouterGroup),
+) string {
 	t.Helper()
 	server := g.Server("legacy-interceptor-" + name + "-" + guid.S())
 	server.SetDumpRouterMap(false)
@@ -274,7 +247,8 @@ func startLegacyInterceptorServer(t *testing.T, name string, enabled bool, regis
 	registrar := pluginhost.NewGlobalMiddlewareRegistrar(server, pluginID, func(_ context.Context, _ string) bool {
 		return enabled
 	})
-	if err := registerLegacyRouteInterceptors(registrar); err != nil {
+	controller := uidentitycontroller.NewLegacy(service)
+	if err := registerLegacyRouteInterceptors(registrar, authSvc, controller); err != nil {
 		t.Fatalf("register legacy interceptor: %v", err)
 	}
 	server.Start()
@@ -283,4 +257,98 @@ func startLegacyInterceptorServer(t *testing.T, name string, enabled bool, regis
 	})
 	time.Sleep(100 * time.Millisecond)
 	return fmt.Sprintf("http://127.0.0.1:%d", server.GetListenedPort())
+}
+
+type legacyInterceptorFakeAuth struct {
+	header string
+}
+
+func (f *legacyInterceptorFakeAuth) AuthenticateBearer(_ context.Context, bearerToken string) (*contract.AuthenticatedContext, error) {
+	f.header = bearerToken
+	if strings.TrimSpace(bearerToken) == "" {
+		return nil, fmt.Errorf("missing bearer")
+	}
+	return &contract.AuthenticatedContext{
+		Current: contract.CurrentContext{UserID: 100, Username: "admin", TenantID: 0, PlatformBypass: true},
+		TokenID: "token-1",
+		Status:  1,
+	}, nil
+}
+
+func (f *legacyInterceptorFakeAuth) SelectTenant(context.Context, contract.SelectTenantInput) (*contract.TenantTokenOutput, error) {
+	return nil, nil
+}
+
+func (f *legacyInterceptorFakeAuth) SwitchTenant(context.Context, contract.SwitchTenantInput) (*contract.TenantTokenOutput, error) {
+	return nil, nil
+}
+
+func (f *legacyInterceptorFakeAuth) IssueImpersonationToken(context.Context, contract.ImpersonationTokenIssueInput) (*contract.ImpersonationTokenOutput, error) {
+	return nil, nil
+}
+
+func (f *legacyInterceptorFakeAuth) RevokeImpersonationToken(context.Context, contract.ImpersonationTokenRevokeInput) error {
+	return nil
+}
+
+type legacyInterceptorFakeService struct {
+	uidentitysvc.Service
+
+	listCalls          int
+	lastList           uidentitysvc.LegacySystemResourceListInput
+	lastGetResource    string
+	lastGetID          int64
+	lastUpdateResource string
+	lastUpdateID       int64
+	lastUpdateBody     map[string]any
+	lastMenuFilters    map[string]any
+	profileCalled      bool
+}
+
+func (s *legacyInterceptorFakeService) ListLegacySystemResource(_ context.Context, in uidentitysvc.LegacySystemResourceListInput) (*uidentitysvc.ResourceListOutput, error) {
+	s.listCalls++
+	s.lastList = in
+	return &uidentitysvc.ResourceListOutput{
+		Total: 1,
+		List:  []uidentitysvc.Record{{"roleId": 1, "roleName": "admin"}},
+	}, nil
+}
+
+func (s *legacyInterceptorFakeService) GetLegacySystemResource(_ context.Context, resource string, id int64) (uidentitysvc.Record, error) {
+	s.lastGetResource = resource
+	s.lastGetID = id
+	if resource == "dict-data" {
+		return uidentitysvc.Record{"dictCode": id, "dictLabel": "正常", "dictValue": "2", "dictType": "sys_normal_disable"}, nil
+	}
+	return uidentitysvc.Record{"id": id}, nil
+}
+
+func (s *legacyInterceptorFakeService) UpdateLegacySystemResource(_ context.Context, resource string, id int64, body map[string]any) error {
+	s.lastUpdateResource = resource
+	s.lastUpdateID = id
+	s.lastUpdateBody = body
+	return nil
+}
+
+func (s *legacyInterceptorFakeService) LegacyMenuTree(_ context.Context, filters map[string]any) ([]uidentitysvc.Record, error) {
+	s.lastMenuFilters = filters
+	return []uidentitysvc.Record{
+		{
+			"menuId":     10,
+			"menuName":   "系统管理",
+			"title":      "系统管理",
+			"menuType":   "M",
+			"permission": "system:menu:list",
+			"children":   []uidentitysvc.Record{{"menuId": 11, "menuName": "菜单", "title": "菜单", "menuType": "C"}},
+		},
+	}, nil
+}
+
+func (s *legacyInterceptorFakeService) LegacySystemProfile(context.Context) (uidentitysvc.Record, error) {
+	s.profileCalled = true
+	return uidentitysvc.Record{
+		"user":  uidentitysvc.Record{"userId": 3, "nickName": "管理员", "dept": uidentitysvc.Record{"deptId": 2, "deptName": "研发部"}},
+		"roles": []uidentitysvc.Record{{"roleId": 1, "roleName": "admin", "roleKey": "admin"}},
+		"posts": []uidentitysvc.Record{{"postId": 5, "postName": "工程师", "postCode": "engineer"}},
+	}, nil
 }

@@ -105,6 +105,16 @@ func (c *LegacyController) LegacyDeptTree(r *ghttp.Request) {
 	legacyOKWithMsg(r, out, legacyMsgQuerySuccess)
 }
 
+// LegacyMenuList handles GET /api/v1/menu as the old full-record menu tree.
+func (c *LegacyController) LegacyMenuList(r *ghttp.Request) {
+	out, err := c.uidentitySvc.LegacyMenuTree(r.Context(), legacyRequestMap(r))
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOKWithMsg(r, out, legacyMsgQuerySuccess)
+}
+
 // LegacyRoleDeptTreeselect handles GET /api/v1/roleDeptTreeselect/{roleId}.
 func (c *LegacyController) LegacyRoleDeptTreeselect(r *ghttp.Request) {
 	out, err := c.uidentitySvc.LegacyRoleDeptTreeSelect(r.Context(), legacyInt64Param(r, "roleId", "role_id"))
@@ -242,6 +252,16 @@ func (c *LegacyController) LegacyGetInfo(r *ghttp.Request) {
 	legacyOKWithMsg(r, out, "")
 }
 
+// LegacySystemProfile handles GET /api/v1/user/profile.
+func (c *LegacyController) LegacySystemProfile(r *ghttp.Request) {
+	out, err := c.uidentitySvc.LegacySystemProfile(r.Context())
+	if err != nil {
+		legacyErrorWithMsg(r, err, "获取用户信息失败")
+		return
+	}
+	legacyOKWithMsg(r, out, legacyMsgQuerySuccess)
+}
+
 // LegacyUserAvatar handles POST /api/v1/user/avatar.
 func (c *LegacyController) LegacyUserAvatar(r *ghttp.Request) {
 	out, err := c.uidentitySvc.UploadLegacyFiles(r.Context(), uidentitysvc.LegacyUploadInput{
@@ -313,7 +333,7 @@ func legacySystemRouterID(r *ghttp.Request) int64 {
 	if id := legacyRouterID(r); id > 0 {
 		return id
 	}
-	for _, name := range []string{"tableId", "columnId", "dictCode", "dictId", "userId", "deptId", "postId"} {
+	for _, name := range []string{"id", "tableId", "columnId", "dictCode", "dictId", "userId", "deptId", "postId"} {
 		if id := legacyInt64Param(r, name); id > 0 {
 			return id
 		}

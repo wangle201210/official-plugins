@@ -226,6 +226,66 @@ func TestLegacyGetInfoProjectsOldShapeAndPermissions(t *testing.T) {
 	}
 }
 
+func TestLegacySystemProfileProjectsUserRolesPosts(t *testing.T) {
+	ctx := context.Background()
+	configureUIdentityTestDB(t, ctx, dao.SysUser.Table(), dao.SysRole.Table(), dao.SysPost.Table(), dao.SysDept.Table())
+	actorID := int64(89001 + time.Now().UnixNano()%100000)
+	service := &serviceImpl{tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{UserID: int(actorID)}}}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	cleanupLegacySystemRows(t, ctx, suffix)
+	t.Cleanup(func() { cleanupLegacySystemRows(t, ctx, suffix) })
+
+	deptID := insertLegacySystemDept(t, ctx, 0, "Legacy Profile Dept "+suffix, 1)
+	roleID, err := dao.SysRole.Ctx(ctx).Data(do.SysRole{
+		RoleName: "Legacy Profile Role " + suffix,
+		RoleKey:  "legacy_profile_" + suffix,
+		Status:   "1",
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert role: %v", err)
+	}
+	postID, err := dao.SysPost.Ctx(ctx).Data(do.SysPost{
+		PostName: "Legacy Profile Post " + suffix,
+		PostCode: "legacy-profile-" + suffix,
+		Status:   1,
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert post: %v", err)
+	}
+	if _, err := dao.SysUser.Ctx(ctx).Data(do.SysUser{
+		UserId:   actorID,
+		Username: "legacy-profile-user-" + suffix,
+		NickName: "Legacy Profile User " + suffix,
+		RoleId:   roleID,
+		DeptId:   deptID,
+		PostId:   postID,
+		Status:   "1",
+	}).Insert(); err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+
+	profile, err := service.LegacySystemProfile(ctx)
+	if err != nil {
+		t.Fatalf("LegacySystemProfile: %v", err)
+	}
+	user, ok := profile["user"].(Record)
+	if !ok || user["userId"] != actorID || user["nickName"] != "Legacy Profile User "+suffix {
+		t.Fatalf("unexpected profile user: %#v", profile["user"])
+	}
+	dept, ok := user["dept"].(Record)
+	if !ok || dept["deptId"] != deptID || dept["deptName"] != "Legacy Profile Dept "+suffix {
+		t.Fatalf("unexpected profile dept: %#v", user["dept"])
+	}
+	roles, ok := profile["roles"].([]Record)
+	if !ok || len(roles) != 1 || roles[0]["roleId"] != roleID || roles[0]["roleName"] != "Legacy Profile Role "+suffix {
+		t.Fatalf("unexpected profile roles: %#v", profile["roles"])
+	}
+	posts, ok := profile["posts"].([]Record)
+	if !ok || len(posts) != 1 || posts[0]["postId"] != postID || posts[0]["postName"] != "Legacy Profile Post "+suffix {
+		t.Fatalf("unexpected profile posts: %#v", profile["posts"])
+	}
+}
+
 func TestLegacyRoleActionsUpdateCompatibilityTables(t *testing.T) {
 	ctx := context.Background()
 	configureUIdentityTestDB(t, ctx, dao.SysRole.Table(), dao.SysDept.Table(), dao.SysRoleDept.Table())
