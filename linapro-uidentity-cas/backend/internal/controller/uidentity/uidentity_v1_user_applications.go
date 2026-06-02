@@ -9,10 +9,13 @@ import (
 
 // UserApplications returns accessible applications for one runtime account.
 func (c *ControllerV1) UserApplications(ctx context.Context, req *v1.UserApplicationsReq) (res *v1.UserApplicationsRes, err error) {
+	number, err := c.runtimeNumber(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out, err := c.uidentitySvc.ListRuntimeApplications(ctx, uidentitysvc.UserApplicationListInput{
-		Number:   req.Number,
-		PageNum:  req.PageNum,
-		PageSize: req.PageSize,
+		Number:       number,
+		LegacyNoPage: true,
 	})
 	if err != nil {
 		return nil, err

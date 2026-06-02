@@ -7,8 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -350,6 +352,73 @@ func TestLegacyAdminLogoutKeepsOldEnvelopeAndRecordsLogout(t *testing.T) {
 	}
 }
 
+func TestLegacyRuntimeUserRoutesPreferHeaderNumberOverRequestNumber(t *testing.T) {
+	service := &legacyHTTPFakeService{}
+	baseURL := startLegacyHTTPTestServer(t, "runtime-number", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.POST("/user/changePhone", controller.UserChangePhone)
+		group.POST("/user/getUserInfo", controller.UserInfo)
+		group.GET("/user/accountAppList", controller.UserApplications)
+	})
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/user/changePhone?number=query-user", strings.NewReader(`{"number":"body-user","phone":"13800000000","code":"123456"}`))
+	if err != nil {
+		t.Fatalf("create legacy changePhone request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("number", "header-user")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("call legacy changePhone: %v", err)
+	}
+	closeHTTPResponse(t, resp)
+	if service.changePhoneInput.Number != "header-user" {
+		t.Fatalf("legacy changePhone used %q, want header identity", service.changePhoneInput.Number)
+	}
+
+	req, err = http.NewRequest(http.MethodPost, baseURL+"/api/v1/user/getUserInfo?number=query-user", strings.NewReader(`{"number":"body-user"}`))
+	if err != nil {
+		t.Fatalf("create legacy getUserInfo request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("number", "header-user")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("call legacy getUserInfo: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+	if service.runtimeUserInfoNumber != "header-user" {
+		t.Fatalf("legacy getUserInfo used %q, want header identity", service.runtimeUserInfoNumber)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read legacy getUserInfo response: %v", err)
+	}
+	if !strings.Contains(string(body), `"number":"header-user"`) {
+		t.Fatalf("legacy getUserInfo response = %s", string(body))
+	}
+
+	req, err = http.NewRequest(http.MethodGet, baseURL+"/api/v1/user/accountAppList?pageIndex=9&pageSize=1", http.NoBody)
+	if err != nil {
+		t.Fatalf("create legacy accountAppList request: %v", err)
+	}
+	req.Header.Set("number", "header-user")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("call legacy accountAppList: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+	if service.applicationListInput.Number != "header-user" || !service.applicationListInput.LegacyNoPage ||
+		service.applicationListInput.PageNum != 0 || service.applicationListInput.PageSize != 0 {
+		t.Fatalf("legacy accountAppList input mismatch: %#v", service.applicationListInput)
+	}
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read legacy accountAppList response: %v", err)
+	}
+	if strings.Contains(string(body), "clientId") || !strings.Contains(string(body), `"name":"Legacy App"`) {
+		t.Fatalf("legacy accountAppList response = %s", string(body))
+	}
+}
+
 func TestLegacyGenMutationRoutesKeepOldEmptyData(t *testing.T) {
 	service := &legacyHTTPFakeService{}
 	baseURL := startLegacyHTTPTestServer(t, "gen-mutation", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
@@ -404,11 +473,14 @@ func TestLegacySysJobSnapshotsCoverOldExecutableJobs(t *testing.T) {
 type legacyHTTPFakeService struct {
 	uidentitysvc.Service
 
-	passwordLoginInput  uidentitysvc.PasswordLoginInput
-	logoutInput         uidentitysvc.LegacyAdminLogoutInput
-	genToProjectTableID int64
-	genAPIToFileTableID int64
-	genToDBTableID      int64
+	passwordLoginInput    uidentitysvc.PasswordLoginInput
+	logoutInput           uidentitysvc.LegacyAdminLogoutInput
+	changePhoneInput      uidentitysvc.ChangePhoneInput
+	applicationListInput  uidentitysvc.UserApplicationListInput
+	runtimeUserInfoNumber string
+	genToProjectTableID   int64
+	genAPIToFileTableID   int64
+	genToDBTableID        int64
 }
 
 func (s *legacyHTTPFakeService) LoginByPassword(_ context.Context, in uidentitysvc.PasswordLoginInput) (*uidentitysvc.RuntimeLoginOutput, error) {
@@ -428,6 +500,24 @@ func (s *legacyHTTPFakeService) LegacyRedirectConfig(context.Context) (*uidentit
 func (s *legacyHTTPFakeService) RecordLegacyAdminLogout(_ context.Context, in uidentitysvc.LegacyAdminLogoutInput) error {
 	s.logoutInput = in
 	return nil
+}
+
+func (s *legacyHTTPFakeService) ChangeRuntimePhone(_ context.Context, in uidentitysvc.ChangePhoneInput) error {
+	s.changePhoneInput = in
+	return nil
+}
+
+func (s *legacyHTTPFakeService) GetRuntimeUserInfo(_ context.Context, number string) (*uidentitysvc.RuntimeAccount, error) {
+	s.runtimeUserInfoNumber = number
+	return &uidentitysvc.RuntimeAccount{Number: number}, nil
+}
+
+func (s *legacyHTTPFakeService) ListRuntimeApplications(_ context.Context, in uidentitysvc.UserApplicationListInput) (*uidentitysvc.RuntimeApplicationListOutput, error) {
+	s.applicationListInput = in
+	return &uidentitysvc.RuntimeApplicationListOutput{
+		List:  []*uidentitysvc.RuntimeApplication{{ID: 1, Name: "Legacy App", ClientID: "must-not-leak"}},
+		Total: 1,
+	}, nil
 }
 
 func (s *legacyHTTPFakeService) LegacyGenToProject(_ context.Context, tableID int64) (uidentitysvc.Record, error) {

@@ -421,8 +421,10 @@ func (s *serviceImpl) ListRuntimeApplications(ctx context.Context, in UserApplic
 	if err != nil {
 		return nil, err
 	}
-	model := dao.Applications.Ctx(ctx).
-		Where(dao.Applications.Columns().Status, ApplicationStatusEnabled)
+	model := dao.Applications.Ctx(ctx)
+	if !in.LegacyNoPage {
+		model = model.Where(dao.Applications.Columns().Status, ApplicationStatusEnabled)
+	}
 	if len(blockedIDs) > 0 {
 		model = model.WhereNotIn(dao.Applications.Columns().Id, blockedIDs)
 	}
@@ -431,9 +433,11 @@ func (s *serviceImpl) ListRuntimeApplications(ctx context.Context, in UserApplic
 		return nil, err
 	}
 	var apps []*entity.Applications
-	if err := model.OrderAsc(dao.Applications.Columns().Id).
-		Page(normalizedPageNum(in.PageNum), normalizedPageSize(in.PageSize)).
-		Scan(&apps); err != nil {
+	model = model.OrderAsc(dao.Applications.Columns().Id)
+	if !in.LegacyNoPage {
+		model = model.Page(normalizedPageNum(in.PageNum), normalizedPageSize(in.PageSize))
+	}
+	if err := model.Scan(&apps); err != nil {
 		return nil, err
 	}
 	list := make([]*RuntimeApplication, 0, len(apps))

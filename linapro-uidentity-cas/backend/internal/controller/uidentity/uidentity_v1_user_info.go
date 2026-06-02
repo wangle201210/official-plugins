@@ -8,7 +8,11 @@ import (
 
 // UserInfo returns one runtime account projection.
 func (c *ControllerV1) UserInfo(ctx context.Context, req *v1.UserInfoReq) (res *v1.UserInfoRes, err error) {
-	out, err := c.uidentitySvc.GetRuntimeUserInfo(ctx, req.Number)
+	number, err := c.runtimeNumber(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := c.uidentitySvc.GetRuntimeUserInfo(ctx, number)
 	if err != nil {
 		return nil, err
 	}

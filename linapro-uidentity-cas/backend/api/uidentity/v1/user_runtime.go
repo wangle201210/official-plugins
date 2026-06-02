@@ -24,7 +24,6 @@ type UserUnionIDBindReq struct {
 // UserPasswordChangeReq defines runtime password change.
 type UserPasswordChangeReq struct {
 	g.Meta      `path:"/api/v1/user/changePassword" method:"post" tags:"UIdentity User Runtime" summary:"Change user password" dc:"Validate active password policy and update one account password from the runtime self-service API." permission:"uidentity:cas:runtime"`
-	Number      string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 	NewPassword string `json:"new_password" v:"required" dc:"New plaintext password" eg:"S3cure@2026"`
 	UUID        string `json:"uuid" dc:"Captcha UUID" eg:"captcha_uuid"`
 	Code        string `json:"code" dc:"Captcha code" eg:"1234"`
@@ -33,7 +32,6 @@ type UserPasswordChangeReq struct {
 // UserPhoneChangeReq defines runtime phone change.
 type UserPhoneChangeReq struct {
 	g.Meta `path:"/api/v1/user/changePhone" method:"post" tags:"UIdentity User Runtime" summary:"Change user phone" dc:"Verify an SMS bind code and update one account phone number from the runtime self-service API." permission:"uidentity:cas:runtime"`
-	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 	Phone  string `json:"phone" v:"required" dc:"New mobile phone number" eg:"13800000000"`
 	Code   string `json:"code" v:"required" dc:"SMS bind verification code" eg:"123456"`
 }
@@ -41,33 +39,28 @@ type UserPhoneChangeReq struct {
 // UserEmailChangeReq defines runtime email change.
 type UserEmailChangeReq struct {
 	g.Meta `path:"/api/v1/user/changeEmail" method:"post" tags:"UIdentity User Runtime" summary:"Change user email" dc:"Update one account detail email address from the runtime self-service API." permission:"uidentity:cas:runtime"`
-	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 	Email  string `json:"email" v:"required|email" dc:"New email address" eg:"user@example.com"`
+	Number string `json:"number" dc:"Legacy request account number; runtime identity is resolved from API middleware/header" eg:"A001"`
 }
 
 // UserQQChangeReq defines runtime QQ change.
 type UserQQChangeReq struct {
 	g.Meta `path:"/api/v1/user/changeQQ" method:"post" tags:"UIdentity User Runtime" summary:"Change user QQ" dc:"Update one account detail QQ number from the runtime self-service API." permission:"uidentity:cas:runtime"`
-	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 	Qq     string `json:"qq" v:"required" dc:"New QQ number" eg:"10001"`
 }
 
 // UserWechatUnbindReq defines runtime Wechat unbinding.
 type UserWechatUnbindReq struct {
 	g.Meta `path:"/api/v1/user/unbindWechat" method:"post" tags:"UIdentity User Runtime" summary:"Unbind user Wechat" dc:"Clear the Wechat union ID from one account detail from the runtime self-service API." permission:"uidentity:cas:runtime"`
-	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 }
 
 // UserWechatRebindStateCreateReq defines logged-in Wechat rebind state creation.
 type UserWechatRebindStateCreateReq struct {
-	g.Meta   `path:"/api/v1/user/changeWechatQr" method:"post" tags:"UIdentity User Runtime" summary:"Create user Wechat rebind state" dc:"Create a short-lived Wechat rebind state for one logged-in runtime account and return the configured external authorization URL when available." permission:"uidentity:cas:runtime"`
-	Number   string `json:"number" v:"required" dc:"Account number" eg:"A001"`
-	Callback string `json:"CasCallback" dc:"Optional legacy cascallback value echoed to the configured redirect URL" eg:"rebind"`
+	g.Meta `path:"/api/v1/user/changeWechatQr" method:"post" tags:"UIdentity User Runtime" summary:"Create user Wechat rebind state" dc:"Create a short-lived Wechat rebind state for one logged-in runtime account and return the configured external authorization URL when available." permission:"uidentity:cas:runtime"`
 }
 
 // UserWechatRebindCallbackReq defines external Wechat rebind callback completion.
 type UserWechatRebindCallbackReq struct {
-	g.Meta   `path:"/api/v1/user/changeWechatState" method:"post" tags:"UIdentity User Runtime" summary:"Complete user Wechat rebind callback" dc:"Record a Wechat rebind callback result. If unionId is supplied, the plugin binds it to the account attached to the state; otherwise it records a structured unsupported-flow result."`
 	State    string `json:"state" v:"required" dc:"Wechat rebind state" eg:"rebindWechat_abcdef"`
 	UnionId  string `json:"unionID" dc:"Wechat union ID resolved by an external callback adapter" eg:"unionid_001"`
 	Code     string `json:"code" dc:"External Wechat callback code retained for diagnostics when no unionId is supplied" eg:"wx_code"`
@@ -77,44 +70,45 @@ type UserWechatRebindCallbackReq struct {
 // UserWechatRebindStateReq defines Wechat rebind state lookup.
 type UserWechatRebindStateReq struct {
 	g.Meta `path:"/api/v1/user/changeWechatState" method:"post" tags:"UIdentity User Runtime" summary:"Get user Wechat rebind state" dc:"Read the current Wechat rebind state for one logged-in runtime account without consuming successful terminal states." permission:"uidentity:cas:runtime"`
-	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
 	State  string `json:"uuid" v:"required" dc:"Wechat rebind state" eg:"rebindWechat_abcdef"`
 }
 
 // UserInfoReq defines runtime account info lookup.
 type UserInfoReq struct {
 	g.Meta `path:"/api/v1/user/getUserInfo" method:"post" tags:"UIdentity User Runtime" summary:"Get runtime user info" dc:"Return account, detail, unit, container and group projection for one runtime account." permission:"uidentity:cas:runtime"`
-	Number string `json:"number" v:"required" dc:"Account number" eg:"A001"`
+	Number string `json:"number" dc:"Legacy request account number; runtime identity is resolved from API middleware/header" eg:"A001"`
 }
 
 // UserLoginLogsReq defines runtime login-log lookup.
 type UserLoginLogsReq struct {
-	g.Meta   `path:"/api/v1/user/getUserCasLoginLog" method:"get" tags:"UIdentity User Runtime" summary:"List user CAS login logs" dc:"Return a bounded paged CAS login log list for one runtime account." permission:"uidentity:cas:runtime"`
-	Number   string `json:"number" v:"required" dc:"Account number" eg:"A001"`
-	PageNum  int    `json:"pageIndex" d:"1" v:"min:1" dc:"Page number starting from 1" eg:"1"`
-	PageSize int    `json:"pageSize" d:"20" v:"min:1|max:100" dc:"Page size with hard maximum 100" eg:"20"`
+	g.Meta         `path:"/api/v1/user/getUserCasLoginLog" method:"get" tags:"UIdentity User Runtime" summary:"List user CAS login logs" dc:"Return a bounded paged CAS login log list for one runtime account." permission:"uidentity:cas:runtime"`
+	Number         string `json:"number" dc:"Legacy optional account number query parameter; runtime identity is resolved from API middleware/header" eg:"A001"`
+	PageNum        int    `json:"pageIndex" d:"1" v:"min:1" dc:"Page number starting from 1" eg:"1"`
+	PageSize       int    `json:"pageSize" d:"20" v:"min:1|max:100" dc:"Page size with hard maximum 100" eg:"20"`
+	AccountId      int64  `json:"accountId" dc:"Legacy optional account ID filter" eg:"1"`
+	AppId          int64  `json:"appId" dc:"Legacy optional application ID filter" eg:"1"`
+	LoginType      string `json:"loginType" dc:"Legacy optional login type filter" eg:"pwd"`
+	LoginTimeOrder string `json:"loginTimeOrder" dc:"Legacy optional login-time sort direction" eg:"desc"`
 }
 
 // UserApplicationsReq defines runtime accessible application lookup.
 type UserApplicationsReq struct {
-	g.Meta   `path:"/api/v1/user/accountAppList" method:"get" tags:"UIdentity User Runtime" summary:"List user accessible applications" dc:"Return enabled applications not blocked by account or group blacklists for one runtime account." permission:"uidentity:cas:runtime"`
-	Number   string `json:"number" v:"required" dc:"Account number" eg:"A001"`
-	PageNum  int    `json:"pageIndex" d:"1" v:"min:1" dc:"Page number starting from 1" eg:"1"`
-	PageSize int    `json:"pageSize" d:"20" v:"min:1|max:100" dc:"Page size with hard maximum 100" eg:"20"`
+	g.Meta `path:"/api/v1/user/accountAppList" method:"get" tags:"UIdentity User Runtime" summary:"List user accessible applications" dc:"Return applications not blocked by account or group blacklists for one runtime account using the legacy unpaged contract." permission:"uidentity:cas:runtime"`
 }
 
 // UserAppRolesReq defines runtime delegated role lookup.
 type UserAppRolesReq struct {
-	g.Meta   `path:"/api/v1/user/accountAppRole" method:"get" tags:"UIdentity User Runtime" summary:"List user delegated application roles" dc:"Return a bounded paged list of account application roles granted by one runtime account." permission:"uidentity:cas:runtime"`
-	Number   string `json:"number" v:"required" dc:"Account number" eg:"A001"`
-	PageNum  int    `json:"pageIndex" d:"1" v:"min:1" dc:"Page number starting from 1" eg:"1"`
-	PageSize int    `json:"pageSize" d:"20" v:"min:1|max:100" dc:"Page size with hard maximum 100" eg:"20"`
+	g.Meta                  `path:"/api/v1/user/accountAppRole" method:"get" tags:"UIdentity User Runtime" summary:"List user delegated application roles" dc:"Return a bounded paged list of account application roles granted by one runtime account." permission:"uidentity:cas:runtime"`
+	PageNum                 int    `json:"pageIndex" d:"1" v:"min:1" dc:"Page number starting from 1" eg:"1"`
+	PageSize                int    `json:"pageSize" d:"20" v:"min:1|max:100" dc:"Page size with hard maximum 100" eg:"20"`
+	EmpoweredAccountId      int64  `json:"empoweredAccountId" dc:"Legacy optional delegated account ID filter" eg:"2"`
+	EmpoweredAccountIdOrder string `json:"empoweredAccountIdOrder" dc:"Legacy optional delegated-account sort direction" eg:"asc"`
+	ExpireAtOrder           string `json:"expireAtOrder" dc:"Legacy optional expire-time sort direction" eg:"desc"`
 }
 
 // UserAppRoleCreateReq defines delegated role creation.
 type UserAppRoleCreateReq struct {
 	g.Meta          `path:"/api/v1/user/accountAppRole" method:"post" tags:"UIdentity User Runtime" summary:"Create user delegated application role" dc:"Create a delegated application role from one runtime account to another account." permission:"uidentity:cas:runtime"`
-	Number          string `json:"number" v:"required" dc:"Granting account number" eg:"A001"`
 	EmpoweredNumber string `json:"empoweredNumber" v:"required" dc:"Delegated account number" eg:"B001"`
 	AppId           int64  `json:"appId" v:"required|min:1" dc:"Application ID" eg:"1"`
 	ExpireAt        *int64 `json:"expireAt" dc:"Delegation expiration time as Unix timestamp in milliseconds" eg:"1776759600000"`
@@ -123,7 +117,6 @@ type UserAppRoleCreateReq struct {
 // UserAppRoleUpdateReq defines delegated role expiration update.
 type UserAppRoleUpdateReq struct {
 	g.Meta   `path:"/api/v1/user/accountAppRoleUpdate" method:"post" tags:"UIdentity User Runtime" summary:"Update user delegated application role" dc:"Update delegated application role expiration when the role is granted by the runtime account." permission:"uidentity:cas:runtime"`
-	Number   string `json:"number" v:"required" dc:"Granting account number" eg:"A001"`
 	Id       int64  `json:"id" v:"required|min:1" dc:"Delegated role ID" eg:"1"`
 	ExpireAt *int64 `json:"expireAt" dc:"Delegation expiration time as Unix timestamp in milliseconds" eg:"1776759600000"`
 }

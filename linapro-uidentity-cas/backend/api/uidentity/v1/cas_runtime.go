@@ -82,7 +82,6 @@ type CasServiceTicketReq struct {
 
 // CasServiceValidateReq defines service-ticket validation.
 type CasServiceValidateReq struct {
-	g.Meta `path:"/sso/serviceValidate" method:"all" tags:"UIdentity CAS Runtime" summary:"Validate CAS service ticket" dc:"Consume and validate a CAS service ticket, enforce selected-account authorization and application access, and return account and application projections."`
 	Ticket string `json:"ticket" v:"required" dc:"CAS service ticket" eg:"ST_abcdef"`
 	UserId int64  `json:"userId" dc:"Optional selected account ID to validate delegated access" eg:"1"`
 }

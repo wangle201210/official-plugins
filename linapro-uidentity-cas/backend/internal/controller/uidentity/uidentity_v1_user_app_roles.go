@@ -9,8 +9,12 @@ import (
 
 // UserAppRoles returns delegated app roles for one runtime account.
 func (c *ControllerV1) UserAppRoles(ctx context.Context, req *v1.UserAppRolesReq) (res *v1.UserAppRolesRes, err error) {
+	number, err := c.runtimeNumber(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out, err := c.uidentitySvc.ListRuntimeAppRoles(ctx, uidentitysvc.UserAppRoleListInput{
-		Number:   req.Number,
+		Number:   number,
 		PageNum:  req.PageNum,
 		PageSize: req.PageSize,
 	})

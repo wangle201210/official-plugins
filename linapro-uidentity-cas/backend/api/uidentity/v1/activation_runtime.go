@@ -38,7 +38,6 @@ type ActivationPhoneReq struct {
 
 // ActivationWechatReq defines activation Wechat binding.
 type ActivationWechatReq struct {
-	g.Meta      `path:"/api/v1/activate/wechatScan" method:"get" tags:"UIdentity Activation" summary:"Bind activation Wechat" dc:"Bind a Wechat union ID to the account attached to the activation challenge and mark the account normal."`
 	ChallengeId string `json:"uuid" v:"required" dc:"Activation challenge ID" eg:"act_abcdef"`
 	UnionId     string `json:"unionID" v:"required" dc:"Wechat union ID" eg:"unionid_001"`
 }
@@ -52,11 +51,10 @@ type ActivationWechatStateCreateReq struct {
 
 // ActivationWechatCallbackReq defines external activation Wechat callback completion.
 type ActivationWechatCallbackReq struct {
-	g.Meta   `path:"/api/v1/activate/wechatScan" method:"get" tags:"UIdentity Activation" summary:"Complete activation Wechat callback" dc:"Record a Wechat activation callback result. If unionId is supplied, the plugin binds it to the account attached to the state; otherwise it records a structured unsupported-flow result."`
-	State    string `json:"state" v:"required" dc:"Activation Wechat state, equal to the activation challenge ID" eg:"act_abcdef"`
-	UnionId  string `json:"unionID" dc:"Wechat union ID resolved by an external callback adapter" eg:"unionid_001"`
-	Code     string `json:"code" dc:"External Wechat callback code retained for diagnostics when no unionId is supplied" eg:"wx_code"`
-	Callback string `json:"CasCallback" dc:"Optional legacy cascallback value echoed to the configured redirect URL" eg:"active"`
+	g.Meta  `path:"/api/v1/activate/wechatScan" method:"get" tags:"UIdentity Activation" summary:"Complete activation Wechat callback" dc:"Record a Wechat activation callback result. If unionId is supplied, the plugin binds it to the account attached to the state; otherwise it records a structured unsupported-flow result."`
+	State   string `json:"state" v:"required" dc:"Activation Wechat state, equal to the activation challenge ID" eg:"act_abcdef"`
+	UnionId string `json:"unionID" dc:"Wechat union ID resolved by an external callback adapter" eg:"unionid_001"`
+	Code    string `json:"code" dc:"External Wechat callback code retained for diagnostics when no unionId is supplied" eg:"wx_code"`
 }
 
 // ActivationStateReq defines activation state lookup.

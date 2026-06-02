@@ -798,8 +798,7 @@ func (c *LegacyController) UserApplications(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
-	pageIndex, pageSize := legacyPage(r)
-	out, err := c.uidentitySvc.ListRuntimeApplications(r.Context(), uidentitysvc.UserApplicationListInput{Number: number, PageNum: pageIndex, PageSize: pageSize})
+	out, err := c.uidentitySvc.ListRuntimeApplications(r.Context(), uidentitysvc.UserApplicationListInput{Number: number, LegacyNoPage: true})
 	if err != nil {
 		legacyError(r, err)
 		return
@@ -1352,14 +1351,13 @@ func (c *LegacyController) redirectLegacyActivationWechat(r *ghttp.Request, flow
 }
 
 func (c *LegacyController) legacyRuntimeNumber(r *ghttp.Request) (string, error) {
-	number := legacyStringParam(r, "number", "username", "workCode", "work_code")
-	if number != "" {
-		return number, nil
-	}
 	for _, header := range []string{"X-Uidentity-Number", "X-Account-Number", "X-User-Number"} {
 		if value := strings.TrimSpace(r.GetHeader(header)); value != "" {
 			return value, nil
 		}
+	}
+	if value := strings.TrimSpace(r.GetHeader("number")); value != "" {
+		return value, nil
 	}
 	for _, key := range []string{"number", "userNumber", "runtimeNumber"} {
 		if value := strings.TrimSpace(r.GetCtxVar(key).String()); value != "" {
@@ -1375,6 +1373,10 @@ func (c *LegacyController) legacyRuntimeNumber(r *ghttp.Request) (string, error)
 		if out != nil && out.User != nil && out.User.Number != "" {
 			return out.User.Number, nil
 		}
+	}
+	number := legacyStringParam(r, "number", "username", "workCode", "work_code")
+	if number != "" {
+		return number, nil
 	}
 	return "", bizerr.NewCode(uidentitysvc.CodeInvalidCredentials)
 }
@@ -2044,8 +2046,7 @@ func legacyRuntimeApplicationPayload(app *uidentitysvc.RuntimeApplication) map[s
 		return nil
 	}
 	return map[string]any{
-		"id": app.ID, "name": app.Name, "alias": app.Alias, "clientId": app.ClientID, "client_id": app.ClientID,
-		"accessModel": app.AccessModel, "access_model": app.AccessModel, "callbackUrl": app.CallbackURL, "callback_url": app.CallbackURL,
+		"id": app.ID, "name": app.Name,
 	}
 }
 

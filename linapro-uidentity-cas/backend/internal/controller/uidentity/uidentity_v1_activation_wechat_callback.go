@@ -12,10 +12,9 @@ import (
 // ActivationWechatCallback records an activation Wechat callback result.
 func (c *ControllerV1) ActivationWechatCallback(ctx context.Context, req *v1.ActivationWechatCallbackReq) (res *v1.ActivationWechatCallbackRes, err error) {
 	out, err := c.uidentitySvc.CompleteActivationWechat(ctx, uidentitysvc.ActivationWechatCallbackInput{
-		State:    req.State,
-		UnionID:  req.UnionId,
-		Code:     req.Code,
-		Callback: req.Callback,
+		State:   req.State,
+		UnionID: req.UnionId,
+		Code:    req.Code,
 	})
 	if err != nil {
 		return nil, err

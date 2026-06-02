@@ -9,8 +9,12 @@ import (
 
 // UserLoginLogs returns paged CAS logs for one runtime account.
 func (c *ControllerV1) UserLoginLogs(ctx context.Context, req *v1.UserLoginLogsReq) (res *v1.UserLoginLogsRes, err error) {
+	number, err := c.runtimeNumber(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out, err := c.uidentitySvc.ListRuntimeUserLoginLogs(ctx, uidentitysvc.UserLogListInput{
-		Number:   req.Number,
+		Number:   number,
 		PageNum:  req.PageNum,
 		PageSize: req.PageSize,
 	})

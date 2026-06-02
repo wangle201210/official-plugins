@@ -9,8 +9,12 @@ import (
 
 // UserAppRoleUpdate updates delegated role expiration.
 func (c *ControllerV1) UserAppRoleUpdate(ctx context.Context, req *v1.UserAppRoleUpdateReq) (res *v1.UserAppRoleUpdateRes, err error) {
+	number, err := c.runtimeNumber(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := c.uidentitySvc.UpdateRuntimeAppRole(ctx, uidentitysvc.UserAppRoleUpdateInput{
-		Number:   req.Number,
+		Number:   number,
 		ID:       req.Id,
 		ExpireAt: req.ExpireAt,
 	}); err != nil {

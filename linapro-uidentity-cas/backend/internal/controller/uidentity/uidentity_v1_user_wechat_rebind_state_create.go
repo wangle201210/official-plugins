@@ -11,9 +11,12 @@ import (
 
 // UserWechatRebindStateCreate creates a short-lived rebind state.
 func (c *ControllerV1) UserWechatRebindStateCreate(ctx context.Context, req *v1.UserWechatRebindStateCreateReq) (res *v1.UserWechatRebindStateCreateRes, err error) {
+	number, err := c.runtimeNumber(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out, err := c.uidentitySvc.CreateRuntimeWechatRebindState(ctx, uidentitysvc.WechatRebindStateInput{
-		Number:   req.Number,
-		Callback: req.Callback,
+		Number: number,
 	})
 	if err != nil {
 		return nil, err

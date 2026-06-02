@@ -15,6 +15,9 @@ func TestLegacyAPIDTOPathsMatchOldAdminRoutes(t *testing.T) {
 	for _, contract := range legacyAPIDTOContractsForTest() {
 		path := gmeta.Get(contract.req, "path").String()
 		method := strings.ToUpper(gmeta.Get(contract.req, "method").String())
+		if path == "" && method == "" {
+			continue
+		}
 		if path == "" || method == "" {
 			t.Fatalf("%s is missing g.Meta path or method", contract.name)
 		}
@@ -23,6 +26,63 @@ func TestLegacyAPIDTOPathsMatchOldAdminRoutes(t *testing.T) {
 		}
 		if _, ok := oldRoutes[method+" "+path]; !ok {
 			t.Fatalf("%s declares non-legacy route %s %s", contract.name, method, path)
+		}
+	}
+}
+
+func TestLegacyAPIDTOsDoNotDuplicateOldRouteContracts(t *testing.T) {
+	seen := map[string]string{}
+	for _, contract := range legacyAPIDTOContractsForTest() {
+		path := gmeta.Get(contract.req, "path").String()
+		method := strings.ToUpper(gmeta.Get(contract.req, "method").String())
+		if path == "" && method == "" {
+			continue
+		}
+		key := method + " " + path
+		if previous, ok := seen[key]; ok {
+			t.Fatalf("%s duplicates legacy route contract %s already declared by %s", contract.name, key, previous)
+		}
+		seen[key] = contract.name
+	}
+}
+
+func TestLegacyUserRuntimeDTOsKeepOldNumberFieldContract(t *testing.T) {
+	expectedNumberField := map[reflect.Type]bool{
+		reflect.TypeOf(v1.UserPasswordChangeReq{}):          false,
+		reflect.TypeOf(v1.UserPhoneChangeReq{}):             false,
+		reflect.TypeOf(v1.UserEmailChangeReq{}):             true,
+		reflect.TypeOf(v1.UserQQChangeReq{}):                false,
+		reflect.TypeOf(v1.UserWechatUnbindReq{}):            false,
+		reflect.TypeOf(v1.UserWechatRebindStateCreateReq{}): false,
+		reflect.TypeOf(v1.UserWechatRebindStateReq{}):       false,
+		reflect.TypeOf(v1.UserInfoReq{}):                    true,
+		reflect.TypeOf(v1.UserLoginLogsReq{}):               true,
+		reflect.TypeOf(v1.UserApplicationsReq{}):            false,
+		reflect.TypeOf(v1.UserAppRolesReq{}):                false,
+		reflect.TypeOf(v1.UserAppRoleCreateReq{}):           false,
+		reflect.TypeOf(v1.UserAppRoleUpdateReq{}):           false,
+	}
+	for typ, wantNumberField := range expectedNumberField {
+		field, hasNumberField := typ.FieldByName("Number")
+		if hasNumberField != wantNumberField {
+			t.Fatalf("%s Number field existence = %v, want %v", typ.Name(), hasNumberField, wantNumberField)
+		}
+		if hasNumberField && strings.Contains(field.Tag.Get("v"), "required") {
+			t.Fatalf("%s.Number must stay optional because legacy middleware/header owns runtime identity", typ.Name())
+		}
+	}
+}
+
+func TestLegacyEmptyRuntimeDTOsKeepOldAdminParams(t *testing.T) {
+	for _, item := range []struct {
+		name string
+		req  any
+	}{
+		{"UserWechatRebindStateCreateReq", v1.UserWechatRebindStateCreateReq{}},
+		{"UserApplicationsReq", v1.UserApplicationsReq{}},
+	} {
+		if got := legacyRequestJSONFieldsForTest(reflect.TypeOf(item.req)); len(got) > 0 {
+			t.Fatalf("%s request fields = %v, want none to match old empty request struct", item.name, got)
 		}
 	}
 }
@@ -74,6 +134,38 @@ func TestLegacyAPIDTOFieldsMatchOldAdminParams(t *testing.T) {
 		}
 		if got := strings.Split(field.Tag.Get("json"), ",")[0]; got != item.json {
 			t.Fatalf("%s.%s json tag = %q, want %q", item.typ.Name(), item.field, got, item.json)
+		}
+	}
+}
+
+func legacyRequestJSONFieldsForTest(typ reflect.Type) []string {
+	fields := make([]string, 0, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		name := strings.Split(field.Tag.Get("json"), ",")[0]
+		if name == "" || name == "-" {
+			continue
+		}
+		fields = append(fields, name)
+	}
+	return fields
+}
+
+func TestLegacyAPIDTOContractsWithNoRouteAreIntentionalInternalContracts(t *testing.T) {
+	allowed := map[string]struct{}{
+		"ActivationWechatReq":         {},
+		"CasServiceValidateReq":       {},
+		"OAuthIssueReq":               {},
+		"UserWechatRebindCallbackReq": {},
+	}
+	for _, contract := range legacyAPIDTOContractsForTest() {
+		path := gmeta.Get(contract.req, "path").String()
+		method := strings.ToUpper(gmeta.Get(contract.req, "method").String())
+		if path != "" || method != "" {
+			continue
+		}
+		if _, ok := allowed[contract.name]; !ok {
+			t.Fatalf("%s has no route metadata; add it to allowed internal contracts if intentional", contract.name)
 		}
 	}
 }

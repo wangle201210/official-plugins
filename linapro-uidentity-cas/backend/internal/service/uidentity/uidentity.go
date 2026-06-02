@@ -844,9 +844,10 @@ type UserAppRoleListInput struct {
 
 // UserApplicationListInput carries runtime application list filters.
 type UserApplicationListInput struct {
-	Number   string
-	PageNum  int
-	PageSize int
+	Number       string
+	PageNum      int
+	PageSize     int
+	LegacyNoPage bool
 }
 
 // RuntimeApplicationListOutput carries paged runtime application results.
