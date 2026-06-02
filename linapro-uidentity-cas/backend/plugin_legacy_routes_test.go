@@ -58,6 +58,27 @@ func TestLegacyRouteSpecIncludesOldAdminContracts(t *testing.T) {
 	}
 }
 
+func TestLegacyRouteSpecExcludesNonOldAPIv1Contracts(t *testing.T) {
+	publicRoutes := legacyRouteSpecsForTest(legacyPublicRoutes)
+	for _, item := range []legacyRouteSpec{
+		{Method: "ALL", Path: "/sso/serviceValidate"},
+		{Method: "ALL", Path: "/sso/proxyValidate"},
+		{Method: "GET", Path: "/sso/login"},
+		{Method: "ALL", Path: "/sso/logout"},
+		{Method: "POST", Path: "/ssologin/getToken"},
+		{Method: "POST", Path: "/user/changeWechatCallBack"},
+	} {
+		key := item.Method + " " + item.Path
+		if _, ok := publicRoutes[key]; ok {
+			t.Fatalf("legacy API v1 route should not be registered: %s", key)
+		}
+	}
+	protectedRoutes := legacyRouteSpecsForTest(legacyProtectedRoutes)
+	if _, ok := protectedRoutes["POST /ldap/sync"]; ok {
+		t.Fatalf("legacy API v1 route should not be registered: POST /ldap/sync")
+	}
+}
+
 func TestLegacyResourceRouteNamesMatchOldAdminPaths(t *testing.T) {
 	got := map[string]string{}
 	for _, route := range legacyResourceRoutes {
@@ -86,4 +107,12 @@ func TestLegacyResourceRouteNamesMatchOldAdminPaths(t *testing.T) {
 			t.Fatalf("legacy resource path %s maps to %q, want %q", path, got[path], resource)
 		}
 	}
+}
+
+func legacyRouteSpecsForTest(routes []legacyRouteSpec) map[string]struct{} {
+	got := make(map[string]struct{}, len(routes))
+	for _, route := range routes {
+		got[route.Method+" "+route.Path] = struct{}{}
+	}
+	return got
 }

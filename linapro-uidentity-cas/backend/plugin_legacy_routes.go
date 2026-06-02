@@ -56,11 +56,6 @@ var legacyPublicRoutes = []legacyRouteSpec{
 	{Method: "POST", Path: "/cas/getCasLoginQrRes"},
 	{Method: "GET", Path: "/cas/loginByUnionID"},
 	{Method: "GET", Path: "/cas-login/index"},
-	{Method: "ALL", Path: "/sso/serviceValidate"},
-	{Method: "ALL", Path: "/sso/proxyValidate"},
-	{Method: "GET", Path: "/sso/login"},
-	{Method: "ALL", Path: "/sso/logout"},
-	{Method: "POST", Path: "/ssologin/getToken"},
 	{Method: "POST", Path: "/token/get"},
 	{Method: "GET", Path: "/token/getUserInfoByToken"},
 	{Method: "GET", Path: "/wechat/login"},
@@ -88,7 +83,6 @@ var legacyPublicRoutes = []legacyRouteSpec{
 	{Method: "POST", Path: "/user/accountAppRoleUpdate"},
 	{Method: "POST", Path: "/user/changeWechatQr"},
 	{Method: "POST", Path: "/user/changeWechatState"},
-	{Method: "POST", Path: "/user/changeWechatCallBack"},
 	{Method: "GET", Path: "/oauth/login"},
 	{Method: "POST", Path: "/oauth/login"},
 	{Method: "ALL", Path: "/oauth/auth"},
@@ -123,7 +117,6 @@ var legacyProtectedRoutes = []legacyRouteSpec{
 	{Method: "GET", Path: "/server-monitor"},
 	{Method: "POST", Path: "/public/uploadFile"},
 	{Method: "GET", Path: "/log/watch"},
-	{Method: "POST", Path: "/ldap/sync"},
 	{Method: "POST", Path: "/job/start"},
 	{Method: "POST", Path: "/job/remove"},
 }
@@ -201,11 +194,6 @@ func registerLegacyPublicRoutes(group pluginhost.RouteGroup, legacyController *u
 	group.POST("/cas/getCasLoginQrRes", legacyController.CasGetLoginQRResult)
 	group.GET("/cas/loginByUnionID", legacyController.CasUnionIDLogin)
 	group.GET("/cas-login/index", legacyController.CasLoginIndex)
-	group.ALL("/sso/serviceValidate", legacyController.CasServiceValidateXML)
-	group.ALL("/sso/proxyValidate", legacyController.CasServiceValidateXML)
-	group.GET("/sso/login", legacyController.SSOLogin)
-	group.ALL("/sso/logout", legacyController.SSOLogout)
-	group.POST("/ssologin/getToken", legacyController.SSOLoginToken)
 	group.POST("/token/get", legacyController.RuntimeTokenIssue)
 	group.GET("/token/getUserInfoByToken", legacyController.RuntimeTokenInfo)
 	group.GET("/wechat/login", legacyController.WechatLogin)
@@ -233,7 +221,6 @@ func registerLegacyPublicRoutes(group pluginhost.RouteGroup, legacyController *u
 	group.POST("/user/accountAppRoleUpdate", legacyController.UserAppRoleUpdate)
 	group.POST("/user/changeWechatQr", legacyController.UserChangeWechatQR)
 	group.POST("/user/changeWechatState", legacyController.UserChangeWechatState)
-	group.POST("/user/changeWechatCallBack", legacyController.UserWechatRebindCallback)
 	group.GET("/oauth/login", legacyController.OAuthLogin)
 	group.POST("/oauth/login", legacyController.OAuthLogin)
 	group.ALL("/oauth/auth", legacyController.OAuthAuthorize)
@@ -268,7 +255,6 @@ func registerLegacyProtectedRoutes(group pluginhost.RouteGroup, legacyController
 	group.GET("/server-monitor", legacyController.ServerMonitor)
 	group.POST("/public/uploadFile", legacyController.Upload)
 	group.GET("/log/watch", legacyController.LogSnapshot)
-	group.POST("/ldap/sync", legacyController.ExternalAction("ldap-sync"))
 	group.POST("/job/start", legacyController.ExternalAction("job-start"))
 	group.POST("/job/remove", legacyController.ExternalAction("job-remove"))
 }

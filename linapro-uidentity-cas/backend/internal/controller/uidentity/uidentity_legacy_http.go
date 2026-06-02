@@ -400,7 +400,7 @@ func (c *LegacyController) SSOLogout(r *ghttp.Request) {
 	legacyOKWithMsg(r, nil, "退出成功")
 }
 
-// SSOLoginToken handles POST /api/v1/ssologin/getToken.
+// SSOLoginToken handles POST /ssologin/getToken.
 func (c *LegacyController) SSOLoginToken(r *ghttp.Request) {
 	c.RuntimeTokenIssue(r)
 }
@@ -771,7 +771,7 @@ func (c *LegacyController) UserChangeWechatState(r *ghttp.Request) {
 	legacyOKWithMsg(r, legacyWechatRebindStatePayload(out), legacyMsgGetSuccess)
 }
 
-// UserWechatRebindCallback handles POST /api/v1/user/changeWechatCallBack.
+// UserWechatRebindCallback completes a legacy-style Wechat rebind callback.
 func (c *LegacyController) UserWechatRebindCallback(r *ghttp.Request) {
 	out, err := c.uidentitySvc.CompleteRuntimeWechatRebind(r.Context(), uidentitysvc.WechatRebindCallbackInput{
 		State:    legacyStringParam(r, "state", "uuid"),
