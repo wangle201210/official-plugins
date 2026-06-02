@@ -411,10 +411,7 @@ func (s *serviceImpl) createRuntimeToken(ctx context.Context, data do.Oauth2Toke
 	if err != nil {
 		return err
 	}
-	actorID := s.actorID(ctx)
 	data.Data = string(content)
-	data.CreateBy = actorID
-	data.UpdateBy = actorID
 	_, err = dao.Oauth2Token.Ctx(ctx).Data(data).Insert()
 	return err
 }

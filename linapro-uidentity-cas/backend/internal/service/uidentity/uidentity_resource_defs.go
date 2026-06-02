@@ -131,8 +131,7 @@ func (s *serviceImpl) oauthTokenResource() *resourceDefinition {
 	cols := dao.Oauth2Token.Columns()
 	return relationResource("oauth-tokens", dao.Oauth2Token.Table(), cols.Id, map[string]string{
 		"id": cols.Id, "expiredAt": cols.ExpiredAt, "code": cols.Code, "access": cols.Access,
-		"refresh": cols.Refresh, "data": cols.Data, "createBy": cols.CreateBy, "updateBy": cols.UpdateBy,
-		"createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt, "deletedAt": cols.DeletedAt,
+		"refresh": cols.Refresh, "data": cols.Data,
 	}, func(ctx context.Context) *gdb.Model { return dao.Oauth2Token.Ctx(ctx) }, s.oauthTokenData)
 }
 

@@ -27,11 +27,6 @@ type Oauth2TokenColumns struct {
 	Access    string //
 	Refresh   string //
 	Data      string //
-	CreatedAt string //
-	UpdatedAt string //
-	DeletedAt string //
-	CreateBy  string //
-	UpdateBy  string //
 }
 
 // oauth2TokenColumns holds the columns for the table plugin_linapro_uidentity_cas_oauth2_token.
@@ -42,11 +37,6 @@ var oauth2TokenColumns = Oauth2TokenColumns{
 	Access:    "access",
 	Refresh:   "refresh",
 	Data:      "data",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
-	CreateBy:  "create_by",
-	UpdateBy:  "update_by",
 }
 
 // NewOauth2TokenDao creates and returns a new DAO object for table data access.

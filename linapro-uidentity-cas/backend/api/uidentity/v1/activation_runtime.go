@@ -23,7 +23,7 @@ type ActivationFaceReq struct {
 
 // ActivationPasswordReq defines activation password setup.
 type ActivationPasswordReq struct {
-	g.Meta      `path:"/api/v1/activate/password" method:"post" tags:"UIdentity Activation" summary:"Set activation password" dc:"Validate password policy and store the new password hash for the account attached to the activation challenge."`
+	g.Meta      `path:"/api/v1/activate/password" method:"post" tags:"UIdentity Activation" summary:"Set activation password" dc:"Validate password policy, sync the legacy LDAP password, and update pass level for the account attached to the activation challenge."`
 	ChallengeId string `json:"uuid" v:"required" dc:"Activation challenge ID" eg:"act_abcdef"`
 	Password    string `json:"password" v:"required" dc:"New plaintext password" eg:"S3cure@2026"`
 }

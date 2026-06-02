@@ -257,8 +257,6 @@ func (s *serviceImpl) consumeOAuthCodeAndCreateAccess(
 				Access:    oauthAccessPrefix + access,
 				Refresh:   oauthRefreshPrefix + refresh,
 				Data:      string(content),
-				CreateBy:  actorID,
-				UpdateBy:  actorID,
 			}).
 			Insert(); err != nil {
 			return err

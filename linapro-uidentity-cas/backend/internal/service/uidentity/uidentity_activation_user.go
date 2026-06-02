@@ -583,7 +583,7 @@ func (s *serviceImpl) updateRuntimePayload(ctx context.Context, tokenID int64, p
 	}
 	_, err = dao.Oauth2Token.Ctx(ctx).
 		Where(dao.Oauth2Token.Columns().Id, tokenID).
-		Data(do.Oauth2Token{Data: string(content), UpdateBy: s.actorID(ctx)}).
+		Data(do.Oauth2Token{Data: string(content)}).
 		Update()
 	return err
 }

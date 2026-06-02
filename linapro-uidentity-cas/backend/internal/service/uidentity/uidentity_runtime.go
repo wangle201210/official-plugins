@@ -158,8 +158,6 @@ func (s *serviceImpl) IssueOAuthToken(ctx context.Context, in OAuthIssueInput) (
 		Access:    access,
 		Refresh:   refresh,
 		Data:      string(payload),
-		CreateBy:  actorID,
-		UpdateBy:  actorID,
 	}).Insert()
 	if err != nil {
 		return nil, err

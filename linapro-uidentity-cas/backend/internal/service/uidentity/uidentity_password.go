@@ -125,13 +125,11 @@ func (s *serviceImpl) CreatePasswordChallenge(ctx context.Context, number string
 	if err != nil {
 		return nil, err
 	}
-	expiredAt, actorID := time.Now().Add(passwordChallengeTTL), s.actorID(ctx)
+	expiredAt := time.Now().Add(passwordChallengeTTL)
 	_, err = dao.Oauth2Token.Ctx(ctx).Data(do.Oauth2Token{
 		Code:      passwordChallengeCodePrefix + challengeID,
 		Data:      string(payload),
 		ExpiredAt: expiredAt.UnixMilli(),
-		CreateBy:  actorID,
-		UpdateBy:  actorID,
 	}).Insert()
 	if err != nil {
 		return nil, err
@@ -159,9 +157,8 @@ func (s *serviceImpl) VerifyPasswordChallengePhone(ctx context.Context, challeng
 	_, err = dao.Oauth2Token.Ctx(ctx).
 		Where(dao.Oauth2Token.Columns().Id, token.Id).
 		Data(do.Oauth2Token{
-			Code:     passwordVerifiedDataPrefix + challengeID,
-			Data:     string(content),
-			UpdateBy: s.actorID(ctx),
+			Code: passwordVerifiedDataPrefix + challengeID,
+			Data: string(content),
 		}).
 		Update()
 	if err != nil {
@@ -284,18 +281,14 @@ func (s *serviceImpl) recordPasswordFailure(ctx context.Context, number string, 
 			Data(do.Oauth2Token{
 				Data:      string(content),
 				ExpiredAt: expiredAt.UnixMilli(),
-				UpdateBy:  s.actorID(ctx),
 			}).
 			Update()
 		return err
 	}
-	actorID := s.actorID(ctx)
 	_, err = dao.Oauth2Token.Ctx(ctx).Data(do.Oauth2Token{
 		Code:      passwordFailureCode(number),
 		Data:      string(content),
 		ExpiredAt: expiredAt.UnixMilli(),
-		CreateBy:  actorID,
-		UpdateBy:  actorID,
 	}).Insert()
 	if err != nil {
 		existing, _, getErr := s.passwordFailureToken(ctx, number)
@@ -308,7 +301,6 @@ func (s *serviceImpl) recordPasswordFailure(ctx context.Context, number string, 
 				Data(do.Oauth2Token{
 					Data:      string(content),
 					ExpiredAt: expiredAt.UnixMilli(),
-					UpdateBy:  actorID,
 				}).
 				Update()
 			return updateErr

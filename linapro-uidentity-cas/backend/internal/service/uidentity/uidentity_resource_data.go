@@ -142,11 +142,7 @@ func (s *serviceImpl) oauthLogData(ctx context.Context, body map[string]any, cre
 }
 
 func (s *serviceImpl) oauthTokenData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	actorID := s.actorID(ctx)
-	data := do.Oauth2Token{UpdateBy: actorID}
-	if create {
-		data.CreateBy = actorID
-	}
+	data := do.Oauth2Token{}
 	copyStringFields(body, map[string]*any{"code": &data.Code, "access": &data.Access, "refresh": &data.Refresh, "data": &data.Data})
 	if hasField(body, "expiredAt") {
 		data.ExpiredAt = int64Field(body, "expiredAt")

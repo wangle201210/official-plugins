@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // AccountPasswordReq defines administrator password reset for one account.
 type AccountPasswordReq struct {
-	g.Meta      `path:"/api/v1/account/updatePassword" method:"post" tags:"UIdentity CAS" summary:"Reset account password" dc:"Reset one account password after validating active password policy rules. The password hash and strength level are updated inside plugin-owned account data." permission:"uidentity:cas:write"`
+	g.Meta      `path:"/api/v1/account/updatePassword" method:"post" tags:"UIdentity CAS" summary:"Reset account password" dc:"Reset one account password after validating active password policy rules. The legacy LDAP password and plugin password strength level are updated." permission:"uidentity:cas:write"`
 	Id          int64  `json:"id" v:"required|min:1" dc:"Account ID" eg:"1"`
 	NewPassword string `json:"newPassword" v:"required|min-length:1" dc:"New plaintext password submitted by the operator" eg:"S3cure@2026"`
 }
