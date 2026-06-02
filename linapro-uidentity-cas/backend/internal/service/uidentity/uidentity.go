@@ -96,6 +96,18 @@ type Service interface {
 	// LegacySysTablesTree returns old gen/tabletree rows with nested columns
 	// read from plugin-prefixed sys_tables and sys_columns compatibility tables.
 	LegacySysTablesTree(ctx context.Context, filters map[string]any) ([]Record, error)
+	// LegacyGenPreview renders old GoAdmin code-generation templates for one
+	// table definition from plugin-prefixed sys_tables/sys_columns tables.
+	LegacyGenPreview(ctx context.Context, tableID int64) (Record, error)
+	// LegacyGenToProject renders old GoAdmin code-generation files into the
+	// configured plugin-owned generation root and returns generated paths.
+	LegacyGenToProject(ctx context.Context, tableID int64) (Record, error)
+	// LegacyGenAPIToFile renders the old migration API file into the configured
+	// plugin-owned generation root and returns the generated path.
+	LegacyGenAPIToFile(ctx context.Context, tableID int64) (Record, error)
+	// LegacyGenToDB creates old menu/API permission nodes for one generated
+	// table in plugin-prefixed sys_menu compatibility storage.
+	LegacyGenToDB(ctx context.Context, tableID int64) (Record, error)
 	// LegacyDictTypeOptions returns old dictionary type option rows.
 	LegacyDictTypeOptions(ctx context.Context) ([]Record, error)
 	// LegacyDictDataOptions returns old dictionary data label/value options for

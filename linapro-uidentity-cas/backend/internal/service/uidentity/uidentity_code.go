@@ -79,4 +79,8 @@ var (
 	CodeLegacyUploadFailed = bizerr.MustDefine("UIDENTITY_LEGACY_UPLOAD_FAILED", "Legacy upload storage failed", gcode.CodeInternalError)
 	// CodeLegacyLogInvalid reports an invalid bounded log snapshot request.
 	CodeLegacyLogInvalid = bizerr.MustDefine("UIDENTITY_LEGACY_LOG_INVALID", "Legacy log snapshot request is invalid", gcode.CodeInvalidParameter)
+	// CodeLegacyGenInvalid reports an invalid legacy code-generation request.
+	CodeLegacyGenInvalid = bizerr.MustDefine("UIDENTITY_LEGACY_GEN_INVALID", "Legacy code-generation request is invalid", gcode.CodeInvalidParameter)
+	// CodeLegacyGenFailed reports failure while rendering or writing legacy generated files.
+	CodeLegacyGenFailed = bizerr.MustDefine("UIDENTITY_LEGACY_GEN_FAILED", "Legacy code generation failed", gcode.CodeInternalError)
 )

@@ -6,10 +6,14 @@ package uidentity
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/gogf/gf/v2/util/gconv"
 	"golang.org/x/crypto/bcrypt"
 
 	_ "lina-core/pkg/dbdriver"
@@ -382,6 +386,74 @@ func TestLegacySysTablesTreeReadsTablesAndColumns(t *testing.T) {
 	}
 }
 
+func TestLegacyGenRoutesRenderFilesAndMenus(t *testing.T) {
+	ctx := context.Background()
+	configureUIdentityTestDB(t, ctx, dao.SysTables.Table(), dao.SysColumns.Table(), dao.SysMenu.Table())
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	cleanupLegacySystemRows(t, ctx, suffix)
+	t.Cleanup(func() { cleanupLegacySystemRows(t, ctx, suffix) })
+
+	tableID := insertLegacyGenTable(t, ctx, suffix)
+	genRoot := t.TempDir()
+	frontRoot := t.TempDir()
+	service := &serviceImpl{
+		configSvc: newLegacyConfigTestService(t, fmt.Sprintf(`
+legacy:
+  gen:
+    outputRoot: %q
+    frontOutputRoot: %q
+`, genRoot, frontRoot)),
+		tenantFilter: testTenantFilter{},
+	}
+
+	preview, err := service.LegacyGenPreview(ctx, tableID)
+	if err != nil {
+		t.Fatalf("LegacyGenPreview: %v", err)
+	}
+	if got := gconv.String(preview["template/model.go.template"]); !strings.Contains(got, "type LegacyGen"+suffix+" struct") || !strings.Contains(got, `return "legacy_gen_`+suffix+`"`) {
+		t.Fatalf("unexpected model preview: %s", got)
+	}
+	if got := gconv.String(preview["template/api.go.template"]); !strings.Contains(got, "GetPage") || !strings.Contains(got, "LegacyGen"+suffix) {
+		t.Fatalf("unexpected api preview: %s", got)
+	}
+
+	generated, err := service.LegacyGenToProject(ctx, tableID)
+	if err != nil {
+		t.Fatalf("LegacyGenToProject: %v", err)
+	}
+	paths := generated["paths"].([]string)
+	if len(paths) != 7 {
+		t.Fatalf("generated paths = %#v", paths)
+	}
+	assertLegacyGenFileContains(t, filepath.Join(genRoot, "app", "legacy", "models", "legacy_gen_"+suffix+".go"), "LegacyGen"+suffix)
+	assertLegacyGenFileContains(t, filepath.Join(frontRoot, "api", "legacy", "legacy-gen-"+suffix+".js"), "/api/v1/legacy_gen_"+suffix)
+
+	apiFile, err := service.LegacyGenAPIToFile(ctx, tableID)
+	if err != nil {
+		t.Fatalf("LegacyGenAPIToFile: %v", err)
+	}
+	if path := gconv.String(apiFile["path"]); !strings.HasPrefix(path, filepath.Join(genRoot, "cmd", "migrate", "migration", "version-local")) {
+		t.Fatalf("unexpected api migrate path: %s", path)
+	} else {
+		assertLegacyGenFileContains(t, path, "migration.Migrate.SetVersion")
+	}
+
+	menuOut, err := service.LegacyGenToDB(ctx, tableID)
+	if err != nil {
+		t.Fatalf("LegacyGenToDB: %v", err)
+	}
+	if gconv.Int(menuOut["count"]) != 12 {
+		t.Fatalf("unexpected generated menu count: %#v", menuOut)
+	}
+	count, err := dao.SysMenu.Ctx(ctx).WhereLike(dao.SysMenu.Columns().Title, "%Legacy Generated "+suffix+"%").Count()
+	if err != nil {
+		t.Fatalf("count generated menus: %v", err)
+	}
+	if count != 12 {
+		t.Fatalf("generated menu row count = %d, want 12", count)
+	}
+}
+
 func insertLegacySystemDept(t *testing.T, ctx context.Context, parentID int64, name string, sort int) int64 {
 	t.Helper()
 	id, err := dao.SysDept.Ctx(ctx).Data(do.SysDept{
@@ -394,6 +466,80 @@ func insertLegacySystemDept(t *testing.T, ctx context.Context, parentID int64, n
 		t.Fatalf("insert dept %s: %v", name, err)
 	}
 	return id
+}
+
+func insertLegacyGenTable(t *testing.T, ctx context.Context, suffix string) int64 {
+	t.Helper()
+	tableID, err := dao.SysTables.Ctx(ctx).Data(do.SysTables{
+		TableName:       "legacy_gen_" + suffix,
+		TableComment:    "Legacy Generated " + suffix,
+		ClassName:       "LegacyGen" + suffix,
+		PackageName:     "legacy",
+		ModuleName:      "legacy_gen_" + suffix,
+		ModuleFrontName: "legacy-gen-" + suffix,
+		BusinessName:    "legacyGen" + suffix,
+		FunctionName:    "Legacy Generated " + suffix,
+		FunctionAuthor:  "codex",
+		PkColumn:        "id",
+		PkGoField:       "Id",
+		PkJsonField:     "id",
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert gen table: %v", err)
+	}
+	columns := []do.SysColumns{
+		{
+			TableId:       tableID,
+			ColumnName:    "id",
+			ColumnComment: "ID",
+			ColumnType:    "bigint",
+			GoType:        "int",
+			GoField:       "Id",
+			JsonField:     "id",
+			IsPk:          "1",
+			IsIncrement:   "1",
+			Pk:            true,
+			Increment:     true,
+			Sort:          1,
+		},
+		{
+			TableId:       tableID,
+			ColumnName:    "name",
+			ColumnComment: "名称",
+			ColumnType:    "varchar(128)",
+			GoType:        "string",
+			GoField:       "Name",
+			JsonField:     "name",
+			IsInsert:      "1",
+			IsEdit:        "1",
+			IsList:        "1",
+			IsQuery:       "1",
+			QueryType:     "LIKE",
+			HtmlType:      "input",
+			Insert:        true,
+			Edit:          true,
+			Query:         true,
+			List:          "1",
+			Sort:          2,
+		},
+	}
+	for _, column := range columns {
+		if _, err := dao.SysColumns.Ctx(ctx).Data(column).Insert(); err != nil {
+			t.Fatalf("insert gen column: %v", err)
+		}
+	}
+	return tableID
+}
+
+func assertLegacyGenFileContains(t *testing.T, path string, want string) {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read generated file %s: %v", path, err)
+	}
+	if !strings.Contains(string(content), want) {
+		t.Fatalf("generated file %s does not contain %q: %s", path, want, string(content))
+	}
 }
 
 func insertLegacySystemMenu(t *testing.T, ctx context.Context, parentID int64, title string, permission string, sort int) int64 {
