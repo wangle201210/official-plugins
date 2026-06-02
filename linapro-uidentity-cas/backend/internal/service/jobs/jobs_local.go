@@ -177,11 +177,10 @@ func legacyContainerByName(ctx context.Context, tenantID int, name string) (*ent
 
 func graduatingAccountPage(ctx context.Context, tenantID int, graduationYear int, page int, pageSize int) ([]*entity.Account, error) {
 	detailCols := dao.AccountDetails.Columns()
-	yearText := fmt.Sprintf("%d", graduationYear)
 	var details []*entity.AccountDetails
 	err := dao.AccountDetails.Ctx(ctx).
 		Fields(detailCols.AccountId).
-		Where(detailCols.Yjbysj, yearText).
+		Where(detailCols.Yjbysj, graduationYear).
 		OrderAsc(detailCols.AccountId).
 		Offset(page * pageSize).
 		Limit(pageSize).

@@ -18,8 +18,8 @@ type PassRuler struct {
 	Symbol         int64      `json:"symbol"         orm:"symbol"          description:""`
 	Length         int64      `json:"length"         orm:"length"          description:""`
 	Interval       int64      `json:"interval"       orm:"interval"        description:""`
-	IntervalStatus int        `json:"intervalStatus" orm:"interval_status" description:""`
-	Status         int        `json:"status"         orm:"status"          description:""`
+	IntervalStatus int64      `json:"intervalStatus" orm:"interval_status" description:""`
+	Status         int64      `json:"status"         orm:"status"          description:""`
 	CreatedAt      *time.Time `json:"createdAt"      orm:"created_at"      description:""`
 	UpdatedAt      *time.Time `json:"updatedAt"      orm:"updated_at"      description:""`
 	DeletedAt      *time.Time `json:"deletedAt"      orm:"deleted_at"      description:""`

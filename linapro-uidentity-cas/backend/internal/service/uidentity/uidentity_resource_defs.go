@@ -43,8 +43,7 @@ func (s *serviceImpl) accountGroupResource() *resourceDefinition {
 func (s *serviceImpl) accountUnitResource() *resourceDefinition {
 	cols := dao.AccountUnit.Columns()
 	return relationResource("account-units", dao.AccountUnit.Table(), cols.Id, map[string]string{
-		"id": cols.Id, "accountId": cols.AccountId, "unitId": cols.UnitsId, "unitsId": cols.UnitsId,
-		"createBy": cols.CreateBy, "createdAt": cols.CreatedAt, "updatedAt": cols.UpdatedAt,
+		"id": cols.Id, "accountId": cols.AccountId, "unitId": cols.UnitId, "unitsId": cols.UnitId,
 	}, func(ctx context.Context) *gdb.Model { return dao.AccountUnit.Ctx(ctx) }, s.accountUnitData)
 }
 
@@ -245,12 +244,16 @@ func (s *serviceImpl) accountDetailData(ctx context.Context, body map[string]any
 	}
 	copyStringFields(body, map[string]*any{
 		"email": &data.Email, "qq": &data.Qq, "wechat": &data.Wechat,
-		"idcard": &data.Idcard, "avatar": &data.Avatar, "source": &data.Source, "grade": &data.Nj,
+		"idcard": &data.Idcard, "avatar": &data.Avatar, "source": &data.Source,
 		"college": &data.Xymc, "collegeCode": &data.Xydm, "campus": &data.Xq,
-		"schoolSystem": &data.Xz, "graduatedAt": &data.Yjbysj, "major": &data.Zymc,
-		"nj": &data.Nj, "xymc": &data.Xymc, "xydm": &data.Xydm, "xq": &data.Xq,
-		"xz": &data.Xz, "yjbysj": &data.Yjbysj, "zymc": &data.Zymc, "bjmc": &data.Bjmc,
-		"className": &data.Bjmc, "face": &data.Face,
+		"major": &data.Zymc,
+		"xymc":  &data.Xymc, "xydm": &data.Xydm, "xq": &data.Xq,
+		"zymc": &data.Zymc, "bjmc": &data.Bjmc,
+		"className": &data.Bjmc,
+	})
+	copyInt64Fields(body, map[string]*any{
+		"grade": &data.Nj, "nj": &data.Nj, "schoolSystem": &data.Xz, "xz": &data.Xz,
+		"graduatedAt": &data.Yjbysj, "yjbysj": &data.Yjbysj, "face": &data.Face,
 	})
 	if value := timeField(body, "birthday"); value != nil {
 		data.Birthday = value
@@ -280,7 +283,8 @@ func (s *serviceImpl) unitData(ctx context.Context, body map[string]any, create 
 	if create {
 		data.CreateBy = actorID
 	}
-	copyStringFields(body, map[string]*any{"name": &data.Name, "alias": &data.Alias, "code": &data.Code})
+	copyStringFields(body, map[string]*any{"name": &data.Name, "alias": &data.Alias})
+	copyInt64Fields(body, map[string]*any{"code": &data.Code})
 	return data, nil
 }
 

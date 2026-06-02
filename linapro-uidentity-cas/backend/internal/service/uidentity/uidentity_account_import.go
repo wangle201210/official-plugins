@@ -245,15 +245,15 @@ func importedAccountDetailDO(ctx context.Context, s *serviceImpl, accountID int6
 	copyImportString(row, "wechat", &data.Wechat)
 	copyImportString(row, "idcard", &data.Idcard)
 	copyImportString(row, "avatar", &data.Avatar)
-	copyImportString(row, "grade", &data.Nj)
+	copyImportInt64(row, "grade", &data.Nj)
 	copyImportString(row, "college", &data.Xymc)
 	copyImportString(row, "college_code", &data.Xydm)
 	copyImportString(row, "campus", &data.Xq)
-	copyImportString(row, "school_system", &data.Xz)
-	copyImportString(row, "graduated_at", &data.Yjbysj)
+	copyImportInt64(row, "school_system", &data.Xz)
+	copyImportInt64(row, "graduated_at", &data.Yjbysj)
 	copyImportString(row, "major", &data.Zymc)
 	copyImportString(row, "class_name", &data.Bjmc)
-	copyImportString(row, "face", &data.Face)
+	copyImportInt64(row, "face", &data.Face)
 	if value := strings.TrimSpace(row["gender"]); value != "" {
 		data.Gender = importInt(value)
 	}
@@ -263,6 +263,12 @@ func importedAccountDetailDO(ctx context.Context, s *serviceImpl, accountID int6
 func copyImportString(row map[string]string, key string, target *any) {
 	if value := strings.TrimSpace(row[key]); value != "" {
 		*target = value
+	}
+}
+
+func copyImportInt64(row map[string]string, key string, target *any) {
+	if value := strings.TrimSpace(row[key]); value != "" {
+		*target = int64(importInt(value))
 	}
 }
 

@@ -30,12 +30,8 @@ func (s *serviceImpl) accountGroupData(ctx context.Context, body map[string]any,
 }
 
 func (s *serviceImpl) accountUnitData(ctx context.Context, body map[string]any, create bool) (any, error) {
-	actorID := s.actorID(ctx)
 	data := do.AccountUnit{}
-	if create {
-		data.CreateBy = actorID
-	}
-	copyInt64Fields(body, map[string]*any{"accountId": &data.AccountId, "unitId": &data.UnitsId, "unitsId": &data.UnitsId})
+	copyInt64Fields(body, map[string]*any{"accountId": &data.AccountId, "unitId": &data.UnitId, "unitsId": &data.UnitId})
 	return data, nil
 }
 

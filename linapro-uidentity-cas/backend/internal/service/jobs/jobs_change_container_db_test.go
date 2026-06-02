@@ -132,7 +132,7 @@ func insertJobsTestDetail(t *testing.T, ctx context.Context, tenantID int, accou
 	t.Helper()
 	if _, err := dao.AccountDetails.Ctx(ctx).Data(do.AccountDetails{
 		AccountId: accountID,
-		Yjbysj:    fmt.Sprintf("%d", graduationYear),
+		Yjbysj:    int64(graduationYear),
 	}).Insert(); err != nil {
 		t.Fatalf("insert account detail %d: %v", accountID, err)
 	}

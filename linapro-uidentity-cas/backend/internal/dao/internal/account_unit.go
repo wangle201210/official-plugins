@@ -23,24 +23,14 @@ type AccountUnitDao struct {
 type AccountUnitColumns struct {
 	Id        string //
 	AccountId string //
-	UnitsId   string //
-	CreatedAt string //
-	UpdatedAt string //
-	DeletedAt string //
-	CreateBy  string //
-	UpdateBy  string //
+	UnitId    string //
 }
 
 // accountUnitColumns holds the columns for the table plugin_linapro_uidentity_cas_account_unit.
 var accountUnitColumns = AccountUnitColumns{
 	Id:        "id",
 	AccountId: "account_id",
-	UnitsId:   "units_id",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
-	CreateBy:  "create_by",
-	UpdateBy:  "update_by",
+	UnitId:    "unit_id",
 }
 
 // NewAccountUnitDao creates and returns a new DAO object for table data access.

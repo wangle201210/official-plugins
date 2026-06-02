@@ -134,7 +134,7 @@ func (s *serviceImpl) CreatePasswordChallenge(ctx context.Context, number string
 	if err != nil {
 		return nil, err
 	}
-	return &PasswordChallengeOutput{ChallengeID: challengeID, Status: account.Status}, nil
+	return &PasswordChallengeOutput{ChallengeID: challengeID, Status: int(account.Status)}, nil
 }
 
 // VerifyPasswordChallengePhone verifies phone and SMS code for a challenge.

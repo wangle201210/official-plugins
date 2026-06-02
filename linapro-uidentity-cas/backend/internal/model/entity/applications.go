@@ -16,7 +16,7 @@ type Applications struct {
 	ClientId    string     `json:"clientId"    orm:"client_id"    description:""`
 	SecretKey   string     `json:"secretKey"   orm:"secret_key"   description:""`
 	AccessModel string     `json:"accessModel" orm:"access_model" description:""`
-	Status      int        `json:"status"      orm:"status"       description:""`
+	Status      int64      `json:"status"      orm:"status"       description:""`
 	CallbackUrl string     `json:"callbackUrl" orm:"callback_url" description:""`
 	Whitelist   string     `json:"whitelist"   orm:"whitelist"    description:""`
 	CreatedAt   *time.Time `json:"createdAt"   orm:"created_at"   description:""`

@@ -17,7 +17,7 @@ type AccountChangeLog struct {
 	DataOld   string     `json:"dataOld"   orm:"data_old"   description:""`
 	DataNew   string     `json:"dataNew"   orm:"data_new"   description:""`
 	ErrMsg    string     `json:"errMsg"    orm:"err_msg"    description:""`
-	ErrNumber int        `json:"errNumber" orm:"err_number" description:""`
+	ErrNumber string     `json:"errNumber" orm:"err_number" description:""`
 	CreatedAt *time.Time `json:"createdAt" orm:"created_at" description:""`
 	UpdatedAt *time.Time `json:"updatedAt" orm:"updated_at" description:""`
 	DeletedAt *time.Time `json:"deletedAt" orm:"deleted_at" description:""`

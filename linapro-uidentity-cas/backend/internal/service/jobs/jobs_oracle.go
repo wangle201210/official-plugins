@@ -301,9 +301,9 @@ func (s *serviceImpl) studentInput(row *oracleStudentInfo) *accountSyncInput {
 			birthday:     row.CSRQ,
 			avatar:       row.ZP,
 			gender:       genderValue(row.XB),
-			grade:        intString(row.NJ),
-			schoolSystem: intString(row.XZ),
-			graduatedAt:  intString(row.YJBYSJ),
+			grade:        int64(row.NJ),
+			schoolSystem: int64(row.XZ),
+			graduatedAt:  int64(row.YJBYSJ),
 			collegeCode:  row.XYDM,
 			college:      row.XYMC,
 			campus:       row.XQ,
@@ -331,7 +331,7 @@ func studentYJSInput(row *oracleStudentYJS) *accountSyncInput {
 			idcard:      row.Zjhm,
 			birthday:    birthdayFromIDCard(row.Zjhm),
 			gender:      genderValue(row.XbMc),
-			grade:       intString(row.Nj),
+			grade:       int64(row.Nj),
 			collegeCode: row.XsYxDm,
 			college:     row.XsYxMc,
 			major:       row.XsZyMc,
@@ -477,13 +477,6 @@ func unitsByCodes(ctx context.Context, tenantID int, codes []string) (map[string
 		}
 	}
 	return result, nil
-}
-
-func intString(value int) string {
-	if value <= 0 {
-		return ""
-	}
-	return strconv.Itoa(value)
 }
 
 func dateFromTime(value time.Time) string {

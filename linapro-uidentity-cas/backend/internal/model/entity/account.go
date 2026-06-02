@@ -17,10 +17,10 @@ type Account struct {
 	EffectAt    *time.Time `json:"effectAt"    orm:"effect_at"    description:""`
 	ExpireAt    *time.Time `json:"expireAt"    orm:"expire_at"    description:""`
 	GroupId     int64      `json:"groupId"     orm:"group_id"     description:""`
-	PassLevel   int        `json:"passLevel"   orm:"pass_level"   description:""`
+	PassLevel   int64      `json:"passLevel"   orm:"pass_level"   description:""`
 	ContainerId int64      `json:"containerId" orm:"container_id" description:""`
 	UnitId      int64      `json:"unitId"      orm:"unit_id"      description:""`
-	Status      int        `json:"status"      orm:"status"       description:""`
+	Status      int64      `json:"status"      orm:"status"       description:""`
 	CreatedAt   *time.Time `json:"createdAt"   orm:"created_at"   description:""`
 	UpdatedAt   *time.Time `json:"updatedAt"   orm:"updated_at"   description:""`
 	DeletedAt   *time.Time `json:"deletedAt"   orm:"deleted_at"   description:""`

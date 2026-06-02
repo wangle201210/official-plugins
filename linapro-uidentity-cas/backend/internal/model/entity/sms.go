@@ -14,7 +14,7 @@ type Sms struct {
 	Phone     string     `json:"phone"     orm:"phone"      description:""`
 	Type      string     `json:"type"      orm:"type"       description:""`
 	Content   string     `json:"content"   orm:"content"    description:""`
-	Status    int        `json:"status"    orm:"status"     description:""`
+	Status    int64      `json:"status"    orm:"status"     description:""`
 	RespMsg   string     `json:"respMsg"   orm:"resp_msg"   description:""`
 	CreatedAt *time.Time `json:"createdAt" orm:"created_at" description:""`
 	UpdatedAt *time.Time `json:"updatedAt" orm:"updated_at" description:""`

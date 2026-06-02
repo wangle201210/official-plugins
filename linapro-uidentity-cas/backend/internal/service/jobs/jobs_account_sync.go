@@ -41,12 +41,12 @@ type accountDetailSyncInput struct {
 	wechat       string
 	avatar       string
 	source       string
-	grade        string
+	grade        int64
 	college      string
 	collegeCode  string
 	campus       string
-	schoolSystem string
-	graduatedAt  string
+	schoolSystem int64
+	graduatedAt  int64
 	major        string
 	className    string
 	face         string
@@ -199,7 +199,7 @@ func (s *serviceImpl) updateOracleAccount(ctx context.Context, syncCtx *syncCont
 		accountData.UnitId = nextUnitID
 		accountChanged = true
 	}
-	if nextStatus := statusValue(input.statusRaw, false, syncCtx.newUserCutoff); nextStatus == 2 && nextStatus != account.Status {
+	if nextStatus := int64(statusValue(input.statusRaw, false, syncCtx.newUserCutoff)); nextStatus == 2 && nextStatus != account.Status {
 		accountData.Status = nextStatus
 		accountChanged = true
 	}
@@ -418,6 +418,12 @@ func changedDetailDO(detail *entity.AccountDetails, input accountDetailSyncInput
 			changed = true
 		}
 	}
+	setInt64 := func(next int64, current int64, target *any) {
+		if next > 0 && next != current {
+			*target = next
+			changed = true
+		}
+	}
 	setString(input.idcard, detail.Idcard, &data.Idcard)
 	if input.birthday != "" && legacyBirthdayText(detail.Birthday) != input.birthday {
 		data.Birthday = legacyBirthdayTime(input.birthday)
@@ -427,19 +433,19 @@ func changedDetailDO(detail *entity.AccountDetails, input accountDetailSyncInput
 	setString(input.qq, detail.Qq, &data.Qq)
 	setString(input.wechat, detail.Wechat, &data.Wechat)
 	setString(input.avatar, detail.Avatar, &data.Avatar)
-	setString(input.grade, detail.Nj, &data.Nj)
+	setInt64(input.grade, detail.Nj, &data.Nj)
 	setString(input.college, detail.Xymc, &data.Xymc)
 	setString(input.collegeCode, detail.Xydm, &data.Xydm)
 	setString(input.campus, detail.Xq, &data.Xq)
-	setString(input.schoolSystem, detail.Xz, &data.Xz)
-	setString(input.graduatedAt, detail.Yjbysj, &data.Yjbysj)
+	setInt64(input.schoolSystem, detail.Xz, &data.Xz)
+	setInt64(input.graduatedAt, detail.Yjbysj, &data.Yjbysj)
 	setString(input.major, detail.Zymc, &data.Zymc)
 	setString(input.className, detail.Bjmc, &data.Bjmc)
 	if nextFace := legacyFaceValue(input.face); nextFace > 0 && nextFace != detail.Face {
 		data.Face = nextFace
 		changed = true
 	}
-	if input.gender > 0 && input.gender != detail.Gender {
+	if input.gender > 0 && int64(input.gender) != detail.Gender {
 		data.Gender = input.gender
 		changed = true
 	}
@@ -511,12 +517,9 @@ func sanitizeAccountInputs(inputs []*accountSyncInput) {
 		input.detail.wechat = normalizeText(input.detail.wechat)
 		input.detail.avatar = strings.TrimSpace(input.detail.avatar)
 		input.detail.source = normalizeText(input.detail.source)
-		input.detail.grade = normalizeText(input.detail.grade)
 		input.detail.college = normalizeText(input.detail.college)
 		input.detail.collegeCode = normalizeText(input.detail.collegeCode)
 		input.detail.campus = normalizeText(input.detail.campus)
-		input.detail.schoolSystem = normalizeText(input.detail.schoolSystem)
-		input.detail.graduatedAt = normalizeText(input.detail.graduatedAt)
 		input.detail.major = normalizeText(input.detail.major)
 		input.detail.className = normalizeText(input.detail.className)
 		input.detail.face = strings.TrimSpace(input.detail.face)

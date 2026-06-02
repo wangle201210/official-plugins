@@ -66,7 +66,7 @@ func (s *serviceImpl) StartActivation(ctx context.Context, in ActivationStartInp
 	return &ActivationOutput{
 		ChallengeID: challengeID,
 		NeedFace:    detail.Face == 0,
-		Status:      account.Status,
+		Status:      int(account.Status),
 	}, nil
 }
 
@@ -76,7 +76,7 @@ func (s *serviceImpl) RecordActivationFace(ctx context.Context, in ActivationFac
 	if err != nil {
 		return nil, err
 	}
-	if err := s.updateAccountDetailWithAudit(ctx, payload.AccountID, do.AccountDetails{Face: strings.TrimSpace(in.FaceURL), UpdateBy: s.actorID(ctx)}); err != nil {
+	if err := s.updateAccountDetailWithAudit(ctx, payload.AccountID, do.AccountDetails{Face: int64(1), UpdateBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
 	payload.Stage = "face"
@@ -259,7 +259,7 @@ func (s *serviceImpl) ActivationState(ctx context.Context, challengeID string) (
 	return &ActivationStateOutput{
 		ChallengeID:  challengeID,
 		Success:      account.Status == AccountStatusNormal,
-		Status:       account.Status,
+		Status:       int(account.Status),
 		Stage:        payload.Stage,
 		WechatStatus: payload.WechatStatus,
 		RedirectURL:  payload.RedirectURL,
