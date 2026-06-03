@@ -49,9 +49,16 @@ license: Apache-2.0
 # Plugin menu declaration list; the host syncs menus, button permissions, and route entries from it.
 # 插件菜单声明列表，宿主按该列表同步菜单、按钮权限和路由入口。
 menus:
+  # 顶级独立目录:寻牛活动。省略 parent_key 表示挂在侧边栏根级(与系统管理/扩展中心同级)。
+  - key: plugin:sicau-niu:root
+    name: 寻牛活动
+    icon: ant-design:trophy-outlined
+    type: D
+    sort: 20
+    remark: 寻牛活动管理端独立菜单
   # 院系字典管理页面。
   - key: plugin:sicau-niu:college
-    parent_key: extension
+    parent_key: plugin:sicau-niu:root
     name: 院系字典
     path: sicau-niu-college
     component: system/plugin/dynamic-page
@@ -83,7 +90,7 @@ menus:
     remark: 院系字典删除权限
   # 玩家信息查询页面。
   - key: plugin:sicau-niu:player
-    parent_key: extension
+    parent_key: plugin:sicau-niu:root
     name: 寻牛玩家
     path: sicau-niu-player
     component: system/plugin/dynamic-page
