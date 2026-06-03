@@ -1,11 +1,11 @@
 # Manifest 资源
 
-本目录用于存放`sicau-niu`源码插件自有的生命周期资源（`SQL`、Mock 数据、`i18n`）。
+`sicau-niu`插件自有的生命周期资源。
 
-`sicau-niu`示例刻意不包含任何生命周期资源：
+## 内容
 
-- 无`sql/`安装资源——该插件不维护任何数据库表。
-- 无`sql/mock-data/`或`sql/uninstall/`资源。
-- 无`i18n/`资源——该插件为单语言插件。
+- `config/config.example.yaml` —— 插件配置示例：微信网关（`wechat.appId/secret/mock/mockOpenid`）与玩家 token（`token.secret/ttl`）。
+- `sql/001-sicau-niu-identity.sql` —— 安装 DDL，创建玩家表（`plugin_sicau_niu_user`）与院系字典表（`plugin_sicau_niu_college`）。幂等（PostgreSQL）。
+- `sql/uninstall/001-sicau-niu-identity.sql` —— 卸载并清除存储数据时删除玩家表与院系表。
 
-菜单声明保留在`plugin.yaml`中；本目录为后续插件自有数据生命周期变更预留。
+无`i18n/`资源：插件为单语言。Mock 数据 SQL 在后续迭代按需添加。

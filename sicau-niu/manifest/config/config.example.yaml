@@ -1,0 +1,38 @@
+# Runtime configuration template for the sicau-niu (寻牛活动) source plugin.
+# 寻牛活动源码插件运行时配置模板。
+#
+# The host reads these values through the plugin-scoped ConfigService at route
+# assembly time. Copy this file to the plugin development config location and
+# fill in the real WeChat credentials and a strong token secret before going
+# live. C1 ships a mockable WeChat gateway so the full login flow runs without
+# real credentials when `wechat.mock` is true.
+# 宿主在路由装配阶段通过插件作用域 ConfigService 读取这些配置。上线前需复制本文件到插件开发配置位置，
+# 填入真实微信凭证与强随机 token 密钥。C1 提供可 Mock 的微信网关，`wechat.mock` 为 true 时无需真实凭证即可跑通全流程。
+
+# WeChat mini-program gateway settings.
+# 微信小程序网关配置。
+wechat:
+  # WeChat mini-program AppID used by the real jscode2session call.
+  # 微信小程序 AppID，真实 jscode2session 调用使用。
+  appId: ""
+  # WeChat mini-program AppSecret used by the real jscode2session call.
+  # 微信小程序 AppSecret，真实 jscode2session 调用使用。
+  secret: ""
+  # When true, the gateway uses the mock implementation instead of calling WeChat.
+  # 为 true 时网关使用 mock 实现，不调用真实微信接口。
+  mock: true
+  # Fixed openid returned by the mock gateway when set; when blank the mock
+  # derives a stable openid from the submitted login code.
+  # mock 网关固定返回的 openid；为空时 mock 从登录 code 派生稳定 openid。
+  mockOpenid: ""
+
+# Player session token settings (plugin self-signed token).
+# 玩家会话 token 配置（插件自签 token）。
+token:
+  # HMAC signing secret for the player session token. Must be a strong random
+  # value in production; the plugin refuses to assemble routes when blank.
+  # 玩家会话 token 的 HMAC 签名密钥。生产环境必须为强随机值；为空时插件拒绝装配路由。
+  secret: ""
+  # Player session token time-to-live as a unit-suffixed duration, e.g. 168h.
+  # 玩家会话 token 有效期，使用带单位的时间字符串，例如 168h。
+  ttl: 168h

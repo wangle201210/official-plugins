@@ -1,13 +1,16 @@
 # Manifest Resources
 
-This directory holds plugin-owned lifecycle assets (`SQL`, mock data, `i18n`) for
-the `sicau-niu` source plugin.
+Plugin-owned lifecycle assets for the `sicau-niu` plugin.
 
-The `sicau-niu` sample intentionally owns no lifecycle assets:
+## Contents
 
-- No `sql/` install assets — the plugin keeps no database table.
-- No `sql/mock-data/` or `sql/uninstall/` assets.
-- No `i18n/` resources — the plugin is single-language.
+- `config/config.example.yaml` — example plugin configuration: WeChat gateway
+  (`wechat.appId/secret/mock/mockOpenid`) and player token (`token.secret/ttl`).
+- `sql/001-sicau-niu-identity.sql` — install DDL for the player table
+  (`plugin_sicau_niu_user`) and the college dictionary table
+  (`plugin_sicau_niu_college`). Idempotent (PostgreSQL).
+- `sql/uninstall/001-sicau-niu-identity.sql` — drops the player and college
+  tables when the operator purges storage data on uninstall.
 
-Menus stay in `plugin.yaml`; this directory is reserved for future plugin-owned
-data lifecycle changes.
+No `i18n/` resources: the plugin is single-language. Mock-data SQL is added in
+later iterations if needed.
