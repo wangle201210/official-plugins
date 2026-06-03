@@ -215,3 +215,32 @@ menus:
     perms: sicau-niu:quote:delete
     type: B
     sort: 3
+  # 荣誉配置页面(C5)。
+  - key: plugin:sicau-niu:honor
+    parent_key: plugin:sicau-niu:root
+    name: 荣誉配置
+    path: sicau-niu-honor
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:honor:list
+    icon: ant-design:trophy-outlined
+    type: M
+    sort: 7
+    remark: 寻牛活动荣誉定义维护
+  - key: plugin:sicau-niu:honor-create
+    parent_key: plugin:sicau-niu:honor
+    name: 荣誉新增
+    perms: sicau-niu:honor:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:honor-update
+    parent_key: plugin:sicau-niu:honor
+    name: 荣誉修改
+    perms: sicau-niu:honor:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:honor-delete
+    parent_key: plugin:sicau-niu:honor
+    name: 荣誉删除
+    perms: sicau-niu:honor:delete
+    type: B
+    sort: 3

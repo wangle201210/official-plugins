@@ -1,13 +1,15 @@
 // Package backend wires the sicau-niu source plugin into the host plugin
 // registry. It registers the embedded plugin assets and binds three HTTP route
 // surfaces under the plugin API prefix: a public WeChat player login route, a
-// player-token-protected surface (phone binding, profile, college dropdown)
+// player-token-protected surface (phone binding, profile, college dropdown, the
+// C3/C4 gameplay endpoints, and the C5 leaderboards and player honor list)
 // guarded by the plugin-owned player-auth middleware, and an operator surface
-// (college dictionary CRUD, player query, and the C2 content-asset CRUD for
-// cattle, iron-cows, cards and quotes) guarded by the host Auth+Tenancy+Permission
-// chain. The plugin owns its WeChat-gateway, player-token, identity, college,
-// cattle and card services; the service graph is constructed once at
-// route-registration time from the plugin-scoped configuration.
+// (college dictionary CRUD, player query, the C2 content-asset CRUD for cattle,
+// iron-cows, cards and quotes, and the C5 honor-definition CRUD) guarded by the
+// host Auth+Tenancy+Permission chain. The plugin owns its WeChat-gateway,
+// player-token, identity, college, cattle, card, ranking and honor services; the
+// service graph is constructed once at route-registration time from the
+// plugin-scoped configuration.
 package backend
 
 import (
@@ -29,7 +31,9 @@ import (
 	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
 	grasssocialsvc "lina-plugin-sicau-niu/backend/internal/service/grasssocial"
+	honorsvc "lina-plugin-sicau-niu/backend/internal/service/honor"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
+	rankingsvc "lina-plugin-sicau-niu/backend/internal/service/ranking"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 	wechatsvc "lina-plugin-sicau-niu/backend/internal/service/wechat"
 )
@@ -95,6 +99,10 @@ const (
 	// defaultIronBonusThresholdMeters is the fallback iron-bonus distance threshold
 	// in meters when config is absent.
 	defaultIronBonusThresholdMeters = 12
+	// configKeyRankingTopN is the plugin config key for the leaderboard Top-N cap.
+	configKeyRankingTopN = "ranking.topN"
+	// defaultRankingTopN is the fallback leaderboard Top-N cap when config is absent.
+	defaultRankingTopN = 100
 )
 
 // init registers the embedded sicau-niu source plugin and its route callbacks.
@@ -140,6 +148,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 
+	rankingConfig, err := buildRankingConfig(ctx, services.Config())
+	if err != nil {
+		return err
+	}
+
 	collegeService := collegesvc.New()
 	identityService := identitysvc.New(gateway, tokenService, collegeService)
 	cattleService := cattlesvc.New(collegeService)
@@ -152,6 +165,8 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	grassService := grasssvc.New(grassConfig)
 	feedingService := feedingsvc.New(grassService, feedingsvc.NewMockIronLocation(), feedingConfig)
 	grassSocialService := grasssocialsvc.New(grassService, grassSocialConfig)
+	rankingService := rankingsvc.New(rankingConfig)
+	honorService := honorsvc.New()
 	playerAuth := middleware.NewPlayerAuth(tokenService)
 	playerController := playerctrl.NewV1(
 		identityService,
@@ -160,8 +175,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		grassService,
 		feedingService,
 		grassSocialService,
+		rankingService,
+		honorService,
 	)
-	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService)
+	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService, honorService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
@@ -200,6 +217,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					playerController.Gift,
 					playerController.Messages,
 					playerController.MarkMessageRead,
+					playerController.FeedRanking,
+					playerController.CollegeRanking,
+					playerController.FriendRanking,
+					playerController.PlayerHonors,
 				)
 			})
 
@@ -235,6 +256,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					adminController.CreateQuote,
 					adminController.UpdateQuote,
 					adminController.DeleteQuote,
+					adminController.ListHonor,
+					adminController.GetHonor,
+					adminController.CreateHonor,
+					adminController.UpdateHonor,
+					adminController.DeleteHonor,
 				)
 			})
 		})
@@ -307,6 +333,21 @@ func buildActivationConfig(
 		LBSThresholdMeters: float64(thresholdMeters),
 		CampusBadge:        campusBadge,
 	}, nil
+}
+
+// buildRankingConfig reads the plain-value C5 leaderboard configuration (the
+// Top-N cap) from the plugin-scoped configuration. It returns an error when the
+// configuration cannot be read so the failure surfaces at startup rather than at
+// request time. A non-positive Top-N falls back to the service default.
+func buildRankingConfig(
+	ctx context.Context,
+	config contract.ConfigService,
+) (rankingsvc.Config, error) {
+	topN, err := config.Int(ctx, configKeyRankingTopN, defaultRankingTopN)
+	if err != nil {
+		return rankingsvc.Config{}, gerror.Wrap(err, "sicau-niu read ranking topN failed")
+	}
+	return rankingsvc.Config{TopN: topN}, nil
 }
 
 // buildGrassConfigs reads the plain-value C4 configuration for the grass, feeding

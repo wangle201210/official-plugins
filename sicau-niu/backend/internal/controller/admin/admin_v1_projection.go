@@ -8,6 +8,7 @@ import (
 	"lina-plugin-sicau-niu/backend/api/admin/v1"
 	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
+	honorsvc "lina-plugin-sicau-niu/backend/internal/service/honor"
 )
 
 // toNiuItem projects one service cattle item to its response DTO.
@@ -47,5 +48,22 @@ func toCardItem(item *cardsvc.CardItem) *v1.CardItem {
 		ImagePath: item.ImagePath,
 		CreatedAt: item.CreatedAt,
 		UpdatedAt: item.UpdatedAt,
+	}
+}
+
+// toHonorItem projects one service honor item to its response DTO.
+func toHonorItem(item *honorsvc.HonorItem) *v1.HonorItem {
+	return &v1.HonorItem{
+		Id:         item.Id,
+		HonorType:  item.HonorType,
+		Code:       item.Code,
+		Name:       item.Name,
+		UnlockType: item.UnlockType,
+		Threshold:  item.Threshold,
+		Category:   item.Category,
+		ImagePath:  item.ImagePath,
+		Sort:       item.Sort,
+		CreatedAt:  item.CreatedAt,
+		UpdatedAt:  item.UpdatedAt,
 	}
 }

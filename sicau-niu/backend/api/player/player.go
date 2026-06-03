@@ -19,6 +19,7 @@ type IPlayerV1 interface {
 	FeedingTrail(ctx context.Context, req *v1.FeedingTrailReq) (res *v1.FeedingTrailRes, err error)
 	Gift(ctx context.Context, req *v1.GiftReq) (res *v1.GiftRes, err error)
 	GrassAccount(ctx context.Context, req *v1.GrassAccountReq) (res *v1.GrassAccountRes, err error)
+	PlayerHonors(ctx context.Context, req *v1.PlayerHonorsReq) (res *v1.PlayerHonorsRes, err error)
 	Login(ctx context.Context, req *v1.LoginReq) (res *v1.LoginRes, err error)
 	Messages(ctx context.Context, req *v1.MessagesReq) (res *v1.MessagesRes, err error)
 	MarkMessageRead(ctx context.Context, req *v1.MarkMessageReadReq) (res *v1.MarkMessageReadRes, err error)
@@ -27,6 +28,9 @@ type IPlayerV1 interface {
 	Poster(ctx context.Context, req *v1.PosterReq) (res *v1.PosterRes, err error)
 	GetProfile(ctx context.Context, req *v1.GetProfileReq) (res *v1.GetProfileRes, err error)
 	UpdateProfile(ctx context.Context, req *v1.UpdateProfileReq) (res *v1.UpdateProfileRes, err error)
+	FeedRanking(ctx context.Context, req *v1.FeedRankingReq) (res *v1.FeedRankingRes, err error)
+	CollegeRanking(ctx context.Context, req *v1.CollegeRankingReq) (res *v1.CollegeRankingRes, err error)
+	FriendRanking(ctx context.Context, req *v1.FriendRankingReq) (res *v1.FriendRankingRes, err error)
 	StealTargets(ctx context.Context, req *v1.StealTargetsReq) (res *v1.StealTargetsRes, err error)
 	Steal(ctx context.Context, req *v1.StealReq) (res *v1.StealRes, err error)
 }
