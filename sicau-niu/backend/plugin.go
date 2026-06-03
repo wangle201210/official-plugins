@@ -26,6 +26,9 @@ import (
 	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
+	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
+	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
+	grasssocialsvc "lina-plugin-sicau-niu/backend/internal/service/grasssocial"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 	wechatsvc "lina-plugin-sicau-niu/backend/internal/service/wechat"
@@ -58,6 +61,40 @@ const (
 	// configKeyPosterCampusBadge is the plugin config key for the poster campus
 	// anniversary badge text.
 	configKeyPosterCampusBadge = "poster.campusBadge"
+	// configKeyCheckinMinAmount and configKeyCheckinMaxAmount are the plugin config
+	// keys for the daily check-in grass grant range.
+	configKeyCheckinMinAmount = "checkin.minAmount"
+	configKeyCheckinMaxAmount = "checkin.maxAmount"
+	// defaultCheckinMinAmount and defaultCheckinMaxAmount are the fallback daily
+	// check-in grant bounds when config is absent.
+	defaultCheckinMinAmount = 20
+	defaultCheckinMaxAmount = 50
+	// configKeyStealDailyTargets, configKeyStealDailyLimit, configKeyStealMinAmount
+	// and configKeyStealMaxAmount are the plugin config keys for the steal feature.
+	configKeyStealDailyTargets = "steal.dailyTargets"
+	configKeyStealDailyLimit   = "steal.dailyLimit"
+	configKeyStealMinAmount    = "steal.minAmount"
+	configKeyStealMaxAmount    = "steal.maxAmount"
+	// defaultStealDailyTargets, defaultStealDailyLimit, defaultStealMinAmount and
+	// defaultStealMaxAmount are the fallback steal settings when config is absent.
+	defaultStealDailyTargets = 12
+	defaultStealDailyLimit   = 5
+	defaultStealMinAmount    = 5
+	defaultStealMaxAmount    = 20
+	// configKeyGiftDailyLimit and configKeyGiftMinAmount are the plugin config keys
+	// for the gift feature.
+	configKeyGiftDailyLimit = "gift.dailyLimit"
+	configKeyGiftMinAmount  = "gift.minAmount"
+	// defaultGiftDailyLimit and defaultGiftMinAmount are the fallback gift settings
+	// when config is absent.
+	defaultGiftDailyLimit = 12
+	defaultGiftMinAmount  = 12
+	// configKeyIronBonusThresholdMeters is the plugin config key for the feeding
+	// iron-cow proximity bonus distance threshold in meters.
+	configKeyIronBonusThresholdMeters = "ironBonus.thresholdMeters"
+	// defaultIronBonusThresholdMeters is the fallback iron-bonus distance threshold
+	// in meters when config is absent.
+	defaultIronBonusThresholdMeters = 12
 )
 
 // init registers the embedded sicau-niu source plugin and its route callbacks.
@@ -98,6 +135,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 
+	grassConfig, feedingConfig, grassSocialConfig, err := buildGrassConfigs(ctx, services.Config())
+	if err != nil {
+		return err
+	}
+
 	collegeService := collegesvc.New()
 	identityService := identitysvc.New(gateway, tokenService, collegeService)
 	cattleService := cattlesvc.New(collegeService)
@@ -107,8 +149,18 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		activationsvc.NewBasicPosterRenderer(),
 		activationConfig,
 	)
+	grassService := grasssvc.New(grassConfig)
+	feedingService := feedingsvc.New(grassService, feedingsvc.NewMockIronLocation(), feedingConfig)
+	grassSocialService := grasssocialsvc.New(grassService, grassSocialConfig)
 	playerAuth := middleware.NewPlayerAuth(tokenService)
-	playerController := playerctrl.NewV1(identityService, collegeService, activationService)
+	playerController := playerctrl.NewV1(
+		identityService,
+		collegeService,
+		activationService,
+		grassService,
+		feedingService,
+		grassSocialService,
+	)
 	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
@@ -139,6 +191,15 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					playerController.Activate,
 					playerController.Collection,
 					playerController.Poster,
+					playerController.Checkin,
+					playerController.GrassAccount,
+					playerController.Feed,
+					playerController.FeedingTrail,
+					playerController.StealTargets,
+					playerController.Steal,
+					playerController.Gift,
+					playerController.Messages,
+					playerController.MarkMessageRead,
 				)
 			})
 
@@ -246,4 +307,70 @@ func buildActivationConfig(
 		LBSThresholdMeters: float64(thresholdMeters),
 		CampusBadge:        campusBadge,
 	}, nil
+}
+
+// buildGrassConfigs reads the plain-value C4 configuration for the grass, feeding
+// and grass-social capabilities from the plugin-scoped configuration. It returns
+// an error when any configuration value cannot be read so the failure surfaces at
+// startup rather than at request time.
+func buildGrassConfigs(
+	ctx context.Context,
+	config contract.ConfigService,
+) (grasssvc.Config, feedingsvc.Config, grasssocialsvc.Config, error) {
+	checkinMin, err := config.Int(ctx, configKeyCheckinMinAmount, defaultCheckinMinAmount)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read checkin minAmount failed")
+	}
+	checkinMax, err := config.Int(ctx, configKeyCheckinMaxAmount, defaultCheckinMaxAmount)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read checkin maxAmount failed")
+	}
+
+	ironBonusThreshold, err := config.Int(ctx, configKeyIronBonusThresholdMeters, defaultIronBonusThresholdMeters)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read iron bonus threshold failed")
+	}
+
+	stealDailyTargets, err := config.Int(ctx, configKeyStealDailyTargets, defaultStealDailyTargets)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read steal dailyTargets failed")
+	}
+	stealDailyLimit, err := config.Int(ctx, configKeyStealDailyLimit, defaultStealDailyLimit)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read steal dailyLimit failed")
+	}
+	stealMin, err := config.Int(ctx, configKeyStealMinAmount, defaultStealMinAmount)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read steal minAmount failed")
+	}
+	stealMax, err := config.Int(ctx, configKeyStealMaxAmount, defaultStealMaxAmount)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read steal maxAmount failed")
+	}
+
+	giftDailyLimit, err := config.Int(ctx, configKeyGiftDailyLimit, defaultGiftDailyLimit)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read gift dailyLimit failed")
+	}
+	giftMin, err := config.Int(ctx, configKeyGiftMinAmount, defaultGiftMinAmount)
+	if err != nil {
+		return grasssvc.Config{}, feedingsvc.Config{}, grasssocialsvc.Config{}, gerror.Wrap(err, "sicau-niu read gift minAmount failed")
+	}
+
+	grassConfig := grasssvc.Config{
+		CheckinMinAmount: checkinMin,
+		CheckinMaxAmount: checkinMax,
+	}
+	feedingConfig := feedingsvc.Config{
+		IronBonusThresholdMeters: float64(ironBonusThreshold),
+	}
+	grassSocialConfig := grasssocialsvc.Config{
+		StealDailyTargets: stealDailyTargets,
+		StealDailyLimit:   stealDailyLimit,
+		StealMinAmount:    stealMin,
+		StealMaxAmount:    stealMax,
+		GiftDailyLimit:    giftDailyLimit,
+		GiftMinAmount:     giftMin,
+	}
+	return grassConfig, feedingConfig, grassSocialConfig, nil
 }

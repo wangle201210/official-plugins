@@ -5,7 +5,7 @@ gfcli:
     dao:
       - link: "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/linapro?sslmode=disable"
         path: "internal"
-        tables: "plugin_sicau_niu_user,plugin_sicau_niu_college,plugin_sicau_niu_niu,plugin_sicau_niu_iron,plugin_sicau_niu_card,plugin_sicau_niu_quote,plugin_sicau_niu_activation"
+        tables: "plugin_sicau_niu_user,plugin_sicau_niu_college,plugin_sicau_niu_niu,plugin_sicau_niu_iron,plugin_sicau_niu_card,plugin_sicau_niu_quote,plugin_sicau_niu_activation,plugin_sicau_niu_grass_account,plugin_sicau_niu_grass_txn,plugin_sicau_niu_checkin,plugin_sicau_niu_feeding,plugin_sicau_niu_steal,plugin_sicau_niu_gift,plugin_sicau_niu_inbox_msg"
         removePrefix: "plugin_sicau_niu_"
         importPrefix: "lina-plugin-sicau-niu/backend/internal"
         descriptionTag: true
