@@ -20,6 +20,7 @@ The workspace currently contains source plugins compiled into the host, plus one
 | `linapro-ops-demo-guard` | `source` | `tenant_aware` | `global` | Demo-environment read-only protection and global write-operation interception |
 | `linapro-demo-source` | `source` | `tenant_aware` | `tenant_scoped` | Source plugin example for menu pages, public routes, and protected routes |
 | `linapro-demo-dynamic` | `dynamic` | `tenant_aware` | `tenant_scoped` | Dynamic `WASM` plugin example for embedded menu pages, plugin-owned `SQL` table `CRUD`, and standalone static pages |
+| `sicau-niu` | `source` | `tenant_aware` | `tenant_scoped` | Minimal source-plugin example for a menu page, public route, and protected route with no database or `i18n` assets |
 
 The root `go.mod` and `lina-plugins.go` wire the source plugins that are compiled with the host. `linapro-demo-dynamic` is intentionally not wired as a source plugin; it is the runtime plugin reference used by the `WASM` build and lifecycle flow.
 

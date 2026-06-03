@@ -20,6 +20,7 @@ LinaPro 将`apps/lina-core`定位为稳定的全栈框架宿主。宿主保留�
 | `linapro-ops-demo-guard` | `source` | `tenant_aware` | `global` | 演示环境只读保护与全局写操作拦截 |
 | `linapro-demo-source` | `source` | `tenant_aware` | `tenant_scoped` | 源码插件菜单页面、公开路由和受保护路由示例 |
 | `linapro-demo-dynamic` | `dynamic` | `tenant_aware` | `tenant_scoped` | 动态`WASM`插件示例，演示菜单内嵌页面、插件自有`SQL`表`CRUD`和独立静态页面 |
+| `sicau-niu` | `source` | `tenant_aware` | `tenant_scoped` | 最小源码插件示例，演示菜单页面、公开路由和受保护路由，不含数据库或`i18n`资源 |
 
 根目录`go.mod`和`lina-plugins.go`负责接线随宿主编译的源码插件。`linapro-demo-dynamic`不作为源码插件接线，它是`WASM`构建与运行时生命周期流程的参考插件。
 
