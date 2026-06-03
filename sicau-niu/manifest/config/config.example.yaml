@@ -36,3 +36,20 @@ token:
   # Player session token time-to-live as a unit-suffixed duration, e.g. 168h.
   # 玩家会话 token 有效期，使用带单位的时间字符串，例如 168h。
   ttl: 168h
+
+# LBS activation settings (C3 niu-activation).
+# LBS 激活配置（C3 niu-activation）。
+activation:
+  # Maximum allowed distance in meters between the player's reported location and
+  # the cattle GPS anchor for an activation to be accepted. Operators tune this
+  # to balance anti-spoofing against GPS drift.
+  # 玩家上报位置与牛 GPS 锚点之间允许的最大激活判距（米）。运营据此在防作弊与 GPS 漂移之间权衡。
+  lbsThresholdMeters: 50
+
+# Activation poster settings (C3 niu-collection-poster).
+# 激活海报配置（C3 niu-collection-poster）。
+poster:
+  # Campus anniversary badge text rendered onto the activation poster. Empty keeps
+  # the badge area blank.
+  # 渲染到激活海报上的校庆标识文案。为空则海报标识区域留白。
+  campusBadge: ""

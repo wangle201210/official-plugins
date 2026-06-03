@@ -22,6 +22,7 @@ import (
 	adminctrl "lina-plugin-sicau-niu/backend/internal/controller/admin"
 	playerctrl "lina-plugin-sicau-niu/backend/internal/controller/player"
 	"lina-plugin-sicau-niu/backend/internal/middleware"
+	activationsvc "lina-plugin-sicau-niu/backend/internal/service/activation"
 	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
@@ -48,6 +49,15 @@ const (
 	configKeyTokenTTL = "token.ttl"
 	// defaultTokenTTL is the fallback player token validity when config is blank.
 	defaultTokenTTL = 168 * time.Hour
+	// configKeyLBSThresholdMeters is the plugin config key for the LBS activation
+	// distance threshold in meters.
+	configKeyLBSThresholdMeters = "activation.lbsThresholdMeters"
+	// defaultLBSThresholdMeters is the fallback LBS activation distance threshold
+	// in meters when config is absent.
+	defaultLBSThresholdMeters = 50
+	// configKeyPosterCampusBadge is the plugin config key for the poster campus
+	// anniversary badge text.
+	configKeyPosterCampusBadge = "poster.campusBadge"
 )
 
 // init registers the embedded sicau-niu source plugin and its route callbacks.
@@ -83,12 +93,22 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 
+	activationConfig, err := buildActivationConfig(ctx, services.Config())
+	if err != nil {
+		return err
+	}
+
 	collegeService := collegesvc.New()
 	identityService := identitysvc.New(gateway, tokenService, collegeService)
 	cattleService := cattlesvc.New(collegeService)
 	cardService := cardsvc.New(cattleService)
+	activationService := activationsvc.New(
+		identityService,
+		activationsvc.NewBasicPosterRenderer(),
+		activationConfig,
+	)
 	playerAuth := middleware.NewPlayerAuth(tokenService)
-	playerController := playerctrl.NewV1(identityService, collegeService)
+	playerController := playerctrl.NewV1(identityService, collegeService, activationService)
 	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
@@ -115,6 +135,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					playerController.GetProfile,
 					playerController.UpdateProfile,
 					playerController.CollegeOptions,
+					playerController.VisibleNiu,
+					playerController.Activate,
+					playerController.Collection,
+					playerController.Poster,
 				)
 			})
 
@@ -200,4 +224,26 @@ func buildAuthDependencies(
 		MockOpenid: wechatMockOpenid,
 	})
 	return tokenService, gateway, nil
+}
+
+// buildActivationConfig reads the plain-value activation configuration (LBS
+// distance threshold and poster campus badge) from the plugin-scoped
+// configuration. It returns an error when the configuration cannot be read so the
+// failure surfaces at startup.
+func buildActivationConfig(
+	ctx context.Context,
+	config contract.ConfigService,
+) (activationsvc.Config, error) {
+	thresholdMeters, err := config.Int(ctx, configKeyLBSThresholdMeters, defaultLBSThresholdMeters)
+	if err != nil {
+		return activationsvc.Config{}, gerror.Wrap(err, "sicau-niu read lbs threshold failed")
+	}
+	campusBadge, err := config.String(ctx, configKeyPosterCampusBadge, "")
+	if err != nil {
+		return activationsvc.Config{}, gerror.Wrap(err, "sicau-niu read poster campus badge failed")
+	}
+	return activationsvc.Config{
+		LBSThresholdMeters: float64(thresholdMeters),
+		CampusBadge:        campusBadge,
+	}, nil
 }

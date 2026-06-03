@@ -36,3 +36,11 @@ func (c Category) valid() bool {
 		return false
 	}
 }
+
+// ValidCategory reports whether value is one of the allowed card categories. It
+// is the exported contract used by the C3 collection filter to validate an
+// optional category against the same enum the card content asset persists,
+// without duplicating the category set across packages.
+func ValidCategory(value string) bool {
+	return Category(value).valid()
+}
