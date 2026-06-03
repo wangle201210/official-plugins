@@ -1,19 +1,18 @@
 // This file dispatches old uidentity/admin routes that collide with LinaPro host
 // system-management routes. The plugin cannot register duplicate static routes,
-// so it uses guarded global middleware to authenticate the request through the
-// host auth capability and then serves the old contract from plugin-owned
+// so it uses guarded global middleware to selectively reuse the already
+// published host request middlewares and then serves the old contract from plugin-owned
 // compatibility tables.
 
 package backend
 
 import (
-	"net/http"
 	"strings"
 
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/util/gconv"
 
-	"lina-core/pkg/plugin/capability/contract"
 	"lina-core/pkg/plugin/pluginhost"
 	uidentitycontroller "lina-plugin-linapro-uidentity-cas/backend/internal/controller/uidentity"
 )
@@ -33,15 +32,30 @@ type legacyHostRouteAdapter struct {
 // host-owned system route paths that cannot be registered again by the plugin.
 func registerLegacyRouteInterceptors(
 	global pluginhost.GlobalMiddlewareRegistrar,
-	authSvc contract.AuthService,
+	middlewares pluginhost.RouteMiddlewares,
 	legacyController *uidentitycontroller.LegacyController,
 ) error {
 	if global == nil {
 		return nil
 	}
+	if middlewares == nil || middlewares.Ctx() == nil || middlewares.Auth() == nil || middlewares.Tenancy() == nil {
+		return gerror.New("linapro-uidentity-cas legacy route interceptors require host ctx, auth, and tenancy middlewares")
+	}
 	adapters := legacyHostRouteAdapters(legacyController)
+	for _, middleware := range []pluginhost.RouteMiddleware{
+		middlewares.Ctx(),
+		middlewares.Auth(),
+		middlewares.Tenancy(),
+	} {
+		next := middleware
+		if err := global.Bind(legacyAPIV1ScopePattern, func(r *ghttp.Request) {
+			legacyHostRouteGuardedMiddleware(r, adapters, next)
+		}); err != nil {
+			return err
+		}
+	}
 	return global.Bind(legacyAPIV1ScopePattern, func(r *ghttp.Request) {
-		legacyHostRouteMiddleware(r, authSvc, adapters)
+		legacyHostRouteDispatchMiddleware(r, adapters)
 	})
 }
 
@@ -75,9 +89,21 @@ func legacyHostRouteAdapters(controller *uidentitycontroller.LegacyController) [
 	}
 }
 
-func legacyHostRouteMiddleware(
+func legacyHostRouteGuardedMiddleware(
 	r *ghttp.Request,
-	authSvc contract.AuthService,
+	adapters []legacyHostRouteAdapter,
+	next pluginhost.RouteMiddleware,
+) {
+	_, ok := legacyMatchHostRouteAdapter(r, adapters)
+	if !ok {
+		r.Middleware.Next()
+		return
+	}
+	next(r)
+}
+
+func legacyHostRouteDispatchMiddleware(
+	r *ghttp.Request,
 	adapters []legacyHostRouteAdapter,
 ) {
 	adapter, ok := legacyMatchHostRouteAdapter(r, adapters)
@@ -85,16 +111,6 @@ func legacyHostRouteMiddleware(
 		r.Middleware.Next()
 		return
 	}
-	if authSvc == nil {
-		r.Response.WriteStatus(http.StatusUnauthorized)
-		return
-	}
-	authenticated, err := authSvc.AuthenticateBearer(r.Context(), r.GetHeader("Authorization"))
-	if err != nil || authenticated == nil {
-		r.Response.WriteStatus(http.StatusUnauthorized)
-		return
-	}
-	r.SetCtx(contract.WithCurrentContext(r.Context(), authenticated.Current))
 	legacyApplyHostRouteAliases(r, adapter)
 	if adapter.Handler != nil {
 		adapter.Handler(r)

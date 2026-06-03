@@ -16,7 +16,6 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/util/guid"
 
-	"lina-core/pkg/plugin/capability/contract"
 	"lina-core/pkg/plugin/pluginhost"
 	uidentitycontroller "lina-plugin-linapro-uidentity-cas/backend/internal/controller/uidentity"
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
@@ -24,16 +23,23 @@ import (
 
 func TestLegacyRouteInterceptorDispatchesToPluginListHandler(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "role-list", true, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "role-list", true, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.GET("/role", func(r *ghttp.Request) {
 			t.Fatal("host /role handler must not run for old compatibility route")
 		})
 	})
 
 	body := legacyInterceptorGet(t, server+"/api/v1/role?pageIndex=3&pageSize=7&roleName=admin")
-	if authSvc.header != "Bearer test-token" {
-		t.Fatalf("expected bearer auth to receive authorization header, got %q", authSvc.header)
+	if hostMiddlewares.authHeader != "Bearer test-token" {
+		t.Fatalf("expected host auth middleware to receive authorization header, got %q", hostMiddlewares.authHeader)
+	}
+	if hostMiddlewares.ctxCalls != 1 || hostMiddlewares.authCalls != 1 || hostMiddlewares.tenancyCalls != 1 {
+		t.Fatalf("expected ctx/auth/tenancy to run once, got ctx=%d auth=%d tenancy=%d",
+			hostMiddlewares.ctxCalls,
+			hostMiddlewares.authCalls,
+			hostMiddlewares.tenancyCalls,
+		)
 	}
 	if service.lastList.Resource != "roles" || service.lastList.PageNum != 3 || service.lastList.PageSize != 7 {
 		t.Fatalf("unexpected list input: %#v", service.lastList)
@@ -58,8 +64,8 @@ func TestLegacyRouteInterceptorDispatchesToPluginListHandler(t *testing.T) {
 
 func TestLegacyRouteInterceptorRejectsMissingBearer(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "missing-bearer", true, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "missing-bearer", true, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.GET("/role", func(r *ghttp.Request) {
 			t.Fatal("host /role handler must not run without bearer")
 		})
@@ -80,8 +86,8 @@ func TestLegacyRouteInterceptorRejectsMissingBearer(t *testing.T) {
 
 func TestLegacyRouteInterceptorAliasesJSONAndPathParams(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "role-update", true, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "role-update", true, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.PUT("/role/{id}", func(r *ghttp.Request) {
 			t.Fatal("host /role/{id} handler must not run for old compatibility route")
 		})
@@ -116,8 +122,8 @@ func TestLegacyRouteInterceptorAliasesJSONAndPathParams(t *testing.T) {
 
 func TestLegacyRouteInterceptorInjectsDictCodePathParam(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "dict-data-get", true, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "dict-data-get", true, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.GET("/dict/data/{dictCode}", func(r *ghttp.Request) {
 			t.Fatal("host /dict/data/{dictCode} handler must not run for old compatibility route")
 		})
@@ -141,8 +147,8 @@ func TestLegacyRouteInterceptorInjectsDictCodePathParam(t *testing.T) {
 
 func TestLegacyRouteInterceptorMapsMenuListToOldTree(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "menu-tree", true, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "menu-tree", true, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.GET("/menu", func(r *ghttp.Request) {
 			t.Fatal("host /menu handler must not run for old compatibility route")
 		})
@@ -167,8 +173,8 @@ func TestLegacyRouteInterceptorMapsMenuListToOldTree(t *testing.T) {
 
 func TestLegacyRouteInterceptorMapsProfileFromPluginService(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "profile", true, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "profile", true, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.GET("/user/profile", func(r *ghttp.Request) {
 			t.Fatal("host /user/profile handler must not run for old compatibility route")
 		})
@@ -193,8 +199,8 @@ func TestLegacyRouteInterceptorMapsProfileFromPluginService(t *testing.T) {
 
 func TestLegacyRouteInterceptorBypassesNonLegacyRoutes(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "modern-route", true, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "modern-route", true, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.GET("/modern", func(r *ghttp.Request) {
 			r.Response.WriteJson(map[string]any{"host": true})
 		})
@@ -204,12 +210,19 @@ func TestLegacyRouteInterceptorBypassesNonLegacyRoutes(t *testing.T) {
 	if !strings.Contains(body, `"host":true`) {
 		t.Fatalf("expected non-legacy route to pass through, got %s", body)
 	}
+	if hostMiddlewares.ctxCalls != 0 || hostMiddlewares.authCalls != 0 || hostMiddlewares.tenancyCalls != 0 {
+		t.Fatalf("expected non-legacy route not to run host middleware wrappers, got ctx=%d auth=%d tenancy=%d",
+			hostMiddlewares.ctxCalls,
+			hostMiddlewares.authCalls,
+			hostMiddlewares.tenancyCalls,
+		)
+	}
 }
 
 func TestLegacyRouteInterceptorDisabledPluginBypassesMiddleware(t *testing.T) {
 	service := &legacyInterceptorFakeService{}
-	authSvc := &legacyInterceptorFakeAuth{}
-	server := startLegacyInterceptorServer(t, "disabled", false, authSvc, service, func(group *ghttp.RouterGroup) {
+	hostMiddlewares := &legacyInterceptorFakeHostMiddlewares{}
+	server := startLegacyInterceptorServer(t, "disabled", false, hostMiddlewares.routeMiddlewares(), service, func(group *ghttp.RouterGroup) {
 		group.GET("/role", func(r *ghttp.Request) {
 			r.Response.WriteJson(map[string]any{"host": true})
 		})
@@ -221,6 +234,13 @@ func TestLegacyRouteInterceptorDisabledPluginBypassesMiddleware(t *testing.T) {
 	}
 	if service.listCalls != 0 {
 		t.Fatalf("expected disabled plugin not to call service, got %d calls", service.listCalls)
+	}
+	if hostMiddlewares.ctxCalls != 0 || hostMiddlewares.authCalls != 0 || hostMiddlewares.tenancyCalls != 0 {
+		t.Fatalf("expected disabled plugin not to run host middleware wrappers, got ctx=%d auth=%d tenancy=%d",
+			hostMiddlewares.ctxCalls,
+			hostMiddlewares.authCalls,
+			hostMiddlewares.tenancyCalls,
+		)
 	}
 }
 
@@ -235,7 +255,7 @@ func startLegacyInterceptorServer(
 	t *testing.T,
 	name string,
 	enabled bool,
-	authSvc contract.AuthService,
+	middlewares pluginhost.RouteMiddlewares,
 	service uidentitysvc.Service,
 	register func(group *ghttp.RouterGroup),
 ) string {
@@ -248,7 +268,7 @@ func startLegacyInterceptorServer(
 		return enabled
 	})
 	controller := uidentitycontroller.NewLegacy(service)
-	if err := registerLegacyRouteInterceptors(registrar, authSvc, controller); err != nil {
+	if err := registerLegacyRouteInterceptors(registrar, middlewares, controller); err != nil {
 		t.Fatalf("register legacy interceptor: %v", err)
 	}
 	server.Start()
@@ -259,36 +279,41 @@ func startLegacyInterceptorServer(
 	return fmt.Sprintf("http://127.0.0.1:%d", server.GetListenedPort())
 }
 
-type legacyInterceptorFakeAuth struct {
-	header string
+type legacyInterceptorFakeHostMiddlewares struct {
+	ctxCalls     int
+	authCalls    int
+	authHeader   string
+	tenancyCalls int
 }
 
-func (f *legacyInterceptorFakeAuth) AuthenticateBearer(_ context.Context, bearerToken string) (*contract.AuthenticatedContext, error) {
-	f.header = bearerToken
-	if strings.TrimSpace(bearerToken) == "" {
-		return nil, fmt.Errorf("missing bearer")
+func (f *legacyInterceptorFakeHostMiddlewares) routeMiddlewares() pluginhost.RouteMiddlewares {
+	noop := func(r *ghttp.Request) {
+		r.Middleware.Next()
 	}
-	return &contract.AuthenticatedContext{
-		Current: contract.CurrentContext{UserID: 100, Username: "admin", TenantID: 0, PlatformBypass: true},
-		TokenID: "token-1",
-		Status:  1,
-	}, nil
-}
-
-func (f *legacyInterceptorFakeAuth) SelectTenant(context.Context, contract.SelectTenantInput) (*contract.TenantTokenOutput, error) {
-	return nil, nil
-}
-
-func (f *legacyInterceptorFakeAuth) SwitchTenant(context.Context, contract.SwitchTenantInput) (*contract.TenantTokenOutput, error) {
-	return nil, nil
-}
-
-func (f *legacyInterceptorFakeAuth) IssueImpersonationToken(context.Context, contract.ImpersonationTokenIssueInput) (*contract.ImpersonationTokenOutput, error) {
-	return nil, nil
-}
-
-func (f *legacyInterceptorFakeAuth) RevokeImpersonationToken(context.Context, contract.ImpersonationTokenRevokeInput) error {
-	return nil
+	return pluginhost.NewRouteMiddlewares(
+		noop,
+		noop,
+		noop,
+		noop,
+		func(r *ghttp.Request) {
+			f.ctxCalls++
+			r.Middleware.Next()
+		},
+		func(r *ghttp.Request) {
+			f.authCalls++
+			f.authHeader = r.GetHeader("Authorization")
+			if strings.TrimSpace(f.authHeader) == "" || !strings.HasPrefix(f.authHeader, "Bearer ") {
+				r.Response.WriteStatus(http.StatusUnauthorized)
+				return
+			}
+			r.Middleware.Next()
+		},
+		func(r *ghttp.Request) {
+			f.tenancyCalls++
+			r.Middleware.Next()
+		},
+		noop,
+	)
 }
 
 type legacyInterceptorFakeService struct {

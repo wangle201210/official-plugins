@@ -68,7 +68,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	registerLegacyRoutes(routes, middlewares, legacyController)
 	if err := registerLegacyRouteInterceptors(
 		registrar.GlobalMiddlewares(),
-		scopedServices.Auth(),
+		middlewares,
 		legacyController,
 	); err != nil {
 		return err
