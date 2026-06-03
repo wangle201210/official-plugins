@@ -256,3 +256,32 @@ menus:
     perms: sicau-niu:honor:delete
     type: B
     sort: 3
+  # 运营结算页面(C7):看板、名册导出、证书批量发放、风控告警、归档。
+  - key: plugin:sicau-niu:settlement
+    parent_key: plugin:sicau-niu:root
+    name: 运营结算
+    path: sicau-niu-settlement
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:settlement:view
+    icon: ant-design:fund-projection-screen-outlined
+    type: M
+    sort: 8
+    remark: 寻牛活动数据看板、导出、批量发证、风控告警与结算归档
+  - key: plugin:sicau-niu:settlement-export
+    parent_key: plugin:sicau-niu:settlement
+    name: 名册导出
+    perms: sicau-niu:settlement:export
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:settlement-issue
+    parent_key: plugin:sicau-niu:settlement
+    name: 批量发证
+    perms: sicau-niu:settlement:issue
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:settlement-archive
+    parent_key: plugin:sicau-niu:settlement
+    name: 创建归档
+    perms: sicau-niu:settlement:archive
+    type: B
+    sort: 3

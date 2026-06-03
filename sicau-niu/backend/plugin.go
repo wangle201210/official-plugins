@@ -23,6 +23,7 @@ import (
 	pluginsicauniu "lina-plugin-sicau-niu"
 	adminctrl "lina-plugin-sicau-niu/backend/internal/controller/admin"
 	playerctrl "lina-plugin-sicau-niu/backend/internal/controller/player"
+	settlementctrl "lina-plugin-sicau-niu/backend/internal/controller/settlement"
 	wallctrl "lina-plugin-sicau-niu/backend/internal/controller/wall"
 	"lina-plugin-sicau-niu/backend/internal/middleware"
 	activationsvc "lina-plugin-sicau-niu/backend/internal/service/activation"
@@ -35,6 +36,7 @@ import (
 	honorsvc "lina-plugin-sicau-niu/backend/internal/service/honor"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	rankingsvc "lina-plugin-sicau-niu/backend/internal/service/ranking"
+	settlementsvc "lina-plugin-sicau-niu/backend/internal/service/settlement"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 	wallsvc "lina-plugin-sicau-niu/backend/internal/service/wall"
 	wechatsvc "lina-plugin-sicau-niu/backend/internal/service/wechat"
@@ -170,6 +172,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	rankingService := rankingsvc.New(rankingConfig)
 	honorService := honorsvc.New()
 	wallService := wallsvc.New()
+	settlementService := settlementsvc.New()
 	playerAuth := middleware.NewPlayerAuth(tokenService)
 	playerController := playerctrl.NewV1(
 		identityService,
@@ -183,6 +186,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	)
 	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService, honorService)
 	wallController := wallctrl.NewV1(wallService)
+	settlementController := settlementctrl.NewV1(settlementService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
@@ -272,6 +276,14 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					adminController.CreateHonor,
 					adminController.UpdateHonor,
 					adminController.DeleteHonor,
+				)
+				group.Bind(
+					settlementController.Dashboard,
+					settlementController.ExportPlayers,
+					settlementController.IssueCertificates,
+					settlementController.RiskDeviceClusters,
+					settlementController.CreateArchive,
+					settlementController.ListArchives,
 				)
 			})
 		})
