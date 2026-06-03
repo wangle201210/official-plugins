@@ -99,3 +99,119 @@ menus:
     type: M
     sort: 2
     remark: 寻牛活动玩家基础信息查询
+  # 牛管理页面(C2)。
+  - key: plugin:sicau-niu:niu
+    parent_key: plugin:sicau-niu:root
+    name: 牛管理
+    path: sicau-niu-niu
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:niu:list
+    icon: ant-design:appstore-outlined
+    type: M
+    sort: 3
+    remark: 寻牛活动牛资产维护
+  - key: plugin:sicau-niu:niu-create
+    parent_key: plugin:sicau-niu:niu
+    name: 牛新增
+    perms: sicau-niu:niu:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:niu-update
+    parent_key: plugin:sicau-niu:niu
+    name: 牛修改
+    perms: sicau-niu:niu:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:niu-delete
+    parent_key: plugin:sicau-niu:niu
+    name: 牛删除
+    perms: sicau-niu:niu:delete
+    type: B
+    sort: 3
+  # 铁牛管理页面(C2)。
+  - key: plugin:sicau-niu:iron
+    parent_key: plugin:sicau-niu:root
+    name: 铁牛管理
+    path: sicau-niu-iron
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:iron:list
+    icon: ant-design:robot-outlined
+    type: M
+    sort: 4
+    remark: 寻牛活动铁牛标识登记
+  - key: plugin:sicau-niu:iron-create
+    parent_key: plugin:sicau-niu:iron
+    name: 铁牛新增
+    perms: sicau-niu:iron:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:iron-update
+    parent_key: plugin:sicau-niu:iron
+    name: 铁牛修改
+    perms: sicau-niu:iron:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:iron-delete
+    parent_key: plugin:sicau-niu:iron
+    name: 铁牛删除
+    perms: sicau-niu:iron:delete
+    type: B
+    sort: 3
+  # 卡片管理页面(C2)。
+  - key: plugin:sicau-niu:card
+    parent_key: plugin:sicau-niu:root
+    name: 卡片管理
+    path: sicau-niu-card
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:card:list
+    icon: ant-design:idcard-outlined
+    type: M
+    sort: 5
+    remark: 寻牛活动校史卡片维护
+  - key: plugin:sicau-niu:card-create
+    parent_key: plugin:sicau-niu:card
+    name: 卡片新增
+    perms: sicau-niu:card:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:card-update
+    parent_key: plugin:sicau-niu:card
+    name: 卡片修改
+    perms: sicau-niu:card:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:card-delete
+    parent_key: plugin:sicau-niu:card
+    name: 卡片删除
+    perms: sicau-niu:card:delete
+    type: B
+    sort: 3
+  # 金句管理页面(C2)。
+  - key: plugin:sicau-niu:quote
+    parent_key: plugin:sicau-niu:root
+    name: 金句管理
+    path: sicau-niu-quote
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:quote:list
+    icon: ant-design:message-outlined
+    type: M
+    sort: 6
+    remark: 寻牛活动校史金句维护
+  - key: plugin:sicau-niu:quote-create
+    parent_key: plugin:sicau-niu:quote
+    name: 金句新增
+    perms: sicau-niu:quote:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:quote-update
+    parent_key: plugin:sicau-niu:quote
+    name: 金句修改
+    perms: sicau-niu:quote:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:quote-delete
+    parent_key: plugin:sicau-niu:quote
+    name: 金句删除
+    perms: sicau-niu:quote:delete
+    type: B
+    sort: 3

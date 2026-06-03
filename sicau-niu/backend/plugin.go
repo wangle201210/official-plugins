@@ -3,10 +3,11 @@
 // surfaces under the plugin API prefix: a public WeChat player login route, a
 // player-token-protected surface (phone binding, profile, college dropdown)
 // guarded by the plugin-owned player-auth middleware, and an operator surface
-// (college dictionary CRUD, player query) guarded by the host
-// Auth+Tenancy+Permission chain. The plugin owns its WeChat-gateway,
-// player-token, identity and college services; the service graph is constructed
-// once at route-registration time from the plugin-scoped configuration.
+// (college dictionary CRUD, player query, and the C2 content-asset CRUD for
+// cattle, iron-cows, cards and quotes) guarded by the host Auth+Tenancy+Permission
+// chain. The plugin owns its WeChat-gateway, player-token, identity, college,
+// cattle and card services; the service graph is constructed once at
+// route-registration time from the plugin-scoped configuration.
 package backend
 
 import (
@@ -21,6 +22,8 @@ import (
 	adminctrl "lina-plugin-sicau-niu/backend/internal/controller/admin"
 	playerctrl "lina-plugin-sicau-niu/backend/internal/controller/player"
 	"lina-plugin-sicau-niu/backend/internal/middleware"
+	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
+	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
@@ -82,9 +85,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 
 	collegeService := collegesvc.New()
 	identityService := identitysvc.New(gateway, tokenService, collegeService)
+	cattleService := cattlesvc.New(collegeService)
+	cardService := cardsvc.New(cattleService)
 	playerAuth := middleware.NewPlayerAuth(tokenService)
 	playerController := playerctrl.NewV1(identityService, collegeService)
-	adminController := adminctrl.NewV1(collegeService, identityService)
+	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
@@ -127,6 +132,24 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					adminController.UpdateCollege,
 					adminController.DeleteCollege,
 					adminController.ListPlayers,
+					adminController.ListNiu,
+					adminController.GetNiu,
+					adminController.CreateNiu,
+					adminController.UpdateNiu,
+					adminController.DeleteNiu,
+					adminController.ListIron,
+					adminController.CreateIron,
+					adminController.UpdateIron,
+					adminController.DeleteIron,
+					adminController.ListCard,
+					adminController.GetCard,
+					adminController.CreateCard,
+					adminController.UpdateCard,
+					adminController.DeleteCard,
+					adminController.ListQuote,
+					adminController.CreateQuote,
+					adminController.UpdateQuote,
+					adminController.DeleteQuote,
 				)
 			})
 		})
