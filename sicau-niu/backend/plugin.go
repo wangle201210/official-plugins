@@ -23,6 +23,7 @@ import (
 	pluginsicauniu "lina-plugin-sicau-niu"
 	adminctrl "lina-plugin-sicau-niu/backend/internal/controller/admin"
 	playerctrl "lina-plugin-sicau-niu/backend/internal/controller/player"
+	wallctrl "lina-plugin-sicau-niu/backend/internal/controller/wall"
 	"lina-plugin-sicau-niu/backend/internal/middleware"
 	activationsvc "lina-plugin-sicau-niu/backend/internal/service/activation"
 	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
@@ -35,6 +36,7 @@ import (
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	rankingsvc "lina-plugin-sicau-niu/backend/internal/service/ranking"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
+	wallsvc "lina-plugin-sicau-niu/backend/internal/service/wall"
 	wechatsvc "lina-plugin-sicau-niu/backend/internal/service/wechat"
 )
 
@@ -167,6 +169,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	grassSocialService := grasssocialsvc.New(grassService, grassSocialConfig)
 	rankingService := rankingsvc.New(rankingConfig)
 	honorService := honorsvc.New()
+	wallService := wallsvc.New()
 	playerAuth := middleware.NewPlayerAuth(tokenService)
 	playerController := playerctrl.NewV1(
 		identityService,
@@ -179,6 +182,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		honorService,
 	)
 	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService, honorService)
+	wallController := wallctrl.NewV1(wallService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
@@ -190,9 +194,16 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 				middlewares.Ctx(),
 			)
 
-			// Public surface: WeChat player login, no authentication.
+			// Public surface: WeChat player login and the C6 public memorial wall,
+			// no authentication. The wall endpoints expose only nicknames and
+			// activity information and never return privacy fields.
 			group.Group("/", func(group pluginhost.RouteGroup) {
 				group.Bind(playerController.Login)
+				group.Bind(
+					wallController.FirstActivators,
+					wallController.Highlights,
+					wallController.Stats,
+				)
 			})
 
 			// Player surface: guarded by the plugin player-auth middleware so each

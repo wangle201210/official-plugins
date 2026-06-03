@@ -42,6 +42,18 @@ homepage: https://example.com/lina/plugins/sicau-niu
 # 插件许可证标识。
 license: Apache-2.0
 
+# Declared public static assets hosted by the host under /x-assets/{plugin-id}/{version}/...
+# The C6 H5 digital memorial wall is delivered here as a standalone mobile page that calls the
+# public (no-auth) memorial-wall API and offers a back-to-mini-program entry. It is independent of
+# the management Vue pages and does not enter the management front-end build.
+# 声明式公开静态资源目录，由宿主托管到 /x-assets/{plugin-id}/{version}/...。
+# C6 的 H5 数字纪念墙作为独立移动端页面在此交付，调用公开免登录的纪念墙 API 并提供回跳小程序入口；
+# 它独立于管理端 Vue 页面，不进入管理端前端构建。
+public_assets:
+  - source: frontend/wall
+    mount: /wall
+    index: index.html
+
 # This plugin is single-language (Chinese) and intentionally omits the optional `i18n` block,
 # so the host treats it as single-language and does not require manifest/i18n resources.
 # 本插件为单语言（中文），刻意省略可选的 `i18n` 配置块，宿主据此按单语言处理。
