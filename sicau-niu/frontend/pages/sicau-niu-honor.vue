@@ -14,7 +14,6 @@ import { useAccess } from "@vben/access";
 import { useVbenModal } from "@vben/common-ui";
 
 import { useVbenVxeGrid } from "#/adapter/vxe-table";
-import { formatTimestamp } from "#/utils/time";
 import { Page } from "#/plugins/dynamic";
 
 import HonorModal from "./components/honor-modal.vue";
@@ -66,8 +65,13 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: [
       {
+        field: "code",
+        minWidth: 160,
+        title: "编码",
+      },
+      {
         field: "name",
-        minWidth: 180,
+        minWidth: 160,
         title: "名称",
       },
       {
@@ -91,12 +95,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
         field: "sort",
         title: "排序",
         width: 90,
-      },
-      {
-        field: "createdAt",
-        formatter: ({ cellValue }) => formatTimestamp(cellValue),
-        title: "创建时间",
-        width: 180,
       },
       {
         field: "action",

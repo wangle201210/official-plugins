@@ -51,7 +51,7 @@ license: Apache-2.0
 # 它独立于管理端 Vue 页面，不进入管理端前端构建。
 public_assets:
   - source: frontend/wall
-    mount: /wall
+    mount: wall
     index: index.html
 
 # This plugin is single-language (Chinese) and intentionally omits the optional `i18n` block,
