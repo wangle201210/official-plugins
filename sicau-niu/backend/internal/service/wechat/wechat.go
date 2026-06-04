@@ -2,9 +2,11 @@
 // used by the sicau-niu player identity service, plus a mockable implementation.
 // The seam isolates the two external WeChat operations the activity needs:
 // exchanging a login `code` for an `openid`, and decoding a phone-number
-// authorization payload into a phone number. C1 ships a mock implementation so
-// the full login/phone flow runs without real WeChat credentials; the real
-// implementation is a TODO placeholder until credentials are configured.
+// authorization payload into a phone number. A mock implementation runs the full
+// login/phone flow without real WeChat credentials (development and E2E); the real
+// implementation performs the production WeChat open-API calls and only needs the
+// configured AppID/Secret, so setting `wechat.mock=false` with real credentials
+// switches to the live flow with no code change.
 package wechat
 
 import (
@@ -56,11 +58,11 @@ var (
 		"Failed to decode WeChat phone authorization",
 		gcode.CodeInvalidParameter,
 	)
-	// CodeWeChatNotImplemented reports that the real WeChat gateway is not yet wired.
-	CodeWeChatNotImplemented = bizerr.MustDefine(
-		"PLUGIN_SICAU_NIU_WECHAT_NOT_IMPLEMENTED",
-		"Real WeChat gateway is not implemented yet",
-		gcode.CodeNotImplemented,
+	// CodeWeChatRequestFailed reports that a WeChat open-API HTTP request failed.
+	CodeWeChatRequestFailed = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_WECHAT_REQUEST_FAILED",
+		"Failed to reach the WeChat open API",
+		gcode.CodeInternalError,
 	)
 )
 
@@ -78,8 +80,8 @@ type Config struct {
 }
 
 // New returns a Gateway selected by cfg: the mock gateway when cfg.Mock is true,
-// otherwise the real WeChat gateway. The real gateway is a placeholder in C1 and
-// returns CodeWeChatNotImplemented until credentials are wired.
+// otherwise the production WeChat gateway that performs the real open-API calls
+// using the configured AppID/Secret.
 func New(cfg Config) Gateway {
 	if cfg.Mock {
 		return newMockGateway(cfg.MockOpenid)
