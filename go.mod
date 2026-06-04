@@ -15,8 +15,8 @@ require (
 	lina-plugin-linapro-tenant-core v0.0.0
 	lina-plugin-linapro-uidentity-cas v0.0.0
 	lina-plugin-media v0.0.0
-	lina-plugin-water v0.0.0
 	lina-plugin-sicau-niu v0.0.0
+	lina-plugin-water v0.0.0
 )
 
 require (
@@ -47,7 +47,7 @@ require (
 	github.com/richardlehane/mscfb v1.0.6 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
+	github.com/shirou/gopsutil/v4 v4.26.5 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect

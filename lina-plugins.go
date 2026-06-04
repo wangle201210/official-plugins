@@ -10,9 +10,9 @@ import (
 	_ "lina-plugin-linapro-monitor-server/backend"
 	_ "lina-plugin-linapro-ops-demo-guard/backend"
 	_ "lina-plugin-linapro-org-core/backend"
-	_ "lina-plugin-sicau-niu/backend"
 	_ "lina-plugin-linapro-tenant-core/backend"
 	_ "lina-plugin-linapro-uidentity-cas/backend"
 	_ "lina-plugin-media/backend"
+	_ "lina-plugin-sicau-niu/backend"
 	_ "lina-plugin-water/backend"
 )
