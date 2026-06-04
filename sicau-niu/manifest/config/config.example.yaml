@@ -106,3 +106,17 @@ ironLocation:
   # instead of calling an external positioning API.
   # 为 true 时，定位网关返回铁牛已存储的 last_lat/last_lng，而非调用外部定位 API。
   mock: true
+
+# Risk anomaly alert thresholds (M13, C10 niu-risk-anomaly).
+# 风控异常告警阈值（M13，C10 niu-risk-anomaly）。
+anomaly:
+  # A player whose single-day feeding count exceeds this is alerted for manual review.
+  # 单日喂草次数超过该值的玩家进入异常告警，供人工研判。
+  feedDailyThreshold: 100
+  # A player whose single-day steal count exceeds this is alerted (defaults near the
+  # per-day steal cap to flag sustained max-rate stealing).
+  # 单日偷草次数超过该值的玩家进入异常告警（默认贴近每日偷草上限以识别持续顶格）。
+  stealDailyThreshold: 5
+  # Maximum number of anomaly alerts returned.
+  # 异常告警返回的最大条数。
+  listLimit: 200

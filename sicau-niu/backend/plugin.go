@@ -107,6 +107,16 @@ const (
 	configKeyRankingTopN = "ranking.topN"
 	// defaultRankingTopN is the fallback leaderboard Top-N cap when config is absent.
 	defaultRankingTopN = 100
+	// configKeyAnomalyFeedDaily, configKeyAnomalyStealDaily and configKeyAnomalyLimit
+	// are the plugin config keys for the settlement anomaly alert thresholds and cap.
+	configKeyAnomalyFeedDaily  = "anomaly.feedDailyThreshold"
+	configKeyAnomalyStealDaily = "anomaly.stealDailyThreshold"
+	configKeyAnomalyLimit      = "anomaly.listLimit"
+	// defaultAnomalyFeedDaily, defaultAnomalyStealDaily and defaultAnomalyListLimit
+	// are the fallback anomaly thresholds and cap when config is absent.
+	defaultAnomalyFeedDaily  = 100
+	defaultAnomalyStealDaily = 5
+	defaultAnomalyListLimit  = 200
 )
 
 // init registers the embedded sicau-niu source plugin and its route callbacks.
@@ -175,7 +185,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		honorsvc.Config{CampusBadge: activationConfig.CampusBadge},
 	)
 	wallService := wallsvc.New()
-	settlementService := settlementsvc.New()
+	settlementConfig, err := buildSettlementConfig(ctx, services.Config())
+	if err != nil {
+		return err
+	}
+	settlementService := settlementsvc.New(settlementConfig)
 	playerAuth := middleware.NewPlayerAuth(tokenService)
 	playerController := playerctrl.NewV1(
 		identityService,
@@ -289,6 +303,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					settlementController.CreateArchive,
 					settlementController.ListArchives,
 					settlementController.Activity,
+					settlementController.RiskAnomalies,
 				)
 			})
 		})
@@ -376,6 +391,33 @@ func buildRankingConfig(
 		return rankingsvc.Config{}, gerror.Wrap(err, "sicau-niu read ranking topN failed")
 	}
 	return rankingsvc.Config{TopN: topN}, nil
+}
+
+// buildSettlementConfig reads the plain-value settlement anomaly configuration (the
+// per-day feed/steal thresholds and the alert list cap) from the plugin-scoped
+// configuration. It returns an error when the configuration cannot be read so the
+// failure surfaces at startup. Non-positive values fall back to the service defaults.
+func buildSettlementConfig(
+	ctx context.Context,
+	config contract.ConfigService,
+) (settlementsvc.Config, error) {
+	feedDaily, err := config.Int(ctx, configKeyAnomalyFeedDaily, defaultAnomalyFeedDaily)
+	if err != nil {
+		return settlementsvc.Config{}, gerror.Wrap(err, "sicau-niu read anomaly feedDailyThreshold failed")
+	}
+	stealDaily, err := config.Int(ctx, configKeyAnomalyStealDaily, defaultAnomalyStealDaily)
+	if err != nil {
+		return settlementsvc.Config{}, gerror.Wrap(err, "sicau-niu read anomaly stealDailyThreshold failed")
+	}
+	listLimit, err := config.Int(ctx, configKeyAnomalyLimit, defaultAnomalyListLimit)
+	if err != nil {
+		return settlementsvc.Config{}, gerror.Wrap(err, "sicau-niu read anomaly listLimit failed")
+	}
+	return settlementsvc.Config{
+		FeedDailyThreshold:  feedDaily,
+		StealDailyThreshold: stealDaily,
+		AnomalyLimit:        listLimit,
+	}, nil
 }
 
 // buildGrassConfigs reads the plain-value C4 configuration for the grass, feeding

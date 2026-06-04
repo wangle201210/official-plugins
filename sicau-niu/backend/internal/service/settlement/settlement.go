@@ -23,7 +23,25 @@ const (
 	archiveListLimit = 200
 	// riskClusterLimit caps the shared-device risk cluster list.
 	riskClusterLimit = 200
+	// defaultFeedDailyThreshold and defaultStealDailyThreshold are the fallback
+	// per-day anomaly thresholds when config is absent.
+	defaultFeedDailyThreshold  = 100
+	defaultStealDailyThreshold = 5
+	// defaultAnomalyLimit caps the anomaly alert list when config is absent.
+	defaultAnomalyLimit = 200
 )
+
+// Config carries the plain-value runtime configuration for the settlement
+// capability: the per-day anomaly thresholds and the anomaly list cap. It holds
+// only scalar tuning values and never runtime dependencies.
+type Config struct {
+	// FeedDailyThreshold flags a player whose single-day feeding count exceeds it.
+	FeedDailyThreshold int
+	// StealDailyThreshold flags a player whose single-day steal count exceeds it.
+	StealDailyThreshold int
+	// AnomalyLimit caps the anomaly alert list size.
+	AnomalyLimit int
+}
 
 // Service defines the C7 operator settlement contract.
 type Service interface {
@@ -55,20 +73,44 @@ type Service interface {
 	// series for the last days days (bounded) and the next-day / 7-day retention
 	// over elapsed cohorts. It returns a query bizerr on store failure.
 	Activity(ctx context.Context, days int) (out *Activity, err error)
+	// Anomalies returns the bounded risk anomaly alerts: players whose single-day
+	// feeding or steal count exceeds the configured threshold. It returns a query
+	// bizerr on store failure.
+	Anomalies(ctx context.Context) (out *AnomalyAlerts, err error)
 }
 
 // Interface compliance assertion for the default settlement service implementation.
 var _ Service = (*serviceImpl)(nil)
 
-// serviceImpl implements Service against the plugin-owned tables. It holds no
-// runtime dependency: every view reads the plugin's own tables through the
-// generated DAO and the list bounds are fixed package constants.
-type serviceImpl struct{}
+// serviceImpl implements Service against the plugin-owned tables. Its only runtime
+// inputs are the plain-value anomaly thresholds and list cap injected at assembly
+// time; every view reads the plugin's own tables through the generated DAO and the
+// remaining list bounds are fixed package constants.
+type serviceImpl struct {
+	feedDailyThreshold  int // feedDailyThreshold flags single-day feeding above it.
+	stealDailyThreshold int // stealDailyThreshold flags single-day steal above it.
+	anomalyLimit        int // anomalyLimit caps the anomaly alert list.
+}
 
-// New creates an operator settlement service. The component reads and writes the
-// plugin's own tables through the generated DAO and therefore takes no
-// dependencies; the list bounds are fixed package constants so every operator
-// endpoint is always bounded.
-func New() Service {
-	return &serviceImpl{}
+// New creates an operator settlement service with the plain-value anomaly
+// configuration. The component reads and writes the plugin's own tables through the
+// generated DAO and takes no runtime interface dependencies; non-positive
+// thresholds and caps fall back to package defaults so the anomaly view is always
+// bounded.
+func New(config Config) Service {
+	impl := &serviceImpl{
+		feedDailyThreshold:  config.FeedDailyThreshold,
+		stealDailyThreshold: config.StealDailyThreshold,
+		anomalyLimit:        config.AnomalyLimit,
+	}
+	if impl.feedDailyThreshold <= 0 {
+		impl.feedDailyThreshold = defaultFeedDailyThreshold
+	}
+	if impl.stealDailyThreshold <= 0 {
+		impl.stealDailyThreshold = defaultStealDailyThreshold
+	}
+	if impl.anomalyLimit <= 0 {
+		impl.anomalyLimit = defaultAnomalyLimit
+	}
+	return impl
 }

@@ -110,6 +110,22 @@ export async function getRiskDeviceClusters() {
   return res.list ?? [];
 }
 
+export interface AnomalyAlert {
+  userId: number;
+  nickname: string;
+  type: string;
+  date: string;
+  count: number;
+  threshold: number;
+}
+
+export async function getRiskAnomalies() {
+  const res = await requestClient.get<{ list: AnomalyAlert[] }>(
+    sicauNiuApi("plugins/sicau-niu/settlement/risk/anomalies"),
+  );
+  return res.list ?? [];
+}
+
 export async function createArchive(title: string) {
   return requestClient.post<{ id: number }>(
     sicauNiuApi("plugins/sicau-niu/settlement/archives"),

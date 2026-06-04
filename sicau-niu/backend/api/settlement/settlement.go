@@ -23,4 +23,5 @@ type ISettlementV1 interface {
 	CreateArchive(ctx context.Context, req *v1.CreateArchiveReq) (res *v1.CreateArchiveRes, err error)
 	ListArchives(ctx context.Context, req *v1.ListArchivesReq) (res *v1.ListArchivesRes, err error)
 	Activity(ctx context.Context, req *v1.ActivityReq) (res *v1.ActivityRes, err error)
+	RiskAnomalies(ctx context.Context, req *v1.RiskAnomaliesReq) (res *v1.RiskAnomaliesRes, err error)
 }

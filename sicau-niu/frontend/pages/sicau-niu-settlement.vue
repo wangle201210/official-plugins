@@ -8,6 +8,7 @@ export const pluginPageMeta = {
 <script setup lang="ts">
 import type {
   ActivityData,
+  AnomalyAlert,
   ArchiveItem,
   DashboardData,
   DeviceCluster,
@@ -38,6 +39,7 @@ import {
   exportPlayers,
   getActivity,
   getDashboard,
+  getRiskAnomalies,
   getRiskDeviceClusters,
   issueCertificates,
   listArchives,
@@ -54,6 +56,7 @@ const pluginAccessCodes = {
 const dashboard = ref<DashboardData | null>(null);
 const activity = ref<ActivityData | null>(null);
 const clusters = ref<DeviceCluster[]>([]);
+const anomalies = ref<AnomalyAlert[]>([]);
 const archives = ref<ArchiveItem[]>([]);
 
 const exporting = ref(false);
@@ -109,6 +112,23 @@ function retentionText(rate: number | undefined): string {
 
 async function loadClusters() {
   clusters.value = await getRiskDeviceClusters();
+}
+
+const anomalyTypeLabels: Record<string, string> = {
+  feed: "喂草",
+  steal: "偷草",
+};
+
+const anomalyColumns = [
+  { title: "玩家", dataIndex: "nickname", key: "nickname" },
+  { title: "类型", key: "type", width: 90 },
+  { title: "日期", dataIndex: "date", key: "date", width: 130 },
+  { title: "当日次数", dataIndex: "count", key: "count", width: 100 },
+  { title: "阈值", dataIndex: "threshold", key: "threshold", width: 90 },
+];
+
+async function loadAnomalies() {
+  anomalies.value = await getRiskAnomalies();
 }
 
 async function loadArchives() {
@@ -209,6 +229,7 @@ onMounted(() => {
   loadDashboard();
   loadActivity();
   loadClusters();
+  loadAnomalies();
   loadArchives();
 });
 </script>
@@ -331,6 +352,26 @@ onMounted(() => {
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'members'">
             {{ membersText(record as DeviceCluster) }}
+          </template>
+        </template>
+      </Table>
+    </Card>
+
+    <Card title="风控告警 · 异常喂草/偷草" class="mb-4">
+      <Table
+        :data-source="anomalies"
+        :columns="anomalyColumns"
+        :pagination="false"
+        :row-key="(r) => `${r.userId}-${r.type}-${r.date}`"
+        size="small"
+        data-testid="settlement-anomaly-table"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'type'">
+            {{
+              anomalyTypeLabels[(record as AnomalyAlert).type] ??
+              (record as AnomalyAlert).type
+            }}
           </template>
         </template>
       </Table>

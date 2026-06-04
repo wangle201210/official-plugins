@@ -21,7 +21,7 @@ import (
 func TestDashboardAggregates(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	user1 := insertUserRow(t, ctx, "玩家A", "student", "fp-1")
 	user2 := insertUserRow(t, ctx, "玩家B", "friend", "fp-2")
@@ -71,7 +71,7 @@ func TestDashboardAggregates(t *testing.T) {
 func TestIssueParticipationIdempotent(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	insertUserRow(t, ctx, "A", "student", "")
 	insertUserRow(t, ctx, "B", "student", "")
@@ -106,7 +106,7 @@ func TestIssueParticipationIdempotent(t *testing.T) {
 func TestIssueFeedCountCohort(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	heavy := insertUserRow(t, ctx, "Heavy", "student", "")
 	light := insertUserRow(t, ctx, "Light", "student", "")
@@ -133,7 +133,7 @@ func TestIssueFeedCountCohort(t *testing.T) {
 func TestIssueRejectsNonCertificate(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	insertUserRow(t, ctx, "A", "student", "")
 	badge := insertHonorDefRow(t, ctx, "badge", "participation", 0)
@@ -150,7 +150,7 @@ func TestIssueRejectsNonCertificate(t *testing.T) {
 func TestIssueRejectsCollectionUnlock(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	insertUserRow(t, ctx, "A", "student", "")
 	cert := insertHonorDefRow(t, ctx, "certificate", "full_complete", 0)
@@ -163,7 +163,7 @@ func TestIssueRejectsCollectionUnlock(t *testing.T) {
 func TestIssueHonorNotFound(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	_, err := svc.IssueCertificates(ctx, 99999)
 	assertBizCode(t, err, "PLUGIN_SICAU_NIU_SETTLEMENT_HONOR_NOT_FOUND")
@@ -174,7 +174,7 @@ func TestIssueHonorNotFound(t *testing.T) {
 func TestRiskDeviceClusters(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	// Two players share fp-x; one player is alone on fp-y; one has no fingerprint.
 	insertUserRow(t, ctx, "Dup1", "student", "fp-x")
@@ -200,7 +200,7 @@ func TestRiskDeviceClusters(t *testing.T) {
 func TestArchiveCreateAndList(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New()
+	svc := New(Config{})
 
 	insertUserRow(t, ctx, "A", "student", "")
 	insertUserRow(t, ctx, "B", "student", "")
