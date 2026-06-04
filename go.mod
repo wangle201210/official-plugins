@@ -16,6 +16,7 @@ require (
 	lina-plugin-linapro-uidentity-cas v0.0.0
 	lina-plugin-media v0.0.0
 	lina-plugin-water v0.0.0
+	lina-plugin-sicau-niu v0.0.0
 )
 
 require (
@@ -88,6 +89,8 @@ replace lina-plugin-linapro-monitor-server => ./linapro-monitor-server
 replace lina-plugin-linapro-tenant-core => ./linapro-tenant-core
 
 replace lina-plugin-linapro-org-core => ./linapro-org-core
+
+replace lina-plugin-sicau-niu => ./sicau-niu
 
 replace lina-plugin-linapro-uidentity-cas => ./linapro-uidentity-cas
 

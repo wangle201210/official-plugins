@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>川农120周年 · 寻牛数字纪念墙</title>
+  <style>
+    :root {
+      --bg: #0f2417;
+      --bg-soft: #163a24;
+      --gold: #d8b24a;
+      --gold-soft: #efd99a;
+      --text: #f3efe2;
+      --text-dim: #b8c4ad;
+      --card: rgba(255, 255, 255, 0.06);
+      --card-line: rgba(216, 178, 74, 0.25);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 500px at 50% -10%, #1f5234 0%, rgba(31, 82, 52, 0) 60%),
+        linear-gradient(180deg, var(--bg) 0%, #0b1b11 100%);
+      min-height: 100vh;
+      padding: 0 0 calc(96px + env(safe-area-inset-bottom));
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+    header.hero {
+      text-align: center;
+      padding: 40px 16px 20px;
+    }
+    .hero .badge {
+      display: inline-block;
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: var(--bg);
+      background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+    .hero h1 { margin: 0; font-size: 26px; letter-spacing: 1px; }
+    .hero h1 .num { color: var(--gold); }
+    .hero p { margin: 8px 0 0; color: var(--text-dim); font-size: 13px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--card-line);
+      border-radius: 14px;
+      padding: 16px 12px;
+      text-align: center;
+    }
+    .stat .v { font-size: 26px; font-weight: 700; color: var(--gold); }
+    .stat .l { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+    section { margin-top: 30px; }
+    .sec-title { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .sec-title h2 { margin: 0; font-size: 17px; }
+    .sec-title::before, .sec-title::after { content: ""; flex: 1; height: 1px; background: var(--card-line); }
+    .sec-title h2 { flex: 0 0 auto; }
+    .activators { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .activator {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--card); border: 1px solid var(--card-line);
+      border-radius: 12px; padding: 10px 12px;
+    }
+    .activator .seq {
+      flex: 0 0 30px; height: 30px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 13px; font-weight: 700;
+      color: var(--bg); background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+    }
+    .activator .meta { min-width: 0; }
+    .activator .nick { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .activator .sub { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cards { display: grid; gap: 12px; }
+    .card {
+      background: var(--card); border: 1px solid var(--card-line);
+      border-radius: 14px; overflow: hidden;
+    }
+    .card img { width: 100%; display: block; aspect-ratio: 16/9; object-fit: cover; background: var(--bg-soft); }
+    .card .body { padding: 12px 14px; }
+    .card .cat { font-size: 11px; color: var(--gold); letter-spacing: 1px; }
+    .card h3 { margin: 4px 0 6px; font-size: 15px; }
+    .card p { margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+    .quotes { display: grid; gap: 10px; }
+    .quote {
+      background: linear-gradient(135deg, rgba(216,178,74,0.10), rgba(216,178,74,0.02));
+      border-left: 3px solid var(--gold); border-radius: 8px;
+      padding: 12px 14px; font-size: 14px; line-height: 1.6; color: var(--gold-soft);
+    }
+    .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 18px 0; }
+    .cta {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(11,27,17,0), #0b1b11 40%);
+    }
+    .cta button {
+      width: 100%; max-width: 688px; margin: 0 auto; display: block;
+      border: 0; border-radius: 14px; padding: 15px;
+      font-size: 16px; font-weight: 700; color: var(--bg);
+      background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+    }
+    footer { text-align: center; color: var(--text-dim); font-size: 11px; padding: 26px 16px 0; }
+    .skeleton { color: var(--text-dim); font-size: 13px; text-align: center; padding: 24px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <span class="badge">四川农业大学 · 建校 120 周年</span>
+      <h1>寻牛 · <span class="num">数字纪念墙</span></h1>
+      <p>循着校史的足迹，找到属于你的那头牛</p>
+      <div class="stats" id="stats">
+        <div class="stat"><div class="v" data-k="activatedNiuCount">—</div><div class="l">已激活的牛</div></div>
+        <div class="stat"><div class="v" data-k="firstActivatorCount">—</div><div class="l">首发英雄</div></div>
+        <div class="stat"><div class="v" data-k="playerCount">—</div><div class="l">参与玩家</div></div>
+        <div class="stat"><div class="v" data-k="totalNiuCount">—</div><div class="l">全部牛只</div></div>
+      </div>
+    </header>
+
+    <section>
+      <div class="sec-title"><h2>🏅 首发纪念墙</h2></div>
+      <div class="activators" id="activators"><div class="skeleton">加载中…</div></div>
+    </section>
+
+    <section>
+      <div class="sec-title"><h2>📜 校史精选</h2></div>
+      <div class="cards" id="cards"><div class="skeleton">加载中…</div></div>
+    </section>
+
+    <section>
+      <div class="sec-title"><h2>✨ 川农金句</h2></div>
+      <div class="quotes" id="quotes"><div class="skeleton">加载中…</div></div>
+    </section>
+
+    <footer>
+      数据来自川农 120 周年寻牛活动 · 仅展示昵称与活动信息<br />
+      © 四川农业大学 寻牛活动组委会
+    </footer>
+  </div>
+
+  <div class="cta">
+    <button id="goMiniApp">进入小程序，一起寻牛 →</button>
+  </div>
+
+  <script>
+    // The public memorial-wall API base. The page is hosted by the host under
+    // /x-assets/{plugin-id}/{version}/wall/ and calls the plugin's public,
+    // no-auth API surface. Time fields are returned as Unix milliseconds.
+    var API_BASE = "/x/sicau-niu/api/v1/plugins/sicau-niu/wall";
+
+    // The return-to-mini-program URL is supplied by plugin config and fetched from
+    // the public /config endpoint at load time; empty config hides the entry.
+    var MINIAPP_URL = "";
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    var IDENTITY_LABEL = { student: "在校学生", alumni: "校友", teacher: "教职工", friend: "川农好友" };
+
+    // getJSON fetches one public endpoint and unwraps the host's {code,message,data}
+    // envelope, resolving to the data payload or rejecting on a non-zero code.
+    function getJSON(path) {
+      return fetch(API_BASE + path, { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (body) {
+          if (body && typeof body.code !== "undefined" && body.code !== 0) {
+            throw new Error(body.message || "request failed");
+          }
+          return body && typeof body.data !== "undefined" ? body.data : body;
+        });
+    }
+
+    function renderStats(data) {
+      var root = document.getElementById("stats");
+      root.querySelectorAll("[data-k]").forEach(function (el) {
+        var v = data && data[el.getAttribute("data-k")];
+        el.textContent = (typeof v === "number" ? v : 0).toLocaleString("zh-CN");
+      });
+    }
+
+    function renderActivators(data) {
+      var root = document.getElementById("activators");
+      var list = (data && data.list) || [];
+      if (!list.length) { root.innerHTML = '<div class="empty">首发英雄即将揭晓…</div>'; return; }
+      root.innerHTML = list.map(function (it) {
+        var ident = IDENTITY_LABEL[it.identityType] || (it.identityType || "");
+        var sub = [ident, it.niuName].filter(Boolean).join(" · ");
+        return '<div class="activator">'
+          + '<div class="seq">' + esc(it.seq) + "</div>"
+          + '<div class="meta"><div class="nick">' + esc(it.nickname || "神秘牛友") + "</div>"
+          + '<div class="sub">' + esc(sub) + "</div></div></div>";
+      }).join("");
+    }
+
+    function renderCards(data) {
+      var root = document.getElementById("cards");
+      var list = (data && data.cards) || [];
+      if (!list.length) { root.innerHTML = '<div class="empty">校史精选整理中…</div>'; return; }
+      root.innerHTML = list.map(function (c) {
+        var img = c.imagePath ? '<img src="' + esc(c.imagePath) + '" alt="" loading="lazy" />' : "";
+        var meta = [c.category, c.niuName].filter(Boolean).join(" · ");
+        return '<div class="card">' + img + '<div class="body">'
+          + (meta ? '<div class="cat">' + esc(meta) + "</div>" : "")
+          + "<h3>" + esc(c.title) + "</h3>"
+          + (c.content ? "<p>" + esc(c.content) + "</p>" : "")
+          + "</div></div>";
+      }).join("");
+    }
+
+    function renderQuotes(data) {
+      var root = document.getElementById("quotes");
+      var list = (data && data.quotes) || [];
+      if (!list.length) { root.innerHTML = '<div class="empty">金句收录中…</div>'; return; }
+      root.innerHTML = list.map(function (q) {
+        return '<div class="quote">' + esc(q.content) + "</div>";
+      }).join("");
+    }
+
+    function fail(id, msg) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="empty">' + esc(msg) + "</div>";
+    }
+
+    getJSON("/stats").then(renderStats).catch(function () {});
+    getJSON("/first-activators").then(renderActivators).catch(function () { fail("activators", "加载失败，请稍后重试"); });
+    getJSON("/highlights").then(function (d) { renderCards(d); renderQuotes(d); })
+      .catch(function () { fail("cards", "加载失败，请稍后重试"); fail("quotes", ""); });
+
+    var goMiniApp = document.getElementById("goMiniApp");
+    // Fetch the return-to-mini-program URL from public config; hide the entry when
+    // unconfigured so the H5 never links to a placeholder.
+    getJSON("/config")
+      .then(function (cfg) {
+        MINIAPP_URL = (cfg && cfg.miniappUrl) || "";
+        if (!MINIAPP_URL) {
+          goMiniApp.parentNode.style.display = "none";
+        }
+      })
+      .catch(function () { goMiniApp.parentNode.style.display = "none"; });
+
+    goMiniApp.addEventListener("click", function () {
+      if (MINIAPP_URL) {
+        window.location.href = MINIAPP_URL;
+      }
+    });
+  </script>
+</body>
+</html>

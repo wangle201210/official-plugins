@@ -1,0 +1,342 @@
+# Plugin identifier, unique across the host and source plugin directories; use `kebab-case`.
+# 插件唯一标识，必须在宿主和源码插件目录中保持唯一，并使用 `kebab-case` 命名风格。
+id: sicau-niu
+
+# Plugin display name used in plugin management pages, developer docs, and presentation.
+# 插件显示名称，用于插件管理页面、开发文档和展示。
+name: 寻牛活动
+
+# Plugin semantic version; examples in this repo use the `v` prefix.
+# 插件语义化版本号，当前示例统一使用带 `v` 前缀的写法。
+version: v0.1.0
+
+# Plugin type enum. Allowed values: `source` is compiled with the host; `dynamic` is loaded as a runtime plugin artifact.
+# 插件类型枚举。可选值：`source` 表示随宿主源码编译交付；`dynamic` 表示作为运行时动态插件产物加载。
+type: source
+
+# Multi-tenant scope enum. Allowed values: `platform_only` is platform-context only; `tenant_aware` is governed by tenant context.
+# 多租户作用域枚举。本活动不涉及多租户，固定平台上下文。
+scope_nature: platform_only
+
+# Multi-tenant support flag. `false` means the plugin does not participate in tenant-level governance.
+# 多租户支持标记。`false` 表示插件不参与租户级治理。
+supports_multi_tenant: false
+
+# Default install mode enum. `global` enables one shared installation.
+# 默认安装模式枚举。`global` 表示全局统一安装启用。
+default_install_mode: global
+
+# Plugin description summarizing the capability boundary.
+# 插件说明，概述插件的能力边界。
+description: 川农 120 周年寻牛活动插件。C1 提供玩家登录/身份、院系字典与运营查询能力。
+
+# Plugin author or owning team.
+# 插件作者或归属团队。
+author: linapro
+
+# Plugin homepage or documentation URL for extra project, design, or external references.
+# 插件主页或文档地址。
+homepage: https://example.com/lina/plugins/sicau-niu
+
+# Plugin license identifier.
+# 插件许可证标识。
+license: Apache-2.0
+
+# Declared public static assets hosted by the host under /x-assets/{plugin-id}/{version}/...
+# The C6 H5 digital memorial wall is delivered here as a standalone mobile page that calls the
+# public (no-auth) memorial-wall API and offers a back-to-mini-program entry. It is independent of
+# the management Vue pages and does not enter the management front-end build.
+# 声明式公开静态资源目录，由宿主托管到 /x-assets/{plugin-id}/{version}/...。
+# C6 的 H5 数字纪念墙作为独立移动端页面在此交付，调用公开免登录的纪念墙 API 并提供回跳小程序入口；
+# 它独立于管理端 Vue 页面，不进入管理端前端构建。
+public_assets:
+  - source: frontend/wall
+    mount: wall
+    index: index.html
+
+# This plugin is single-language (Chinese) and intentionally omits the optional `i18n` block,
+# so the host treats it as single-language and does not require manifest/i18n resources.
+# 本插件为单语言（中文），刻意省略可选的 `i18n` 配置块，宿主据此按单语言处理。
+#
+# Plugin menu declaration list; the host syncs menus, button permissions, and route entries from it.
+# 插件菜单声明列表，宿主按该列表同步菜单、按钮权限和路由入口。
+menus:
+  # 顶级独立目录:寻牛活动。省略 parent_key 表示挂在侧边栏根级(与系统管理/扩展中心同级)。
+  - key: plugin:sicau-niu:root
+    name: 寻牛活动
+    icon: ant-design:trophy-outlined
+    type: D
+    sort: 20
+    remark: 寻牛活动管理端独立菜单
+  # 院系字典管理页面。
+  - key: plugin:sicau-niu:college
+    parent_key: plugin:sicau-niu:root
+    name: 院系字典
+    path: sicau-niu-college
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:college:list
+    icon: ant-design:bank-outlined
+    type: M
+    sort: 1
+    remark: 寻牛活动院系字典维护
+  - key: plugin:sicau-niu:college-create
+    parent_key: plugin:sicau-niu:college
+    name: 院系新增
+    perms: sicau-niu:college:create
+    type: B
+    sort: 1
+    remark: 院系字典新增权限
+  - key: plugin:sicau-niu:college-update
+    parent_key: plugin:sicau-niu:college
+    name: 院系修改
+    perms: sicau-niu:college:update
+    type: B
+    sort: 2
+    remark: 院系字典修改权限
+  - key: plugin:sicau-niu:college-delete
+    parent_key: plugin:sicau-niu:college
+    name: 院系删除
+    perms: sicau-niu:college:delete
+    type: B
+    sort: 3
+    remark: 院系字典删除权限
+  # 玩家信息查询页面。
+  - key: plugin:sicau-niu:player
+    parent_key: plugin:sicau-niu:root
+    name: 寻牛玩家
+    path: sicau-niu-player
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:player:list
+    icon: ant-design:team-outlined
+    type: M
+    sort: 2
+    remark: 寻牛活动玩家基础信息查询
+  # 牛管理页面(C2)。
+  - key: plugin:sicau-niu:niu
+    parent_key: plugin:sicau-niu:root
+    name: 牛管理
+    path: sicau-niu-niu
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:niu:list
+    icon: ant-design:appstore-outlined
+    type: M
+    sort: 3
+    remark: 寻牛活动牛资产维护
+  - key: plugin:sicau-niu:niu-create
+    parent_key: plugin:sicau-niu:niu
+    name: 牛新增
+    perms: sicau-niu:niu:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:niu-update
+    parent_key: plugin:sicau-niu:niu
+    name: 牛修改
+    perms: sicau-niu:niu:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:niu-delete
+    parent_key: plugin:sicau-niu:niu
+    name: 牛删除
+    perms: sicau-niu:niu:delete
+    type: B
+    sort: 3
+  # 铁牛管理页面(C2)。
+  - key: plugin:sicau-niu:iron
+    parent_key: plugin:sicau-niu:root
+    name: 铁牛管理
+    path: sicau-niu-iron
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:iron:list
+    icon: ant-design:robot-outlined
+    type: M
+    sort: 4
+    remark: 寻牛活动铁牛标识登记
+  - key: plugin:sicau-niu:iron-create
+    parent_key: plugin:sicau-niu:iron
+    name: 铁牛新增
+    perms: sicau-niu:iron:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:iron-update
+    parent_key: plugin:sicau-niu:iron
+    name: 铁牛修改
+    perms: sicau-niu:iron:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:iron-delete
+    parent_key: plugin:sicau-niu:iron
+    name: 铁牛删除
+    perms: sicau-niu:iron:delete
+    type: B
+    sort: 3
+  # 卡片管理页面(C2)。
+  - key: plugin:sicau-niu:card
+    parent_key: plugin:sicau-niu:root
+    name: 卡片管理
+    path: sicau-niu-card
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:card:list
+    icon: ant-design:idcard-outlined
+    type: M
+    sort: 5
+    remark: 寻牛活动校史卡片维护
+  - key: plugin:sicau-niu:card-create
+    parent_key: plugin:sicau-niu:card
+    name: 卡片新增
+    perms: sicau-niu:card:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:card-update
+    parent_key: plugin:sicau-niu:card
+    name: 卡片修改
+    perms: sicau-niu:card:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:card-delete
+    parent_key: plugin:sicau-niu:card
+    name: 卡片删除
+    perms: sicau-niu:card:delete
+    type: B
+    sort: 3
+  # 金句管理页面(C2)。
+  - key: plugin:sicau-niu:quote
+    parent_key: plugin:sicau-niu:root
+    name: 金句管理
+    path: sicau-niu-quote
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:quote:list
+    icon: ant-design:message-outlined
+    type: M
+    sort: 6
+    remark: 寻牛活动校史金句维护
+  - key: plugin:sicau-niu:quote-create
+    parent_key: plugin:sicau-niu:quote
+    name: 金句新增
+    perms: sicau-niu:quote:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:quote-update
+    parent_key: plugin:sicau-niu:quote
+    name: 金句修改
+    perms: sicau-niu:quote:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:quote-delete
+    parent_key: plugin:sicau-niu:quote
+    name: 金句删除
+    perms: sicau-niu:quote:delete
+    type: B
+    sort: 3
+  # 荣誉配置页面(C5)。
+  - key: plugin:sicau-niu:honor
+    parent_key: plugin:sicau-niu:root
+    name: 荣誉配置
+    path: sicau-niu-honor
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:honor:list
+    icon: ant-design:trophy-outlined
+    type: M
+    sort: 7
+    remark: 寻牛活动荣誉定义维护
+  - key: plugin:sicau-niu:honor-create
+    parent_key: plugin:sicau-niu:honor
+    name: 荣誉新增
+    perms: sicau-niu:honor:create
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:honor-update
+    parent_key: plugin:sicau-niu:honor
+    name: 荣誉修改
+    perms: sicau-niu:honor:update
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:honor-delete
+    parent_key: plugin:sicau-niu:honor
+    name: 荣誉删除
+    perms: sicau-niu:honor:delete
+    type: B
+    sort: 3
+  # 运营结算页面(C7):看板、名册导出、证书批量发放、风控告警、归档。
+  - key: plugin:sicau-niu:settlement
+    parent_key: plugin:sicau-niu:root
+    name: 运营结算
+    path: sicau-niu-settlement
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:settlement:view
+    icon: ant-design:fund-projection-screen-outlined
+    type: M
+    sort: 8
+    remark: 寻牛活动数据看板、导出、批量发证、风控告警与结算归档
+  - key: plugin:sicau-niu:settlement-export
+    parent_key: plugin:sicau-niu:settlement
+    name: 名册导出
+    perms: sicau-niu:settlement:export
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:settlement-issue
+    parent_key: plugin:sicau-niu:settlement
+    name: 批量发证
+    perms: sicau-niu:settlement:issue
+    type: B
+    sort: 2
+  - key: plugin:sicau-niu:settlement-archive
+    parent_key: plugin:sicau-niu:settlement
+    name: 创建归档
+    perms: sicau-niu:settlement:archive
+    type: B
+    sort: 3
+  # 活动记录只读查询页(C niu-activity-records):与其它页同级直接挂在"寻牛活动"下。
+  - key: plugin:sicau-niu:record-feeding
+    parent_key: plugin:sicau-niu:root
+    name: 喂草记录
+    path: sicau-niu-record-feeding
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:fire-outlined
+    type: M
+    sort: 9
+  - key: plugin:sicau-niu:record-steal
+    parent_key: plugin:sicau-niu:root
+    name: 偷草记录
+    path: sicau-niu-record-steal
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:swap-outlined
+    type: M
+    sort: 10
+  - key: plugin:sicau-niu:record-gift
+    parent_key: plugin:sicau-niu:root
+    name: 送草记录
+    path: sicau-niu-record-gift
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:gift-outlined
+    type: M
+    sort: 11
+  - key: plugin:sicau-niu:record-checkin
+    parent_key: plugin:sicau-niu:root
+    name: 签到记录
+    path: sicau-niu-record-checkin
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:calendar-outlined
+    type: M
+    sort: 12
+  - key: plugin:sicau-niu:record-activation
+    parent_key: plugin:sicau-niu:root
+    name: 激活记录
+    path: sicau-niu-record-activation
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:aim-outlined
+    type: M
+    sort: 13
+  - key: plugin:sicau-niu:record-grasstxn
+    parent_key: plugin:sicau-niu:root
+    name: 草账户流水
+    path: sicau-niu-record-grasstxn
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:account-book-outlined
+    type: M
+    sort: 14

@@ -1,0 +1,191 @@
+import { expect, type Locator, type Page } from "@host-tests/support/playwright";
+
+import { PluginPage } from "@host-tests/pages/PluginPage";
+
+// SicauNiuCatalogPage drives the sicau-niu operator content-asset pages owned by
+// the C2 niu-catalog-admin change: the "金句管理" (quotes) and "牛管理" (niu) lists.
+// It exposes sidebar navigation plus create / edit / delete flows whose
+// assertions anchor on the page data-testid attributes and the persisted vxe row
+// text, so the E2E proves list state rather than only button clicks. The
+// "寻牛活动" parent directory is auto-expanded by clickSidebarMenuItem, so the
+// nested menu items can be clicked directly.
+export class SicauNiuCatalogPage extends PluginPage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shared helpers
+  // ---------------------------------------------------------------------------
+
+  private rowByText(text: string): Locator {
+    return this.page.locator(".vxe-body--row", { hasText: text }).first();
+  }
+
+  // selectAntOption opens an ant-design Select identified by its form
+  // data-testid wrapper and picks the option whose text matches exactly. The
+  // testid is rendered on the .ant-select wrapper, so clicking it toggles the
+  // dropdown; the option is then chosen from the visible dropdown overlay.
+  private async selectAntOption(testId: string, optionLabel: string) {
+    await this.page.getByTestId(testId).first().click();
+    const dropdown = this.page.locator(".ant-select-dropdown:visible").last();
+    await expect(dropdown).toBeVisible();
+    await dropdown
+      .locator(".ant-select-item-option", { hasText: optionLabel })
+      .filter({ hasText: optionLabel })
+      .first()
+      .click();
+    await expect(dropdown).toBeHidden();
+  }
+
+  private async confirmDialog(dialog: Locator) {
+    await dialog
+      .getByRole("button", { name: /确\s*认|确\s*定/i })
+      .last()
+      .click();
+    await expect(dialog).toHaveCount(0);
+  }
+
+  // confirmRowPopconfirm clicks the row action that triggers an ant Popconfirm
+  // and confirms the popover, mirroring the C1 delete flow.
+  private async confirmPopconfirm() {
+    const confirmPopover = this.page.locator(".ant-popover:visible").last();
+    await expect(confirmPopover).toBeVisible();
+    await confirmPopover
+      .getByRole("button", { name: /确\s*定|确\s*认/i })
+      .click();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 金句管理 (quotes) — simplest asset (content + enabled), the stable core path
+  // ---------------------------------------------------------------------------
+
+  quoteAddButton(): Locator {
+    return this.page.getByTestId("sicau-niu-quote-add").first();
+  }
+
+  quoteModal(): Locator {
+    return this.page
+      .getByRole("dialog", { name: /新增金句|编辑金句/ })
+      .last();
+  }
+
+  quoteContentInput(): Locator {
+    return this.page.getByTestId("sicau-niu-quote-content-input").last();
+  }
+
+  quoteRow(content: string): Locator {
+    return this.rowByText(content);
+  }
+
+  async openQuoteFromMenu() {
+    await this.clickSidebarMenuItem("金句管理");
+    await expect(this.quoteAddButton()).toBeVisible();
+  }
+
+  async createQuote(content: string) {
+    await expect(this.quoteAddButton()).toBeVisible();
+    await this.quoteAddButton().click();
+    await expect(this.quoteModal()).toBeVisible();
+    await this.quoteContentInput().fill(content);
+    await this.confirmDialog(this.quoteModal());
+    await expect(this.quoteRow(content)).toBeVisible();
+  }
+
+  async editQuote(currentContent: string, nextContent: string) {
+    const editButton = await this.rowActionButton(currentContent, /编\s*辑/);
+    await editButton.click();
+    await expect(this.quoteModal()).toBeVisible();
+    await expect(this.quoteContentInput()).toHaveValue(currentContent);
+    await this.quoteContentInput().fill(nextContent);
+    await this.confirmDialog(this.quoteModal());
+    await expect(this.quoteRow(nextContent)).toBeVisible();
+  }
+
+  async deleteQuote(content: string) {
+    const deleteButton = await this.rowActionButton(content, /删\s*除/);
+    await deleteButton.click();
+    await this.confirmPopconfirm();
+    await expect(this.quoteRow(content)).toHaveCount(0);
+  }
+
+  // ---------------------------------------------------------------------------
+  // 牛管理 (niu) — common niu only, avoiding special-subtype / college coupling
+  // ---------------------------------------------------------------------------
+
+  niuAddButton(): Locator {
+    return this.page.getByTestId("sicau-niu-niu-add").first();
+  }
+
+  niuModal(): Locator {
+    return this.page.getByRole("dialog", { name: /新增牛|编辑牛/ }).last();
+  }
+
+  niuCodeInput(): Locator {
+    return this.page.getByTestId("sicau-niu-niu-code-input").last();
+  }
+
+  niuLatInput(): Locator {
+    return this.page
+      .getByTestId("sicau-niu-niu-lat-input")
+      .locator("input")
+      .last();
+  }
+
+  niuLngInput(): Locator {
+    return this.page
+      .getByTestId("sicau-niu-niu-lng-input")
+      .locator("input")
+      .last();
+  }
+
+  niuRow(code: string): Locator {
+    return this.rowByText(code);
+  }
+
+  async openNiuFromMenu() {
+    await this.clickSidebarMenuItem("牛管理");
+    await expect(this.niuAddButton()).toBeVisible();
+  }
+
+  // createCommonNiu creates a "普通" niu with just its code. GPS lat/lng default
+  // to 0 server-side, so the brittle InputNumber widgets are avoided; the only
+  // required field beyond code is niuType, which we set via its Select. The
+  // common type keeps the special-subtype / college / name fields hidden.
+  async createCommonNiu(code: string) {
+    await expect(this.niuAddButton()).toBeVisible();
+    await this.niuAddButton().click();
+    await expect(this.niuModal()).toBeVisible();
+    await this.niuCodeInput().fill(code);
+    // niuType defaults to "common" and the form submits the default value, so we
+    // fill only the code and submit — no Select/InputNumber interaction, which
+    // keeps the create flow free of dropdown-overlay flakiness.
+    await this.confirmDialog(this.niuModal());
+    await expect(this.niuRow(code)).toBeVisible();
+  }
+
+  async editNiuCode(currentCode: string, nextCode: string) {
+    const editButton = await this.rowActionButton(currentCode, /编\s*辑/);
+    await editButton.click();
+    await expect(this.niuModal()).toBeVisible();
+    await expect(this.niuCodeInput()).toHaveValue(currentCode);
+    await this.niuCodeInput().fill(nextCode);
+    await this.confirmDialog(this.niuModal());
+    await expect(this.niuRow(nextCode)).toBeVisible();
+  }
+
+  async deleteNiu(code: string) {
+    const deleteButton = await this.rowActionButton(code, /删\s*除/);
+    await deleteButton.click();
+    await this.confirmPopconfirm();
+    await expect(this.niuRow(code)).toHaveCount(0);
+  }
+
+  // rowActionButton locates a row by its text and returns the named action
+  // button (编辑 / 删除) within that row, matching the C1 page-object pattern.
+  private async rowActionButton(text: string, action: RegExp) {
+    const row = this.rowByText(text);
+    await expect(row, `未找到列表行: ${text}`).toBeVisible();
+    return row.getByRole("button", { name: action }).first();
+  }
+}

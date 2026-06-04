@@ -1,0 +1,103 @@
+// ==========================================================================
+// Code generated and maintained by GoFrame CLI tool. DO NOT EDIT.
+// ==========================================================================
+
+package internal
+
+import (
+	"context"
+
+	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
+)
+
+// UserDao is the data access object for the table plugin_sicau_niu_user.
+type UserDao struct {
+	table    string             // table is the underlying table name of the DAO.
+	group    string             // group is the database configuration group name of the current DAO.
+	columns  UserColumns        // columns contains all the column names of Table for convenient usage.
+	handlers []gdb.ModelHandler // handlers for customized model modification.
+}
+
+// UserColumns defines and stores column names for the table plugin_sicau_niu_user.
+type UserColumns struct {
+	Id                string // Primary key ID
+	Openid            string // WeChat openid, unique per active player
+	Phone             string // Bound phone number, unique per active player (one-phone-one-account)
+	Nickname          string // Player nickname
+	Avatar            string // Player avatar URL
+	IdentityType      string // Identity tag: student / alumni / friend
+	CollegeId         string // Selected college ID, 0 means none
+	Grade             string // Grade number filled by student, 0 means unset
+	GraduationYear    string // Graduation year filled by alumni, 0 means unset
+	DeviceFingerprint string // Lightweight device fingerprint for risk control
+	CreatedAt         string // Creation time
+	UpdatedAt         string // Update time
+	DeletedAt         string // Soft-delete time, NULL means active
+}
+
+// userColumns holds the columns for the table plugin_sicau_niu_user.
+var userColumns = UserColumns{
+	Id:                "id",
+	Openid:            "openid",
+	Phone:             "phone",
+	Nickname:          "nickname",
+	Avatar:            "avatar",
+	IdentityType:      "identity_type",
+	CollegeId:         "college_id",
+	Grade:             "grade",
+	GraduationYear:    "graduation_year",
+	DeviceFingerprint: "device_fingerprint",
+	CreatedAt:         "created_at",
+	UpdatedAt:         "updated_at",
+	DeletedAt:         "deleted_at",
+}
+
+// NewUserDao creates and returns a new DAO object for table data access.
+func NewUserDao(handlers ...gdb.ModelHandler) *UserDao {
+	return &UserDao{
+		group:    "default",
+		table:    "plugin_sicau_niu_user",
+		columns:  userColumns,
+		handlers: handlers,
+	}
+}
+
+// DB retrieves and returns the underlying raw database management object of the current DAO.
+func (dao *UserDao) DB() gdb.DB {
+	return g.DB(dao.group)
+}
+
+// Table returns the table name of the current DAO.
+func (dao *UserDao) Table() string {
+	return dao.table
+}
+
+// Columns returns all column names of the current DAO.
+func (dao *UserDao) Columns() UserColumns {
+	return dao.columns
+}
+
+// Group returns the database configuration group name of the current DAO.
+func (dao *UserDao) Group() string {
+	return dao.group
+}
+
+// Ctx creates and returns a Model for the current DAO. It automatically sets the context for the current operation.
+func (dao *UserDao) Ctx(ctx context.Context) *gdb.Model {
+	model := dao.DB().Model(dao.table)
+	for _, handler := range dao.handlers {
+		model = handler(model)
+	}
+	return model.Safe().Ctx(ctx)
+}
+
+// Transaction wraps the transaction logic using function f.
+// It rolls back the transaction and returns the error if function f returns a non-nil error.
+// It commits the transaction and returns nil if function f returns nil.
+//
+// Note: Do not commit or roll back the transaction in function f,
+// as it is automatically handled by this function.
+func (dao *UserDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
+	return dao.Ctx(ctx).Transaction(ctx, f)
+}

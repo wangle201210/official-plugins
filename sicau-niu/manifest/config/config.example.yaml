@@ -1,0 +1,130 @@
+# Runtime configuration template for the sicau-niu (寻牛活动) source plugin.
+# 寻牛活动源码插件运行时配置模板。
+#
+# The host reads these values through the plugin-scoped ConfigService at route
+# assembly time. Copy this file to the plugin development config location and
+# fill in the real WeChat credentials and a strong token secret before going
+# live. C1 ships a mockable WeChat gateway so the full login flow runs without
+# real credentials when `wechat.mock` is true.
+# 宿主在路由装配阶段通过插件作用域 ConfigService 读取这些配置。上线前需复制本文件到插件开发配置位置，
+# 填入真实微信凭证与强随机 token 密钥。C1 提供可 Mock 的微信网关，`wechat.mock` 为 true 时无需真实凭证即可跑通全流程。
+
+# WeChat mini-program gateway settings.
+# 微信小程序网关配置。
+wechat:
+  # WeChat mini-program AppID used by the real jscode2session call.
+  # 微信小程序 AppID，真实 jscode2session 调用使用。
+  appId: ""
+  # WeChat mini-program AppSecret used by the real jscode2session call.
+  # 微信小程序 AppSecret，真实 jscode2session 调用使用。
+  secret: ""
+  # When true, the gateway uses the mock implementation instead of calling WeChat.
+  # 为 true 时网关使用 mock 实现，不调用真实微信接口。
+  mock: true
+  # Fixed openid returned by the mock gateway when set; when blank the mock
+  # derives a stable openid from the submitted login code.
+  # mock 网关固定返回的 openid；为空时 mock 从登录 code 派生稳定 openid。
+  mockOpenid: ""
+
+# Player session token settings (plugin self-signed token).
+# 玩家会话 token 配置（插件自签 token）。
+token:
+  # HMAC signing secret for the player session token. Must be a strong random
+  # value in production; the plugin refuses to assemble routes when blank.
+  # 玩家会话 token 的 HMAC 签名密钥。生产环境必须为强随机值；为空时插件拒绝装配路由。
+  secret: ""
+  # Player session token time-to-live as a unit-suffixed duration, e.g. 168h.
+  # 玩家会话 token 有效期，使用带单位的时间字符串，例如 168h。
+  ttl: 168h
+
+# LBS activation settings (C3 niu-activation).
+# LBS 激活配置（C3 niu-activation）。
+activation:
+  # Maximum allowed distance in meters between the player's reported location and
+  # the cattle GPS anchor for an activation to be accepted. Operators tune this
+  # to balance anti-spoofing against GPS drift.
+  # 玩家上报位置与牛 GPS 锚点之间允许的最大激活判距（米）。运营据此在防作弊与 GPS 漂移之间权衡。
+  lbsThresholdMeters: 50
+
+# Activation poster settings (C3 niu-collection-poster).
+# 激活海报配置（C3 niu-collection-poster）。
+poster:
+  # Campus anniversary badge text rendered onto the activation poster. Empty keeps
+  # the badge area blank.
+  # 渲染到激活海报上的校庆标识文案。为空则海报标识区域留白。
+  campusBadge: ""
+
+# Daily check-in grass grant range (C4 niu-grass-account).
+# 每日签到草量区间（C4 niu-grass-account）。
+checkin:
+  # Minimum grass granted per daily check-in.
+  # 每日签到发放草量下限。
+  minAmount: 20
+  # Maximum grass granted per daily check-in.
+  # 每日签到发放草量上限。
+  maxAmount: 50
+
+# Steal-grass settings (C4 niu-grass-social).
+# 偷草配置（C4 niu-grass-social）。
+steal:
+  # Number of stealable targets in each player's daily random list.
+  # 每位玩家每日随机可偷名单人数。
+  dailyTargets: 12
+  # Maximum number of steal actions a player may perform per natural day.
+  # 每位玩家每个自然日的偷草次数上限。
+  dailyLimit: 5
+  # Minimum grass stolen per steal action.
+  # 单次偷草草量下限。
+  minAmount: 5
+  # Maximum grass stolen per steal action.
+  # 单次偷草草量上限。
+  maxAmount: 20
+
+# Gift-grass settings (C4 niu-grass-social).
+# 送草配置（C4 niu-grass-social）。
+gift:
+  # Maximum number of gift actions a player may perform per natural day.
+  # 每位玩家每个自然日的送草次数上限。
+  dailyLimit: 12
+  # Minimum grass amount per gift action.
+  # 单次送草草量下限。
+  minAmount: 12
+
+# Iron-cow proximity bonus settings (C4 niu-feeding). The 1.5x coefficient is a
+# code constant (ironBonusCoefficientBasis=150) and is not configurable here.
+# 铁牛邻近加成配置（C4 niu-feeding）。1.5 倍系数是代码常量（ironBonusCoefficientBasis=150），此处不可配置。
+ironBonus:
+  # Maximum great-circle distance in meters between a cattle anchor and any iron
+  # cow's current location for the feeding bonus to apply.
+  # 牛锚点与任一铁牛当前位置之间触发喂草加成的最大直线距离（米）。
+  thresholdMeters: 12
+
+# Iron-cow real-time location seam (C4 niu-feeding).
+# 铁牛实时定位接缝（C4 niu-feeding）。
+ironLocation:
+  # When true, the location gateway returns the iron cows' stored last_lat/last_lng
+  # instead of calling an external positioning API.
+  # 为 true 时，定位网关返回铁牛已存储的 last_lat/last_lng，而非调用外部定位 API。
+  mock: true
+
+# Risk anomaly alert thresholds (M13, C10 niu-risk-anomaly).
+# 风控异常告警阈值（M13，C10 niu-risk-anomaly）。
+anomaly:
+  # A player whose single-day feeding count exceeds this is alerted for manual review.
+  # 单日喂草次数超过该值的玩家进入异常告警，供人工研判。
+  feedDailyThreshold: 100
+  # A player whose single-day steal count exceeds this is alerted (defaults near the
+  # per-day steal cap to flag sustained max-rate stealing).
+  # 单日偷草次数超过该值的玩家进入异常告警（默认贴近每日偷草上限以识别持续顶格）。
+  stealDailyThreshold: 5
+  # Maximum number of anomaly alerts returned.
+  # 异常告警返回的最大条数。
+  listLimit: 200
+
+# H5 memorial-wall return-to-mini-program link (M12, C12 niu-miniapp-link).
+# H5 数字纪念墙回跳小程序链接（M12，C12 niu-miniapp-link）。
+miniapp:
+  # The return-to-mini-program URL/scheme the public H5 wall links to; fill the real
+  # mini-program scheme/short-link after publishing. Empty hides the back-link entry.
+  # 公开 H5 纪念墙回跳小程序的 URL/scheme；小程序发布后填真实 scheme/短链。留空则隐藏回跳入口。
+  url: ""
