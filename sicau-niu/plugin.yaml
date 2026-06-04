@@ -285,3 +285,65 @@ menus:
     perms: sicau-niu:settlement:archive
     type: B
     sort: 3
+  # 活动记录子目录:喂草/偷草/送草/签到/激活/草账户流水 只读查询(C niu-activity-records)。
+  - key: plugin:sicau-niu:records
+    parent_key: plugin:sicau-niu:root
+    name: 活动记录
+    icon: ant-design:profile-outlined
+    type: D
+    sort: 9
+    remark: 寻牛活动行为记录只读查询
+  - key: plugin:sicau-niu:record-feeding
+    parent_key: plugin:sicau-niu:records
+    name: 喂草记录
+    path: sicau-niu-record-feeding
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:fire-outlined
+    type: M
+    sort: 1
+  - key: plugin:sicau-niu:record-steal
+    parent_key: plugin:sicau-niu:records
+    name: 偷草记录
+    path: sicau-niu-record-steal
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:swap-outlined
+    type: M
+    sort: 2
+  - key: plugin:sicau-niu:record-gift
+    parent_key: plugin:sicau-niu:records
+    name: 送草记录
+    path: sicau-niu-record-gift
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:gift-outlined
+    type: M
+    sort: 3
+  - key: plugin:sicau-niu:record-checkin
+    parent_key: plugin:sicau-niu:records
+    name: 签到记录
+    path: sicau-niu-record-checkin
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:calendar-outlined
+    type: M
+    sort: 4
+  - key: plugin:sicau-niu:record-activation
+    parent_key: plugin:sicau-niu:records
+    name: 激活记录
+    path: sicau-niu-record-activation
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:aim-outlined
+    type: M
+    sort: 5
+  - key: plugin:sicau-niu:record-grasstxn
+    parent_key: plugin:sicau-niu:records
+    name: 草账户流水
+    path: sicau-niu-record-grasstxn
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:record:list
+    icon: ant-design:account-book-outlined
+    type: M
+    sort: 6

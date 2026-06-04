@@ -23,6 +23,7 @@ import (
 	pluginsicauniu "lina-plugin-sicau-niu"
 	adminctrl "lina-plugin-sicau-niu/backend/internal/controller/admin"
 	playerctrl "lina-plugin-sicau-niu/backend/internal/controller/player"
+	recordctrl "lina-plugin-sicau-niu/backend/internal/controller/record"
 	settlementctrl "lina-plugin-sicau-niu/backend/internal/controller/settlement"
 	wallctrl "lina-plugin-sicau-niu/backend/internal/controller/wall"
 	"lina-plugin-sicau-niu/backend/internal/middleware"
@@ -36,6 +37,7 @@ import (
 	honorsvc "lina-plugin-sicau-niu/backend/internal/service/honor"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	rankingsvc "lina-plugin-sicau-niu/backend/internal/service/ranking"
+	recordsvc "lina-plugin-sicau-niu/backend/internal/service/record"
 	settlementsvc "lina-plugin-sicau-niu/backend/internal/service/settlement"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 	wallsvc "lina-plugin-sicau-niu/backend/internal/service/wall"
@@ -197,6 +199,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 	settlementService := settlementsvc.New(settlementConfig)
+	recordService := recordsvc.New()
 	playerAuth := middleware.NewPlayerAuth(tokenService)
 	playerController := playerctrl.NewV1(
 		identityService,
@@ -211,6 +214,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService, honorService)
 	wallController := wallctrl.NewV1(wallService)
 	settlementController := settlementctrl.NewV1(settlementService)
+	recordController := recordctrl.NewV1(recordService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
 		group.Group("/api/v1", func(group pluginhost.RouteGroup) {
@@ -312,6 +316,14 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					settlementController.ListArchives,
 					settlementController.Activity,
 					settlementController.RiskAnomalies,
+				)
+				group.Bind(
+					recordController.Feedings,
+					recordController.Steals,
+					recordController.Gifts,
+					recordController.Checkins,
+					recordController.Activations,
+					recordController.GrassTxns,
 				)
 			})
 		})
