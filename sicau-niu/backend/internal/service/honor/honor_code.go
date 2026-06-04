@@ -83,6 +83,20 @@ var (
 		"Failed to write honor data",
 		gcode.CodeInternalError,
 	)
+	// CodeHonorNotCertificate reports that the target honor is not a certificate
+	// and therefore has no certificate to render.
+	CodeHonorNotCertificate = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_HONOR_NOT_CERTIFICATE",
+		"Target honor is not a certificate",
+		gcode.CodeInvalidParameter,
+	)
+	// CodeCertificateNotOwned reports that the requesting player has not been
+	// granted the certificate.
+	CodeCertificateNotOwned = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_CERTIFICATE_NOT_OWNED",
+		"Player has not been granted this certificate",
+		gcode.CodeInvalidParameter,
+	)
 )
 
 // normalizePagination applies the paging defaults and the max page-size cap to a

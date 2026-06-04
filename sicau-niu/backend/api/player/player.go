@@ -20,6 +20,7 @@ type IPlayerV1 interface {
 	Gift(ctx context.Context, req *v1.GiftReq) (res *v1.GiftRes, err error)
 	GrassAccount(ctx context.Context, req *v1.GrassAccountReq) (res *v1.GrassAccountRes, err error)
 	PlayerHonors(ctx context.Context, req *v1.PlayerHonorsReq) (res *v1.PlayerHonorsRes, err error)
+	Certificate(ctx context.Context, req *v1.CertificateReq) (res *v1.CertificateRes, err error)
 	Login(ctx context.Context, req *v1.LoginReq) (res *v1.LoginRes, err error)
 	Messages(ctx context.Context, req *v1.MessagesReq) (res *v1.MessagesRes, err error)
 	MarkMessageRead(ctx context.Context, req *v1.MarkMessageReadReq) (res *v1.MarkMessageReadRes, err error)

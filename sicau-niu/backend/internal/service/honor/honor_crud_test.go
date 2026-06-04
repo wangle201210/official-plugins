@@ -25,7 +25,7 @@ func TestCreateAndGetHonor(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New()
+	svc := New(NewBasicCertRenderer(), Config{})
 	id, err := svc.Create(ctx, validParticipation("join"))
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -44,7 +44,7 @@ func TestCreateHonorCodeUnique(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New()
+	svc := New(NewBasicCertRenderer(), Config{})
 	if _, err := svc.Create(ctx, validParticipation("dup")); err != nil {
 		t.Fatalf("first Create failed: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestCreateHonorEnumValidation(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New()
+	svc := New(NewBasicCertRenderer(), Config{})
 
 	badType := validParticipation("bt")
 	badType.HonorType = "medal"
@@ -75,7 +75,7 @@ func TestCreateHonorShapeValidation(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New()
+	svc := New(NewBasicCertRenderer(), Config{})
 
 	noThreshold := &MutateInput{
 		HonorType:  HonorTypeBadge.String(),
@@ -111,7 +111,7 @@ func TestUpdateHonorKeepsOwnCode(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New()
+	svc := New(NewBasicCertRenderer(), Config{})
 	id, err := svc.Create(ctx, validParticipation("self"))
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
@@ -128,7 +128,7 @@ func TestDeleteHonorRemovesFromList(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New()
+	svc := New(NewBasicCertRenderer(), Config{})
 	id, err := svc.Create(ctx, validParticipation("gone"))
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)

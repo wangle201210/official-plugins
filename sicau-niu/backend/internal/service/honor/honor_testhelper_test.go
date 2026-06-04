@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 
 // honorTables lists the plugin tables truncated before each DB-gated test.
 var honorTables = []string{
+	"plugin_sicau_niu_user_honor",
 	"plugin_sicau_niu_honor_def",
 	"plugin_sicau_niu_feeding",
 	"plugin_sicau_niu_activation",
@@ -66,10 +68,16 @@ var (
 	honorDBOriginalConfig gdb.Config
 )
 
+// userOpenidSeq provides process-unique openids for seeded test players.
+var userOpenidSeq int64
+
 // insertUserRow inserts one player row directly for test setup and returns its ID.
+// Every player has a distinct WeChat openid so the active-openid unique index is
+// respected across rows.
 func insertUserRow(t *testing.T, ctx context.Context, nickname string) int64 {
 	t.Helper()
-	id, err := dao.User.Ctx(ctx).Data(do.User{Nickname: nickname}).InsertAndGetId()
+	openid := fmt.Sprintf("openid-%d", atomic.AddInt64(&userOpenidSeq, 1))
+	id, err := dao.User.Ctx(ctx).Data(do.User{Nickname: nickname, Openid: openid}).InsertAndGetId()
 	if err != nil {
 		t.Fatalf("insert user row failed: %v", err)
 	}

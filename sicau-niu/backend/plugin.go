@@ -170,7 +170,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	feedingService := feedingsvc.New(grassService, feedingsvc.NewMockIronLocation(), feedingConfig)
 	grassSocialService := grasssocialsvc.New(grassService, grassSocialConfig)
 	rankingService := rankingsvc.New(rankingConfig)
-	honorService := honorsvc.New()
+	honorService := honorsvc.New(
+		honorsvc.NewBasicCertRenderer(),
+		honorsvc.Config{CampusBadge: activationConfig.CampusBadge},
+	)
 	wallService := wallsvc.New()
 	settlementService := settlementsvc.New()
 	playerAuth := middleware.NewPlayerAuth(tokenService)
@@ -236,6 +239,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					playerController.CollegeRanking,
 					playerController.FriendRanking,
 					playerController.PlayerHonors,
+					playerController.Certificate,
 				)
 			})
 

@@ -19,6 +19,8 @@ package honor
 
 import (
 	"context"
+
+	"lina-plugin-sicau-niu/backend/internal/service/honor/internal/certrender"
 )
 
 // Service defines the C5 honor contract: operator honor-definition CRUD and the
@@ -50,21 +52,51 @@ type Service interface {
 	// counts in a fixed number of batched queries to avoid per-honor queries. It
 	// returns a query bizerr on store failure.
 	PlayerHonors(ctx context.Context, playerID int64) (out []*PlayerHonorItem, err error)
+	// PlayerCertificate renders the personalized electronic certificate PNG for a
+	// certificate honor the requesting player already holds. It rejects when the
+	// honor is missing, is not a certificate type, or the player does not hold it,
+	// so a player can only obtain their own granted certificate. It returns the
+	// base64-encoded PNG together with the structured certificate fields.
+	PlayerCertificate(ctx context.Context, playerID, honorID int64) (out *Certificate, err error)
 }
 
 // Interface compliance assertion for the default honor service implementation.
 var _ Service = (*serviceImpl)(nil)
 
-// serviceImpl implements Service against the plugin-owned honor_def, feeding,
-// activation and card tables. It reads those tables through the generated DAO and
-// reuses the card package's exported category-enum validator for the
-// category-complete rule, so it carries no runtime interface dependency.
-type serviceImpl struct{}
+// CertRenderer is the electronic-certificate PNG output seam re-exported from this
+// package so the route-assembly layer can construct the default renderer and inject
+// it without importing the internal seam package.
+type CertRenderer = certrender.CertRenderer
 
-// New creates a honor service. The component reads the plugin's own honor_def,
-// feeding, activation and card tables through the generated DAO and reuses the
-// card package's exported category-enum contract, so it takes no runtime interface
-// dependencies.
-func New() Service {
-	return &serviceImpl{}
+// NewBasicCertRenderer creates the default basic electronic-certificate renderer.
+func NewBasicCertRenderer() CertRenderer {
+	return certrender.New()
+}
+
+// Config carries the plain-value runtime configuration for the honor capability:
+// only the campus anniversary badge text composed onto generated certificates.
+type Config struct {
+	// CampusBadge is the campus anniversary badge text rendered on certificates.
+	CampusBadge string
+}
+
+// serviceImpl implements Service against the plugin-owned honor_def, feeding,
+// activation, card and user_honor tables. It reads those tables through the
+// generated DAO and reuses the card package's exported category-enum validator for
+// the category-complete rule; its only runtime dependencies are the replaceable
+// certificate renderer and the plain-value campus badge injected at assembly time.
+type serviceImpl struct {
+	certRenderer CertRenderer // certRenderer is the replaceable certificate PNG output seam.
+	campusBadge  string       // campusBadge is the anniversary badge text rendered on certificates.
+}
+
+// New creates a honor service with the certificate renderer and campus badge
+// injected at assembly time. The component reads the plugin's own honor_def,
+// feeding, activation, card and user_honor tables through the generated DAO and
+// reuses the card package's exported category-enum contract.
+func New(certRenderer CertRenderer, config Config) Service {
+	return &serviceImpl{
+		certRenderer: certRenderer,
+		campusBadge:  config.CampusBadge,
+	}
 }
