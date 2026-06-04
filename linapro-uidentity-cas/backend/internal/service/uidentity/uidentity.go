@@ -304,8 +304,6 @@ type Service interface {
 	// in plugin-owned local storage and returns old uploadFile-compatible
 	// projections.
 	UploadLegacyFiles(ctx context.Context, in LegacyUploadInput) (*LegacyUploadOutput, error)
-	// Health returns a lightweight health status for legacy health checks.
-	Health(ctx context.Context) (*LegacyHealthOutput, error)
 	// ServerMonitor returns runtime and host monitor information using local
 	// process/OS data without requiring an external monitor dependency.
 	ServerMonitor(ctx context.Context) (*LegacyServerMonitorOutput, error)
@@ -904,11 +902,6 @@ type LegacyUploadFile struct {
 // LegacyUploadOutput carries legacy upload response files.
 type LegacyUploadOutput struct {
 	Files []*LegacyUploadFile
-}
-
-// LegacyHealthOutput carries health status.
-type LegacyHealthOutput struct {
-	Status string
 }
 
 // LegacyServerMonitorOutput carries runtime monitor data.

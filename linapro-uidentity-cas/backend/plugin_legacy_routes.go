@@ -47,7 +47,6 @@ var legacyPublicRoutes = []legacyRouteSpec{
 	{Method: "POST", Path: "/account/updatePasswordGetUser"},
 	{Method: "POST", Path: "/account/updatePasswordBySelfPhone"},
 	{Method: "POST", Path: "/account/updatePasswordBySelf"},
-	{Method: "GET", Path: "/health"},
 	{Method: "GET", Path: "/metrics"},
 	{Method: "GET", Path: "/cas/login"},
 	{Method: "POST", Path: "/cas/login"},
@@ -262,7 +261,7 @@ func registerLegacyRoutes(routes pluginhost.RouteRegistrar, middlewares pluginho
 	routes.Group("/", func(group pluginhost.RouteGroup) {
 		registerLegacyBaseMiddlewares(group, middlewares)
 		group.GET("/", legacyController.RootRedirect)
-		group.GET("/info", legacyController.Health)
+		group.GET("/info", legacyController.Info)
 		group.GET("/swagger/admin/*any", legacyController.LegacyStatic)
 		group.GET("/ws/{id}/{channel}", legacyController.LegacyExternalOK("websocket"))
 		group.GET("/wslogout/{id}/{channel}", legacyController.LegacyExternalOK("websocket-logout"))
@@ -295,7 +294,6 @@ func registerLegacyPublicRoutes(group pluginhost.RouteGroup, legacyController *u
 	group.POST("/account/updatePasswordBySelfPhone", legacyController.AccountPasswordPhoneVerify)
 	group.POST("/account/updatePasswordBySelf", legacyController.AccountPasswordSelfReset)
 	group.GET("/captcha", legacyController.Captcha)
-	group.GET("/health", legacyController.Health)
 	group.GET("/metrics", legacyController.Metrics)
 	group.GET("/cas/login", legacyController.CasLoginByCookie)
 	group.POST("/cas/login", legacyController.CasPasswordLogin)

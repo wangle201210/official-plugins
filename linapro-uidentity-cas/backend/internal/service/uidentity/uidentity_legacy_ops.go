@@ -79,11 +79,6 @@ func (s *serviceImpl) UploadLegacyFiles(ctx context.Context, in LegacyUploadInpu
 	return &LegacyUploadOutput{Files: result}, nil
 }
 
-// Health returns a local health status.
-func (s *serviceImpl) Health(ctx context.Context) (*LegacyHealthOutput, error) {
-	return &LegacyHealthOutput{Status: "ok"}, nil
-}
-
 // ServerMonitor returns runtime and OS information.
 func (s *serviceImpl) ServerMonitor(ctx context.Context) (*LegacyServerMonitorOutput, error) {
 	hostInfo, err := host.InfoWithContext(ctx)

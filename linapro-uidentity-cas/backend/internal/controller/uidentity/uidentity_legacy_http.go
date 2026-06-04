@@ -1045,8 +1045,8 @@ func (c *LegacyController) Upload(r *ghttp.Request) {
 	legacyOKWithMsg(r, legacyUploadPayload(out), "上传成功")
 }
 
-// Health handles old /api/v1/health.
-func (c *LegacyController) Health(r *ghttp.Request) {
+// Info handles old root /info probes without occupying host-owned API routes.
+func (c *LegacyController) Info(r *ghttp.Request) {
 	r.Response.WriteStatus(http.StatusOK)
 	r.Exit()
 }

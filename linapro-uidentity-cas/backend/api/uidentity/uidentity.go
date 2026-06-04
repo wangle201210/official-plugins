@@ -39,7 +39,6 @@ type IUidentityV1 interface {
 	LegacyOAuthConfig(ctx context.Context, req *v1.LegacyOAuthConfigReq) (res *v1.LegacyOAuthConfigRes, err error)
 	LegacyTokenConfig(ctx context.Context, req *v1.LegacyTokenConfigReq) (res *v1.LegacyTokenConfigRes, err error)
 	LegacyUpload(ctx context.Context, req *v1.LegacyUploadReq) (res *v1.LegacyUploadRes, err error)
-	LegacyHealth(ctx context.Context, req *v1.LegacyHealthReq) (res *v1.LegacyHealthRes, err error)
 	LegacyServerMonitor(ctx context.Context, req *v1.LegacyServerMonitorReq) (res *v1.LegacyServerMonitorRes, err error)
 	LegacyLogSnapshot(ctx context.Context, req *v1.LegacyLogSnapshotReq) (res *v1.LegacyLogSnapshotRes, err error)
 	LegacyExternalAction(ctx context.Context, req *v1.LegacyExternalActionReq) (res *v1.LegacyExternalActionRes, err error)

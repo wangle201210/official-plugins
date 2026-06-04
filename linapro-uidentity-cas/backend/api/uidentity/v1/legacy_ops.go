@@ -12,11 +12,6 @@ type LegacyUploadReq struct {
 	File   string `json:"file" dc:"Base64 image payload when type=3; multipart uploads use the file form field instead" eg:"data:image/png;base64,iVBORw0KGgo="`
 }
 
-// LegacyHealthReq defines the health check request.
-type LegacyHealthReq struct {
-	g.Meta `path:"/api/v1/health" method:"get" tags:"UIdentity Legacy Operations" summary:"Check legacy backend health" dc:"Return a lightweight health status for old health-check clients without requiring external monitor services."`
-}
-
 // LegacyServerMonitorReq defines the server monitor request.
 type LegacyServerMonitorReq struct {
 	g.Meta `path:"/api/v1/server-monitor" method:"get" tags:"UIdentity Legacy Operations" summary:"Get legacy server monitor data" dc:"Return runtime, memory, disk, and host data compatible with the old server-monitor backend using local process and operating-system information." permission:"uidentity:cas:read"`
@@ -48,11 +43,6 @@ type LegacyUploadFile struct {
 // LegacyUploadRes returns upload metadata.
 type LegacyUploadRes struct {
 	Files []*LegacyUploadFile `json:"files" dc:"Uploaded files. Single-file legacy clients should use the first element." eg:"[]"`
-}
-
-// LegacyHealthRes returns health status.
-type LegacyHealthRes struct {
-	Status string `json:"status" dc:"Health status" eg:"ok"`
 }
 
 // LegacyServerMonitorRes returns server monitor data.

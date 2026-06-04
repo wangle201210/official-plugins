@@ -46,6 +46,16 @@ func TestLegacyAPIDTOsDoNotDuplicateOldRouteContracts(t *testing.T) {
 	}
 }
 
+func TestLegacyAPIDTOsDoNotExposeHostReservedHealthRoute(t *testing.T) {
+	for _, contract := range legacyAPIDTOContractsForTest() {
+		path := gmeta.Get(contract.req, "path").String()
+		method := strings.ToUpper(gmeta.Get(contract.req, "method").String())
+		if method == "GET" && path == "/api/v1/health" {
+			t.Fatalf("%s must not expose host-owned route %s %s", contract.name, method, path)
+		}
+	}
+}
+
 func TestLegacyUserRuntimeDTOsKeepOldNumberFieldContract(t *testing.T) {
 	expectedNumberField := map[reflect.Type]bool{
 		reflect.TypeOf(v1.UserPasswordChangeReq{}):          false,
@@ -206,7 +216,6 @@ func legacyAPIDTOContractsForTest() []struct {
 		{"LegacyOAuthConfigReq", v1.LegacyOAuthConfigReq{}},
 		{"LegacyTokenConfigReq", v1.LegacyTokenConfigReq{}},
 		{"LegacyUploadReq", v1.LegacyUploadReq{}},
-		{"LegacyHealthReq", v1.LegacyHealthReq{}},
 		{"LegacyServerMonitorReq", v1.LegacyServerMonitorReq{}},
 		{"LegacyLogSnapshotReq", v1.LegacyLogSnapshotReq{}},
 		{"LegacyExternalActionReq", v1.LegacyExternalActionReq{}},

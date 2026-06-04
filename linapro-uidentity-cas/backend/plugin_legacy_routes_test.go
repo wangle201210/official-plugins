@@ -10,10 +10,23 @@ import (
 
 func TestLegacyRouteSpecCoversOldAdminRouterInventory(t *testing.T) {
 	coverage := legacyRouteCoverageSetForTest()
+	hostReserved := legacyHostReservedOldRoutesForTest()
 	for _, item := range oldAdminRouterInventoryForTest() {
 		key := item.Method + " " + item.Path
+		if _, ok := hostReserved[key]; ok {
+			continue
+		}
 		if _, ok := coverage[key]; !ok {
 			t.Fatalf("old uidentity/admin route missing: %s", key)
+		}
+	}
+}
+
+func TestLegacyRouteSpecSkipsHostReservedOldRoutes(t *testing.T) {
+	coverage := legacyRouteCoverageSetForTest()
+	for key := range legacyHostReservedOldRoutesForTest() {
+		if _, ok := coverage[key]; ok {
+			t.Fatalf("host-reserved legacy route must not be registered by CAS plugin: %s", key)
 		}
 	}
 }
@@ -83,6 +96,12 @@ func legacyRouteCoverageSetForTest() map[string]struct{} {
 	routes := append([]legacyRouteSpec{}, allLegacyRouteSpecs()...)
 	routes = append(routes, legacyInterceptedOldRoutes...)
 	return legacyRouteSpecsForTest(routes)
+}
+
+func legacyHostReservedOldRoutesForTest() map[string]struct{} {
+	return map[string]struct{}{
+		"GET /health": {},
+	}
 }
 
 func legacyRouteSpecsForTest(routes []legacyRouteSpec) map[string]struct{} {
