@@ -51,6 +51,10 @@ type Service interface {
 	// ListArchives returns the settlement archives ordered by archive time
 	// descending, bounded. It returns a query bizerr on store failure.
 	ListArchives(ctx context.Context) (out *ArchiveList, err error)
+	// Activity returns the M5 dashboard activity metrics: the daily active-user
+	// series for the last days days (bounded) and the next-day / 7-day retention
+	// over elapsed cohorts. It returns a query bizerr on store failure.
+	Activity(ctx context.Context, days int) (out *Activity, err error)
 }
 
 // Interface compliance assertion for the default settlement service implementation.

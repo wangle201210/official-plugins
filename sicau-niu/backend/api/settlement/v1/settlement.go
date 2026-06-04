@@ -88,6 +88,32 @@ type DeviceClusterMember struct {
 	Nickname string `json:"nickname" dc:"Player nickname; empty when unset" eg:"川农牛仔"`
 }
 
+// ActivityReq is the request for the dashboard activity metrics.
+type ActivityReq struct {
+	g.Meta `path:"/plugins/sicau-niu/settlement/activity" method:"get" tags:"Sicau Niu Settlement" summary:"Dashboard activity metrics" dc:"Return the M5 dashboard activity metrics: the daily active-user (DAU) series for the last N days (N capped at 60) and the next-day / 7-day retention over elapsed registration cohorts. Active on a day means the player took any action (activate/feed/check-in/steal/gift) that day. Every figure is aggregated on the database side. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	Days   int `json:"days" v:"min:0|max:60" dc:"DAU window size in days; defaults to 14 when 0, capped at 60" eg:"14"`
+}
+
+// ActivityRes is the response for the dashboard activity metrics.
+type ActivityRes struct {
+	Dau         []*DauPoint    `json:"dau" dc:"Per-day active-user counts ordered by date ascending; calendar gaps are zero" eg:"[]"`
+	RetentionD1 *RetentionStat `json:"retentionD1" dc:"Next-day retention over elapsed cohorts" eg:"null"`
+	RetentionD7 *RetentionStat `json:"retentionD7" dc:"7-day retention over elapsed cohorts" eg:"null"`
+}
+
+// DauPoint is one day's de-duplicated active-user count.
+type DauPoint struct {
+	Date        string `json:"date" dc:"Calendar day, yyyy-mm-dd" eg:"2026-06-01"`
+	ActiveUsers int64  `json:"activeUsers" dc:"De-duplicated active players that day" eg:"320"`
+}
+
+// RetentionStat is one retention bucket.
+type RetentionStat struct {
+	CohortUsers   int64   `json:"cohortUsers" dc:"Players whose registration day plus the bucket offset has elapsed" eg:"1000"`
+	ReturnedUsers int64   `json:"returnedUsers" dc:"Players in the cohort active on registration day plus the offset" eg:"450"`
+	Rate          float64 `json:"rate" dc:"Retention rate in [0,1]; 0 when the cohort is empty" eg:"0.45"`
+}
+
 // CreateArchiveReq is the request for creating a settlement archive.
 type CreateArchiveReq struct {
 	g.Meta `path:"/plugins/sicau-niu/settlement/archives" method:"post" tags:"Sicau Niu Settlement" summary:"Create settlement archive" dc:"Freeze the current dashboard metrics into a persisted settlement snapshot with the given title. Protected by host unified permission check." permission:"sicau-niu:settlement:archive"`

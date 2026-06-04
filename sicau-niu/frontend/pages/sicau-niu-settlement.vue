@@ -7,6 +7,7 @@ export const pluginPageMeta = {
 
 <script setup lang="ts">
 import type {
+  ActivityData,
   ArchiveItem,
   DashboardData,
   DeviceCluster,
@@ -35,6 +36,7 @@ import { Page } from "#/plugins/dynamic";
 import {
   createArchive,
   exportPlayers,
+  getActivity,
   getDashboard,
   getRiskDeviceClusters,
   issueCertificates,
@@ -50,6 +52,7 @@ const pluginAccessCodes = {
 } as const;
 
 const dashboard = ref<DashboardData | null>(null);
+const activity = ref<ActivityData | null>(null);
 const clusters = ref<DeviceCluster[]>([]);
 const archives = ref<ArchiveItem[]>([]);
 
@@ -84,8 +87,24 @@ const archiveColumns = [
   { title: "归档时间", key: "archivedAt", width: 200 },
 ];
 
+const dauColumns = [
+  { title: "日期", dataIndex: "date", key: "date" },
+  { title: "活跃玩家", dataIndex: "activeUsers", key: "activeUsers", width: 120 },
+];
+
 async function loadDashboard() {
   dashboard.value = await getDashboard();
+}
+
+async function loadActivity() {
+  activity.value = await getActivity(14);
+}
+
+function retentionText(rate: number | undefined): string {
+  if (rate === undefined) {
+    return "—";
+  }
+  return `${(rate * 100).toFixed(1)}%`;
 }
 
 async function loadClusters() {
@@ -188,6 +207,7 @@ async function onArchive() {
 
 onMounted(() => {
   loadDashboard();
+  loadActivity();
   loadClusters();
   loadArchives();
 });
@@ -206,6 +226,42 @@ onMounted(() => {
           :lg="4"
         >
           <Statistic :title="card.label" :value="metricValue(card.key)" />
+        </Col>
+      </Row>
+    </Card>
+
+    <Card title="活跃度(日活 / 留存)" class="mb-4" data-testid="settlement-activity">
+      <Row :gutter="16">
+        <Col :xs="24" :md="8">
+          <Statistic
+            title="次日留存"
+            :value="retentionText(activity?.retentionD1?.rate)"
+          />
+          <div class="text-xs text-gray-400">
+            cohort {{ activity?.retentionD1?.cohortUsers ?? 0 }} / 回访
+            {{ activity?.retentionD1?.returnedUsers ?? 0 }}
+          </div>
+        </Col>
+        <Col :xs="24" :md="8">
+          <Statistic
+            title="7 日留存"
+            :value="retentionText(activity?.retentionD7?.rate)"
+          />
+          <div class="text-xs text-gray-400">
+            cohort {{ activity?.retentionD7?.cohortUsers ?? 0 }} / 回访
+            {{ activity?.retentionD7?.returnedUsers ?? 0 }}
+          </div>
+        </Col>
+        <Col :xs="24" :md="8">
+          <div class="mb-2 text-sm">近 14 天日活</div>
+          <Table
+            :data-source="activity?.dau ?? []"
+            :columns="dauColumns"
+            :pagination="false"
+            row-key="date"
+            size="small"
+            :scroll="{ y: 180 }"
+          />
         </Col>
       </Row>
     </Card>

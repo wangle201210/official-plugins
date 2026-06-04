@@ -60,6 +60,30 @@ export interface ArchiveItem {
   archivedAt: number | null;
 }
 
+export interface DauPoint {
+  date: string;
+  activeUsers: number;
+}
+
+export interface RetentionStat {
+  cohortUsers: number;
+  returnedUsers: number;
+  rate: number;
+}
+
+export interface ActivityData {
+  dau: DauPoint[];
+  retentionD1: RetentionStat | null;
+  retentionD7: RetentionStat | null;
+}
+
+export async function getActivity(days = 14) {
+  return requestClient.get<ActivityData>(
+    sicauNiuApi("plugins/sicau-niu/settlement/activity"),
+    { params: { days } },
+  );
+}
+
 export async function getDashboard() {
   return requestClient.get<DashboardData>(
     sicauNiuApi("plugins/sicau-niu/settlement/dashboard"),

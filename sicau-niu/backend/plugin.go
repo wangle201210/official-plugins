@@ -284,6 +284,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					settlementController.RiskDeviceClusters,
 					settlementController.CreateArchive,
 					settlementController.ListArchives,
+					settlementController.Activity,
 				)
 			})
 		})
