@@ -21,4 +21,5 @@ type PosterRes struct {
 	OrderNo      int    `json:"orderNo" dc:"The player's arrival order for this cattle, starting at 1" eg:"1"`
 	Quote        string `json:"quote" dc:"A random enabled school-history quote; empty when no enabled quote exists" eg:"任重道远，砥砺前行"`
 	CampusBadge  string `json:"campusBadge" dc:"Campus anniversary badge text from plugin config; empty when unset" eg:"川农120周年校庆"`
+	ImageBase64  string `json:"imageBase64" dc:"Rendered personalized poster PNG, base64-encoded, for the mini-program to display and share" eg:"iVBORw0KGgoAAAANS..."`
 }

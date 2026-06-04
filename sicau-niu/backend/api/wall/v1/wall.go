@@ -61,6 +61,16 @@ type HighlightQuote struct {
 	Content string `json:"content" dc:"Quote content" eg:"川农大精神:爱国敬业、艰苦奋斗、团结协作、求实创新"`
 }
 
+// ConfigReq is the request for the public memorial-wall configuration.
+type ConfigReq struct {
+	g.Meta `path:"/plugins/sicau-niu/wall/config" method:"get" tags:"Sicau Niu Wall" summary:"Public memorial-wall config" dc:"Return the public memorial-wall configuration: the return-to-mini-program URL the H5 wall links to. This endpoint is public and requires no authentication and exposes no privacy detail. The URL is empty when unconfigured, in which case the H5 hides the back-to-mini-program entry."`
+}
+
+// ConfigRes is the response for the public memorial-wall configuration.
+type ConfigRes struct {
+	MiniappURL string `json:"miniappUrl" dc:"Return-to-mini-program URL/scheme for the H5 wall; empty when unconfigured" eg:"weixin://dl/business/?t=XXXX"`
+}
+
 // StatsReq is the request for the public activity stats.
 type StatsReq struct {
 	g.Meta `path:"/plugins/sicau-niu/wall/stats" method:"get" tags:"Sicau Niu Wall" summary:"Public activity stats" dc:"Return public activity statistics aggregated on the database side: the number of activated cattle, the total cattle count, the first-activator count and the participating-player count. This endpoint is public and requires no authentication and exposes no privacy detail."`

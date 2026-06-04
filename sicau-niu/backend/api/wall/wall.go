@@ -18,4 +18,5 @@ type IWallV1 interface {
 	FirstActivators(ctx context.Context, req *v1.FirstActivatorsReq) (res *v1.FirstActivatorsRes, err error)
 	Highlights(ctx context.Context, req *v1.HighlightsReq) (res *v1.HighlightsRes, err error)
 	Stats(ctx context.Context, req *v1.StatsReq) (res *v1.StatsRes, err error)
+	Config(ctx context.Context, req *v1.ConfigReq) (res *v1.ConfigRes, err error)
 }

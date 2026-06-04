@@ -13,8 +13,8 @@ import (
 	"lina-core/pkg/bizerr"
 )
 
-// TestRenderEncodesDecodablePNG verifies the default renderer produces bytes that
-// decode as a PNG image of the expected placeholder size.
+// TestRenderEncodesDecodablePNG verifies the default renderer produces non-empty
+// bytes that decode as a PNG image of the expected portrait poster size.
 func TestRenderEncodesDecodablePNG(t *testing.T) {
 	renderer := New()
 	data := &PosterData{
@@ -29,13 +29,40 @@ func TestRenderEncodesDecodablePNG(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
+	if len(out) == 0 {
+		t.Fatal("expected non-empty poster PNG bytes")
+	}
 	img, err := png.Decode(bytes.NewReader(out))
 	if err != nil {
 		t.Fatalf("expected decodable PNG, got decode error: %v", err)
 	}
 	bounds := img.Bounds()
-	if bounds.Dx() != placeholderEdge || bounds.Dy() != placeholderEdge {
-		t.Fatalf("expected %dx%d image, got %dx%d", placeholderEdge, placeholderEdge, bounds.Dx(), bounds.Dy())
+	if bounds.Dx() != posterWidth || bounds.Dy() != posterHeight {
+		t.Fatalf("expected %dx%d image, got %dx%d", posterWidth, posterHeight, bounds.Dx(), bounds.Dy())
+	}
+}
+
+// TestRenderDistinctPerPlayer verifies two different players' posters differ, so
+// the rendered image is personalized rather than a fixed placeholder.
+func TestRenderDistinctPerPlayer(t *testing.T) {
+	renderer := New()
+	base := PosterData{NiuCode: "NIU-001", OrderNo: 1}
+
+	a := base
+	a.Nickname = "玩家甲"
+	b := base
+	b.Nickname = "玩家乙"
+
+	outA, err := renderer.Render(context.Background(), &a)
+	if err != nil {
+		t.Fatalf("render A failed: %v", err)
+	}
+	outB, err := renderer.Render(context.Background(), &b)
+	if err != nil {
+		t.Fatalf("render B failed: %v", err)
+	}
+	if bytes.Equal(outA, outB) {
+		t.Fatal("distinct players produced identical posters")
 	}
 }
 

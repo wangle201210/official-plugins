@@ -156,9 +156,9 @@
     // no-auth API surface. Time fields are returned as Unix milliseconds.
     var API_BASE = "/x/sicau-niu/api/v1/plugins/sicau-niu/wall";
 
-    // Placeholder back-to-mini-program entry. Replace with the real WeChat
-    // mini-program URL Scheme / short-link issued for the campaign.
-    var MINIAPP_URL = "weixin://dl/business/?t=PLACEHOLDER_SICAU_NIU";
+    // The return-to-mini-program URL is supplied by plugin config and fetched from
+    // the public /config endpoint at load time; empty config hides the entry.
+    var MINIAPP_URL = "";
 
     function esc(s) {
       return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -237,8 +237,22 @@
     getJSON("/highlights").then(function (d) { renderCards(d); renderQuotes(d); })
       .catch(function () { fail("cards", "加载失败，请稍后重试"); fail("quotes", ""); });
 
-    document.getElementById("goMiniApp").addEventListener("click", function () {
-      window.location.href = MINIAPP_URL;
+    var goMiniApp = document.getElementById("goMiniApp");
+    // Fetch the return-to-mini-program URL from public config; hide the entry when
+    // unconfigured so the H5 never links to a placeholder.
+    getJSON("/config")
+      .then(function (cfg) {
+        MINIAPP_URL = (cfg && cfg.miniappUrl) || "";
+        if (!MINIAPP_URL) {
+          goMiniApp.parentNode.style.display = "none";
+        }
+      })
+      .catch(function () { goMiniApp.parentNode.style.display = "none"; });
+
+    goMiniApp.addEventListener("click", function () {
+      if (MINIAPP_URL) {
+        window.location.href = MINIAPP_URL;
+      }
     });
   </script>
 </body>

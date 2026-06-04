@@ -10,6 +10,7 @@ package activation
 
 import (
 	"context"
+	"encoding/base64"
 
 	"github.com/gogf/gf/v2/util/grand"
 
@@ -38,6 +39,8 @@ type PosterOutput struct {
 	Quote string
 	// CampusBadge is the campus anniversary badge text; empty when unset.
 	CampusBadge string
+	// ImageBase64 is the rendered personalized poster PNG, base64-encoded.
+	ImageBase64 string
 }
 
 // Poster returns the activation poster composition data for a cattle playerID has
@@ -86,18 +89,20 @@ func (s *serviceImpl) Poster(ctx context.Context, playerID int64, niuID int64) (
 		CampusBadge:  s.campusBadge,
 	}
 
-	// Exercise the PNG output seam so the basic renderer stays wired; the encoded
-	// bytes are not part of the JSON contract and are discarded here.
-	if _, renderErr := s.posterRenderer.Render(ctx, &posterrender.PosterData{
+	// Render the personalized poster PNG through the replaceable seam and return it
+	// base64-encoded so the mini-program can display and share the image.
+	image, renderErr := s.posterRenderer.Render(ctx, &posterrender.PosterData{
 		Nickname:     output.Nickname,
 		IdentityType: output.IdentityType,
 		NiuCode:      output.NiuCode,
 		OrderNo:      output.OrderNo,
 		Quote:        output.Quote,
 		CampusBadge:  output.CampusBadge,
-	}); renderErr != nil {
+	})
+	if renderErr != nil {
 		return nil, renderErr
 	}
+	output.ImageBase64 = base64.StdEncoding.EncodeToString(image)
 
 	return output, nil
 }

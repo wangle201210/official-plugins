@@ -45,20 +45,46 @@ type Service interface {
 	// count and the participating-player count. It returns a query bizerr on store
 	// failure.
 	Stats(ctx context.Context) (out *Stats, err error)
+	// WallConfig returns the public memorial-wall configuration: the mini-program
+	// back-link URL the H5 wall uses for its return-to-mini-program entry. The URL
+	// is supplied by plugin configuration and is empty when unconfigured.
+	WallConfig(ctx context.Context) (out *WallConfig, err error)
 }
 
 // Interface compliance assertion for the default wall service implementation.
 var _ Service = (*serviceImpl)(nil)
 
-// serviceImpl implements Service against the plugin-owned activation, user,
-// cattle, card and quote tables. It holds no runtime dependency: every view reads
-// the plugin's own tables through the generated DAO and the list bounds are fixed
-// package constants.
-type serviceImpl struct{}
+// Config carries the plain-value public memorial-wall configuration: only the
+// mini-program back-link URL exposed to the H5 wall.
+type Config struct {
+	// MiniappURL is the return-to-mini-program URL the H5 wall links to; empty when
+	// unconfigured.
+	MiniappURL string
+}
 
-// New creates a public memorial-wall service. The component reads the plugin's
-// own tables through the generated DAO and therefore takes no dependencies; the
-// list bounds are fixed package constants so a public endpoint is always bounded.
-func New() Service {
-	return &serviceImpl{}
+// WallConfig is the public memorial-wall configuration result.
+type WallConfig struct {
+	// MiniappURL is the return-to-mini-program URL; empty when unconfigured.
+	MiniappURL string
+}
+
+// serviceImpl implements Service against the plugin-owned activation, user,
+// cattle, card and quote tables. Its only runtime input is the plain-value
+// mini-program back-link URL injected at assembly time; every view reads the
+// plugin's own tables through the generated DAO and the list bounds are fixed
+// package constants.
+type serviceImpl struct {
+	miniappURL string // miniappURL is the H5 wall's return-to-mini-program link.
+}
+
+// New creates a public memorial-wall service with the plain-value configuration.
+// The component reads the plugin's own tables through the generated DAO; the list
+// bounds are fixed package constants so a public endpoint is always bounded.
+func New(config Config) Service {
+	return &serviceImpl{miniappURL: config.MiniappURL}
+}
+
+// WallConfig returns the public memorial-wall configuration.
+func (s *serviceImpl) WallConfig(_ context.Context) (*WallConfig, error) {
+	return &WallConfig{MiniappURL: s.miniappURL}, nil
 }

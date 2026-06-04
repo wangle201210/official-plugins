@@ -120,3 +120,11 @@ anomaly:
   # Maximum number of anomaly alerts returned.
   # 异常告警返回的最大条数。
   listLimit: 200
+
+# H5 memorial-wall return-to-mini-program link (M12, C12 niu-miniapp-link).
+# H5 数字纪念墙回跳小程序链接（M12，C12 niu-miniapp-link）。
+miniapp:
+  # The return-to-mini-program URL/scheme the public H5 wall links to; fill the real
+  # mini-program scheme/short-link after publishing. Empty hides the back-link entry.
+  # 公开 H5 纪念墙回跳小程序的 URL/scheme；小程序发布后填真实 scheme/短链。留空则隐藏回跳入口。
+  url: ""

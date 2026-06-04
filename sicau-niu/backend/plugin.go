@@ -107,6 +107,9 @@ const (
 	configKeyRankingTopN = "ranking.topN"
 	// defaultRankingTopN is the fallback leaderboard Top-N cap when config is absent.
 	defaultRankingTopN = 100
+	// configKeyMiniappURL is the plugin config key for the H5 wall's return-to-
+	// mini-program URL.
+	configKeyMiniappURL = "miniapp.url"
 	// configKeyAnomalyFeedDaily, configKeyAnomalyStealDaily and configKeyAnomalyLimit
 	// are the plugin config keys for the settlement anomaly alert thresholds and cap.
 	configKeyAnomalyFeedDaily  = "anomaly.feedDailyThreshold"
@@ -184,7 +187,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		honorsvc.NewBasicCertRenderer(),
 		honorsvc.Config{CampusBadge: activationConfig.CampusBadge},
 	)
-	wallService := wallsvc.New()
+	miniappURL, err := services.Config().String(ctx, configKeyMiniappURL, "")
+	if err != nil {
+		return gerror.Wrap(err, "sicau-niu read miniapp url failed")
+	}
+	wallService := wallsvc.New(wallsvc.Config{MiniappURL: miniappURL})
 	settlementConfig, err := buildSettlementConfig(ctx, services.Config())
 	if err != nil {
 		return err
@@ -224,6 +231,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					wallController.FirstActivators,
 					wallController.Highlights,
 					wallController.Stats,
+					wallController.Config,
 				)
 			})
 

@@ -57,26 +57,82 @@ func New() PosterRenderer {
 	return &basicRenderer{}
 }
 
-// placeholderEdge is the side length in pixels of the placeholder poster image.
-const placeholderEdge = 64
+// Poster canvas dimensions, frame inset and accent band height, in pixels. The
+// portrait canvas matches a share-friendly poster aspect ratio.
+const (
+	posterWidth  = 600
+	posterHeight = 800
+	posterInset  = 28
+	posterAccent = 120
+)
 
-// Render encodes a deterministic placeholder PNG. The poster fields are carried
-// in the response DTO for the frontend; this default output keeps the PNG seam
-// stable until the design-grade renderer replaces it.
+// Render encodes a real portrait poster PNG personalized by the player's data. The
+// background is campus green, an inner gold frame is drawn, and a top accent band
+// uses a colour derived from a hash of the player nickname and cattle code so each
+// player's poster is visually distinct. The bytes are returned to the caller (the
+// activation service base64-encodes them into the response). Readable CJK text
+// layout is the design-grade renderer that replaces this default behind the seam.
 func (r *basicRenderer) Render(ctx context.Context, data *PosterData) ([]byte, error) {
 	if data == nil {
 		return nil, bizerr.NewCode(CodePosterRenderFailed)
 	}
-	img := image.NewRGBA(image.Rect(0, 0, placeholderEdge, placeholderEdge))
-	background := color.RGBA{R: 0x1f, G: 0x6f, B: 0x3f, A: 0xff}
-	for y := 0; y < placeholderEdge; y++ {
-		for x := 0; x < placeholderEdge; x++ {
-			img.Set(x, y, background)
+
+	img := image.NewRGBA(image.Rect(0, 0, posterWidth, posterHeight))
+	background := color.RGBA{R: 0x0f, G: 0x24, B: 0x17, A: 0xff}
+	gold := color.RGBA{R: 0xd8, G: 0xb2, B: 0x4a, A: 0xff}
+	accent := posterAccentColor(data)
+
+	for y := 0; y < posterHeight; y++ {
+		for x := 0; x < posterWidth; x++ {
+			switch {
+			case y < posterAccent:
+				img.Set(x, y, accent)
+			case isPosterFrameEdge(x, y):
+				img.Set(x, y, gold)
+			default:
+				img.Set(x, y, background)
+			}
 		}
 	}
+
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, bizerr.WrapCode(err, CodePosterRenderFailed)
 	}
 	return buf.Bytes(), nil
+}
+
+// isPosterFrameEdge reports whether (x,y) lies on the inner gold frame border.
+func isPosterFrameEdge(x, y int) bool {
+	onVertical := (x == posterInset || x == posterWidth-1-posterInset) && y >= posterInset && y <= posterHeight-1-posterInset
+	onHorizontal := (y == posterInset || y == posterHeight-1-posterInset) && x >= posterInset && x <= posterWidth-1-posterInset
+	return onVertical || onHorizontal
+}
+
+// posterAccentColor derives a stable accent colour from the player nickname and
+// cattle code so each player's poster is visually distinct. The seed is an inline
+// FNV-1a hash over the player identity.
+func posterAccentColor(data *PosterData) color.RGBA {
+	sum := posterFNV1a(data.Nickname + "|" + data.NiuCode)
+	return color.RGBA{
+		R: byte(0x80 + sum%0x80),
+		G: byte(0x80 + (sum>>8)%0x80),
+		B: byte(0x80 + (sum>>16)%0x80),
+		A: 0xff,
+	}
+}
+
+// posterFNV1a computes the 32-bit FNV-1a hash of s inline, avoiding a hash.Hash
+// whose Write return values would need discarding.
+func posterFNV1a(s string) uint32 {
+	const (
+		offset = 2166136261
+		prime  = 16777619
+	)
+	hash := uint32(offset)
+	for i := 0; i < len(s); i++ {
+		hash ^= uint32(s[i])
+		hash *= prime
+	}
+	return hash
 }
