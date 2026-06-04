@@ -1,0 +1,374 @@
+-- ------------------------------------------------------------
+-- 001 media schema SQL file
+-- Purpose: Stores media strategies, strategy bindings, stream aliases, tenant whitelist entries, stream config, and nodes for the media source plugin.
+-- 用途：存储媒体策略、策略绑定、流别名、租户白名单、流配置和媒体节点。
+-- ------------------------------------------------------------
+
+-- Purpose: Stores reusable media strategy definitions and global strategy state.
+-- 用途：存储可复用媒体策略定义与全局策略状态。
+CREATE TABLE IF NOT EXISTS media_strategy (
+    "id"          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    "name"        VARCHAR(255) DEFAULT '',
+    "strategy"    TEXT DEFAULT '',
+    "global"      SMALLINT DEFAULT 0,
+    "enable"      SMALLINT DEFAULT 1,
+    "creator_id"  INTEGER,
+    "create_time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updater_id"  INTEGER,
+    "update_time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_media_strategy_global CHECK ("global" IN (0, 1)),
+    CONSTRAINT ck_media_strategy_enable CHECK ("enable" IN (0, 1))
+);
+
+UPDATE media_strategy SET "global" = 0 WHERE "global" = 2;
+UPDATE media_strategy SET "enable" = 0 WHERE "enable" = 2;
+ALTER TABLE media_strategy ALTER COLUMN "name" DROP NOT NULL;
+ALTER TABLE media_strategy ALTER COLUMN "strategy" DROP NOT NULL;
+ALTER TABLE media_strategy ALTER COLUMN "global" TYPE SMALLINT USING "global"::SMALLINT;
+ALTER TABLE media_strategy ALTER COLUMN "enable" TYPE SMALLINT USING "enable"::SMALLINT;
+ALTER TABLE media_strategy ALTER COLUMN "creator_id" DROP NOT NULL;
+ALTER TABLE media_strategy ALTER COLUMN "creator_id" DROP DEFAULT;
+ALTER TABLE media_strategy ALTER COLUMN "creator_id" TYPE INTEGER USING "creator_id"::INTEGER;
+ALTER TABLE media_strategy ALTER COLUMN "updater_id" DROP NOT NULL;
+ALTER TABLE media_strategy ALTER COLUMN "updater_id" DROP DEFAULT;
+ALTER TABLE media_strategy ALTER COLUMN "updater_id" TYPE INTEGER USING "updater_id"::INTEGER;
+ALTER TABLE media_strategy ALTER COLUMN "create_time" TYPE TIMESTAMP;
+ALTER TABLE media_strategy ALTER COLUMN "update_time" TYPE TIMESTAMP;
+ALTER TABLE media_strategy ALTER COLUMN "global" SET DEFAULT 0;
+ALTER TABLE media_strategy ALTER COLUMN "enable" SET DEFAULT 1;
+ALTER TABLE media_strategy DROP CONSTRAINT IF EXISTS ck_media_strategy_global;
+ALTER TABLE media_strategy DROP CONSTRAINT IF EXISTS ck_media_strategy_enable;
+ALTER TABLE media_strategy
+    ADD CONSTRAINT ck_media_strategy_global CHECK ("global" IN (0, 1));
+ALTER TABLE media_strategy
+    ADD CONSTRAINT ck_media_strategy_enable CHECK ("enable" IN (0, 1));
+
+COMMENT ON TABLE media_strategy IS '策略记录表';
+COMMENT ON COLUMN media_strategy."id" IS '策略ID（自增，无符号）';
+COMMENT ON COLUMN media_strategy."name" IS '策略名称';
+COMMENT ON COLUMN media_strategy."strategy" IS 'yaml格式策略内容';
+COMMENT ON COLUMN media_strategy."global" IS '为1则是全局策略，只能有一个是1，0关闭';
+COMMENT ON COLUMN media_strategy."enable" IS '1开启，0关闭';
+COMMENT ON COLUMN media_strategy."creator_id" IS '创建人Id';
+COMMENT ON COLUMN media_strategy."create_time" IS '创建时间';
+COMMENT ON COLUMN media_strategy."updater_id" IS '修改人Id';
+COMMENT ON COLUMN media_strategy."update_time" IS '修改时间';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_media_strategy_single_global ON media_strategy ("global") WHERE "global" = 1;
+CREATE INDEX IF NOT EXISTS idx_media_strategy_enable ON media_strategy ("enable");
+
+CREATE OR REPLACE FUNCTION media_touch_update_time()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW."update_time" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_media_strategy_update_time ON media_strategy;
+CREATE TRIGGER trg_media_strategy_update_time
+    BEFORE UPDATE ON media_strategy
+    FOR EACH ROW
+    EXECUTE FUNCTION media_touch_update_time();
+
+-- Purpose: Binds one device to one media strategy.
+-- 用途：维护设备到媒体策略的一对一绑定。
+CREATE TABLE IF NOT EXISTS media_strategy_device (
+    "device_id"   VARCHAR(64) NOT NULL,
+    "strategy_id" BIGINT NOT NULL,
+    CONSTRAINT uk_media_strategy_device_device UNIQUE ("device_id"),
+    CONSTRAINT fk_media_strategy_device_strategy FOREIGN KEY ("strategy_id") REFERENCES media_strategy ("id") ON DELETE RESTRICT
+);
+
+ALTER TABLE media_strategy_device DROP CONSTRAINT IF EXISTS media_strategy_device_pkey;
+ALTER TABLE media_strategy_device DROP CONSTRAINT IF EXISTS uk_media_strategy_device_device;
+ALTER TABLE media_strategy_device ALTER COLUMN "device_id" TYPE VARCHAR(64);
+ALTER TABLE media_strategy_device
+    ADD CONSTRAINT uk_media_strategy_device_device UNIQUE ("device_id");
+
+COMMENT ON TABLE media_strategy_device IS '设备策略表';
+COMMENT ON COLUMN media_strategy_device."device_id" IS '设备id（对应device_code）';
+COMMENT ON COLUMN media_strategy_device."strategy_id" IS '策略id';
+
+CREATE INDEX IF NOT EXISTS idx_media_strategy_device_strategy ON media_strategy_device ("strategy_id");
+
+-- Purpose: Binds one tenant to one media strategy.
+-- 用途：维护租户到媒体策略的一对一绑定。
+CREATE TABLE IF NOT EXISTS media_strategy_tenant (
+    "tenant_id"   VARCHAR(64) NOT NULL,
+    "strategy_id" BIGINT NOT NULL,
+    CONSTRAINT uk_media_strategy_tenant_tenant UNIQUE ("tenant_id"),
+    CONSTRAINT fk_media_strategy_tenant_strategy FOREIGN KEY ("strategy_id") REFERENCES media_strategy ("id") ON DELETE RESTRICT
+);
+
+ALTER TABLE media_strategy_tenant DROP CONSTRAINT IF EXISTS media_strategy_tenant_pkey;
+ALTER TABLE media_strategy_tenant DROP CONSTRAINT IF EXISTS uk_media_strategy_tenant_tenant;
+ALTER TABLE media_strategy_tenant ALTER COLUMN "tenant_id" TYPE VARCHAR(64);
+ALTER TABLE media_strategy_tenant
+    ADD CONSTRAINT uk_media_strategy_tenant_tenant UNIQUE ("tenant_id");
+
+COMMENT ON TABLE media_strategy_tenant IS '租户策略表';
+COMMENT ON COLUMN media_strategy_tenant."tenant_id" IS '租户id';
+COMMENT ON COLUMN media_strategy_tenant."strategy_id" IS '策略ID';
+
+CREATE INDEX IF NOT EXISTS idx_media_strategy_tenant_strategy ON media_strategy_tenant ("strategy_id");
+
+-- Purpose: Binds a tenant device override to one media strategy.
+-- 用途：维护租户设备维度的策略覆盖绑定。
+CREATE TABLE IF NOT EXISTS media_strategy_device_tenant (
+    "tenant_id"   VARCHAR(64) NOT NULL,
+    "device_id"   VARCHAR(64) NOT NULL,
+    "strategy_id" BIGINT NOT NULL,
+    CONSTRAINT uk_media_strategy_device_tenant_tenant_device UNIQUE ("tenant_id", "device_id"),
+    CONSTRAINT fk_media_strategy_device_tenant_strategy FOREIGN KEY ("strategy_id") REFERENCES media_strategy ("id") ON DELETE RESTRICT
+);
+
+ALTER TABLE media_strategy_device_tenant DROP CONSTRAINT IF EXISTS media_strategy_device_tenant_pkey;
+ALTER TABLE media_strategy_device_tenant DROP CONSTRAINT IF EXISTS uk_media_strategy_device_tenant_tenant_device;
+ALTER TABLE media_strategy_device_tenant ALTER COLUMN "tenant_id" TYPE VARCHAR(64);
+ALTER TABLE media_strategy_device_tenant ALTER COLUMN "device_id" TYPE VARCHAR(64);
+ALTER TABLE media_strategy_device_tenant
+    ADD CONSTRAINT uk_media_strategy_device_tenant_tenant_device UNIQUE ("tenant_id", "device_id");
+
+COMMENT ON TABLE media_strategy_device_tenant IS '租户设备策略表';
+COMMENT ON COLUMN media_strategy_device_tenant."tenant_id" IS '租户id';
+COMMENT ON COLUMN media_strategy_device_tenant."device_id" IS '设备id（对应device_code）';
+COMMENT ON COLUMN media_strategy_device_tenant."strategy_id" IS '策略ID';
+
+CREATE INDEX IF NOT EXISTS idx_media_strategy_device_tenant_strategy ON media_strategy_device_tenant ("strategy_id");
+CREATE INDEX IF NOT EXISTS idx_media_strategy_device_tenant_device ON media_strategy_device_tenant ("device_id");
+
+-- Purpose: Maps public stream aliases to physical device channel stream paths.
+-- 用途：维护公开流别名与设备通道真实流路径的映射。
+CREATE TABLE IF NOT EXISTS media_stream_alias (
+    "id"          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    "alias"       VARCHAR(255) NOT NULL,
+    "auto_remove" SMALLINT DEFAULT 0,
+    "stream_path" VARCHAR(512) DEFAULT '',
+    "device_id"   VARCHAR(64) NOT NULL,
+    "channel_id"  VARCHAR(64) NOT NULL,
+    "create_time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT ck_media_stream_alias_auto_remove CHECK ("auto_remove" IN (0, 1))
+);
+
+ALTER TABLE media_stream_alias ADD COLUMN IF NOT EXISTS "device_id" VARCHAR(64);
+ALTER TABLE media_stream_alias ADD COLUMN IF NOT EXISTS "channel_id" VARCHAR(64);
+ALTER TABLE media_stream_alias ALTER COLUMN "auto_remove" TYPE SMALLINT USING "auto_remove"::SMALLINT;
+ALTER TABLE media_stream_alias ALTER COLUMN "auto_remove" DROP NOT NULL;
+ALTER TABLE media_stream_alias ALTER COLUMN "stream_path" TYPE VARCHAR(512);
+ALTER TABLE media_stream_alias ALTER COLUMN "stream_path" DROP NOT NULL;
+ALTER TABLE media_stream_alias ALTER COLUMN "create_time" TYPE TIMESTAMP;
+UPDATE media_stream_alias SET "device_id" = '' WHERE "device_id" IS NULL;
+UPDATE media_stream_alias SET "channel_id" = '' WHERE "channel_id" IS NULL;
+ALTER TABLE media_stream_alias ALTER COLUMN "device_id" SET NOT NULL;
+ALTER TABLE media_stream_alias ALTER COLUMN "channel_id" SET NOT NULL;
+ALTER TABLE media_stream_alias DROP CONSTRAINT IF EXISTS ck_media_stream_alias_auto_remove;
+ALTER TABLE media_stream_alias
+    ADD CONSTRAINT ck_media_stream_alias_auto_remove CHECK ("auto_remove" IN (0, 1));
+
+COMMENT ON TABLE media_stream_alias IS '流别名表';
+COMMENT ON COLUMN media_stream_alias."id" IS 'ID（自增，无符号）';
+COMMENT ON COLUMN media_stream_alias."alias" IS '流别名';
+COMMENT ON COLUMN media_stream_alias."auto_remove" IS '是否自动移除（0否1是）';
+COMMENT ON COLUMN media_stream_alias."stream_path" IS '真实流路径';
+COMMENT ON COLUMN media_stream_alias."device_id" IS '设备id（对应device_code）';
+COMMENT ON COLUMN media_stream_alias."channel_id" IS '设备通道id（对应channel_code）';
+COMMENT ON COLUMN media_stream_alias."create_time" IS '创建时间';
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_media_stream_alias_alias ON media_stream_alias ("alias");
+CREATE INDEX IF NOT EXISTS idx_media_stream_alias_device_channel ON media_stream_alias ("device_id", "channel_id");
+
+-- Purpose: Stores tenant media access whitelist IP rules.
+-- 用途：存储租户媒体访问白名单 IP 规则。
+CREATE TABLE IF NOT EXISTS media_tenant_white (
+    "tenant_id"   VARCHAR(64) NOT NULL,
+    "ip"          VARCHAR(64) NOT NULL,
+    "description" VARCHAR(32),
+    "enable"      SMALLINT NOT NULL DEFAULT 1,
+    "creator_id"  INTEGER,
+    "create_time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updater_id"  INTEGER,
+    "update_time" TIMESTAMP,
+    CONSTRAINT uk_media_tenant_white_tenant_ip UNIQUE ("tenant_id", "ip"),
+    CONSTRAINT ck_media_tenant_white_enable CHECK ("enable" IN (0, 1))
+);
+
+ALTER TABLE media_tenant_white DROP CONSTRAINT IF EXISTS media_tenant_white_pkey;
+ALTER TABLE media_tenant_white ALTER COLUMN "ip" TYPE VARCHAR(64);
+UPDATE media_tenant_white SET "enable" = 0 WHERE "enable" = 2;
+ALTER TABLE media_tenant_white ALTER COLUMN "enable" TYPE SMALLINT USING "enable"::SMALLINT;
+ALTER TABLE media_tenant_white ALTER COLUMN "creator_id" TYPE INTEGER USING "creator_id"::INTEGER;
+ALTER TABLE media_tenant_white ALTER COLUMN "updater_id" TYPE INTEGER USING "updater_id"::INTEGER;
+ALTER TABLE media_tenant_white ALTER COLUMN "create_time" TYPE TIMESTAMP;
+ALTER TABLE media_tenant_white ALTER COLUMN "update_time" TYPE TIMESTAMP;
+ALTER TABLE media_tenant_white DROP CONSTRAINT IF EXISTS ck_media_tenant_white_enable;
+ALTER TABLE media_tenant_white
+    ADD CONSTRAINT ck_media_tenant_white_enable CHECK ("enable" IN (0, 1));
+
+COMMENT ON TABLE media_tenant_white IS '租户白名单表';
+COMMENT ON COLUMN media_tenant_white."tenant_id" IS '租户id';
+COMMENT ON COLUMN media_tenant_white."ip" IS '白名单地址';
+COMMENT ON COLUMN media_tenant_white."description" IS '白名单描述';
+COMMENT ON COLUMN media_tenant_white."enable" IS '1开启，0关闭';
+COMMENT ON COLUMN media_tenant_white."creator_id" IS '创建人Id';
+COMMENT ON COLUMN media_tenant_white."create_time" IS '创建时间';
+COMMENT ON COLUMN media_tenant_white."updater_id" IS '修改人Id';
+COMMENT ON COLUMN media_tenant_white."update_time" IS '修改时间';
+
+CREATE INDEX IF NOT EXISTS idx_media_tenant_white_enable ON media_tenant_white ("enable");
+CREATE INDEX IF NOT EXISTS idx_media_tenant_white_ip ON media_tenant_white ("ip");
+
+-- Purpose: Stores tenant stream concurrency and node routing settings.
+-- 用途：存储租户流并发与节点路由配置。
+CREATE TABLE IF NOT EXISTS media_tenant_stream_config (
+    "tenant_id"      VARCHAR(64) NOT NULL PRIMARY KEY,
+    "max_concurrent" INTEGER NOT NULL,
+    "node_num"       SMALLINT NOT NULL,
+    "enable"         SMALLINT NOT NULL DEFAULT 1,
+    "creator_id"     INTEGER,
+    "create_time"    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updater_id"     INTEGER,
+    "update_time"    TIMESTAMP,
+    CONSTRAINT uk_media_tenant_stream_config_tenant UNIQUE ("tenant_id"),
+    CONSTRAINT ck_media_tenant_stream_config_max_concurrent CHECK ("max_concurrent" >= 0),
+    CONSTRAINT ck_media_tenant_stream_config_node_num CHECK ("node_num" BETWEEN 0 AND 255),
+    CONSTRAINT ck_media_tenant_stream_config_enable CHECK ("enable" IN (0, 1))
+);
+
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "tenant_id" TYPE VARCHAR(64);
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "node_num" TYPE SMALLINT USING "node_num"::SMALLINT;
+UPDATE media_tenant_stream_config SET "enable" = 0 WHERE "enable" = 2;
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "enable" TYPE SMALLINT USING "enable"::SMALLINT;
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "enable" SET DEFAULT 1;
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "creator_id" TYPE INTEGER USING "creator_id"::INTEGER;
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "updater_id" TYPE INTEGER USING "updater_id"::INTEGER;
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "create_time" TYPE TIMESTAMP;
+ALTER TABLE media_tenant_stream_config ALTER COLUMN "update_time" TYPE TIMESTAMP;
+ALTER TABLE media_tenant_stream_config DROP CONSTRAINT IF EXISTS uk_media_tenant_stream_config_tenant;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'media_tenant_stream_config'::regclass
+          AND contype = 'p'
+    ) THEN
+        ALTER TABLE media_tenant_stream_config
+            ADD CONSTRAINT media_tenant_stream_config_pkey PRIMARY KEY ("tenant_id");
+    END IF;
+END
+$$;
+ALTER TABLE media_tenant_stream_config DROP CONSTRAINT IF EXISTS ck_media_tenant_stream_config_max_concurrent;
+ALTER TABLE media_tenant_stream_config DROP CONSTRAINT IF EXISTS ck_media_tenant_stream_config_node_num;
+ALTER TABLE media_tenant_stream_config DROP CONSTRAINT IF EXISTS ck_media_tenant_stream_config_enable;
+ALTER TABLE media_tenant_stream_config
+    ADD CONSTRAINT ck_media_tenant_stream_config_max_concurrent CHECK ("max_concurrent" >= 0);
+ALTER TABLE media_tenant_stream_config
+    ADD CONSTRAINT ck_media_tenant_stream_config_node_num CHECK ("node_num" BETWEEN 0 AND 255);
+ALTER TABLE media_tenant_stream_config
+    ADD CONSTRAINT ck_media_tenant_stream_config_enable CHECK ("enable" IN (0, 1));
+
+COMMENT ON TABLE media_tenant_stream_config IS '租户流配置表';
+COMMENT ON COLUMN media_tenant_stream_config."tenant_id" IS '租户id';
+COMMENT ON COLUMN media_tenant_stream_config."max_concurrent" IS '最大并发数, 0 禁止访问 （1个会话算1个并发）';
+COMMENT ON COLUMN media_tenant_stream_config."node_num" IS '节点编号';
+COMMENT ON COLUMN media_tenant_stream_config."enable" IS '1开启，0关闭';
+COMMENT ON COLUMN media_tenant_stream_config."creator_id" IS '创建人Id';
+COMMENT ON COLUMN media_tenant_stream_config."create_time" IS '创建时间';
+COMMENT ON COLUMN media_tenant_stream_config."updater_id" IS '修改人Id';
+COMMENT ON COLUMN media_tenant_stream_config."update_time" IS '修改时间';
+
+CREATE INDEX IF NOT EXISTS idx_media_tenant_stream_config_node_num ON media_tenant_stream_config ("node_num");
+CREATE INDEX IF NOT EXISTS idx_media_tenant_stream_config_enable ON media_tenant_stream_config ("enable");
+
+-- Purpose: Maps device channels to media node numbers.
+-- 用途：维护设备通道到媒体节点编号的映射。
+CREATE TABLE IF NOT EXISTS media_device_node (
+    "device_id"  VARCHAR(64) NOT NULL,
+    "channel_id" VARCHAR(64) NOT NULL,
+    "node_num"   SMALLINT NOT NULL,
+    CONSTRAINT uk_media_device_node_device_channel UNIQUE ("device_id", "channel_id"),
+    CONSTRAINT ck_media_device_node_node_num CHECK ("node_num" BETWEEN 0 AND 255)
+);
+
+ALTER TABLE media_device_node ADD COLUMN IF NOT EXISTS "channel_id" VARCHAR(64);
+ALTER TABLE media_device_node ALTER COLUMN "device_id" TYPE VARCHAR(64);
+ALTER TABLE media_device_node ALTER COLUMN "channel_id" TYPE VARCHAR(64);
+ALTER TABLE media_device_node ALTER COLUMN "node_num" TYPE SMALLINT USING "node_num"::SMALLINT;
+UPDATE media_device_node SET "channel_id" = '' WHERE "channel_id" IS NULL;
+ALTER TABLE media_device_node ALTER COLUMN "channel_id" SET NOT NULL;
+ALTER TABLE media_device_node DROP CONSTRAINT IF EXISTS ck_media_device_node_node_num;
+ALTER TABLE media_device_node
+    ADD CONSTRAINT ck_media_device_node_node_num CHECK ("node_num" BETWEEN 0 AND 255);
+
+COMMENT ON TABLE media_device_node IS '设备节点表';
+COMMENT ON COLUMN media_device_node."device_id" IS '设备id（对应device_code）';
+COMMENT ON COLUMN media_device_node."channel_id" IS '设备通道id（对应channel_code）';
+COMMENT ON COLUMN media_device_node."node_num" IS '节点编号';
+
+CREATE INDEX IF NOT EXISTS idx_media_device_node_node_num ON media_device_node ("node_num");
+CREATE INDEX IF NOT EXISTS idx_media_device_node_channel ON media_device_node ("channel_id");
+
+-- Purpose: Stores media node gateway endpoints.
+-- 用途：存储媒体节点网关地址配置。
+CREATE TABLE IF NOT EXISTS media_node (
+    "id"          INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    "node_num"    SMALLINT NOT NULL,
+    "name"        VARCHAR(32) NOT NULL,
+    "qn_url"      VARCHAR(255) NOT NULL,
+    "basic_url"   VARCHAR(255) NOT NULL,
+    "dn_url"      VARCHAR(255) NOT NULL,
+    "creator_id"  INTEGER,
+    "create_time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updater_id"  INTEGER,
+    "update_time" TIMESTAMP,
+    CONSTRAINT uk_media_node_node_num UNIQUE ("node_num"),
+    CONSTRAINT ck_media_node_node_num CHECK ("node_num" BETWEEN 0 AND 255)
+);
+
+ALTER TABLE media_tenant_stream_config DROP CONSTRAINT IF EXISTS fk_media_tenant_stream_config_node;
+ALTER TABLE media_device_node DROP CONSTRAINT IF EXISTS fk_media_device_node_node;
+ALTER TABLE media_node ALTER COLUMN "node_num" TYPE SMALLINT USING "node_num"::SMALLINT;
+ALTER TABLE media_node ALTER COLUMN "name" TYPE VARCHAR(32);
+ALTER TABLE media_node ALTER COLUMN "qn_url" TYPE VARCHAR(255);
+ALTER TABLE media_node ALTER COLUMN "basic_url" TYPE VARCHAR(255);
+ALTER TABLE media_node ALTER COLUMN "dn_url" TYPE VARCHAR(255);
+ALTER TABLE media_node ALTER COLUMN "creator_id" TYPE INTEGER USING "creator_id"::INTEGER;
+ALTER TABLE media_node ALTER COLUMN "updater_id" TYPE INTEGER USING "updater_id"::INTEGER;
+ALTER TABLE media_node ALTER COLUMN "create_time" TYPE TIMESTAMP;
+ALTER TABLE media_node ALTER COLUMN "update_time" TYPE TIMESTAMP;
+ALTER TABLE media_node DROP CONSTRAINT IF EXISTS uk_media_node_node_num;
+ALTER TABLE media_node
+    ADD CONSTRAINT uk_media_node_node_num UNIQUE ("node_num");
+ALTER TABLE media_node DROP CONSTRAINT IF EXISTS ck_media_node_node_num;
+ALTER TABLE media_node
+    ADD CONSTRAINT ck_media_node_node_num CHECK ("node_num" BETWEEN 0 AND 255);
+
+COMMENT ON TABLE media_node IS '节点表';
+COMMENT ON COLUMN media_node."id" IS 'ID（自增，无符号）';
+COMMENT ON COLUMN media_node."node_num" IS '节点编号';
+COMMENT ON COLUMN media_node."name" IS '节点名称';
+COMMENT ON COLUMN media_node."qn_url" IS '节点网关地址';
+COMMENT ON COLUMN media_node."basic_url" IS '基础平台网关地址';
+COMMENT ON COLUMN media_node."dn_url" IS '属地网关地址';
+COMMENT ON COLUMN media_node."creator_id" IS '创建人Id';
+COMMENT ON COLUMN media_node."create_time" IS '创建时间';
+COMMENT ON COLUMN media_node."updater_id" IS '修改人Id';
+COMMENT ON COLUMN media_node."update_time" IS '修改时间';
+
+ALTER TABLE media_tenant_stream_config DROP CONSTRAINT IF EXISTS fk_media_tenant_stream_config_node;
+ALTER TABLE media_tenant_stream_config
+    ADD CONSTRAINT fk_media_tenant_stream_config_node
+    FOREIGN KEY ("node_num") REFERENCES media_node ("node_num")
+    ON UPDATE CASCADE ON DELETE RESTRICT;
+
+ALTER TABLE media_device_node DROP CONSTRAINT IF EXISTS fk_media_device_node_node;
+ALTER TABLE media_device_node DROP CONSTRAINT IF EXISTS media_device_node_pkey;
+ALTER TABLE media_device_node DROP CONSTRAINT IF EXISTS uk_media_device_node_device;
+ALTER TABLE media_device_node DROP CONSTRAINT IF EXISTS uk_media_device_node_device_channel;
+ALTER TABLE media_device_node
+    ADD CONSTRAINT uk_media_device_node_device_channel UNIQUE ("device_id", "channel_id");
+ALTER TABLE media_device_node
+    ADD CONSTRAINT fk_media_device_node_node
+    FOREIGN KEY ("node_num") REFERENCES media_node ("node_num")
+    ON UPDATE CASCADE ON DELETE RESTRICT;

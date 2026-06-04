@@ -3,11 +3,11 @@
 
 package v1
 
-import "github.com/gogf/gf/v2/frame/g"
+import "github.com/gogf/gf/v2/util/gmeta"
 
 // BackendSummaryReq is the request for querying the dynamic plugin backend execution summary.
 type BackendSummaryReq struct {
-	g.Meta `path:"/backend-summary" method:"get" tags:"Dynamic Plugin Demo" summary:"Query the dynamic plugin backend execution summary" dc:"Return the current bridge execution summary for linapro-demo-dynamic when dispatched through the host prefix /x/{pluginId}/..., including plugin ID, route information, and current user context." access:"login" permission:"linapro-demo-dynamic:backend:view" operLog:"other"`
+	gmeta.Meta `path:"/backend-summary" method:"get" tags:"Dynamic Plugin Demo" summary:"Query the dynamic plugin backend execution summary" dc:"Return the current bridge execution summary for linapro-demo-dynamic when dispatched through the host prefix /x/{pluginId}/..., including plugin ID, route information, and current user context." access:"login" permission:"linapro-demo-dynamic:backend:view" operLog:"other"`
 }
 
 // BackendSummaryRes is the response for querying the dynamic plugin backend execution summary.

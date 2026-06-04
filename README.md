@@ -54,6 +54,21 @@ git@github.com:linaproai/official-plugins.git
 
 Each plugin directory is owned by the plugin. Lifecycle resources, frontend pages, backend code, `SQL` assets, `i18n` resources, and tests should stay inside `apps/lina-plugins/<plugin-id>/`.
 
+The repository currently includes these first-party source plugins:
+
+- `linapro-ops-demo-guard`: demo-environment read-only request guard
+- `linapro-org-core`: department management and post management
+- `linapro-content-notice`: notice management
+- `linapro-monitor-online`: online user query and force logout
+- `linapro-monitor-server`: server monitor collection, cleanup, and query
+- `linapro-monitor-operlog`: operation log persistence and governance
+- `linapro-monitor-loginlog`: login log persistence and governance
+- `cms`: CMS site, article, category, link, slide, and message management
+- `media`: media strategy, binding, and stream alias management
+- `water`: media-driven watermark task and preview processing
+
+Each official plugin has its own directory and follows the same baseline structure:
+
 ```text
 apps/lina-plugins/<plugin-id>/
   backend/

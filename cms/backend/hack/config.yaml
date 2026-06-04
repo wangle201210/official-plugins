@@ -1,0 +1,12 @@
+# CLI tool, only in development environment.
+# https://goframe.org/docs/cli
+gfcli:
+  gen:
+    dao:
+      - link: "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/linapro?sslmode=disable"
+        path: "internal"
+        tables: "plugin_cms_site,plugin_cms_category,plugin_cms_article,plugin_cms_article_tag,plugin_cms_link,plugin_cms_slide,plugin_cms_message"
+        removePrefix: "plugin_"
+        importPrefix: "lina-plugin-cms/backend/internal"
+        descriptionTag: true
+        noModelComment: true

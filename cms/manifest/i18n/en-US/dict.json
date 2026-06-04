@@ -1,0 +1,60 @@
+{
+  "dict": {
+    "cms_article_status": {
+      "0": {
+        "label": "Draft"
+      },
+      "1": {
+        "label": "Published"
+      },
+      "name": "CMS Article Status",
+      "remark": "CMS article status options"
+    },
+    "cms_category_type": {
+      "1": {
+        "label": "List"
+      },
+      "2": {
+        "label": "Single Page"
+      },
+      "3": {
+        "label": "External Link"
+      },
+      "name": "CMS Category Type",
+      "remark": "CMS category type options"
+    },
+    "cms_message_status": {
+      "0": {
+        "label": "Pending"
+      },
+      "1": {
+        "label": "Approved"
+      },
+      "2": {
+        "label": "Rejected"
+      },
+      "name": "CMS Message Status",
+      "remark": "CMS message status options"
+    },
+    "cms_status": {
+      "0": {
+        "label": "Disabled"
+      },
+      "1": {
+        "label": "Enabled"
+      },
+      "name": "CMS Status",
+      "remark": "CMS enabled status options"
+    },
+    "cms_yes_no": {
+      "0": {
+        "label": "No"
+      },
+      "1": {
+        "label": "Yes"
+      },
+      "name": "CMS Yes/No",
+      "remark": "CMS boolean flag options"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 package linaplugins
 
 import (
+	_ "lina-plugin-cms/backend"
 	_ "lina-plugin-linapro-content-notice/backend"
 	_ "lina-plugin-linapro-demo-source/backend"
 	_ "lina-plugin-linapro-monitor-loginlog/backend"
@@ -11,4 +12,6 @@ import (
 	_ "lina-plugin-linapro-org-core/backend"
 	_ "lina-plugin-linapro-tenant-core/backend"
 	_ "lina-plugin-linapro-uidentity-cas/backend"
+	_ "lina-plugin-media/backend"
+	_ "lina-plugin-water/backend"
 )

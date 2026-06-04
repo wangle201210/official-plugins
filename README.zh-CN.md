@@ -54,6 +54,21 @@ git@github.com:linaproai/official-plugins.git
 
 每个插件目录都由插件自己拥有。生命周期资源、前端页面、后端代码、`SQL`资产、`i18n`资源和测试都应保留在`apps/lina-plugins/<plugin-id>/`内。
 
+当前仓库内置以下一方源码插件：
+
+- `linapro-ops-demo-guard`：演示环境只读保护
+- `linapro-org-core`：部门管理、岗位管理
+- `linapro-content-notice`：通知公告管理
+- `linapro-monitor-online`：在线用户查询与强制下线治理
+- `linapro-monitor-server`：服务监控采集、清理与查询
+- `linapro-monitor-operlog`：操作日志落库与治理
+- `linapro-monitor-loginlog`：登录日志落库与治理
+- `cms`：CMS 站点、文章、分类、链接、轮播和留言管理
+- `media`：媒体策略、策略绑定和流别名管理
+- `water`：基于媒体策略的水印任务和预览处理
+
+每个官方插件都使用统一的基础结构：
+
 ```text
 apps/lina-plugins/<plugin-id>/
   backend/

@@ -1,0 +1,35 @@
+{include file=comm/head.html}
+<link rel="stylesheet" href="{site:assets}/css/yx-page.css">
+<div class="container" data-testid="cms-public-site" data-template="list">
+  <div class="breadcrumb">
+    {page:breadcrumb separator='<span class="sep">&gt;</span>'}
+  </div>
+  <div class="page-content">
+    {include file=comm/categorynav.html}
+    <div class="content-area">
+      <div class="article-list">
+        <div class="article-list-header">{category:name}</div>
+        <div class="article-list-body" data-testid="cms-public-article-list">
+          {cms:list limit=10 order=date}
+          <a href="[list:link]" class="article-item" data-testid="cms-public-article-card">
+            <span class="article-item-title">[list:title]</span>
+            <span class="article-item-date">[list:date style=Y-m-d]</span>
+          </a>
+          {/cms:list}
+        </div>
+      </div>
+      {cms:if({page:total}>0)}
+      <div class="pagination" data-testid="cms-public-pagination">
+        <a href="{page:first}" class="page-item">首页</a>
+        <a href="{page:previous}" class="page-item">上一页</a>
+        {page:numbers}
+        <a href="{page:next}" class="page-item">下一页</a>
+        <a href="{page:last}" class="page-item">尾页</a>
+      </div>
+      {else}
+      <div class="empty-list">暂无数据</div>
+      {/cms:if}
+    </div>
+  </div>
+</div>
+{include file=comm/foot.html}
