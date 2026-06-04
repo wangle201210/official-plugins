@@ -91,7 +91,7 @@ func (s *serviceImpl) List(ctx context.Context, in *ListInput) (*ListOutput, err
 	rows := make([]*entitymodel.College, 0)
 	err = model.
 		OrderAsc(dao.College.Columns().Sort).
-		OrderAsc(dao.College.Columns().Id).
+		OrderDesc(dao.College.Columns().Id).
 		Page(pageNum, pageSize).
 		Scan(&rows)
 	if err != nil {

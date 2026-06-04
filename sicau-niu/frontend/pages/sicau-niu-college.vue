@@ -37,6 +37,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     schema: [
       {
         component: "Input",
+        componentProps: { "data-testid": "sicau-niu-college-keyword-input" },
         fieldName: "keyword",
         label: "名称",
       },
