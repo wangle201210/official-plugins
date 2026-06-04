@@ -8,7 +8,7 @@ import { computed, ref } from "vue";
 import { useVbenModal } from "@vben/common-ui";
 import { IconifyIcon } from "@vben/icons";
 
-import { message, Upload } from "ant-design-vue";
+import { Image, message, Upload } from "ant-design-vue";
 
 import { uploadApi } from "#/api/core";
 import { useVbenForm, z } from "#/adapter/form";
@@ -196,22 +196,29 @@ async function handleClosed() {
           <p class="ant-upload-text">点击或拖拽图片到此区域上传</p>
           <p class="ant-upload-hint">仅支持单张图片，上传后保存为存储路径</p>
         </Upload.Dragger>
-        <div
-          v-if="imagePath"
-          class="mt-2 flex items-center justify-between text-sm"
-        >
-          <span class="truncate" data-testid="sicau-niu-card-image-path">
-            {{ imagePath }}
-          </span>
-          <a-button
-            type="link"
-            size="small"
-            danger
-            :loading="uploading"
-            @click="handleRemoveImage"
-          >
-            移除
-          </a-button>
+        <div v-if="imagePath" class="mt-2">
+          <Image
+            :src="imagePath"
+            :width="120"
+            :height="120"
+            class="rounded border"
+            :style="{ objectFit: 'cover' }"
+            data-testid="sicau-niu-card-image-preview"
+          />
+          <div class="mt-1 flex items-center justify-between text-sm">
+            <span class="truncate" data-testid="sicau-niu-card-image-path">
+              {{ imagePath }}
+            </span>
+            <a-button
+              type="link"
+              size="small"
+              danger
+              :loading="uploading"
+              @click="handleRemoveImage"
+            >
+              移除
+            </a-button>
+          </div>
         </div>
       </div>
     </div>
