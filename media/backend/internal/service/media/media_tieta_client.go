@@ -146,6 +146,7 @@ func (c *httpTietaClient) UserInfoByToken(ctx context.Context, token string) (*T
 
 	var response tietaUserResponse
 	responseBody := result.String()
+	logger.Info(ctx, "解析铁塔用户信息失败 responseBody: %v", responseBody)
 	if err = gjson.Unmarshal([]byte(responseBody), &response); err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaTietaUserInfoInvalid)
 	}
