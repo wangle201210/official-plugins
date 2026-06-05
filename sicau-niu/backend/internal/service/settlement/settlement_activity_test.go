@@ -36,7 +36,7 @@ func dayAtNoon(daysAgo int) time.Time {
 func TestActivityDauDeduplicates(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New(Config{})
+	svc := New(nil, Config{})
 
 	userA := insertUserRow(t, ctx, "A", "student", "")
 	userB := insertUserRow(t, ctx, "B", "student", "")
@@ -73,7 +73,7 @@ func TestActivityDauDeduplicates(t *testing.T) {
 func TestActivityRetention(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New(Config{})
+	svc := New(nil, Config{})
 
 	// Two players registered 2 days ago; one returns on registration day + 1, one
 	// does not. The next-day window (reg+1 = yesterday) has elapsed for both; the

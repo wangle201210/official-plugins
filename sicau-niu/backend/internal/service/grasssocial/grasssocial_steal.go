@@ -71,7 +71,11 @@ func (s *serviceImpl) Steal(ctx context.Context, playerID int64, in *StealInput)
 			return bizerr.NewCode(CodeTargetNoGrass)
 		}
 
-		amount := grand.N(s.stealMinAmount, s.stealMaxAmount)
+		rules, txErr := s.socialRules(ctx)
+		if txErr != nil {
+			return txErr
+		}
+		amount := grand.N(rules.StealMinAmount, rules.StealMaxAmount)
 		if int64(amount) > targetBalance {
 			amount = int(targetBalance)
 		}
@@ -132,7 +136,11 @@ func (s *serviceImpl) guardStealDailyLimit(ctx context.Context, playerID int64, 
 	if err != nil {
 		return bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	if count >= s.stealDailyLimit {
+	rules, err := s.socialRules(ctx)
+	if err != nil {
+		return err
+	}
+	if count >= rules.StealDailyLimit {
 		return bizerr.NewCode(CodeStealLimitReached)
 	}
 	return nil

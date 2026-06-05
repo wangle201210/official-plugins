@@ -78,17 +78,30 @@ func (s *serviceImpl) topUserTotals(ctx context.Context, userIDs []int64) ([]*us
 		}
 		model = model.WhereIn(dao.Feeding.Columns().UserId, userIDs)
 	}
-	rows := make([]*userTotalRow, 0, s.topN)
-	err := model.
+	topN, err := s.currentTopN(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]*userTotalRow, 0, topN)
+	err = model.
 		Fields(dao.Feeding.Columns().UserId, "SUM("+dao.Feeding.Columns().EffectAmount+") AS total").
 		Group(dao.Feeding.Columns().UserId).
 		Order("total DESC").
-		Limit(s.topN).
+		Limit(topN).
 		Scan(&rows)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeRankingQueryFailed)
 	}
 	return rows, nil
+}
+
+// currentTopN returns the operator-maintained leaderboard cap when rules are
+// injected, otherwise the constructor fallback.
+func (s *serviceImpl) currentTopN(ctx context.Context) (int, error) {
+	if s.rulesSvc == nil {
+		return s.topN, nil
+	}
+	return s.rulesSvc.RankingTopN(ctx)
 }
 
 // assemblePlayerRanks projects the grouped user totals to ranked player rows,

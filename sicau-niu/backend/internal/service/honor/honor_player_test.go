@@ -31,7 +31,7 @@ func TestPlayerHonorsUnlockRules(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New(NewBasicCertRenderer(), Config{})
+	svc := New(NewBasicCertRenderer(), nil, Config{})
 	player := insertUserRow(t, ctx, "玩家")
 
 	// Catalog: two cattle, both person-category cards. The full active set is 2.
@@ -94,7 +94,7 @@ func TestPlayerHonorsFullComplete(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New(NewBasicCertRenderer(), Config{})
+	svc := New(NewBasicCertRenderer(), nil, Config{})
 	player := insertUserRow(t, ctx, "全集玩家")
 
 	insertCardRow(t, ctx, 301, cardsvc.CategoryPerson.String())

@@ -169,12 +169,25 @@ func (s *serviceImpl) isIronBonusInRange(ctx context.Context, niuLat, niuLng flo
 	if err != nil {
 		return false, err
 	}
+	threshold, err := s.currentIronBonusThreshold(ctx)
+	if err != nil {
+		return false, err
+	}
 	for _, position := range positions {
-		if haversineMeters(niuLat, niuLng, position.Lat, position.Lng) < s.ironBonusThreshold {
+		if haversineMeters(niuLat, niuLng, position.Lat, position.Lng) < threshold {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// currentIronBonusThreshold returns the operator-maintained threshold when rules
+// are injected, otherwise the constructor fallback.
+func (s *serviceImpl) currentIronBonusThreshold(ctx context.Context) (float64, error) {
+	if s.rulesSvc == nil {
+		return s.ironBonusThreshold, nil
+	}
+	return s.rulesSvc.IronBonusThresholdMeters(ctx)
 }
 
 // randomEnabledQuote returns the content of one random enabled quote. It loads

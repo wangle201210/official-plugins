@@ -19,7 +19,7 @@ import (
 func TestFirstActivatorsReturnsOnlyFirstOrdered(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLWallDB(t, ctx)
-	svc := New(Config{})
+	svc := New(nil, Config{})
 
 	user1 := insertUserRow(t, ctx, "首发牛友A", "student")
 	user2 := insertUserRow(t, ctx, "首发牛友B", "friend")
@@ -76,7 +76,7 @@ func TestFirstActivatorsReturnsOnlyFirstOrdered(t *testing.T) {
 func TestFirstActivatorsEmpty(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLWallDB(t, ctx)
-	svc := New(Config{})
+	svc := New(nil, Config{})
 
 	board, err := svc.FirstActivators(ctx)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestFirstActivatorsEmpty(t *testing.T) {
 func TestHighlightsCardsAndEnabledQuotes(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLWallDB(t, ctx)
-	svc := New(Config{})
+	svc := New(nil, Config{})
 
 	// One main card per cattle (the card table is unique on niu_id), so seed two
 	// cattle to exercise the multi-card sample.
@@ -128,7 +128,7 @@ func TestHighlightsCardsAndEnabledQuotes(t *testing.T) {
 func TestStatsCounts(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLWallDB(t, ctx)
-	svc := New(Config{})
+	svc := New(nil, Config{})
 
 	user1 := insertUserRow(t, ctx, "玩家A", "student")
 	user2 := insertUserRow(t, ctx, "玩家B", "friend")

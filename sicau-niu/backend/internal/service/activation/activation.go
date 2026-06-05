@@ -18,6 +18,7 @@ import (
 
 	"lina-plugin-sicau-niu/backend/internal/service/activation/internal/posterrender"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // Config carries the plain-value runtime configuration for the activation
@@ -72,6 +73,7 @@ var _ Service = (*serviceImpl)(nil)
 type serviceImpl struct {
 	identitySvc    identitysvc.Service         // identitySvc supplies the poster nickname and identity type.
 	posterRenderer posterrender.PosterRenderer // posterRenderer is the replaceable PNG output seam.
+	rulesSvc       rulessvc.Service            // rulesSvc supplies operator-maintained runtime thresholds and badge text.
 	lbsThreshold   float64                     // lbsThreshold is the LBS activation distance threshold in meters.
 	campusBadge    string                      // campusBadge is the poster campus anniversary badge text.
 }
@@ -90,11 +92,14 @@ func NewBasicPosterRenderer() PosterRenderer {
 
 // New creates an activation service with explicit dependencies: the identity
 // service used for poster player data, the poster renderer seam used for PNG
-// output, and the plain-value activation configuration.
-func New(identitySvc identitysvc.Service, posterRenderer PosterRenderer, config Config) Service {
+// output, the optional runtime-rule service used for operator-maintained
+// thresholds and badge text, and the fallback plain-value activation
+// configuration.
+func New(identitySvc identitysvc.Service, posterRenderer PosterRenderer, rulesSvc rulessvc.Service, config Config) Service {
 	return &serviceImpl{
 		identitySvc:    identitySvc,
 		posterRenderer: posterRenderer,
+		rulesSvc:       rulesSvc,
 		lbsThreshold:   config.LBSThresholdMeters,
 		campusBadge:    config.CampusBadge,
 	}

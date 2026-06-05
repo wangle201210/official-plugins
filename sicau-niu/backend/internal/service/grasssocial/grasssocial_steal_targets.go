@@ -61,7 +61,11 @@ func (s *serviceImpl) dailyStealTargets(ctx context.Context, playerID int64, day
 	}
 
 	order := deterministicOrder(len(rows), dailySeed(playerID, day))
-	count := s.stealDailyTargets
+	rules, err := s.socialRules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	count := rules.StealDailyTargets
 	if count > len(rows) {
 		count = len(rows)
 	}

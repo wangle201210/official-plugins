@@ -90,7 +90,11 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		if txErr != nil {
 			return txErr
 		}
-		if distance := haversineMeters(in.Lat, in.Lng, niuRow.Lat, niuRow.Lng); distance > s.lbsThreshold {
+		threshold, txErr := s.activationLBSThreshold(ctx)
+		if txErr != nil {
+			return txErr
+		}
+		if distance := haversineMeters(in.Lat, in.Lng, niuRow.Lat, niuRow.Lng); distance > threshold {
 			return bizerr.NewCode(CodeOutOfRange)
 		}
 
@@ -145,6 +149,15 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 	}
 	output.Card = card
 	return output, nil
+}
+
+// activationLBSThreshold returns the operator-maintained LBS threshold when the
+// rules service is injected, otherwise the constructor fallback.
+func (s *serviceImpl) activationLBSThreshold(ctx context.Context) (float64, error) {
+	if s.rulesSvc == nil {
+		return s.lbsThreshold, nil
+	}
+	return s.rulesSvc.ActivationLBSThresholdMeters(ctx)
 }
 
 // guardDailyAndDuplicate rejects a second activation on the same natural day and a

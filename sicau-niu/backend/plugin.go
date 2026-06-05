@@ -38,6 +38,7 @@ import (
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	rankingsvc "lina-plugin-sicau-niu/backend/internal/service/ranking"
 	recordsvc "lina-plugin-sicau-niu/backend/internal/service/record"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 	settlementsvc "lina-plugin-sicau-niu/backend/internal/service/settlement"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 	wallsvc "lina-plugin-sicau-niu/backend/internal/service/wall"
@@ -172,6 +173,33 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 
+	miniappURL, err := services.Config().String(ctx, configKeyMiniappURL, "")
+	if err != nil {
+		return gerror.Wrap(err, "sicau-niu read miniapp url failed")
+	}
+	settlementConfig, err := buildSettlementConfig(ctx, services.Config())
+	if err != nil {
+		return err
+	}
+	rulesService := rulessvc.New(&rulessvc.RuleSet{
+		ActivationLBSThresholdMeters: int(activationConfig.LBSThresholdMeters),
+		PosterCampusBadge:            activationConfig.CampusBadge,
+		CheckinMinAmount:             grassConfig.CheckinMinAmount,
+		CheckinMaxAmount:             grassConfig.CheckinMaxAmount,
+		StealDailyTargets:            grassSocialConfig.StealDailyTargets,
+		StealDailyLimit:              grassSocialConfig.StealDailyLimit,
+		StealMinAmount:               grassSocialConfig.StealMinAmount,
+		StealMaxAmount:               grassSocialConfig.StealMaxAmount,
+		GiftDailyLimit:               grassSocialConfig.GiftDailyLimit,
+		GiftMinAmount:                grassSocialConfig.GiftMinAmount,
+		IronBonusThresholdMeters:     int(feedingConfig.IronBonusThresholdMeters),
+		RankingTopN:                  rankingConfig.TopN,
+		AnomalyFeedDailyThreshold:    settlementConfig.FeedDailyThreshold,
+		AnomalyStealDailyThreshold:   settlementConfig.StealDailyThreshold,
+		AnomalyListLimit:             settlementConfig.AnomalyLimit,
+		MiniappURL:                   miniappURL,
+	})
+
 	collegeService := collegesvc.New()
 	identityService := identitysvc.New(gateway, tokenService, collegeService)
 	cattleService := cattlesvc.New(collegeService)
@@ -179,26 +207,20 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	activationService := activationsvc.New(
 		identityService,
 		activationsvc.NewBasicPosterRenderer(),
+		rulesService,
 		activationConfig,
 	)
-	grassService := grasssvc.New(grassConfig)
-	feedingService := feedingsvc.New(grassService, feedingsvc.NewMockIronLocation(), feedingConfig)
-	grassSocialService := grasssocialsvc.New(grassService, grassSocialConfig)
-	rankingService := rankingsvc.New(rankingConfig)
+	grassService := grasssvc.New(rulesService, grassConfig)
+	feedingService := feedingsvc.New(grassService, feedingsvc.NewMockIronLocation(), rulesService, feedingConfig)
+	grassSocialService := grasssocialsvc.New(grassService, rulesService, grassSocialConfig)
+	rankingService := rankingsvc.New(rulesService, rankingConfig)
 	honorService := honorsvc.New(
 		honorsvc.NewBasicCertRenderer(),
+		rulesService,
 		honorsvc.Config{CampusBadge: activationConfig.CampusBadge},
 	)
-	miniappURL, err := services.Config().String(ctx, configKeyMiniappURL, "")
-	if err != nil {
-		return gerror.Wrap(err, "sicau-niu read miniapp url failed")
-	}
-	wallService := wallsvc.New(wallsvc.Config{MiniappURL: miniappURL})
-	settlementConfig, err := buildSettlementConfig(ctx, services.Config())
-	if err != nil {
-		return err
-	}
-	settlementService := settlementsvc.New(settlementConfig)
+	wallService := wallsvc.New(rulesService, wallsvc.Config{MiniappURL: miniappURL})
+	settlementService := settlementsvc.New(rulesService, settlementConfig)
 	recordService := recordsvc.New()
 	playerAuth := middleware.NewPlayerAuth(tokenService)
 	playerController := playerctrl.NewV1(
@@ -213,7 +235,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	)
 	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService, honorService)
 	wallController := wallctrl.NewV1(wallService)
-	settlementController := settlementctrl.NewV1(settlementService)
+	settlementController := settlementctrl.NewV1(settlementService, rankingService, rulesService)
 	recordController := recordctrl.NewV1(recordService)
 
 	routes.Group(routes.APIPrefix(), func(group pluginhost.RouteGroup) {
@@ -316,6 +338,11 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					settlementController.ListArchives,
 					settlementController.Activity,
 					settlementController.RiskAnomalies,
+					settlementController.Rules,
+					settlementController.UpdateRules,
+					settlementController.FeedRanking,
+					settlementController.FriendRanking,
+					settlementController.CollegeRanking,
 				)
 				group.Bind(
 					recordController.Feedings,

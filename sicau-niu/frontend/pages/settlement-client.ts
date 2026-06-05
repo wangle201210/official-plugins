@@ -77,6 +77,39 @@ export interface ActivityData {
   retentionD7: RetentionStat | null;
 }
 
+export interface RuleConfig {
+  activationLbsThresholdMeters: number;
+  posterCampusBadge: string;
+  checkinMinAmount: number;
+  checkinMaxAmount: number;
+  stealDailyTargets: number;
+  stealDailyLimit: number;
+  stealMinAmount: number;
+  stealMaxAmount: number;
+  giftDailyLimit: number;
+  giftMinAmount: number;
+  ironBonusThresholdMeters: number;
+  rankingTopN: number;
+  anomalyFeedDailyThreshold: number;
+  anomalyStealDailyThreshold: number;
+  anomalyListLimit: number;
+  miniappUrl: string;
+}
+
+export interface FeedRankItem {
+  rank: number;
+  userId: number;
+  nickname: string;
+  total: number;
+}
+
+export interface CollegeRankItem {
+  rank: number;
+  collegeId: number;
+  collegeName: string;
+  total: number;
+}
+
 export async function getActivity(days = 14) {
   return requestClient.get<ActivityData>(
     sicauNiuApi("plugins/sicau-niu/settlement/activity"),
@@ -122,6 +155,40 @@ export interface AnomalyAlert {
 export async function getRiskAnomalies() {
   const res = await requestClient.get<{ list: AnomalyAlert[] }>(
     sicauNiuApi("plugins/sicau-niu/settlement/risk/anomalies"),
+  );
+  return res.list ?? [];
+}
+
+export async function getRules() {
+  return requestClient.get<RuleConfig>(
+    sicauNiuApi("plugins/sicau-niu/settlement/rules"),
+  );
+}
+
+export async function updateRules(data: RuleConfig) {
+  return requestClient.put<RuleConfig>(
+    sicauNiuApi("plugins/sicau-niu/settlement/rules"),
+    data,
+  );
+}
+
+export async function getFeedRanking() {
+  const res = await requestClient.get<{ list: FeedRankItem[] }>(
+    sicauNiuApi("plugins/sicau-niu/settlement/rankings/feed"),
+  );
+  return res.list ?? [];
+}
+
+export async function getFriendRanking() {
+  const res = await requestClient.get<{ list: FeedRankItem[] }>(
+    sicauNiuApi("plugins/sicau-niu/settlement/rankings/friend"),
+  );
+  return res.list ?? [];
+}
+
+export async function getCollegeRanking() {
+  const res = await requestClient.get<{ list: CollegeRankItem[] }>(
+    sicauNiuApi("plugins/sicau-niu/settlement/rankings/college"),
   );
   return res.list ?? [];
 }

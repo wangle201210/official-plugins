@@ -13,7 +13,11 @@
 // columns.
 package wall
 
-import "context"
+import (
+	"context"
+
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
+)
 
 // Bound constants for the public memorial wall. They cap every list the wall
 // returns so a public endpoint can never trigger an unbounded scan.
@@ -69,22 +73,30 @@ type WallConfig struct {
 }
 
 // serviceImpl implements Service against the plugin-owned activation, user,
-// cattle, card and quote tables. Its only runtime input is the plain-value
-// mini-program back-link URL injected at assembly time; every view reads the
-// plugin's own tables through the generated DAO and the list bounds are fixed
-// package constants.
+// cattle, card and quote tables. The optional rules service supplies the current
+// mini-program back-link URL; the constructor scalar is the fallback. Every view
+// reads the plugin's own tables through the generated DAO and fixed list bounds.
 type serviceImpl struct {
-	miniappURL string // miniappURL is the H5 wall's return-to-mini-program link.
+	rulesSvc   rulessvc.Service // rulesSvc supplies the current H5 wall mini-program link when injected.
+	miniappURL string           // miniappURL is the H5 wall's fallback return-to-mini-program link.
 }
 
-// New creates a public memorial-wall service with the plain-value configuration.
-// The component reads the plugin's own tables through the generated DAO; the list
-// bounds are fixed package constants so a public endpoint is always bounded.
-func New(config Config) Service {
-	return &serviceImpl{miniappURL: config.MiniappURL}
+// New creates a public memorial-wall service with an optional runtime-rule
+// service and fallback plain-value configuration. The component reads the
+// plugin's own tables through the generated DAO; the list bounds are fixed
+// package constants so a public endpoint is always bounded.
+func New(rulesSvc rulessvc.Service, config Config) Service {
+	return &serviceImpl{rulesSvc: rulesSvc, miniappURL: config.MiniappURL}
 }
 
 // WallConfig returns the public memorial-wall configuration.
-func (s *serviceImpl) WallConfig(_ context.Context) (*WallConfig, error) {
+func (s *serviceImpl) WallConfig(ctx context.Context) (*WallConfig, error) {
+	if s.rulesSvc != nil {
+		url, err := s.rulesSvc.MiniappURL(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &WallConfig{MiniappURL: url}, nil
+	}
 	return &WallConfig{MiniappURL: s.miniappURL}, nil
 }

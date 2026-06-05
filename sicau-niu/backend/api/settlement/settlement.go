@@ -24,4 +24,9 @@ type ISettlementV1 interface {
 	ListArchives(ctx context.Context, req *v1.ListArchivesReq) (res *v1.ListArchivesRes, err error)
 	Activity(ctx context.Context, req *v1.ActivityReq) (res *v1.ActivityRes, err error)
 	RiskAnomalies(ctx context.Context, req *v1.RiskAnomaliesReq) (res *v1.RiskAnomaliesRes, err error)
+	Rules(ctx context.Context, req *v1.RulesReq) (res *v1.RulesRes, err error)
+	UpdateRules(ctx context.Context, req *v1.UpdateRulesReq) (res *v1.UpdateRulesRes, err error)
+	FeedRanking(ctx context.Context, req *v1.FeedRankingReq) (res *v1.FeedRankingRes, err error)
+	FriendRanking(ctx context.Context, req *v1.FriendRankingReq) (res *v1.FriendRankingRes, err error)
+	CollegeRanking(ctx context.Context, req *v1.CollegeRankingReq) (res *v1.CollegeRankingRes, err error)
 }

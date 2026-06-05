@@ -36,10 +36,14 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64) (*CheckinResu
 	}
 
 	today := time.Now().Format(checkinDateLayout)
-	amount := grand.N(s.checkinMin, s.checkinMax)
+	checkinMin, checkinMax, err := s.checkinRange(ctx)
+	if err != nil {
+		return nil, err
+	}
+	amount := grand.N(checkinMin, checkinMax)
 
 	var result *CheckinResult
-	err := dao.Checkin.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err = dao.Checkin.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		alreadyCheckedIn, txErr := dao.Checkin.Ctx(ctx).
 			Where(dao.Checkin.Columns().UserId, playerID).
 			Where(dao.Checkin.Columns().CheckinDate, today).
@@ -72,6 +76,15 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64) (*CheckinResu
 		return nil, err
 	}
 	return result, nil
+}
+
+// checkinRange returns the operator-maintained check-in range when rules are
+// injected, otherwise the constructor fallback.
+func (s *serviceImpl) checkinRange(ctx context.Context) (int, int, error) {
+	if s.rulesSvc == nil {
+		return s.checkinMin, s.checkinMax, nil
+	}
+	return s.rulesSvc.CheckinRange(ctx)
 }
 
 // normalizeCheckinRange clamps the configured check-in grant range so the random

@@ -10,7 +10,11 @@
 // and timestamp columns.
 package settlement
 
-import "context"
+import (
+	"context"
+
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
+)
 
 // Bound constants for the settlement views. They cap the roster export, the
 // archive list and the risk cluster list so an operator endpoint can never trigger
@@ -82,23 +86,24 @@ type Service interface {
 // Interface compliance assertion for the default settlement service implementation.
 var _ Service = (*serviceImpl)(nil)
 
-// serviceImpl implements Service against the plugin-owned tables. Its only runtime
-// inputs are the plain-value anomaly thresholds and list cap injected at assembly
-// time; every view reads the plugin's own tables through the generated DAO and the
-// remaining list bounds are fixed package constants.
+// serviceImpl implements Service against the plugin-owned tables. The optional
+// rules service supplies operator-maintained anomaly thresholds and cap; scalar
+// constructor values remain fallback. Every view reads the plugin's own tables
+// through the generated DAO and the remaining list bounds are fixed constants.
 type serviceImpl struct {
-	feedDailyThreshold  int // feedDailyThreshold flags single-day feeding above it.
-	stealDailyThreshold int // stealDailyThreshold flags single-day steal above it.
-	anomalyLimit        int // anomalyLimit caps the anomaly alert list.
+	rulesSvc            rulessvc.Service // rulesSvc supplies current anomaly thresholds and cap when injected.
+	feedDailyThreshold  int              // feedDailyThreshold flags single-day feeding above it.
+	stealDailyThreshold int              // stealDailyThreshold flags single-day steal above it.
+	anomalyLimit        int              // anomalyLimit caps the anomaly alert list.
 }
 
-// New creates an operator settlement service with the plain-value anomaly
-// configuration. The component reads and writes the plugin's own tables through the
-// generated DAO and takes no runtime interface dependencies; non-positive
-// thresholds and caps fall back to package defaults so the anomaly view is always
-// bounded.
-func New(config Config) Service {
+// New creates an operator settlement service with an optional runtime-rule
+// service and fallback plain-value anomaly configuration. The component reads and
+// writes the plugin's own tables through the generated DAO; non-positive fallback
+// thresholds and caps degrade to package defaults so the anomaly view is bounded.
+func New(rulesSvc rulessvc.Service, config Config) Service {
 	impl := &serviceImpl{
+		rulesSvc:            rulesSvc,
 		feedDailyThreshold:  config.FeedDailyThreshold,
 		stealDailyThreshold: config.StealDailyThreshold,
 		anomalyLimit:        config.AnomalyLimit,

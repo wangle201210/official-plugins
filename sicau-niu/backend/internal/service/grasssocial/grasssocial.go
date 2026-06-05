@@ -17,6 +17,7 @@ import (
 	"context"
 
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // Config carries the plain-value runtime configuration for the grass-social
@@ -81,6 +82,7 @@ var _ Service = (*serviceImpl)(nil)
 // plain-value limits are held as scalar fields.
 type serviceImpl struct {
 	grassSvc          grasssvc.Service // grassSvc moves grass between players inside steal/gift transactions.
+	rulesSvc          rulessvc.Service // rulesSvc supplies operator-maintained steal and gift limits when injected.
 	stealDailyTargets int              // stealDailyTargets is the daily stealable list size.
 	stealDailyLimit   int              // stealDailyLimit is the per-day steal action cap.
 	stealMinAmount    int              // stealMinAmount is the per-steal random lower bound.
@@ -90,13 +92,15 @@ type serviceImpl struct {
 }
 
 // New creates a grass-social service with explicit dependencies: the grass
-// ledger service used for the two-sided transfers, and the plain-value social
-// limits. The steal amount range is normalized so min<=max and both are
-// positive, keeping the random steal amount well-defined.
-func New(grassSvc grasssvc.Service, config Config) Service {
+// ledger service used for the two-sided transfers, the optional runtime-rule
+// service used for operator-maintained social limits, and the fallback
+// plain-value social limits. The fallback steal amount range is normalized so
+// min<=max and both are positive, keeping the random steal amount well-defined.
+func New(grassSvc grasssvc.Service, rulesSvc rulessvc.Service, config Config) Service {
 	stealMin, stealMax := normalizeStealRange(config.StealMinAmount, config.StealMaxAmount)
 	return &serviceImpl{
 		grassSvc:          grassSvc,
+		rulesSvc:          rulesSvc,
 		stealDailyTargets: normalizePositive(config.StealDailyTargets, defaultStealDailyTargets),
 		stealDailyLimit:   normalizePositive(config.StealDailyLimit, defaultStealDailyLimit),
 		stealMinAmount:    stealMin,

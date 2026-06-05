@@ -42,7 +42,7 @@ func grantHonor(t *testing.T, ctx context.Context, userID, honorID int64) {
 func TestPlayerCertificateRendersForHolder(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
-	svc := New(NewBasicCertRenderer(), Config{CampusBadge: "川农120周年"})
+	svc := New(NewBasicCertRenderer(), nil, Config{CampusBadge: "川农120周年"})
 
 	cert := seedCertificateHonor(t, ctx, "cert-a")
 	userA := insertUserRow(t, ctx, "证书同学A")
@@ -75,7 +75,7 @@ func TestPlayerCertificateRendersForHolder(t *testing.T) {
 func TestPlayerCertificateRejectsNotOwned(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
-	svc := New(NewBasicCertRenderer(), Config{})
+	svc := New(NewBasicCertRenderer(), nil, Config{})
 
 	cert := seedCertificateHonor(t, ctx, "cert-b")
 	user := insertUserRow(t, ctx, "未获证书的玩家")
@@ -89,7 +89,7 @@ func TestPlayerCertificateRejectsNotOwned(t *testing.T) {
 func TestPlayerCertificateRejectsNonCertificate(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
-	svc := New(NewBasicCertRenderer(), Config{})
+	svc := New(NewBasicCertRenderer(), nil, Config{})
 
 	badgeID, err := dao.HonorDef.Ctx(ctx).Data(do.HonorDef{
 		HonorType:  string(HonorTypeBadge),

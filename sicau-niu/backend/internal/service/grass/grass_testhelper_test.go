@@ -64,7 +64,7 @@ var (
 // newGrassServiceForTest builds a grass service with a fixed check-in range so the
 // granted amount is deterministic in tests.
 func newGrassServiceForTest() Service {
-	return New(Config{CheckinMinAmount: 30, CheckinMaxAmount: 30})
+	return New(nil, Config{CheckinMinAmount: 30, CheckinMaxAmount: 30})
 }
 
 // assertBizCode fails the test unless err is a structured business error whose

@@ -80,15 +80,15 @@ func (f *fakeIronLocation) Positions(ctx context.Context) ([]*ironlocation.IronP
 // newFeedingServiceForTest builds a feeding service with a 12m bonus threshold and
 // the provided iron gateway, backed by a real grass ledger service.
 func newFeedingServiceForTest(iron ironlocation.Gateway) Service {
-	grassService := grasssvc.New(grasssvc.Config{CheckinMinAmount: 30, CheckinMaxAmount: 30})
-	return New(grassService, iron, Config{IronBonusThresholdMeters: 12})
+	grassService := grasssvc.New(nil, grasssvc.Config{CheckinMinAmount: 30, CheckinMaxAmount: 30})
+	return New(grassService, iron, nil, Config{IronBonusThresholdMeters: 12})
 }
 
 // creditGrass seeds a player's grass balance through the ledger so feeding has
 // something to deduct.
 func creditGrass(t *testing.T, ctx context.Context, userID int64, amount int64) {
 	t.Helper()
-	grassService := grasssvc.New(grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
+	grassService := grasssvc.New(nil, grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
 	err := dao.GrassAccount.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, applyErr := grassService.ApplyDelta(ctx, tx, userID, amount, grasssvc.TxnTypeCheckin, 0)
 		return applyErr

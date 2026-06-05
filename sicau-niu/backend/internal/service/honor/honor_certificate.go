@@ -74,12 +74,16 @@ func (s *serviceImpl) PlayerCertificate(ctx context.Context, playerID, honorID i
 	if err != nil {
 		return nil, err
 	}
+	campusBadge, err := s.certificateCampusBadge(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	image, err := s.certRenderer.Render(ctx, &certrender.CertData{
 		Nickname:    nickname,
 		HonorName:   honor.Name,
 		HonorCode:   honor.Code,
-		CampusBadge: s.campusBadge,
+		CampusBadge: campusBadge,
 	})
 	if err != nil {
 		return nil, err
@@ -109,4 +113,13 @@ func (s *serviceImpl) playerNickname(ctx context.Context, playerID int64) (strin
 		return "", nil
 	}
 	return player.Nickname, nil
+}
+
+// certificateCampusBadge returns the operator-maintained badge text when rules
+// are injected, otherwise the constructor fallback.
+func (s *serviceImpl) certificateCampusBadge(ctx context.Context) (string, error) {
+	if s.rulesSvc == nil {
+		return s.campusBadge, nil
+	}
+	return s.rulesSvc.PosterCampusBadge(ctx)
 }

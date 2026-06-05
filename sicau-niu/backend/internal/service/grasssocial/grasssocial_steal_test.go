@@ -136,8 +136,8 @@ func TestDeterministicDailyOrderStable(t *testing.T) {
 // stealable-list size and the fixture's deterministic steal amount and limits, so
 // a test can force most candidates outside the daily list.
 func newSocialServiceWithTargets(targets int) Service {
-	grassService := grasssvc.New(grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
-	return New(grassService, Config{
+	grassService := grasssvc.New(nil, grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
+	return New(grassService, nil, Config{
 		StealDailyTargets: targets,
 		StealDailyLimit:   2,
 		StealMinAmount:    10,

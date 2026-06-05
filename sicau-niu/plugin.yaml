@@ -285,6 +285,12 @@ menus:
     perms: sicau-niu:settlement:archive
     type: B
     sort: 3
+  - key: plugin:sicau-niu:settlement-rules
+    parent_key: plugin:sicau-niu:settlement
+    name: 规则配置
+    perms: sicau-niu:settlement:rules
+    type: B
+    sort: 4
   # 活动记录只读查询页(C niu-activity-records):与其它页同级直接挂在"寻牛活动"下。
   - key: plugin:sicau-niu:record-feeding
     parent_key: plugin:sicau-niu:root

@@ -1,12 +1,14 @@
-// posterrender_test.go covers the basic poster renderer: it encodes a decodable
-// PNG for valid data and rejects nil data. These are pure-logic tests with no
-// database dependency.
+// posterrender_test.go covers the default poster renderer: it encodes a decodable
+// field-bearing PNG for valid data, personalizes distinct players and rejects nil
+// data. These are pure-logic tests with no database dependency.
 
 package posterrender
 
 import (
 	"bytes"
 	"context"
+	"image"
+	"image/color"
 	"image/png"
 	"testing"
 
@@ -39,6 +41,12 @@ func TestRenderEncodesDecodablePNG(t *testing.T) {
 	bounds := img.Bounds()
 	if bounds.Dx() != posterWidth || bounds.Dy() != posterHeight {
 		t.Fatalf("expected %dx%d image, got %dx%d", posterWidth, posterHeight, bounds.Dx(), bounds.Dy())
+	}
+	if countPosterColor(img, posterTextInk) < 300 {
+		t.Fatal("expected poster to contain visible text ink pixels")
+	}
+	if countPosterColor(img, posterPanel) < 100000 {
+		t.Fatal("expected poster to contain a readable content panel")
 	}
 }
 
@@ -77,4 +85,17 @@ func TestRenderNilDataRejected(t *testing.T) {
 	if !ok || bizErr.RuntimeCode() != CodePosterRenderFailed.RuntimeCode() {
 		t.Fatalf("expected CodePosterRenderFailed, got %v", err)
 	}
+}
+
+func countPosterColor(img image.Image, want color.RGBA) int {
+	bounds := img.Bounds()
+	count := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if color.RGBAModel.Convert(img.At(x, y)) == want {
+				count++
+			}
+		}
+	}
+	return count
 }

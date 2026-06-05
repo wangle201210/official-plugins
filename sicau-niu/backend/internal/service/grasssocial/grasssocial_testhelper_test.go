@@ -65,8 +65,8 @@ var (
 // newSocialServiceForTest builds a grass-social service with deterministic limits
 // for tests: a fixed steal amount (min==max) and small daily caps.
 func newSocialServiceForTest() Service {
-	grassService := grasssvc.New(grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
-	return New(grassService, Config{
+	grassService := grasssvc.New(nil, grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
+	return New(grassService, nil, Config{
 		StealDailyTargets: 12,
 		StealDailyLimit:   2,
 		StealMinAmount:    10,
@@ -80,7 +80,7 @@ func newSocialServiceForTest() Service {
 // grass to move.
 func seedGrass(t *testing.T, ctx context.Context, userID int64, amount int64) {
 	t.Helper()
-	grassService := grasssvc.New(grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
+	grassService := grasssvc.New(nil, grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
 	err := dao.GrassAccount.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, applyErr := grassService.ApplyDelta(ctx, tx, userID, amount, grasssvc.TxnTypeCheckin, 0)
 		return applyErr

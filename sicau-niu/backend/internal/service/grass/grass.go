@@ -16,6 +16,8 @@ import (
 	"context"
 
 	"github.com/gogf/gf/v2/database/gdb"
+
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // Config carries the plain-value runtime configuration for the grass capability.
@@ -54,17 +56,19 @@ type Service interface {
 var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service against the plugin-owned grass account and
-// ledger tables. It has no runtime service dependencies; its only state is the
-// plain-value check-in grant range.
+// ledger tables. The optional rules service supplies operator-maintained
+// check-in bounds; constructor scalar values remain the fallback.
 type serviceImpl struct {
-	checkinMin int // checkinMin is the inclusive lower bound of the daily check-in grant.
-	checkinMax int // checkinMax is the inclusive upper bound of the daily check-in grant.
+	rulesSvc   rulessvc.Service // rulesSvc supplies operator-maintained check-in bounds when injected.
+	checkinMin int              // checkinMin is the inclusive lower bound of the daily check-in grant.
+	checkinMax int              // checkinMax is the inclusive upper bound of the daily check-in grant.
 }
 
-// New creates a grass service with the plain-value check-in configuration. The
-// check-in range is normalized so min<=max and both are positive, keeping the
-// random grant well-defined regardless of configuration order.
-func New(config Config) Service {
+// New creates a grass service with an optional runtime-rule service and fallback
+// plain-value check-in configuration. The fallback range is normalized so min<=max
+// and both are positive, keeping the random grant well-defined regardless of
+// configuration order.
+func New(rulesSvc rulessvc.Service, config Config) Service {
 	min, max := normalizeCheckinRange(config.CheckinMinAmount, config.CheckinMaxAmount)
-	return &serviceImpl{checkinMin: min, checkinMax: max}
+	return &serviceImpl{rulesSvc: rulesSvc, checkinMin: min, checkinMax: max}
 }

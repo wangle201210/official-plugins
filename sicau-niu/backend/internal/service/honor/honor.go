@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"lina-plugin-sicau-niu/backend/internal/service/honor/internal/certrender"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // Service defines the C5 honor contract: operator honor-definition CRUD and the
@@ -86,17 +87,20 @@ type Config struct {
 // the category-complete rule; its only runtime dependencies are the replaceable
 // certificate renderer and the plain-value campus badge injected at assembly time.
 type serviceImpl struct {
-	certRenderer CertRenderer // certRenderer is the replaceable certificate PNG output seam.
-	campusBadge  string       // campusBadge is the anniversary badge text rendered on certificates.
+	certRenderer CertRenderer     // certRenderer is the replaceable certificate PNG output seam.
+	rulesSvc     rulessvc.Service // rulesSvc supplies current certificate badge text when injected.
+	campusBadge  string           // campusBadge is the anniversary badge text rendered on certificates.
 }
 
-// New creates a honor service with the certificate renderer and campus badge
-// injected at assembly time. The component reads the plugin's own honor_def,
-// feeding, activation, card and user_honor tables through the generated DAO and
-// reuses the card package's exported category-enum contract.
-func New(certRenderer CertRenderer, config Config) Service {
+// New creates a honor service with the certificate renderer, optional
+// runtime-rule service and fallback campus badge injected at assembly time. The
+// component reads the plugin's own honor_def, feeding, activation, card and
+// user_honor tables through the generated DAO and reuses the card package's
+// exported category-enum contract.
+func New(certRenderer CertRenderer, rulesSvc rulessvc.Service, config Config) Service {
 	return &serviceImpl{
 		certRenderer: certRenderer,
+		rulesSvc:     rulesSvc,
 		campusBadge:  config.CampusBadge,
 	}
 }

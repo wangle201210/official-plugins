@@ -1,4 +1,8 @@
-import { expect, type Locator, type Page } from "@host-tests/support/playwright";
+import {
+  expect,
+  type Locator,
+  type Page,
+} from "@host-tests/support/playwright";
 
 import { PluginPage } from "@host-tests/pages/PluginPage";
 
@@ -18,8 +22,30 @@ export class SicauNiuSettlementPage extends PluginPage {
     return this.page.getByTestId("settlement-dashboard").first();
   }
 
+  overviewTitle(): Locator {
+    return this.dashboard().getByText("寻牛活动运营概览");
+  }
+
   activitySection(): Locator {
     return this.page.getByTestId("settlement-activity").first();
+  }
+
+  rulesSection(): Locator {
+    return this.page.getByTestId("settlement-rules").first();
+  }
+
+  rankingsSection(): Locator {
+    return this.page.getByTestId("settlement-rankings").first();
+  }
+
+  keyInteractions(): Locator {
+    return this.page.getByText("关键互动").first();
+  }
+
+  archiveActionDescription(): Locator {
+    return this.page
+      .getByText("保存当前运营结算快照，便于后续公示复核。")
+      .first();
   }
 
   riskTable(): Locator {
@@ -54,6 +80,8 @@ export class SicauNiuSettlementPage extends PluginPage {
   async createArchive(title: string) {
     await this.archiveTitleInput().fill(title);
     await this.archiveButton().click();
-    await expect(this.archiveTable().locator(".ant-table-row", { hasText: title }).first()).toBeVisible();
+    await expect(
+      this.archiveTable().locator(".ant-table-row", { hasText: title }).first(),
+    ).toBeVisible();
   }
 }

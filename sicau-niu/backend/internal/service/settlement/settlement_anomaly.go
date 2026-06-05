@@ -15,6 +15,7 @@ import (
 	"lina-core/pkg/bizerr"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // Anomaly behaviour type labels reported by the alert view.
@@ -55,11 +56,16 @@ type anomalyRow struct {
 
 // Anomalies returns the bounded anomaly alerts merged from feeding and steal.
 func (s *serviceImpl) Anomalies(ctx context.Context) (*AnomalyAlerts, error) {
-	feedRows, err := s.feedAnomalyRows(ctx)
+	rules, err := s.currentAnomalyRules(ctx)
 	if err != nil {
 		return nil, err
 	}
-	stealRows, err := s.stealAnomalyRows(ctx)
+
+	feedRows, err := s.feedAnomalyRows(ctx, rules)
+	if err != nil {
+		return nil, err
+	}
+	stealRows, err := s.stealAnomalyRows(ctx, rules)
 	if err != nil {
 		return nil, err
 	}
@@ -68,20 +74,20 @@ func (s *serviceImpl) Anomalies(ctx context.Context) (*AnomalyAlerts, error) {
 	for _, row := range feedRows {
 		alerts = append(alerts, &AnomalyAlert{
 			UserId: row.Uid, Type: anomalyTypeFeed, Date: row.D,
-			Count: row.Cnt, Threshold: int64(s.feedDailyThreshold),
+			Count: row.Cnt, Threshold: int64(rules.FeedDailyThreshold),
 		})
 	}
 	for _, row := range stealRows {
 		alerts = append(alerts, &AnomalyAlert{
 			UserId: row.Uid, Type: anomalyTypeSteal, Date: row.D,
-			Count: row.Cnt, Threshold: int64(s.stealDailyThreshold),
+			Count: row.Cnt, Threshold: int64(rules.StealDailyThreshold),
 		})
 	}
 
 	// Stable order: highest single-day count first, bounded to the configured cap.
 	sort.SliceStable(alerts, func(i, j int) bool { return alerts[i].Count > alerts[j].Count })
-	if len(alerts) > s.anomalyLimit {
-		alerts = alerts[:s.anomalyLimit]
+	if len(alerts) > rules.ListLimit {
+		alerts = alerts[:rules.ListLimit]
 	}
 
 	if err = s.fillAnomalyNicknames(ctx, alerts); err != nil {
@@ -92,7 +98,7 @@ func (s *serviceImpl) Anomalies(ctx context.Context) (*AnomalyAlerts, error) {
 
 // feedAnomalyRows returns the player/day pairs whose feeding count on a day exceeds
 // the feed threshold, grouped and filtered on the database side and bounded.
-func (s *serviceImpl) feedAnomalyRows(ctx context.Context) ([]*anomalyRow, error) {
+func (s *serviceImpl) feedAnomalyRows(ctx context.Context, rules rulessvc.AnomalyRules) ([]*anomalyRow, error) {
 	rows := make([]*anomalyRow, 0)
 	err := dao.Feeding.Ctx(ctx).
 		Fields(
@@ -101,9 +107,9 @@ func (s *serviceImpl) feedAnomalyRows(ctx context.Context) ([]*anomalyRow, error
 			"COUNT(*) AS cnt",
 		).
 		Group(dao.Feeding.Columns().UserId, "TO_CHAR("+dao.Feeding.Columns().CreatedAt+", 'YYYY-MM-DD')").
-		Having("COUNT(*) > ?", s.feedDailyThreshold).
+		Having("COUNT(*) > ?", rules.FeedDailyThreshold).
 		Order("cnt DESC").
-		Limit(s.anomalyLimit).
+		Limit(rules.ListLimit).
 		Scan(&rows)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeSettlementQueryFailed)
@@ -113,7 +119,7 @@ func (s *serviceImpl) feedAnomalyRows(ctx context.Context) ([]*anomalyRow, error
 
 // stealAnomalyRows returns the actor/day pairs whose steal count on a day exceeds
 // the steal threshold, grouped on the persisted steal_date and bounded.
-func (s *serviceImpl) stealAnomalyRows(ctx context.Context) ([]*anomalyRow, error) {
+func (s *serviceImpl) stealAnomalyRows(ctx context.Context, rules rulessvc.AnomalyRules) ([]*anomalyRow, error) {
 	rows := make([]*anomalyRow, 0)
 	err := dao.Steal.Ctx(ctx).
 		Fields(
@@ -122,14 +128,27 @@ func (s *serviceImpl) stealAnomalyRows(ctx context.Context) ([]*anomalyRow, erro
 			"COUNT(*) AS cnt",
 		).
 		Group(dao.Steal.Columns().ActorUserId, dao.Steal.Columns().StealDate).
-		Having("COUNT(*) > ?", s.stealDailyThreshold).
+		Having("COUNT(*) > ?", rules.StealDailyThreshold).
 		Order("cnt DESC").
-		Limit(s.anomalyLimit).
+		Limit(rules.ListLimit).
 		Scan(&rows)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeSettlementQueryFailed)
 	}
 	return rows, nil
+}
+
+// currentAnomalyRules returns the operator-maintained anomaly thresholds and cap
+// when rules are injected, otherwise the constructor fallback.
+func (s *serviceImpl) currentAnomalyRules(ctx context.Context) (rulessvc.AnomalyRules, error) {
+	if s.rulesSvc != nil {
+		return s.rulesSvc.AnomalyRules(ctx)
+	}
+	return rulessvc.AnomalyRules{
+		FeedDailyThreshold:  s.feedDailyThreshold,
+		StealDailyThreshold: s.stealDailyThreshold,
+		ListLimit:           s.anomalyLimit,
+	}, nil
 }
 
 // fillAnomalyNicknames batch-loads the nicknames for the alerted players in one

@@ -9,15 +9,19 @@ package settlement
 
 import (
 	settlementapi "lina-plugin-sicau-niu/backend/api/settlement"
+	rankingsvc "lina-plugin-sicau-niu/backend/internal/service/ranking"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 	settlementsvc "lina-plugin-sicau-niu/backend/internal/service/settlement"
 )
 
 // ControllerV1 is the sicau-niu operator settlement controller.
 type ControllerV1 struct {
 	settlementSvc settlementsvc.Service // settlementSvc serves the dashboard, export, issuance, risk view and archive.
+	rankingSvc    rankingsvc.Service    // rankingSvc serves operator leaderboard projections.
+	rulesSvc      rulessvc.Service      // rulesSvc serves operator runtime-rule configuration.
 }
 
-// NewV1 creates the settlement controller with its explicit service dependency.
-func NewV1(settlementSvc settlementsvc.Service) settlementapi.ISettlementV1 {
-	return &ControllerV1{settlementSvc: settlementSvc}
+// NewV1 creates the settlement controller with its explicit service dependencies.
+func NewV1(settlementSvc settlementsvc.Service, rankingSvc rankingsvc.Service, rulesSvc rulessvc.Service) settlementapi.ISettlementV1 {
+	return &ControllerV1{settlementSvc: settlementSvc, rankingSvc: rankingSvc, rulesSvc: rulesSvc}
 }

@@ -45,7 +45,11 @@ const userTable = "plugin_sicau_niu_user"
 
 // CollegeBoard returns the Top-N college board aggregated from enrolled students.
 func (s *serviceImpl) CollegeBoard(ctx context.Context) (*CollegeBoard, error) {
-	rows := make([]*collegeTotalRow, 0, s.topN)
+	topN, limitErr := s.currentTopN(ctx)
+	if limitErr != nil {
+		return nil, limitErr
+	}
+	rows := make([]*collegeTotalRow, 0, topN)
 	err := dao.Feeding.Ctx(ctx).
 		As("f").
 		InnerJoin(
@@ -61,7 +65,7 @@ func (s *serviceImpl) CollegeBoard(ctx context.Context) (*CollegeBoard, error) {
 		).
 		Group("u." + dao.User.Columns().CollegeId).
 		Order("total DESC").
-		Limit(s.topN).
+		Limit(topN).
 		Scan(&rows)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeRankingQueryFailed)

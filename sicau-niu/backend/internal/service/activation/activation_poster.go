@@ -79,6 +79,10 @@ func (s *serviceImpl) Poster(ctx context.Context, playerID int64, niuID int64) (
 	if err != nil {
 		return nil, err
 	}
+	campusBadge, err := s.posterCampusBadge(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	output := &PosterOutput{
 		Nickname:     profile.Nickname,
@@ -86,7 +90,7 @@ func (s *serviceImpl) Poster(ctx context.Context, playerID int64, niuID int64) (
 		NiuCode:      niuCode,
 		OrderNo:      record.OrderNo,
 		Quote:        quote,
-		CampusBadge:  s.campusBadge,
+		CampusBadge:  campusBadge,
 	}
 
 	// Render the personalized poster PNG through the replaceable seam and return it
@@ -140,4 +144,13 @@ func (s *serviceImpl) randomEnabledQuote(ctx context.Context) (string, error) {
 		return "", nil
 	}
 	return rows[grand.Intn(len(rows))].Content, nil
+}
+
+// posterCampusBadge returns the operator-maintained poster badge when rules are
+// injected, otherwise the constructor fallback.
+func (s *serviceImpl) posterCampusBadge(ctx context.Context) (string, error) {
+	if s.rulesSvc == nil {
+		return s.campusBadge, nil
+	}
+	return s.rulesSvc.PosterCampusBadge(ctx)
 }

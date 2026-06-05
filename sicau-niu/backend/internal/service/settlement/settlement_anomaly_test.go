@@ -19,7 +19,7 @@ func TestAnomaliesFeedAndStealOverThreshold(t *testing.T) {
 	setupPostgreSQLSettlementDB(t, ctx)
 	// Small thresholds keep the fixtures tiny: feed alerts above 2/day, steal above
 	// 1/day.
-	svc := New(Config{FeedDailyThreshold: 2, StealDailyThreshold: 1})
+	svc := New(nil, Config{FeedDailyThreshold: 2, StealDailyThreshold: 1})
 
 	heavy := insertUserRow(t, ctx, "重度喂草", "student", "")
 	normal := insertUserRow(t, ctx, "正常喂草", "student", "")
@@ -75,7 +75,7 @@ func TestAnomaliesFeedAndStealOverThreshold(t *testing.T) {
 func TestAnomaliesEmptyWhenUnderThreshold(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLSettlementDB(t, ctx)
-	svc := New(Config{FeedDailyThreshold: 5, StealDailyThreshold: 5})
+	svc := New(nil, Config{FeedDailyThreshold: 5, StealDailyThreshold: 5})
 
 	user := insertUserRow(t, ctx, "守规矩", "student", "")
 	insertFeedingRow(t, ctx, user, 10)

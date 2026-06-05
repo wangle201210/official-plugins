@@ -19,6 +19,7 @@ import (
 	"context"
 
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // Config carries the plain-value runtime configuration for the leaderboard
@@ -60,22 +61,23 @@ type Service interface {
 var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service against the plugin-owned feeding, user and
-// college tables. Its only runtime dependency is the Top-N cap injected as a
-// plain value; the boards read the plugin's own tables through the generated DAO.
+// college tables. The optional rules service supplies the operator-maintained
+// Top-N cap; the constructor scalar remains the fallback.
 type serviceImpl struct {
-	topN int // topN bounds the size of every board.
+	rulesSvc rulessvc.Service // rulesSvc supplies the current leaderboard Top-N when injected.
+	topN     int              // topN bounds the size of every board when rules are absent.
 }
 
-// New creates a ranking service with the plain-value board configuration. The
-// component reads the plugin's own feeding/user/college tables through the
-// generated DAO and therefore takes no runtime interface dependencies; the Top-N
-// cap is injected so the board size is governed by plugin configuration.
-func New(config Config) Service {
+// New creates a ranking service with an optional runtime-rule service and
+// fallback plain-value board configuration. The component reads the plugin's own
+// feeding/user/college tables through the generated DAO; the Top-N cap is always
+// bounded by either rules or the fallback config.
+func New(rulesSvc rulessvc.Service, config Config) Service {
 	topN := config.TopN
 	if topN <= 0 {
 		topN = defaultTopN
 	}
-	return &serviceImpl{topN: topN}
+	return &serviceImpl{rulesSvc: rulesSvc, topN: topN}
 }
 
 // studentIdentity and friendIdentity are the persisted identity-type strings the

@@ -18,6 +18,7 @@ import (
 
 	"lina-plugin-sicau-niu/backend/internal/service/feeding/internal/ironlocation"
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // ironBonusCoefficientBasis is the persisted coefficient basis (in hundredths)
@@ -64,6 +65,7 @@ var _ Service = (*serviceImpl)(nil)
 type serviceImpl struct {
 	grassSvc           grasssvc.Service     // grassSvc debits the player ledger inside the feeding transaction.
 	ironLocation       ironlocation.Gateway // ironLocation supplies current iron-cow positions for the bonus check.
+	rulesSvc           rulessvc.Service     // rulesSvc supplies operator-maintained iron-bonus threshold when injected.
 	ironBonusThreshold float64              // ironBonusThreshold is the proximity-bonus distance threshold in meters.
 }
 
@@ -82,12 +84,14 @@ func NewMockIronLocation() IronLocationGateway {
 
 // New creates a feeding service with explicit dependencies: the grass ledger
 // service used to debit the player inside the feeding transaction, the iron-cow
-// location gateway used for the proximity bonus, and the plain-value feeding
-// configuration.
-func New(grassSvc grasssvc.Service, ironLocation IronLocationGateway, config Config) Service {
+// location gateway used for the proximity bonus, the optional runtime-rule
+// service used for operator-maintained threshold tuning, and the fallback
+// plain-value feeding configuration.
+func New(grassSvc grasssvc.Service, ironLocation IronLocationGateway, rulesSvc rulessvc.Service, config Config) Service {
 	return &serviceImpl{
 		grassSvc:           grassSvc,
 		ironLocation:       ironLocation,
+		rulesSvc:           rulesSvc,
 		ironBonusThreshold: config.IronBonusThresholdMeters,
 	}
 }

@@ -124,6 +124,89 @@ type RiskAnomaliesRes struct {
 	List []*AnomalyAlert `json:"list" dc:"Anomaly alerts ordered by single-day count descending, bounded" eg:"[]"`
 }
 
+// RulesReq is the request for operator runtime rules.
+type RulesReq struct {
+	g.Meta `path:"/plugins/sicau-niu/settlement/rules" method:"get" tags:"Sicau Niu Settlement" summary:"Get runtime rules" dc:"Return the operator-maintained runtime rules for activation, posters, check-in, steal, gift, iron bonus, ranking, anomaly alerting and H5 mini-program link. The values are read from the plugin-owned rule_config table and normalized with built-in defaults. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+}
+
+// RulesRes is the response for operator runtime rules.
+type RulesRes RuleConfig
+
+// UpdateRulesReq is the request for updating operator runtime rules.
+type UpdateRulesReq struct {
+	g.Meta `path:"/plugins/sicau-niu/settlement/rules" method:"put" tags:"Sicau Niu Settlement" summary:"Update runtime rules" dc:"Replace the complete operator-maintained runtime rule set. All numeric fields must be positive, min values must not exceed max values, ranking/anomaly caps are bounded, and values apply to subsequent player and operator requests without process-local cache invalidation. Protected by host unified permission check." permission:"sicau-niu:settlement:rules"`
+	RuleConfig
+}
+
+// UpdateRulesRes is the response for updating operator runtime rules.
+type UpdateRulesRes RuleConfig
+
+// RuleConfig is the complete operator-maintained runtime rule projection.
+type RuleConfig struct {
+	ActivationLBSThresholdMeters int    `json:"activationLbsThresholdMeters" dc:"LBS activation distance threshold in meters; must be positive" eg:"50"`
+	PosterCampusBadge            string `json:"posterCampusBadge" dc:"Campus anniversary badge rendered on activation posters and certificates; max 255 characters" eg:"川农 120 周年"`
+	CheckinMinAmount             int    `json:"checkinMinAmount" dc:"Daily check-in grass grant lower bound; must be positive and not exceed checkinMaxAmount" eg:"20"`
+	CheckinMaxAmount             int    `json:"checkinMaxAmount" dc:"Daily check-in grass grant upper bound; must be positive and not below checkinMinAmount" eg:"50"`
+	StealDailyTargets            int    `json:"stealDailyTargets" dc:"Daily stealable target list size; must be positive" eg:"12"`
+	StealDailyLimit              int    `json:"stealDailyLimit" dc:"Daily steal action limit per player; must be positive" eg:"5"`
+	StealMinAmount               int    `json:"stealMinAmount" dc:"Per-steal random grass lower bound; must be positive and not exceed stealMaxAmount" eg:"5"`
+	StealMaxAmount               int    `json:"stealMaxAmount" dc:"Per-steal random grass upper bound; must be positive and not below stealMinAmount" eg:"20"`
+	GiftDailyLimit               int    `json:"giftDailyLimit" dc:"Daily gift action limit per player; must be positive" eg:"12"`
+	GiftMinAmount                int    `json:"giftMinAmount" dc:"Per-gift minimum grass amount; must be positive" eg:"12"`
+	IronBonusThresholdMeters     int    `json:"ironBonusThresholdMeters" dc:"Iron-cow proximity bonus threshold in meters; must be positive" eg:"12"`
+	RankingTopN                  int    `json:"rankingTopN" dc:"Leaderboard Top-N cap; must be between 1 and 500" eg:"100"`
+	AnomalyFeedDailyThreshold    int    `json:"anomalyFeedDailyThreshold" dc:"Single-day feeding count anomaly threshold; must be positive" eg:"100"`
+	AnomalyStealDailyThreshold   int    `json:"anomalyStealDailyThreshold" dc:"Single-day steal count anomaly threshold; must be positive" eg:"5"`
+	AnomalyListLimit             int    `json:"anomalyListLimit" dc:"Maximum anomaly alert rows; must be between 1 and 500" eg:"200"`
+	MiniappURL                   string `json:"miniappUrl" dc:"Return-to-mini-program URL for the public H5 wall; max 255 characters, empty hides the entry" eg:"weixin://dl/business/?t=abc"`
+}
+
+// FeedRankingReq is the operator request for the feed leaderboard.
+type FeedRankingReq struct {
+	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/feed" method:"get" tags:"Sicau Niu Settlement" summary:"Operator feed leaderboard" dc:"Return the Top-N personal feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and nicknames are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+}
+
+// FeedRankingRes is the operator feed leaderboard response.
+type FeedRankingRes struct {
+	List []*FeedRankItem `json:"list" dc:"Players ranked by total feeding effect, bounded by runtime rankingTopN" eg:"[]"`
+}
+
+// FriendRankingReq is the operator request for the SICAU-friend leaderboard.
+type FriendRankingReq struct {
+	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/friend" method:"get" tags:"Sicau Niu Settlement" summary:"Operator friend leaderboard" dc:"Return the Top-N SICAU-friend feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and nicknames are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+}
+
+// FriendRankingRes is the operator SICAU-friend leaderboard response.
+type FriendRankingRes struct {
+	List []*FeedRankItem `json:"list" dc:"SICAU-friend players ranked by total feeding effect, bounded by runtime rankingTopN" eg:"[]"`
+}
+
+// CollegeRankingReq is the operator request for the college leaderboard.
+type CollegeRankingReq struct {
+	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/college" method:"get" tags:"Sicau Niu Settlement" summary:"Operator college leaderboard" dc:"Return the Top-N college feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and college names are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+}
+
+// CollegeRankingRes is the operator college leaderboard response.
+type CollegeRankingRes struct {
+	List []*CollegeRankItem `json:"list" dc:"Colleges ranked by enrolled students' total feeding effect, bounded by runtime rankingTopN" eg:"[]"`
+}
+
+// FeedRankItem is one operator personal leaderboard row.
+type FeedRankItem struct {
+	Rank     int    `json:"rank" dc:"1-based rank on the leaderboard" eg:"1"`
+	UserId   int64  `json:"userId" dc:"Player user ID" eg:"1"`
+	Nickname string `json:"nickname" dc:"Player nickname; empty when unset" eg:"川农牛仔"`
+	Total    int64  `json:"total" dc:"Total feeding effect" eg:"3600"`
+}
+
+// CollegeRankItem is one operator college leaderboard row.
+type CollegeRankItem struct {
+	Rank        int    `json:"rank" dc:"1-based rank on the leaderboard" eg:"1"`
+	CollegeId   int64  `json:"collegeId" dc:"College ID" eg:"3"`
+	CollegeName string `json:"collegeName" dc:"College name; empty when missing" eg:"信息工程学院"`
+	Total       int64  `json:"total" dc:"Total feeding effect of enrolled students" eg:"180000"`
+}
+
 // AnomalyAlert is one single-day over-threshold behaviour record.
 type AnomalyAlert struct {
 	UserId    int64  `json:"userId" dc:"Player ID" eg:"1"`

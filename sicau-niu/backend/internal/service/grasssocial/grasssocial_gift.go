@@ -44,7 +44,11 @@ func (s *serviceImpl) Gift(ctx context.Context, playerID int64, in *GiftInput) (
 	if in.ToUserId == playerID {
 		return nil, bizerr.NewCode(CodeSelfActionForbidden)
 	}
-	if in.Amount < s.giftMinAmount {
+	rules, err := s.socialRules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if in.Amount < rules.GiftMinAmount {
 		return nil, bizerr.NewCode(CodeGiftAmountTooSmall)
 	}
 
@@ -104,7 +108,11 @@ func (s *serviceImpl) guardGiftDailyLimit(ctx context.Context, playerID int64, d
 	if err != nil {
 		return bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	if count >= s.giftDailyLimit {
+	rules, err := s.socialRules(ctx)
+	if err != nil {
+		return err
+	}
+	if count >= rules.GiftDailyLimit {
 		return bizerr.NewCode(CodeGiftLimitReached)
 	}
 	return nil

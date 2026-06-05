@@ -25,7 +25,7 @@ func TestNewNormalizesTopN(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			svc, ok := New(Config{TopN: tc.configIn}).(*serviceImpl)
+			svc, ok := New(nil, Config{TopN: tc.configIn}).(*serviceImpl)
 			if !ok {
 				t.Fatalf("expected *serviceImpl from New")
 			}
@@ -43,7 +43,7 @@ func TestFeedBoardAggregatesAndRanksSelf(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLRankingDB(t, ctx)
 
-	svc := New(Config{TopN: 2})
+	svc := New(nil, Config{TopN: 2})
 
 	high := insertUserRow(t, ctx, "高分", friendIdentity, 0)
 	mid := insertUserRow(t, ctx, "中分", studentIdentity, 0)
@@ -82,7 +82,7 @@ func TestFeedBoardEmptyWhenNoFeeding(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLRankingDB(t, ctx)
 
-	svc := New(Config{TopN: 10})
+	svc := New(nil, Config{TopN: 10})
 	player := insertUserRow(t, ctx, "无喂草", studentIdentity, 0)
 
 	board, err := svc.FeedBoard(ctx, player)
@@ -104,7 +104,7 @@ func TestCollegeBoardAggregatesEnrolledStudents(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLRankingDB(t, ctx)
 
-	svc := New(Config{TopN: 10})
+	svc := New(nil, Config{TopN: 10})
 
 	collegeA := insertCollegeRow(t, ctx, "甲学院")
 	collegeB := insertCollegeRow(t, ctx, "乙学院")
@@ -146,7 +146,7 @@ func TestFriendBoardRestrictsToFriendsAndRanksSelf(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLRankingDB(t, ctx)
 
-	svc := New(Config{TopN: 10})
+	svc := New(nil, Config{TopN: 10})
 
 	friendHigh := insertUserRow(t, ctx, "好友高", friendIdentity, 0)
 	friendLow := insertUserRow(t, ctx, "好友低", friendIdentity, 0)
