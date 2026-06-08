@@ -1,4 +1,4 @@
-// This file resolves media strategies and parses watermark strategy YAML.
+// This file resolves media strategies and parses snapshot watermark strategy YAML.
 
 package water
 
@@ -13,13 +13,12 @@ import (
 	"lina-plugin-water/backend/internal/library/watermark"
 )
 
-// strategyYAML is a tolerant projection of media strategy YAML.
+// strategyYAML is a projection of media strategy YAML for snapshot watermark rules.
 type strategyYAML struct {
-	Watermark       *watermarkConfig `json:"watermark" yaml:"watermark"` // Watermark is the nested Lina strategy node.
-	watermarkConfig `yaml:",inline"` // Inline fields keep hotgo root-level strategy compatibility.
+	SnapshotWatermark *watermarkConfig `json:"snapshot_watermark" yaml:"snapshot_watermark"` // SnapshotWatermark is the screenshot watermark strategy node.
 }
 
-// parseWatermarkStrategy parses watermark configuration from strategy YAML.
+// parseWatermarkStrategy parses snapshot watermark configuration from strategy YAML.
 func parseWatermarkStrategy(strategyBody string) (*watermarkConfig, error) {
 	body := strings.TrimSpace(strategyBody)
 	if body == "" {
@@ -30,10 +29,7 @@ func parseWatermarkStrategy(strategyBody string) (*watermarkConfig, error) {
 		return nil, bizerr.WrapCode(err, CodeWaterStrategyParseFailed)
 	}
 
-	cfg := parsed.Watermark
-	if cfg == nil && hasRootWatermarkConfig(parsed.watermarkConfig) {
-		cfg = &parsed.watermarkConfig
-	}
+	cfg := parsed.SnapshotWatermark
 	if cfg == nil {
 		return nil, nil
 	}
@@ -112,19 +108,6 @@ func strategySourceLabel(source StrategySource) string {
 	default:
 		return "未匹配"
 	}
-}
-
-// hasRootWatermarkConfig reports whether the root YAML object looks like a hotgo watermark config.
-func hasRootWatermarkConfig(cfg watermarkConfig) bool {
-	return cfg.Enabled ||
-		strings.TrimSpace(cfg.Text) != "" ||
-		strings.TrimSpace(cfg.Image) != "" ||
-		strings.TrimSpace(cfg.Base64) != "" ||
-		cfg.FontSize > 0 ||
-		cfg.Opacity > 0 ||
-		cfg.PosX > 0 ||
-		cfg.PosY > 0 ||
-		cfg.Align != ""
 }
 
 // normalizeWatermarkConfig fills defaults and normalizes bounded fields.

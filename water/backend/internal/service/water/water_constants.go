@@ -50,7 +50,7 @@ const (
 	// defaultFontSize is used when a strategy omits fontSize.
 	defaultFontSize = 32
 	// defaultWatermarkOpacity is used when a strategy omits opacity.
-	defaultWatermarkOpacity = 0.35
+	defaultWatermarkOpacity = 0.15
 	// taskStatusCacheNamespace scopes water task snapshots inside the plugin cache.
 	taskStatusCacheNamespace = "task-status"
 	// taskStatusCacheKeyPrefix keeps task keys readable in the host cache.

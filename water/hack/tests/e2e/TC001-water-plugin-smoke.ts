@@ -4,6 +4,7 @@ import {
   createAdminApiContext,
   expectSuccess,
 } from "@host-tests/support/api/job";
+import { workspacePath } from "@host-tests/fixtures/config";
 import { waitForRouteReady } from "@host-tests/support/ui";
 
 type CreatedId = {
@@ -47,7 +48,7 @@ async function createWatermarkStrategy(api: Awaited<ReturnType<typeof createAdmi
         name: `水印E2E策略-${Date.now()}`,
         enable: 1,
         global: 0,
-        strategy: `watermark:
+        strategy: `snapshot_watermark:
   enabled: true
   text: LinaPro Water
   fontSize: 18
@@ -57,7 +58,6 @@ async function createWatermarkStrategy(api: Awaited<ReturnType<typeof createAdmi
       },
     }),
   );
-  await expectSuccess(await api.put(`media/strategies/${created.id}/global`));
   return created.id;
 }
 
@@ -76,29 +76,42 @@ test.describe("TC-1 water source plugin", () => {
     await ensureSourcePluginEnabled(adminPage, "water");
 
     const api = await createAdminApiContext();
+    const deviceId = `water-e2e-device-${Date.now()}`;
+    let deviceStrategyId = 0;
     let strategyId = 0;
     let previousGlobalIds: number[] = [];
     try {
-      const mockPreview = await expectSuccess<WaterPreviewResult>(
+      deviceStrategyId = await createWatermarkStrategy(api);
+      await expectSuccess(
+        await api.put(`media/device-bindings/${encodeURIComponent(deviceId)}`, {
+          data: {
+            deviceId,
+            strategyId: deviceStrategyId,
+          },
+        }),
+      );
+
+      const devicePreview = await expectSuccess<WaterPreviewResult>(
         await api.post("water/preview", {
           data: {
-            tenant: "tenant-a",
-            deviceId: "34020000001320000001",
-            deviceCode: "34020000001320000001",
-            channelCode: "34020000001320000001",
+            tenant: "tenant-water-e2e",
+            deviceId,
+            deviceCode: deviceId,
+            channelCode: deviceId,
             image: testImage,
           },
         }),
       );
-      expect(mockPreview.success).toBeTruthy();
-      expect(mockPreview.status).toBe("success");
-      expect(mockPreview.source).toBe("device");
-      expect(mockPreview.sourceLabel).toBe("设备策略");
-      expect(mockPreview.strategyName).toBe("门店低延迟预览策略");
-      expect(mockPreview.image).toContain("data:image/png;base64,");
+      expect(devicePreview.success).toBeTruthy();
+      expect(devicePreview.status).toBe("success");
+      expect(devicePreview.source).toBe("device");
+      expect(devicePreview.sourceLabel).toBe("设备策略");
+      expect(devicePreview.strategyId).toBe(deviceStrategyId);
+      expect(devicePreview.image).toContain("data:image/png;base64,");
 
       previousGlobalIds = await currentGlobalStrategyIds(api);
       strategyId = await createWatermarkStrategy(api);
+      await expectSuccess(await api.put(`media/strategies/${strategyId}/global`));
 
       const preview = await expectSuccess<WaterPreviewResult>(
         await api.post("water/preview", {
@@ -144,11 +157,17 @@ test.describe("TC-1 water source plugin", () => {
       );
       expect(task.image).toContain("data:image/png;base64,");
     } finally {
+      if (deviceStrategyId > 0) {
+        await api.delete(`media/device-bindings/${encodeURIComponent(deviceId)}`).catch(() => {});
+      }
       if (previousGlobalIds.length > 0) {
         await api.put(`media/strategies/${previousGlobalIds[0]}/global`).catch(() => {});
       }
       if (strategyId > 0) {
         await api.delete(`media/strategies/${strategyId}`).catch(() => {});
+      }
+      if (deviceStrategyId > 0) {
+        await api.delete(`media/strategies/${deviceStrategyId}`).catch(() => {});
       }
       await api.dispose();
     }
@@ -161,7 +180,7 @@ test.describe("TC-1 water source plugin", () => {
     const pageErrors: Error[] = [];
     adminPage.on("pageerror", (error) => pageErrors.push(error));
 
-    await adminPage.goto("/water", { waitUntil: "domcontentloaded" });
+    await adminPage.goto(workspacePath("/water"), { waitUntil: "domcontentloaded" });
     await waitForRouteReady(adminPage, 15000);
 
     await expect(adminPage.getByRole("heading", { name: "水印服务" })).toBeVisible();

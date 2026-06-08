@@ -6,7 +6,21 @@
 
 ## 运行配置
 
-水印渲染规则保存在 `media_strategy.strategy` 的 YAML 内容中。服务端运行并发配置在宿主后端配置文件中：
+截图水印渲染规则保存在`media_strategy.strategy`的`snapshot_watermark`节点中：
+
+```yaml
+snapshot_watermark:
+  enabled: true
+  text: LinaPro Water
+  fontSize: 40
+  color: "#ffffff"
+  align: bottomRight
+  opacity: 0.7
+```
+
+未配置`opacity`时，插件默认使用`0.15`。
+
+服务端运行并发配置在宿主后端配置文件中：
 
 ```yaml
 water:

@@ -97,7 +97,7 @@ type resolvedStrategy struct {
 	Strategy     string         // Strategy is the YAML strategy content.
 }
 
-// watermarkConfig defines the normalized watermark rendering configuration.
+// watermarkConfig defines the normalized snapshot watermark rendering configuration.
 type watermarkConfig struct {
 	Enabled  bool               `json:"enabled" yaml:"enabled"`   // Enabled reports whether watermark rendering should run.
 	Text     string             `json:"text" yaml:"text"`         // Text is the watermark text.
