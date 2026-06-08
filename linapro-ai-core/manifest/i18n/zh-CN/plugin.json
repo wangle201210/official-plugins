@@ -1,0 +1,194 @@
+{
+  "plugin": {
+    "linapro-ai-core": {
+      "common": {
+        "disabled": "停用",
+        "enabled": "启用",
+        "failed": "失败",
+        "no": "否",
+        "success": "成功",
+        "yes": "是"
+      },
+      "description": "提供渠道、模型、AI能力档位和调用日志治理的官方源码插件",
+      "capability": {
+        "method": "能力方法",
+        "types": {
+          "audio": "音频",
+          "document": "文档理解",
+          "embedding": "向量嵌入",
+          "image": "图像",
+          "safety": "安全审核",
+          "text": "文本",
+          "video": "视频",
+          "vision": "视觉理解"
+        }
+      },
+      "endpoint": {
+        "actions": {
+          "add": "新增端点",
+          "manage": "端点"
+        },
+        "drawer": {
+          "title": "渠道端点 - {name}"
+        },
+        "empty": "暂无端点配置",
+        "fields": {
+          "baseUrl": "接入地址",
+          "metadataJson": "元数据 JSON",
+          "protocol": "协议",
+          "secretRef": "API 密钥"
+        },
+        "hints": {
+          "maskedSecret": "当前密钥：{secret}"
+        },
+        "messages": {
+          "baseUrlRequired": "{protocol} 端点请填写基础地址"
+        },
+        "names": {
+          "anthropic": "Anthropic",
+          "openai": "OpenAI"
+        },
+        "placeholders": {
+          "keepSecret": "留空则保持原端点密钥"
+        },
+        "sectionTitle": "端点配置"
+      },
+      "effort": {
+        "empty": "模型默认"
+      },
+      "invocation": {
+        "drawer": {
+          "detailTitle": "调用详情"
+        },
+        "fields": {
+          "errorCode": "错误码",
+          "errorSummary": "错误摘要",
+          "assetSummaryJson": "资产摘要",
+          "inputTokens": "输入 Tokens",
+          "latencyMs": "耗时(ms)",
+          "metadataSummaryJson": "元数据摘要",
+          "method": "调用方法",
+          "modelName": "模型",
+          "operationSummaryJson": "Operation 摘要",
+          "outputTokens": "输出 Tokens",
+          "providerName": "渠道",
+          "purpose": "用途",
+          "requestId": "请求 ID",
+          "sourcePluginId": "来源插件",
+          "status": "状态",
+          "tierCode": "档位",
+          "tokens": "Tokens"
+        },
+        "messages": {
+          "clearAllConfirm": "确认清空全部调用日志吗？",
+          "clearRangeConfirm": "确认清理 {startedAt} 至 {endedAt} 的调用日志吗？",
+          "clearSuccess": "已清理 {count} 条调用日志",
+          "deleteAllHint": "勾选后将忽略日期时间范围，删除当前权限范围内的所有调用日志。",
+          "deleteAllLabel": "删除所有调用日志",
+          "deleteRangeDescription": "请选择调用日志删除方式。默认按日期时间范围清理，勾选全部日志后将清理当前权限范围内的所有调用日志。",
+          "deleteRangeRequired": "请选择完整的调用日志日期时间范围",
+          "deleteRangeSuccess": "已删除 {count} 条调用日志",
+          "deleteRangeTitle": "删除调用日志"
+        },
+        "tableTitle": "调用日志"
+      },
+      "model": {
+        "actions": {
+          "addModel": "新增模型",
+          "syncModels": "同步模型"
+        },
+        "drawer": {
+          "createTitle": "新增模型",
+          "editTitle": "编辑模型"
+        },
+        "fields": {
+          "modelName": "模型名称",
+          "endpoint": "端点",
+          "protocol": "协议",
+          "provider": "渠道"
+        },
+        "messages": {
+          "syncDone": "模型同步完成：新增 {created} 个，保留 {kept} 个"
+        },
+        "tableTitle": "模型列表"
+      },
+      "name": "智能中心",
+      "provider": {
+        "actions": {
+          "addProvider": "新增渠道"
+        },
+        "drawer": {
+          "createTitle": "新增渠道",
+          "editTitle": "编辑渠道"
+        },
+        "empty": {
+          "noEndpoint": "未配置端点",
+          "noKey": "未配置",
+          "noModels": "暂无模型"
+        },
+        "fields": {
+          "anthropicAccessUrl": "Anthropic 接入地址",
+          "anthropicBaseUrl": "Anthropic 接入地址",
+          "apiKeySecretRef": "API 密钥",
+          "endpoint": "端点",
+          "enabledModelCount": "启用模型数",
+          "keyword": "渠道",
+          "modelCount": "模型数",
+          "models": "模型",
+          "name": "名称",
+          "openaiAccessUrl": "OpenAI 接入地址",
+          "openaiBaseUrl": "OpenAI 接入地址",
+          "secret": "密钥",
+          "websiteUrl": "官网地址"
+        },
+        "placeholders": {
+          "anthropicAccessUrl": "https://api.anthropic.com/v1",
+          "anthropicBaseUrl": "https://api.anthropic.com/v1",
+          "apiKeyCreate": "输入 API 密钥",
+          "apiKeyKeep": "留空则保持原密钥",
+          "keepSecret": "留空则保持原密钥",
+          "openaiAccessUrl": "https://api.openai.com/v1",
+          "openaiBaseUrl": "https://api.openai.com/v1"
+        },
+        "tabs": {
+          "models": "模型管理",
+          "providers": "渠道管理"
+        },
+        "tableTitle": "渠道列表"
+      },
+      "tier": {
+        "actions": {
+          "testDraft": "测试当前配置",
+          "testSaved": "测试"
+        },
+        "descriptions": {
+          "advanced": "高级AI能力所使用的模型服务，适用于复杂代码生成和跨文件推理。",
+          "basic": "基础AI能力所使用的模型服务，适用于简单文本生成和提交信息生成。",
+          "standard": "标准AI能力所使用的模型服务，适用于常规代码生成和代码优化。"
+        },
+        "drawer": {
+          "editTitle": "配置{name}档位"
+        },
+        "fields": {
+          "defaultEffort": "Thinking Effort",
+          "displayName": "档位",
+          "lastTestStatus": "最近测试",
+          "model": "模型",
+          "provider": "渠道"
+        },
+        "messages": {
+          "bindingRequired": "启用或测试该档位前，请先选择渠道和模型",
+          "testFailed": "档位测试失败",
+          "testSuccess": "档位测试成功",
+          "unsupportedEffort": "所选模型不支持该 thinking effort"
+        },
+        "names": {
+          "advanced": "高级",
+          "basic": "基础",
+          "standard": "标准"
+        },
+        "tableTitle": "档位管理"
+      }
+    }
+  }
+}

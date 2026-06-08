@@ -1,0 +1,58 @@
+{
+  "menu": {
+    "plugin:linapro-ai-core:invocations": {
+      "title": "Request Logs"
+    },
+    "plugin:linapro-ai-core:invocations:query": {
+      "title": "Query Request Logs"
+    },
+    "plugin:linapro-ai-core:invocations:clear": {
+      "title": "Clear Request Logs"
+    },
+    "plugin:linapro-ai-core:providers": {
+      "title": "Providers"
+    },
+    "plugin:linapro-ai-core:providers:create": {
+      "title": "Create Provider"
+    },
+    "plugin:linapro-ai-core:providers:delete": {
+      "title": "Delete Provider"
+    },
+    "plugin:linapro-ai-core:providers:query": {
+      "title": "Query Providers"
+    },
+    "plugin:linapro-ai-core:providers:update": {
+      "title": "Update Provider"
+    },
+    "plugin:linapro-ai-core:models": {
+      "title": "Models"
+    },
+    "plugin:linapro-ai-core:models:create": {
+      "title": "Create Model"
+    },
+    "plugin:linapro-ai-core:models:delete": {
+      "title": "Delete Model"
+    },
+    "plugin:linapro-ai-core:models:query": {
+      "title": "Query Models"
+    },
+    "plugin:linapro-ai-core:models:update": {
+      "title": "Update Model"
+    },
+    "plugin:linapro-ai-core:smart-center": {
+      "title": "AI Hub"
+    },
+    "plugin:linapro-ai-core:tiers": {
+      "title": "AI Tiers"
+    },
+    "plugin:linapro-ai-core:tiers:query": {
+      "title": "Query Tiers"
+    },
+    "plugin:linapro-ai-core:tiers:test": {
+      "title": "Test Tier"
+    },
+    "plugin:linapro-ai-core:tiers:update": {
+      "title": "Update Tier"
+    }
+  }
+}

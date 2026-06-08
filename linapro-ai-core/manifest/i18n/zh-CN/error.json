@@ -1,0 +1,67 @@
+{
+  "error": {
+    "ai": {
+      "core": {
+        "invocation": {
+          "not": {
+            "found": "AI调用日志不存在"
+          }
+        },
+        "model": {
+          "in": {
+            "use": "AI模型正在被能力档位使用"
+          },
+          "not": {
+            "found": "AI模型不存在"
+          }
+        },
+        "platform": {
+          "required": "智能中心需要平台上下文"
+        },
+        "provider": {
+          "endpoint": {
+            "in": {
+              "use": "AI渠道端点正在被模型使用"
+            },
+            "not": {
+              "found": "AI渠道端点不存在"
+            }
+          },
+          "http": {
+            "error": "AI渠道返回 HTTP {status}"
+          },
+          "in": {
+            "use": "AI渠道正在被能力档位使用"
+          },
+          "not": {
+            "found": "AI渠道不存在"
+          },
+          "protocol": {
+            "required": "渠道缺少所选协议的启用端点"
+          }
+        },
+        "providerOperation": {
+          "not": {
+            "found": "AI渠道 Operation 不存在"
+          }
+        },
+        "request": {
+          "invalid": "AI配置请求无效"
+        },
+        "tier": {
+          "binding": {
+            "unavailable": "AI档位未配置可用的渠道和模型"
+          },
+          "not": {
+            "found": "AI档位不存在"
+          }
+        },
+        "thinking": {
+          "effort": {
+            "unsupported": "所选模型不支持该thinking effort"
+          }
+        }
+      }
+    }
+  }
+}

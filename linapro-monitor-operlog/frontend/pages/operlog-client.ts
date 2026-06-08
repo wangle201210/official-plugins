@@ -37,9 +37,17 @@ export interface OperLogListParams {
   orderDirection?: string;
 }
 
+export interface OperLogExportParams extends OperLogListParams {
+  ids?: number[];
+}
+
 export interface OperLogListResult {
   items: OperLog[];
   total: number;
+}
+
+export interface OperLogCleanResult {
+  deleted: number;
 }
 
 export async function operLogList(params?: OperLogListParams) {
@@ -53,15 +61,18 @@ export function operLogDetail(id: number) {
 }
 
 export function operLogClean(params?: { beginTime?: string; endTime?: string }) {
-  return requestClient.delete(operLogApi('operlog/clean'), { params });
+  return requestClient.delete<OperLogCleanResult>(operLogApi('operlog/clean'), {
+    params,
+  });
 }
 
 export function operLogDelete(ids: number[]) {
   return requestClient.delete(operLogApi(`operlog/${ids.join(',')}`));
 }
 
-export function operLogExport(params?: OperLogListParams) {
+export function operLogExport(params?: OperLogExportParams) {
   return requestClient.download<Blob>(operLogApi('operlog/export'), {
     params,
+    paramsSerializer: 'repeat',
   });
 }

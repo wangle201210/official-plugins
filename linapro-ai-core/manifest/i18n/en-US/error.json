@@ -1,0 +1,67 @@
+{
+  "error": {
+    "ai": {
+      "core": {
+        "invocation": {
+          "not": {
+            "found": "AI invocation log does not exist"
+          }
+        },
+        "model": {
+          "in": {
+            "use": "AI model is used by a capability tier"
+          },
+          "not": {
+            "found": "AI model does not exist"
+          }
+        },
+        "platform": {
+          "required": "AI Hub requires platform context"
+        },
+        "provider": {
+          "endpoint": {
+            "in": {
+              "use": "AI provider endpoint is used by a model"
+            },
+            "not": {
+              "found": "AI provider endpoint does not exist"
+            }
+          },
+          "http": {
+            "error": "AI provider returned HTTP {status}"
+          },
+          "in": {
+            "use": "AI provider is used by a capability tier"
+          },
+          "not": {
+            "found": "AI provider does not exist"
+          },
+          "protocol": {
+            "required": "Provider requires an enabled endpoint for the selected protocol"
+          }
+        },
+        "providerOperation": {
+          "not": {
+            "found": "AI provider operation does not exist"
+          }
+        },
+        "request": {
+          "invalid": "AI configuration request is invalid"
+        },
+        "tier": {
+          "binding": {
+            "unavailable": "AI tier is not configured with an enabled provider and model"
+          },
+          "not": {
+            "found": "AI tier does not exist"
+          }
+        },
+        "thinking": {
+          "effort": {
+            "unsupported": "The selected model does not support this thinking effort"
+          }
+        }
+      }
+    }
+  }
+}
