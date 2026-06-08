@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ResolveStrategyReq defines the request for resolving one effective strategy.
 type ResolveStrategyReq struct {
-	g.Meta   `path:"/media/strategies/resolve" method:"get" tags:"媒体管理" summary:"解析媒体策略" dc:"按租户设备、设备、租户、全局优先级解析设备当前生效策略。" permission:"media:management:query"`
+	g.Meta   `path:"/media/strategies/resolve" method:"get" tags:"媒体策略" summary:"解析媒体策略" dc:"按租户设备、设备、租户、全局优先级解析设备当前生效策略。" permission:"media:management:query"`
 	TenantId string `json:"tenantId" dc:"租户ID" eg:"tenant-a"`
 	DeviceId string `json:"deviceId" dc:"设备国标ID" eg:"34020000001320000001"`
 }

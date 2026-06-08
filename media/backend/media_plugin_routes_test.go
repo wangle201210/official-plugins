@@ -664,6 +664,7 @@ func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
 		Security []map[string][]string `json:"security"`
 		Paths    map[string]map[string]struct {
 			Summary  string                `json:"summary"`
+			Tags     []string              `json:"tags"`
 			Security []map[string][]string `json:"security"`
 		} `json:"paths"`
 	}
@@ -696,16 +697,83 @@ func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
 		t.Fatalf("expected media OpenAPI document to exclude core routes")
 	}
 
+	expectedManagementTags := map[string]map[string]string{
+		"/api/v1/media/strategies": {
+			"get":  "媒体策略",
+			"post": "媒体策略",
+		},
+		"/api/v1/media/strategies/resolve": {
+			"get": "媒体策略",
+		},
+		"/api/v1/media/nodes": {
+			"get":  "节点管理",
+			"post": "节点管理",
+		},
+		"/api/v1/media/device-nodes": {
+			"get":  "设备节点",
+			"post": "设备节点",
+		},
+		"/api/v1/media/stream-aliases": {
+			"get":  "流别名",
+			"post": "流别名",
+		},
+		"/api/v1/media/device-bindings": {
+			"get": "策略绑定",
+		},
+		"/api/v1/media/tenant-stream-configs": {
+			"get":  "租户流配置",
+			"post": "租户流配置",
+		},
+		"/api/v1/media/tenant-whites": {
+			"get":  "租户白名单",
+			"post": "租户白名单",
+		},
+	}
+	for path, methods := range expectedManagementTags {
+		operations, ok := document.Paths[path]
+		if !ok {
+			t.Fatalf("expected media management path %s in media OpenAPI document", path)
+		}
+		for method, expectedTag := range methods {
+			operation, ok := operations[method]
+			if !ok {
+				t.Fatalf("expected media management operation %s %s in media OpenAPI document", method, path)
+			}
+			if len(operation.Tags) != 1 || operation.Tags[0] != expectedTag {
+				t.Fatalf("expected %s %s to use tag %q, got %+v", method, path, expectedTag, operation.Tags)
+			}
+			if operation.Tags[0] == "媒体管理" {
+				t.Fatalf("expected %s %s to avoid the coarse media management tag", method, path)
+			}
+		}
+	}
+
 	strategyOperation := document.Paths["/api/v1/media/strategies"]["get"]
 	if len(strategyOperation.Security) != 0 {
 		t.Fatalf("expected media management route to inherit document BearerAuth, got %+v", strategyOperation.Security)
 	}
 	mediaOpenOperation := document.Paths["/api/v1/strategies/user-device"]["get"]
+	if len(mediaOpenOperation.Tags) != 1 || mediaOpenOperation.Tags[0] != "内部接口" {
+		t.Fatalf("expected mediaopen strategy route to use internal interface tag, got %+v", mediaOpenOperation.Tags)
+	}
 	if len(mediaOpenOperation.Security) != 1 {
 		t.Fatalf("expected mediaopen route to declare one security requirement, got %+v", mediaOpenOperation.Security)
 	}
 	if _, ok := mediaOpenOperation.Security[0]["InnerApiKeyAuth"]; !ok {
 		t.Fatalf("expected mediaopen route to require InnerApiKeyAuth, got %+v", mediaOpenOperation.Security)
+	}
+	tenantWhiteIPsOperation := document.Paths["/api/v1/tenant-whites/ips"]["get"]
+	if len(tenantWhiteIPsOperation.Tags) != 1 || tenantWhiteIPsOperation.Tags[0] != "内部接口" {
+		t.Fatalf("expected mediaopen tenant whitelist route to use internal interface tag, got %+v", tenantWhiteIPsOperation.Tags)
+	}
+	for path, operations := range document.Paths {
+		for method, operation := range operations {
+			for _, tag := range operation.Tags {
+				if tag == "媒体鉴权" {
+					t.Fatalf("expected media OpenAPI document to avoid legacy auth tag, got %s %s", method, path)
+				}
+			}
+		}
 	}
 }
 

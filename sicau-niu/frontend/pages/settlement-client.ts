@@ -41,6 +41,14 @@ export interface IssueResult {
   skipped: number;
 }
 
+export interface CertificateOption {
+  id: number;
+  code: string;
+  name: string;
+  unlockType: string;
+  threshold: number;
+}
+
 export interface DeviceClusterMember {
   userId: number;
   nickname: string;
@@ -127,6 +135,13 @@ export async function exportPlayers() {
   return requestClient.get<PlayerExportData>(
     sicauNiuApi("plugins/sicau-niu/settlement/export/players"),
   );
+}
+
+export async function getCertificateOptions() {
+  const res = await requestClient.get<{ list: CertificateOption[] }>(
+    sicauNiuApi("plugins/sicau-niu/settlement/certificates/options"),
+  );
+  return res.list ?? [];
 }
 
 export async function issueCertificates(honorId: number) {

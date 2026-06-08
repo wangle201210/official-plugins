@@ -62,6 +62,11 @@ type Service interface {
 	// transaction. It returns a business error when the honor is missing, is not a
 	// certificate, or uses an unsupported (collection) unlock rule.
 	IssueCertificates(ctx context.Context, honorID int64) (out *IssueResult, err error)
+	// CertificateOptions returns the certificate honors that can be issued through
+	// the operator settlement batch action. It only includes certificate honors
+	// whose unlock rule is supported by IssueCertificates, projected in one
+	// bounded query for the selector UI.
+	CertificateOptions(ctx context.Context) (out []*CertificateOption, err error)
 	// RiskDeviceClusters returns the shared-device risk view: clusters of players
 	// sharing one non-empty device fingerprint, with member nicknames, bounded. It
 	// returns a query bizerr on store failure.

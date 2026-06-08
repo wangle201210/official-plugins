@@ -52,6 +52,25 @@ type PlayerExportRow struct {
 	FeedTotalEffect int64  `json:"feedTotalEffect" dc:"Player total feeding effect" eg:"1500"`
 }
 
+// CertificateOptionsReq is the request for batch-issuable certificate options.
+type CertificateOptionsReq struct {
+	g.Meta `path:"/plugins/sicau-niu/settlement/certificates/options" method:"get" tags:"Sicau Niu Settlement" summary:"List batch-issuable certificate options" dc:"Return certificate honors that can be issued by the operator batch certificate action. Only certificate honors using participation, feed_count or activation_count unlock rules are returned; collection-based certificate honors are omitted because they are unlocked by individual collection progress and are rejected by batch settlement. The response is a bounded selector projection and is protected by the same batch-issue permission." permission:"sicau-niu:settlement:issue"`
+}
+
+// CertificateOptionsRes is the response for batch-issuable certificate options.
+type CertificateOptionsRes struct {
+	List []*CertificateOption `json:"list" dc:"Batch-issuable certificate honor options ordered by sort then ID, bounded" eg:"[]"`
+}
+
+// CertificateOption is one selectable certificate honor for batch issuance.
+type CertificateOption struct {
+	Id         int64  `json:"id" dc:"Certificate honor definition ID to pass to the batch issuance action" eg:"7"`
+	Code       string `json:"code" dc:"Certificate honor unique code" eg:"cert_participation"`
+	Name       string `json:"name" dc:"Certificate honor display name" eg:"川农120周年参与证书"`
+	UnlockType string `json:"unlockType" dc:"Supported batch unlock rule: participation=参与即达标, feed_count=喂草次数达标, activation_count=激活次数达标" eg:"participation"`
+	Threshold  int    `json:"threshold" dc:"Rule threshold for count-based certificates; 0 for participation certificates" eg:"0"`
+}
+
 // IssueCertificatesReq is the request for batch certificate issuance.
 type IssueCertificatesReq struct {
 	g.Meta  `path:"/plugins/sicau-niu/settlement/certificates/issue" method:"post" tags:"Sicau Niu Settlement" summary:"Batch issue certificate" dc:"Batch issue one certificate honor to the players who satisfy its unlock rule. Only certificate honors are accepted; participation/feed_count/activation_count unlock rules are settled here while collection rules (category_complete/full_complete) are rejected. Grants are written idempotently in a transaction; already-granted players are skipped. Protected by host unified permission check." permission:"sicau-niu:settlement:issue"`

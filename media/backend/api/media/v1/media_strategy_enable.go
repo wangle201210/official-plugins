@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UpdateStrategyEnableReq defines the request for changing strategy enable status.
 type UpdateStrategyEnableReq struct {
-	g.Meta `path:"/media/strategies/{id}/enable" method:"put" tags:"媒体管理" summary:"修改媒体策略启用状态" dc:"修改指定媒体策略的启用状态。" permission:"media:management:edit"`
+	g.Meta `path:"/media/strategies/{id}/enable" method:"put" tags:"媒体策略" summary:"修改媒体策略启用状态" dc:"修改指定媒体策略的启用状态。" permission:"media:management:edit"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"策略ID" eg:"1"`
 	Enable int   `json:"enable" v:"in:0,1#启用状态只能是1或0" dc:"启用状态：1开启，0关闭" eg:"1"`
 }

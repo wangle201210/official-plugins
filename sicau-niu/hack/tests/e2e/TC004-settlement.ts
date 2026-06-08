@@ -53,4 +53,9 @@ test.describe("TC-4 sicau-niu 运营结算", () => {
         .first(),
     ).toBeVisible();
   });
+
+  test("TC-4c: 选择证书后可以执行批量发证", async () => {
+    await settlementPage.openSettlementFromMenu();
+    await settlementPage.issueFirstCertificate();
+  });
 });

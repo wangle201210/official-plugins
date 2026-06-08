@@ -332,6 +332,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 				group.Bind(
 					settlementController.Dashboard,
 					settlementController.ExportPlayers,
+					settlementController.CertificateOptions,
 					settlementController.IssueCertificates,
 					settlementController.RiskDeviceClusters,
 					settlementController.CreateArchive,

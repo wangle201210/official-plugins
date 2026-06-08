@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // GetAliasReq defines the request for querying one stream alias.
 type GetAliasReq struct {
-	g.Meta `path:"/media/stream-aliases/{id}" method:"get" tags:"媒体管理" summary:"获取流别名详情" dc:"根据ID获取流别名详情。" permission:"media:management:query"`
+	g.Meta `path:"/media/stream-aliases/{id}" method:"get" tags:"流别名" summary:"获取流别名详情" dc:"根据ID获取流别名详情。" permission:"media:management:query"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"ID" eg:"1"`
 }
 

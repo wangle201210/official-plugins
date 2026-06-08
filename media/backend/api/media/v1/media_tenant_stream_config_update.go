@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UpdateTenantStreamConfigReq defines the request for updating one tenant stream config.
 type UpdateTenantStreamConfigReq struct {
-	g.Meta        `path:"/media/tenant-stream-configs/{oldTenantId}" method:"put" tags:"媒体管理" summary:"修改租户流配置" dc:"按原租户ID修改租户流配置。" permission:"media:management:edit"`
+	g.Meta        `path:"/media/tenant-stream-configs/{oldTenantId}" method:"put" tags:"租户流配置" summary:"修改租户流配置" dc:"按原租户ID修改租户流配置。" permission:"media:management:edit"`
 	OldTenantId   string `json:"oldTenantId" v:"required|length:1,64#原租户ID不能为空|原租户ID长度不能超过64个字符" dc:"原租户ID" eg:"tenant-a"`
 	TenantId      string `json:"tenantId" v:"required|length:1,64#租户ID不能为空|租户ID长度不能超过64个字符" dc:"租户ID" eg:"tenant-b"`
 	MaxConcurrent int    `json:"maxConcurrent" v:"min:0#最大并发数不能小于0" dc:"最大并发数" eg:"100"`

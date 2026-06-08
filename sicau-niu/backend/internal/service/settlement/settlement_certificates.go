@@ -21,14 +21,15 @@ import (
 	honorsvc "lina-plugin-sicau-niu/backend/internal/service/honor"
 )
 
-// certificateHonorType and the supported/unsupported unlock-rule strings reuse the
-// honor package's stable enum constants so the settlement filter and the honor
-// contract never drift.
+// Certificate honor and unlock-rule constants reuse the honor package's stable
+// enums so the settlement filter and the honor contract never drift. The selector
+// limit keeps the operator option list bounded.
 const (
 	certificateHonorType    = string(honorsvc.HonorTypeCertificate)
 	unlockParticipation     = string(honorsvc.UnlockTypeParticipation)
 	unlockFeedCount         = string(honorsvc.UnlockTypeFeedCount)
 	unlockActivationCount   = string(honorsvc.UnlockTypeActivationCount)
+	certificateOptionsLimit = 100
 )
 
 // IssueResult is the batch certificate issuance result.
@@ -41,10 +42,73 @@ type IssueResult struct {
 	Skipped int64
 }
 
+// CertificateOption is one batch-issuable certificate honor option for the
+// operator settlement selector.
+type CertificateOption struct {
+	// Id is the honor definition ID passed to IssueCertificates.
+	Id int64
+	// Code is the stable honor code.
+	Code string
+	// Name is the operator-facing certificate name.
+	Name string
+	// UnlockType is the supported unlock rule used to select the eligible cohort.
+	UnlockType string
+	// Threshold is the rule threshold for count-based certificates.
+	Threshold int
+}
+
 // idRow is the temporary projection for one player ID selected by an eligibility
 // or grant query.
 type idRow struct {
 	Id int64 `json:"id"`
+}
+
+// certificateOptionRow is the database projection used by CertificateOptions.
+type certificateOptionRow struct {
+	Id         int64  `json:"id"`
+	Code       string `json:"code"`
+	Name       string `json:"name"`
+	UnlockType string `json:"unlockType"`
+	Threshold  int    `json:"threshold"`
+}
+
+// CertificateOptions returns certificate honors supported by the batch issuance
+// action, projected in one bounded query.
+func (s *serviceImpl) CertificateOptions(ctx context.Context) ([]*CertificateOption, error) {
+	rows := make([]*certificateOptionRow, 0)
+	err := dao.HonorDef.Ctx(ctx).
+		Fields(
+			dao.HonorDef.Columns().Id,
+			dao.HonorDef.Columns().Code,
+			dao.HonorDef.Columns().Name,
+			dao.HonorDef.Columns().UnlockType,
+			dao.HonorDef.Columns().Threshold,
+		).
+		Where(dao.HonorDef.Columns().HonorType, certificateHonorType).
+		WhereIn(dao.HonorDef.Columns().UnlockType, []string{
+			unlockParticipation,
+			unlockFeedCount,
+			unlockActivationCount,
+		}).
+		OrderAsc(dao.HonorDef.Columns().Sort).
+		OrderDesc(dao.HonorDef.Columns().Id).
+		Limit(certificateOptionsLimit).
+		Scan(&rows)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeSettlementQueryFailed)
+	}
+
+	options := make([]*CertificateOption, 0, len(rows))
+	for _, row := range rows {
+		options = append(options, &CertificateOption{
+			Id:         row.Id,
+			Code:       row.Code,
+			Name:       row.Name,
+			UnlockType: row.UnlockType,
+			Threshold:  row.Threshold,
+		})
+	}
+	return options, nil
 }
 
 // IssueCertificates batch-issues the certificate honor to its eligible cohort.

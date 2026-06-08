@@ -129,6 +129,40 @@ func TestIssueFeedCountCohort(t *testing.T) {
 	}
 }
 
+// TestCertificateOptionsOnlyReturnsBatchIssuableCertificates verifies the selector
+// projection includes only certificate honors supported by batch issuance.
+func TestCertificateOptionsOnlyReturnsBatchIssuableCertificates(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLSettlementDB(t, ctx)
+	svc := New(nil, Config{})
+
+	participation := insertHonorDefRow(t, ctx, "certificate", "participation", 0)
+	feed := insertHonorDefRow(t, ctx, "certificate", "feed_count", 3)
+	insertHonorDefRow(t, ctx, "certificate", "full_complete", 0)
+	insertHonorDefRow(t, ctx, "badge", "participation", 0)
+
+	options, err := svc.CertificateOptions(ctx)
+	if err != nil {
+		t.Fatalf("CertificateOptions returned error: %v", err)
+	}
+	got := make(map[int64]string, len(options))
+	for _, option := range options {
+		got[option.Id] = option.UnlockType
+		if option.Name == "" || option.Code == "" {
+			t.Fatalf("option should include selector labels, got %+v", option)
+		}
+	}
+	if len(got) != 2 {
+		t.Fatalf("CertificateOptions returned %d options, want 2: %+v", len(got), options)
+	}
+	if got[participation] != "participation" {
+		t.Fatalf("participation certificate missing or wrong unlock type: %q", got[participation])
+	}
+	if got[feed] != "feed_count" {
+		t.Fatalf("feed_count certificate missing or wrong unlock type: %q", got[feed])
+	}
+}
+
 // TestIssueRejectsNonCertificate verifies a non-certificate honor is rejected.
 func TestIssueRejectsNonCertificate(t *testing.T) {
 	ctx := context.Background()

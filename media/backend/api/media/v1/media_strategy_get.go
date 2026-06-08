@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // GetStrategyReq defines the request for querying one media strategy.
 type GetStrategyReq struct {
-	g.Meta `path:"/media/strategies/{id}" method:"get" tags:"媒体管理" summary:"获取媒体策略详情" dc:"根据策略ID获取媒体策略详情。" permission:"media:management:query"`
+	g.Meta `path:"/media/strategies/{id}" method:"get" tags:"媒体策略" summary:"获取媒体策略详情" dc:"根据策略ID获取媒体策略详情。" permission:"media:management:query"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"策略ID" eg:"1"`
 }
 

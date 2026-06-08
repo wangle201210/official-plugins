@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UpdateNodeReq defines the request for updating one media node.
 type UpdateNodeReq struct {
-	g.Meta     `path:"/media/nodes/{oldNodeNum}" method:"put" tags:"媒体管理" summary:"修改节点" dc:"按原节点编号修改节点配置。" permission:"media:management:edit"`
+	g.Meta     `path:"/media/nodes/{oldNodeNum}" method:"put" tags:"节点管理" summary:"修改节点" dc:"按原节点编号修改节点配置。" permission:"media:management:edit"`
 	OldNodeNum int    `json:"oldNodeNum" v:"min:0|max:255#原节点编号不能小于0|原节点编号不能大于255" dc:"原节点编号" eg:"1"`
 	NodeNum    int    `json:"nodeNum" v:"min:0|max:255#节点编号不能小于0|节点编号不能大于255" dc:"节点编号" eg:"2"`
 	Name       string `json:"name" v:"required|length:1,32#节点名称不能为空|节点名称长度不能超过32个字符" dc:"节点名称" eg:"华东节点"`

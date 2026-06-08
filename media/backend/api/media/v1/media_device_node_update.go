@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UpdateDeviceNodeReq defines the request for updating one device-node mapping.
 type UpdateDeviceNodeReq struct {
-	g.Meta       `path:"/media/device-nodes/{oldDeviceId}/channels/{oldChannelId}" method:"put" tags:"媒体管理" summary:"修改设备节点" dc:"按原设备国标ID和设备通道ID修改设备节点关系。" permission:"media:management:edit"`
+	g.Meta       `path:"/media/device-nodes/{oldDeviceId}/channels/{oldChannelId}" method:"put" tags:"设备节点" summary:"修改设备节点" dc:"按原设备国标ID和设备通道ID修改设备节点关系。" permission:"media:management:edit"`
 	OldDeviceId  string `json:"oldDeviceId" v:"required|length:1,64#原设备国标ID不能为空|原设备国标ID长度不能超过64个字符" dc:"原设备国标ID" eg:"34020000001320000001"`
 	OldChannelId string `json:"oldChannelId" v:"required|length:1,64#原设备通道ID不能为空|原设备通道ID长度不能超过64个字符" dc:"原设备通道ID" eg:"34020000001320000001"`
 	DeviceId     string `json:"deviceId" v:"required|length:1,64#设备国标ID不能为空|设备国标ID长度不能超过64个字符" dc:"设备国标ID" eg:"34020000001320000002"`

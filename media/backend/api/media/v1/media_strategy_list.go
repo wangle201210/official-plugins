@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListStrategiesReq defines the request for querying media strategies.
 type ListStrategiesReq struct {
-	g.Meta   `path:"/media/strategies" method:"get" tags:"媒体管理" summary:"查询媒体策略列表" dc:"分页查询媒体策略，支持按策略名称模糊筛选。" permission:"media:management:query"`
+	g.Meta   `path:"/media/strategies" method:"get" tags:"媒体策略" summary:"查询媒体策略列表" dc:"分页查询媒体策略，支持按策略名称模糊筛选。" permission:"media:management:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码" eg:"1"`
 	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数" eg:"10"`
 	Keyword  string `json:"keyword" dc:"按策略名称模糊筛选" eg:"直播"`

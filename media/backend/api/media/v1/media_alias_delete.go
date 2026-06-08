@@ -6,7 +6,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // DeleteAliasReq defines the request for deleting one stream alias.
 type DeleteAliasReq struct {
-	g.Meta `path:"/media/stream-aliases/{id}" method:"delete" tags:"媒体管理" summary:"删除流别名" dc:"删除指定流别名。" permission:"media:management:remove"`
+	g.Meta `path:"/media/stream-aliases/{id}" method:"delete" tags:"流别名" summary:"删除流别名" dc:"删除指定流别名。" permission:"media:management:remove"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"ID" eg:"1"`
 }
 

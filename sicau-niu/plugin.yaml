@@ -266,7 +266,7 @@ menus:
     icon: ant-design:fund-projection-screen-outlined
     type: M
     sort: 8
-    remark: 寻牛活动数据看板、导出、批量发证、风控告警与结算归档
+    remark: 寻牛活动数据看板、导出、结算发证、风控告警与结算归档
   - key: plugin:sicau-niu:settlement-export
     parent_key: plugin:sicau-niu:settlement
     name: 名册导出
@@ -275,7 +275,7 @@ menus:
     sort: 1
   - key: plugin:sicau-niu:settlement-issue
     parent_key: plugin:sicau-niu:settlement
-    name: 批量发证
+    name: 结算发证
     perms: sicau-niu:settlement:issue
     type: B
     sort: 2

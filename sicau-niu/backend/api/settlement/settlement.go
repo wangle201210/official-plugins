@@ -18,6 +18,7 @@ import (
 type ISettlementV1 interface {
 	Dashboard(ctx context.Context, req *v1.DashboardReq) (res *v1.DashboardRes, err error)
 	ExportPlayers(ctx context.Context, req *v1.ExportPlayersReq) (res *v1.ExportPlayersRes, err error)
+	CertificateOptions(ctx context.Context, req *v1.CertificateOptionsReq) (res *v1.CertificateOptionsRes, err error)
 	IssueCertificates(ctx context.Context, req *v1.IssueCertificatesReq) (res *v1.IssueCertificatesRes, err error)
 	RiskDeviceClusters(ctx context.Context, req *v1.RiskDeviceClustersReq) (res *v1.RiskDeviceClustersRes, err error)
 	CreateArchive(ctx context.Context, req *v1.CreateArchiveReq) (res *v1.CreateArchiveRes, err error)

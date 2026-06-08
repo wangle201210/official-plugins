@@ -10,6 +10,7 @@ import type {
   ActivityData,
   AnomalyAlert,
   ArchiveItem,
+  CertificateOption,
   CollegeRankItem,
   DashboardData,
   DeviceCluster,
@@ -26,6 +27,7 @@ import {
   Input as AInput,
   message,
   Progress,
+  Select,
   Statistic,
   Table,
   Tag,
@@ -40,6 +42,7 @@ import {
   createArchive,
   exportPlayers,
   getActivity,
+  getCertificateOptions,
   getCollegeRanking,
   getDashboard,
   getFeedRanking,
@@ -91,11 +94,13 @@ const ruleForm = ref<RuleConfig>(defaultRuleConfig());
 const feedRanking = ref<FeedRankItem[]>([]);
 const friendRanking = ref<FeedRankItem[]>([]);
 const collegeRanking = ref<CollegeRankItem[]>([]);
+const certificateOptions = ref<CertificateOption[]>([]);
 
 const exporting = ref(false);
 const issuing = ref(false);
 const archiving = ref(false);
 const savingRules = ref(false);
+const loadingCertificateOptions = ref(false);
 const issueHonorId = ref<number | undefined>(undefined);
 const archiveTitle = ref("");
 
@@ -119,7 +124,7 @@ const activationProgress = computed(() => {
 
 const latestActiveUsers = computed(() => {
   const rows = activity.value?.dau ?? [];
-  return rows.length > 0 ? rows[rows.length - 1]?.activeUsers ?? 0 : 0;
+  return rows.length > 0 ? (rows[rows.length - 1]?.activeUsers ?? 0) : 0;
 });
 
 const riskIssueCount = computed(
@@ -127,6 +132,12 @@ const riskIssueCount = computed(
 );
 const topFeedPlayer = computed(() => feedRanking.value[0]);
 const topCollege = computed(() => collegeRanking.value[0]);
+const certificateSelectOptions = computed(() =>
+  certificateOptions.value.map((item) => ({
+    label: certificateOptionLabel(item),
+    value: item.id,
+  })),
+);
 
 const clusterColumns = [
   { title: "设备指纹", dataIndex: "fingerprint", key: "fingerprint" },
@@ -217,6 +228,24 @@ async function loadArchives() {
   archives.value = await listArchives();
 }
 
+async function loadCertificateOptions() {
+  if (!hasAccessByCodes([pluginAccessCodes.issue])) {
+    return;
+  }
+  loadingCertificateOptions.value = true;
+  try {
+    certificateOptions.value = await getCertificateOptions();
+    if (
+      issueHonorId.value &&
+      !certificateOptions.value.some((item) => item.id === issueHonorId.value)
+    ) {
+      issueHonorId.value = undefined;
+    }
+  } finally {
+    loadingCertificateOptions.value = false;
+  }
+}
+
 function validateRules(): boolean {
   if (ruleForm.value.checkinMaxAmount < ruleForm.value.checkinMinAmount) {
     message.warning("签到草量上限不能小于下限");
@@ -231,7 +260,7 @@ function validateRules(): boolean {
 
 function metricValue(key: string): number {
   const data = dashboard.value as Record<string, number> | null;
-  return data ? data[key] ?? 0 : 0;
+  return data ? (data[key] ?? 0) : 0;
 }
 
 function feedRankName(record: FeedRankItem | undefined): string {
@@ -246,6 +275,11 @@ function collegeRankName(record: CollegeRankItem | undefined): string {
     return "暂无数据";
   }
   return record.collegeName || `#${record.collegeId}`;
+}
+
+function certificateOptionLabel(option: CertificateOption): string {
+  const threshold = option.threshold > 0 ? ` · ${option.threshold}` : "";
+  return `${option.name} (${option.code})${threshold}`;
 }
 
 function membersText(cluster: DeviceCluster): string {
@@ -302,7 +336,7 @@ async function onExport() {
 
 async function onIssue() {
   if (!issueHonorId.value || issueHonorId.value <= 0) {
-    message.warning("请输入要发放的证书荣誉 ID");
+    message.warning("请选择要发放的证书荣誉");
     return;
   }
   issuing.value = true;
@@ -311,7 +345,7 @@ async function onIssue() {
     message.success(
       `达标 ${result.eligible} 人,新发 ${result.issued} 人,跳过 ${result.skipped} 人`,
     );
-    await loadDashboard();
+    await Promise.all([loadDashboard(), loadCertificateOptions()]);
   } finally {
     issuing.value = false;
   }
@@ -355,6 +389,7 @@ onMounted(() => {
   loadClusters();
   loadAnomalies();
   loadArchives();
+  loadCertificateOptions();
 });
 </script>
 
@@ -705,7 +740,7 @@ onMounted(() => {
             <template #title>
               <div class="card-title">
                 <span>运营动作</span>
-                <small>导出、发证和结算归档集中处理</small>
+                <small>导出、结算发证和归档集中处理</small>
               </div>
             </template>
 
@@ -733,24 +768,43 @@ onMounted(() => {
                 class="action-item"
               >
                 <div class="action-copy">
-                  <span>批量发证</span>
-                  <small>按荣誉 ID 向达标玩家发放电子证书。</small>
+                  <span>结算发证</span>
+                  <small>活动结束并复核后，选择证书向达标玩家统一发放。</small>
                 </div>
                 <div class="inline-controls">
-                  <InputNumber
+                  <Select
                     v-model:value="issueHonorId"
-                    :min="1"
-                    placeholder="证书荣誉 ID"
+                    :options="certificateSelectOptions"
+                    :loading="loadingCertificateOptions"
+                    :disabled="
+                      loadingCertificateOptions ||
+                      certificateSelectOptions.length === 0
+                    "
+                    placeholder="选择证书荣誉"
                     data-testid="settlement-issue-id"
+                    class="certificate-select"
                   />
                   <Button
                     :loading="issuing"
+                    :disabled="
+                      !issueHonorId || certificateSelectOptions.length === 0
+                    "
                     data-testid="settlement-issue"
                     @click="onIssue"
                   >
-                    批量发证
+                    统一发证
                   </Button>
                 </div>
+                <small
+                  v-if="
+                    !loadingCertificateOptions &&
+                    certificateSelectOptions.length === 0
+                  "
+                  class="action-hint"
+                  data-testid="settlement-issue-empty"
+                >
+                  暂无可批量发放的证书，请先在荣誉配置中创建参与、喂草次数或激活次数类证书。
+                </small>
               </div>
 
               <div
@@ -1396,6 +1450,18 @@ onMounted(() => {
 
 .inline-controls :deep(.ant-input-number) {
   width: 140px;
+}
+
+.certificate-select {
+  min-width: 220px;
+  flex: 1 1 220px;
+}
+
+.action-hint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ant-color-warning-text, #ad6800);
 }
 
 .archive-controls {

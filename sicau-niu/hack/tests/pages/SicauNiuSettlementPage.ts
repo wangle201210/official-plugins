@@ -60,6 +60,14 @@ export class SicauNiuSettlementPage extends PluginPage {
     return this.page.getByTestId("settlement-archive-title").last();
   }
 
+  issueSelect(): Locator {
+    return this.page.getByTestId("settlement-issue-id").first();
+  }
+
+  issueButton(): Locator {
+    return this.page.getByTestId("settlement-issue").first();
+  }
+
   archiveButton(): Locator {
     return this.page.getByTestId("settlement-archive").first();
   }
@@ -82,6 +90,24 @@ export class SicauNiuSettlementPage extends PluginPage {
     await this.archiveButton().click();
     await expect(
       this.archiveTable().locator(".ant-table-row", { hasText: title }).first(),
+    ).toBeVisible();
+  }
+
+  // issueFirstCertificate chooses the first batch-issuable certificate and clicks
+  // the issue action. It asserts the success toast so the test proves the POST
+  // action completed instead of only verifying that the button is visible.
+  async issueFirstCertificate() {
+    await expect(this.issueSelect()).toBeVisible();
+    await expect(this.issueButton()).toBeDisabled();
+    await expect(this.issueSelect()).not.toHaveClass(/ant-select-disabled/);
+    await this.issueSelect().locator(".ant-select-selector").click();
+    const dropdown = this.page.locator(".ant-select-dropdown:visible").last();
+    await expect(dropdown).toBeVisible();
+    await dropdown.locator(".ant-select-item-option").first().click();
+    await expect(this.issueButton()).toBeEnabled();
+    await this.issueButton().click();
+    await expect(
+      this.page.getByText(/达标 \d+ 人,新发 \d+ 人,跳过 \d+ 人/),
     ).toBeVisible();
   }
 }
