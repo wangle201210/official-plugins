@@ -20,9 +20,9 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcfg"
 
-	"lina-core/pkg/plugin/capability/bizctx"
-	pluginconfig "lina-core/pkg/plugin/capability/config"
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
+	"lina-core/pkg/plugin/capability/cachecap"
+	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-core/pkg/plugin/pluginhost"
 	mediaopenv1 "lina-plugin-media/backend/api/mediaopen/v1"
 )
@@ -30,23 +30,34 @@ import (
 // mediaRouteHostServices publishes only the host services required by media route registration.
 type mediaRouteHostServices struct {
 	pluginhost.Services
-	bizCtx contract.BizCtxService
-	cache  contract.CacheService
-	config contract.ConfigService
+	bizCtx  bizctxcap.Service
+	cache   cachecap.Service
+	plugins plugincap.Service
 }
 
 // BizCtx returns the test host business-context adapter.
-func (s *mediaRouteHostServices) BizCtx() contract.BizCtxService {
+func (s *mediaRouteHostServices) BizCtx() bizctxcap.Service {
 	return s.bizCtx
 }
 
 // Cache returns the test host cache adapter.
-func (s *mediaRouteHostServices) Cache() contract.CacheService {
+func (s *mediaRouteHostServices) Cache() cachecap.Service {
 	return s.cache
 }
 
-// Config returns the test host configuration adapter.
-func (s *mediaRouteHostServices) Config() contract.ConfigService {
+// Plugins returns the plugin-governance namespace carrying plugin-scoped config.
+func (s *mediaRouteHostServices) Plugins() plugincap.Service {
+	return s.plugins
+}
+
+// mediaRoutePluginServices publishes the plugin config service used by media routes.
+type mediaRoutePluginServices struct {
+	plugincap.Service
+	config plugincap.ConfigService
+}
+
+// Config returns the media plugin test configuration adapter.
+func (s mediaRoutePluginServices) Config() plugincap.ConfigService {
 	return s.config
 }
 
@@ -65,12 +76,12 @@ func (c *mediaRouteCache) Get(
 	_ context.Context,
 	namespace string,
 	key string,
-) (*contract.CacheItem, bool, error) {
+) (*cachecap.CacheItem, bool, error) {
 	value, ok := c.values[namespace+"\x00"+key]
 	if !ok {
 		return nil, false, nil
 	}
-	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindString, Value: value}, true, nil
+	return &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}, true, nil
 }
 
 // Set stores one string cache item.
@@ -80,9 +91,9 @@ func (c *mediaRouteCache) Set(
 	key string,
 	value string,
 	_ time.Duration,
-) (*contract.CacheItem, error) {
+) (*cachecap.CacheItem, error) {
 	c.values[namespace+"\x00"+key] = value
-	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindString, Value: value}, nil
+	return &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}, nil
 }
 
 // Delete removes one cache item.
@@ -98,7 +109,7 @@ func (c *mediaRouteCache) Incr(
 	key string,
 	delta int64,
 	_ time.Duration,
-) (*contract.CacheItem, error) {
+) (*cachecap.CacheItem, error) {
 	cacheKey := namespace + "\x00" + key
 	current := int64(0)
 	if value := strings.TrimSpace(c.values[cacheKey]); value != "" {
@@ -108,7 +119,7 @@ func (c *mediaRouteCache) Incr(
 	}
 	current += delta
 	c.values[cacheKey] = fmt.Sprintf("%d", current)
-	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindInt, IntValue: current}, nil
+	return &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindInt, IntValue: current}, nil
 }
 
 // Expire reports success for the unused expiration operation.
@@ -1104,14 +1115,16 @@ func startMediaRouteTestServer(t *testing.T, middlewares pluginhost.RouteMiddlew
 	server := g.Server(fmt.Sprintf("media-route-test-%d", time.Now().UnixNano()))
 	server.SetDumpRouterMap(false)
 	server.SetPort(0)
-	configFactory := pluginconfig.NewFactory(t.TempDir(), t.TempDir())
+	configFactory := plugincap.NewConfigFactory(t.TempDir(), t.TempDir())
 	if content, _ := mediaRouteConfigContent.Load().(string); strings.TrimSpace(content) != "" {
 		configFactory = configFactory.WithArtifactConfig(pluginID, []byte(content))
 	}
 	hostServices := &mediaRouteHostServices{
-		bizCtx: bizctx.New(nil),
+		bizCtx: bizctxcap.New(nil),
 		cache:  newMediaRouteCache(),
-		config: configFactory.ForPlugin(pluginID),
+		plugins: mediaRoutePluginServices{
+			config: configFactory.ForPlugin(pluginID),
+		},
 	}
 	server.Group("/", func(group *ghttp.RouterGroup) {
 		registrar := pluginhost.NewHTTPRegistrar(

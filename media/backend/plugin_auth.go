@@ -13,7 +13,8 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
+	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-core/pkg/plugin/pluginhost"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
@@ -49,32 +50,32 @@ type mediaTietaAuthenticator interface {
 
 // mediaBizCtxWithTietaOverlay prefers Tieta-injected plugin context while
 // preserving the host business context for LinaPro-authenticated calls.
-func mediaBizCtxWithTietaOverlay(base contract.BizCtxService) contract.BizCtxService {
+func mediaBizCtxWithTietaOverlay(base bizctxcap.Service) bizctxcap.Service {
 	return &mediaBizCtxOverlay{base: base}
 }
 
 // mediaBizCtxOverlay reads Tieta fallback context before delegating to the host context service.
 type mediaBizCtxOverlay struct {
-	base contract.BizCtxService // base is the host-published business context service.
+	base bizctxcap.Service // base is the host-published business context service.
 }
 
 // Current returns the Tieta fallback context when present, otherwise the host context.
-func (s *mediaBizCtxOverlay) Current(ctx context.Context) contract.CurrentContext {
+func (s *mediaBizCtxOverlay) Current(ctx context.Context) bizctxcap.CurrentContext {
 	if current, ok := mediaInjectedCurrentContext(ctx); ok {
 		return current
 	}
 	if s != nil && s.base != nil {
 		return s.base.Current(ctx)
 	}
-	return contract.CurrentContext{}
+	return bizctxcap.CurrentContext{}
 }
 
 // mediaInjectedCurrentContext reports whether the context carries a plugin-injected identity.
-func mediaInjectedCurrentContext(ctx context.Context) (contract.CurrentContext, bool) {
+func mediaInjectedCurrentContext(ctx context.Context) (bizctxcap.CurrentContext, bool) {
 	if ctx == nil {
-		return contract.CurrentContext{}, false
+		return bizctxcap.CurrentContext{}, false
 	}
-	current, ok := ctx.Value(mediaTietaCurrentContextKey{}).(contract.CurrentContext)
+	current, ok := ctx.Value(mediaTietaCurrentContextKey{}).(bizctxcap.CurrentContext)
 	return current, ok
 }
 
@@ -108,7 +109,7 @@ func mediaDualAuthMiddleware(
 // mediaInnerAPIAuthMiddleware applies the HotGo-compatible inner API key gate
 // used by mediaopen routes. It intentionally lives in the media plugin instead
 // of extending core authentication contracts.
-func mediaInnerAPIAuthMiddleware(configSvc contract.ConfigService) pluginhost.RouteMiddleware {
+func mediaInnerAPIAuthMiddleware(configSvc plugincap.ConfigService) pluginhost.RouteMiddleware {
 	return func(r *ghttp.Request) {
 		if r == nil {
 			return
@@ -136,7 +137,7 @@ func mediaInnerAPIAuthMiddleware(configSvc contract.ConfigService) pluginhost.Ro
 }
 
 // mediaExpectedInnerAPIKey reads the HotGo-compatible inner API key setting from host configuration.
-func mediaExpectedInnerAPIKey(ctx context.Context, configSvc contract.ConfigService) (string, error) {
+func mediaExpectedInnerAPIKey(ctx context.Context, configSvc plugincap.ConfigService) (string, error) {
 	if configSvc == nil {
 		return mediaInnerAPIKeyDefault, nil
 	}
@@ -206,13 +207,13 @@ func mediaBindTietaContext(r *ghttp.Request, user *mediasvc.TietaUser) {
 	if r == nil || user == nil {
 		return
 	}
-	current := contract.CurrentContext{
+	current := bizctxcap.CurrentContext{
 		UserID:   int(user.Id),
 		Username: mediaTietaUsername(user),
 		TenantID: 0,
 	}
-	ctx := contract.WithCurrentContext(r.Context(), current)
-	ctx = context.WithValue(ctx, mediaTietaCurrentContextKey{}, contract.CurrentFromContext(ctx))
+	ctx := bizctxcap.WithCurrentContext(r.Context(), current)
+	ctx = context.WithValue(ctx, mediaTietaCurrentContextKey{}, bizctxcap.CurrentFromContext(ctx))
 	r.SetCtx(ctx)
 	r.SetCtxVar(mediaTietaAuthenticatedKey, true)
 }

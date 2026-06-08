@@ -3,8 +3,10 @@ package cms
 
 import (
 	"context"
+
 	"github.com/gogf/gf/v2/errors/gerror"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+
+	"lina-core/pkg/plugin/capability/bizctxcap"
 )
 
 // DictTypeCategoryType groups the dictionary type keys used by CMS status and category metadata.
@@ -86,10 +88,10 @@ type Service interface {
 var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service with the host business context dependency.
-type serviceImpl struct{ bizCtxSvc plugincontract.BizCtxService }
+type serviceImpl struct{ bizCtxSvc bizctxcap.Service }
 
 // New creates a CMS service with the required host business-context dependency.
-func New(bizCtxSvc plugincontract.BizCtxService) (Service, error) {
+func New(bizCtxSvc bizctxcap.Service) (Service, error) {
 	if bizCtxSvc == nil {
 		return nil, gerror.New("cms service requires host bizctx service")
 	}

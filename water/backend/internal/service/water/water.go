@@ -7,7 +7,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/cachecap"
 	mediastrategy "lina-plugin-media/backend/provider/strategy"
 )
 
@@ -34,13 +34,13 @@ type serviceImpl struct {
 // taskCache defines the host cache operations water uses for task snapshots.
 type taskCache interface {
 	// Get returns the cached task snapshot payload for key when it exists.
-	Get(ctx context.Context, namespace string, key string) (*contract.CacheItem, bool, error)
+	Get(ctx context.Context, namespace string, key string) (*cachecap.CacheItem, bool, error)
 	// Set stores the task snapshot payload for key with a finite TTL.
-	Set(ctx context.Context, namespace string, key string, value string, ttl time.Duration) (*contract.CacheItem, error)
+	Set(ctx context.Context, namespace string, key string, value string, ttl time.Duration) (*cachecap.CacheItem, error)
 }
 
 // New creates and returns the shared water service instance.
-func New(cacheSvc contract.CacheService, strategyResolver mediastrategy.Resolver) (Service, error) {
+func New(cacheSvc cachecap.Service, strategyResolver mediastrategy.Resolver) (Service, error) {
 	if cacheSvc == nil {
 		return nil, gerror.New("water service requires host cache service")
 	}

@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	_ "lina-core/pkg/dbdriver"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 )
@@ -185,7 +185,7 @@ func TestLegacyGetInfoProjectsOldShapeAndPermissions(t *testing.T) {
 	ctx := context.Background()
 	configureUIdentityTestDB(t, ctx, dao.SysUser.Table(), dao.SysRole.Table(), dao.SysMenu.Table(), dao.SysRoleMenu.Table())
 	actorID := int64(88001 + time.Now().UnixNano()%100000)
-	service := &serviceImpl{tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{UserID: int(actorID)}}}
+	service := &serviceImpl{tenantFilter: testTenantFilter{current: tenantcap.TenantFilterContext{UserID: int(actorID)}}}
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 	cleanupLegacySystemRows(t, ctx, suffix)
 	t.Cleanup(func() { cleanupLegacySystemRows(t, ctx, suffix) })
@@ -234,7 +234,7 @@ func TestLegacyAdminLogoutWritesSysLoginLog(t *testing.T) {
 	ctx := context.Background()
 	configureUIdentityTestDB(t, ctx, dao.SysLoginLog.Table())
 	actorID := int64(91001 + time.Now().UnixNano()%100000)
-	service := &serviceImpl{tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{UserID: int(actorID)}}}
+	service := &serviceImpl{tenantFilter: testTenantFilter{current: tenantcap.TenantFilterContext{UserID: int(actorID)}}}
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 	username := "legacy-logout-" + suffix
 	t.Cleanup(func() {
@@ -305,7 +305,7 @@ func TestLegacySystemProfileProjectsUserRolesPosts(t *testing.T) {
 	ctx := context.Background()
 	configureUIdentityTestDB(t, ctx, dao.SysUser.Table(), dao.SysRole.Table(), dao.SysPost.Table(), dao.SysDept.Table())
 	actorID := int64(89001 + time.Now().UnixNano()%100000)
-	service := &serviceImpl{tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{UserID: int(actorID)}}}
+	service := &serviceImpl{tenantFilter: testTenantFilter{current: tenantcap.TenantFilterContext{UserID: int(actorID)}}}
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 	cleanupLegacySystemRows(t, ctx, suffix)
 	t.Cleanup(func() { cleanupLegacySystemRows(t, ctx, suffix) })
@@ -364,7 +364,7 @@ func TestLegacySystemProfileProjectsUserRolesPosts(t *testing.T) {
 func TestLegacyRoleActionsUpdateCompatibilityTables(t *testing.T) {
 	ctx := context.Background()
 	configureUIdentityTestDB(t, ctx, dao.SysRole.Table(), dao.SysDept.Table(), dao.SysRoleDept.Table())
-	service := &serviceImpl{tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{UserID: 7031}}}
+	service := &serviceImpl{tenantFilter: testTenantFilter{current: tenantcap.TenantFilterContext{UserID: 7031}}}
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 	cleanupLegacySystemRows(t, ctx, suffix)
 	t.Cleanup(func() { cleanupLegacySystemRows(t, ctx, suffix) })

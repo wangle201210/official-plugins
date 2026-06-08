@@ -6,7 +6,8 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
+	"lina-core/pkg/plugin/capability/cachecap"
 )
 
 // Service defines the media plugin service contract.
@@ -120,12 +121,12 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	bizCtxSvc contract.BizCtxService // bizCtxSvc reads current user and tenant metadata.
-	cacheSvc  mediaCache             // cacheSvc stores plugin-scoped transient cache values.
+	bizCtxSvc bizctxcap.Service // bizCtxSvc reads current user and tenant metadata.
+	cacheSvc  mediaCache        // cacheSvc stores plugin-scoped transient cache values.
 }
 
 // New creates and returns a new media service instance with host context.
-func New(bizCtxSvc contract.BizCtxService, cacheSvc contract.CacheService) (Service, error) {
+func New(bizCtxSvc bizctxcap.Service, cacheSvc cachecap.Service) (Service, error) {
 	if bizCtxSvc == nil {
 		return nil, gerror.New("media service requires host bizctx service")
 	}
@@ -136,7 +137,7 @@ func New(bizCtxSvc contract.BizCtxService, cacheSvc contract.CacheService) (Serv
 }
 
 // newWithRouteMemoryCache creates a media service with an explicit host cache for tests.
-func newWithRouteMemoryCache(bizCtxSvc contract.BizCtxService, cacheSvc mediaCache) (Service, error) {
+func newWithRouteMemoryCache(bizCtxSvc bizctxcap.Service, cacheSvc mediaCache) (Service, error) {
 	if bizCtxSvc == nil {
 		return nil, gerror.New("media service requires host bizctx service")
 	}

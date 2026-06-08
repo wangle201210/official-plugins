@@ -10,7 +10,7 @@ import (
 	"time"
 
 	_ "lina-core/pkg/dbdriver"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
@@ -24,7 +24,7 @@ func TestResourceAccountAuditLifecycle(t *testing.T) {
 	actorID := 8812
 	number := fmt.Sprintf("audit-%d", time.Now().UnixNano())
 	service := &serviceImpl{
-		tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{
+		tenantFilter: testTenantFilter{current: tenantcap.TenantFilterContext{
 			TenantID: tenantID,
 			UserID:   actorID,
 		}},

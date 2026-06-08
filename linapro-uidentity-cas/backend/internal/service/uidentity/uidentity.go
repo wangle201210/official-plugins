@@ -9,7 +9,9 @@ import (
 
 	"github.com/gogf/gf/v2/net/ghttp"
 
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
+	"lina-core/pkg/plugin/capability/plugincap"
+	"lina-core/pkg/plugin/capability/tenantcap"
 )
 
 // Account status values.
@@ -339,16 +341,16 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	bizCtxSvc    plugincontract.BizCtxService       // Business context bridge.
-	configSvc    plugincontract.ConfigService       // Plugin-scoped static config reader.
-	tenantFilter plugincontract.TenantFilterService // Tenant query filter bridge.
+	bizCtxSvc    bizctxcap.Service                  // Business context bridge.
+	configSvc    plugincap.ConfigService            // Plugin-scoped static config reader.
+	tenantFilter tenantcap.PluginTableFilterService // Tenant query filter bridge.
 }
 
 // New creates and returns a new UIdentity service instance.
 func New(
-	bizCtxSvc plugincontract.BizCtxService,
-	configSvc plugincontract.ConfigService,
-	tenantFilter plugincontract.TenantFilterService,
+	bizCtxSvc bizctxcap.Service,
+	configSvc plugincap.ConfigService,
+	tenantFilter tenantcap.PluginTableFilterService,
 ) Service {
 	return &serviceImpl{
 		bizCtxSvc:    bizCtxSvc,

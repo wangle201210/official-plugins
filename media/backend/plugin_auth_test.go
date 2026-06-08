@@ -7,33 +7,33 @@ import (
 	"context"
 	"testing"
 
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
 )
 
 // mediaStaticBizCtx returns one fixed plugin-visible context for auth helper tests.
 type mediaStaticBizCtx struct {
-	current contract.CurrentContext
+	current bizctxcap.CurrentContext
 }
 
 // Current returns the configured business context snapshot.
-func (s mediaStaticBizCtx) Current(context.Context) contract.CurrentContext {
+func (s mediaStaticBizCtx) Current(context.Context) bizctxcap.CurrentContext {
 	return s.current
 }
 
 // TestMediaBizCtxOverlayPrefersTietaContext verifies fallback identity is visible to media services.
 func TestMediaBizCtxOverlayPrefersTietaContext(t *testing.T) {
-	base := mediaStaticBizCtx{current: contract.CurrentContext{
+	base := mediaStaticBizCtx{current: bizctxcap.CurrentContext{
 		UserID:   1,
 		Username: "host-user",
 		TenantID: 10,
 	}}
 	overlay := mediaBizCtxWithTietaOverlay(base)
-	tietaCtx := contract.WithCurrentContext(context.Background(), contract.CurrentContext{
+	tietaCtx := bizctxcap.WithCurrentContext(context.Background(), bizctxcap.CurrentContext{
 		UserID:   13,
 		Username: "wj530",
 		TenantID: 0,
 	})
-	tietaCtx = context.WithValue(tietaCtx, mediaTietaCurrentContextKey{}, contract.CurrentFromContext(tietaCtx))
+	tietaCtx = context.WithValue(tietaCtx, mediaTietaCurrentContextKey{}, bizctxcap.CurrentFromContext(tietaCtx))
 
 	current := overlay.Current(tietaCtx)
 	if current.UserID != 13 || current.Username != "wj530" || !current.PlatformBypass {

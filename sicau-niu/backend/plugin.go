@@ -18,7 +18,7 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-core/pkg/plugin/pluginhost"
 	pluginsicauniu "lina-plugin-sicau-niu"
 	adminctrl "lina-plugin-sicau-niu/backend/internal/controller/admin"
@@ -149,35 +149,43 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
 	services := registrar.Services()
-	if services == nil || services.Config() == nil {
+	if services == nil {
+		return gerror.New("sicau-niu routes require host plugin config service")
+	}
+	plugins := services.Plugins()
+	if plugins == nil {
+		return gerror.New("sicau-niu routes require host plugin config service")
+	}
+	configSvc := plugins.Config()
+	if configSvc == nil {
 		return gerror.New("sicau-niu routes require host plugin config service")
 	}
 
-	tokenService, gateway, err := buildAuthDependencies(ctx, services.Config())
+	tokenService, gateway, err := buildAuthDependencies(ctx, configSvc)
 	if err != nil {
 		return err
 	}
 
-	activationConfig, err := buildActivationConfig(ctx, services.Config())
+	activationConfig, err := buildActivationConfig(ctx, configSvc)
 	if err != nil {
 		return err
 	}
 
-	grassConfig, feedingConfig, grassSocialConfig, err := buildGrassConfigs(ctx, services.Config())
+	grassConfig, feedingConfig, grassSocialConfig, err := buildGrassConfigs(ctx, configSvc)
 	if err != nil {
 		return err
 	}
 
-	rankingConfig, err := buildRankingConfig(ctx, services.Config())
+	rankingConfig, err := buildRankingConfig(ctx, configSvc)
 	if err != nil {
 		return err
 	}
 
-	miniappURL, err := services.Config().String(ctx, configKeyMiniappURL, "")
+	miniappURL, err := configSvc.String(ctx, configKeyMiniappURL, "")
 	if err != nil {
 		return gerror.Wrap(err, "sicau-niu read miniapp url failed")
 	}
-	settlementConfig, err := buildSettlementConfig(ctx, services.Config())
+	settlementConfig, err := buildSettlementConfig(ctx, configSvc)
 	if err != nil {
 		return err
 	}
@@ -364,7 +372,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 // secret is missing or the configuration cannot be read.
 func buildAuthDependencies(
 	ctx context.Context,
-	config contract.ConfigService,
+	config plugincap.ConfigService,
 ) (tokensvc.Service, wechatsvc.Gateway, error) {
 	tokenSecret, err := config.String(ctx, configKeyTokenSecret, "")
 	if err != nil {
@@ -410,7 +418,7 @@ func buildAuthDependencies(
 // failure surfaces at startup.
 func buildActivationConfig(
 	ctx context.Context,
-	config contract.ConfigService,
+	config plugincap.ConfigService,
 ) (activationsvc.Config, error) {
 	thresholdMeters, err := config.Int(ctx, configKeyLBSThresholdMeters, defaultLBSThresholdMeters)
 	if err != nil {
@@ -432,7 +440,7 @@ func buildActivationConfig(
 // request time. A non-positive Top-N falls back to the service default.
 func buildRankingConfig(
 	ctx context.Context,
-	config contract.ConfigService,
+	config plugincap.ConfigService,
 ) (rankingsvc.Config, error) {
 	topN, err := config.Int(ctx, configKeyRankingTopN, defaultRankingTopN)
 	if err != nil {
@@ -447,7 +455,7 @@ func buildRankingConfig(
 // failure surfaces at startup. Non-positive values fall back to the service defaults.
 func buildSettlementConfig(
 	ctx context.Context,
-	config contract.ConfigService,
+	config plugincap.ConfigService,
 ) (settlementsvc.Config, error) {
 	feedDaily, err := config.Int(ctx, configKeyAnomalyFeedDaily, defaultAnomalyFeedDaily)
 	if err != nil {
@@ -474,7 +482,7 @@ func buildSettlementConfig(
 // startup rather than at request time.
 func buildGrassConfigs(
 	ctx context.Context,
-	config contract.ConfigService,
+	config plugincap.ConfigService,
 ) (grasssvc.Config, feedingsvc.Config, grasssocialsvc.Config, error) {
 	checkinMin, err := config.Int(ctx, configKeyCheckinMinAmount, defaultCheckinMinAmount)
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/cachecap"
 )
 
 // taskStoreCache records host cache writes for task-store tests.
@@ -24,23 +24,23 @@ func newTaskStoreCache() *taskStoreCache {
 }
 
 // Get returns one cached value.
-func (c *taskStoreCache) Get(_ context.Context, namespace string, key string) (*contract.CacheItem, bool, error) {
+func (c *taskStoreCache) Get(_ context.Context, namespace string, key string) (*cachecap.CacheItem, bool, error) {
 	c.lastNamespace = namespace
 	c.lastKey = key
 	value, ok := c.items[namespace+"\x00"+key]
 	if !ok {
 		return nil, false, nil
 	}
-	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindString, Value: value}, true, nil
+	return &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}, true, nil
 }
 
 // Set records one cached value and TTL.
-func (c *taskStoreCache) Set(_ context.Context, namespace string, key string, value string, ttl time.Duration) (*contract.CacheItem, error) {
+func (c *taskStoreCache) Set(_ context.Context, namespace string, key string, value string, ttl time.Duration) (*cachecap.CacheItem, error) {
 	c.lastNamespace = namespace
 	c.lastKey = key
 	c.lastTTL = ttl
 	c.items[namespace+"\x00"+key] = value
-	return &contract.CacheItem{Key: key, ValueKind: contract.CacheValueKindString, Value: value}, nil
+	return &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}, nil
 }
 
 // TestTaskStoreUsesHostCache verifies task snapshots are stored in host cache.

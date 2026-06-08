@@ -11,7 +11,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/cachecap"
 )
 
 // Route memory cache constants.
@@ -23,7 +23,7 @@ const (
 
 // mediaCache defines the host cache operations used by transient media data.
 type mediaCache interface {
-	contract.CacheService
+	cachecap.Service
 }
 
 // RouteMemoryKeyInput defines one route-memory device/channel key.

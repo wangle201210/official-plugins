@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"lina-core/pkg/bizerr"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 )
@@ -564,7 +564,7 @@ func (s *serviceImpl) currentUsername(ctx context.Context) string {
 			return username
 		}
 	}
-	return strings.TrimSpace(plugincontract.CurrentFromContext(ctx).Username)
+	return strings.TrimSpace(bizctxcap.CurrentFromContext(ctx).Username)
 }
 
 // UpdateLegacySysUserAvatar updates old sys_user.avatar.

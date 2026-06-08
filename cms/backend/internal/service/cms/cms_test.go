@@ -19,15 +19,14 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/dialect"
-	"lina-core/pkg/plugin/capability/bizctx"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-plugin-cms/backend/internal/dao"
 	"lina-plugin-cms/backend/internal/model/do"
 )
 
 // newTestCMSService creates a CMS service with an explicit test bizctx adapter.
 func newTestCMSService() Service {
-	svc, err := New(bizctx.New(nil))
+	svc, err := New(bizctxcap.New(nil))
 	if err != nil {
 		panic(err)
 	}
@@ -37,7 +36,7 @@ func newTestCMSService() Service {
 // newTestCMSServiceForUser creates a CMS service that sees a fixed user ID in
 // plugin business context, matching authenticated management requests.
 func newTestCMSServiceForUser(userID int) Service {
-	svc, err := New(bizctx.New(cmsTestBizCtx{userID: userID}))
+	svc, err := New(bizctxcap.New(cmsTestBizCtx{userID: userID}))
 	if err != nil {
 		panic(err)
 	}
@@ -50,8 +49,8 @@ type cmsTestBizCtx struct {
 }
 
 // Current returns the static business context configured for the test case.
-func (c cmsTestBizCtx) Current(context.Context) plugincontract.CurrentContext {
-	return plugincontract.CurrentContext{UserID: c.userID}
+func (c cmsTestBizCtx) Current(context.Context) bizctxcap.CurrentContext {
+	return bizctxcap.CurrentContext{UserID: c.userID}
 }
 
 // TestPublicArticlesFilterDraftsAndDisabledCategories verifies public article

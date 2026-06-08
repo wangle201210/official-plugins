@@ -7,7 +7,9 @@ package jobs
 import (
 	"context"
 
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
+	"lina-core/pkg/plugin/capability/plugincap"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-core/pkg/plugin/pluginhost"
 )
 
@@ -24,9 +26,9 @@ type Service interface {
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	bizCtxSvc    plugincontract.BizCtxService
-	configSvc    plugincontract.ConfigService
-	tenantFilter plugincontract.TenantFilterService
+	bizCtxSvc    bizctxcap.Service
+	configSvc    plugincap.ConfigService
+	tenantFilter tenantcap.PluginTableFilterService
 }
 
 // Ensure serviceImpl implements Service.
@@ -35,9 +37,9 @@ var _ Service = (*serviceImpl)(nil)
 // New creates a UIdentity scheduled-job handler service with explicit host
 // capability dependencies supplied by the source-plugin registrar.
 func New(
-	bizCtxSvc plugincontract.BizCtxService,
-	configSvc plugincontract.ConfigService,
-	tenantFilter plugincontract.TenantFilterService,
+	bizCtxSvc bizctxcap.Service,
+	configSvc plugincap.ConfigService,
+	tenantFilter tenantcap.PluginTableFilterService,
 ) Service {
 	return &serviceImpl{
 		bizCtxSvc:    bizCtxSvc,

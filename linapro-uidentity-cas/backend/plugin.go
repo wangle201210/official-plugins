@@ -56,12 +56,20 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return gerror.New("linapro-uidentity-cas routes require host bizctx and tenant-filter services")
 	}
 	scopedServices := capability.ServicesForPlugin(services, pluginID)
-	if scopedServices.Config() == nil {
+	if scopedServices == nil {
+		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
+	}
+	plugins := scopedServices.Plugins()
+	if plugins == nil {
+		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
+	}
+	configSvc := plugins.Config()
+	if configSvc == nil {
 		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
 	}
 	uidentitySvc := uidentitysvc.New(
 		scopedServices.BizCtx(),
-		scopedServices.Config(),
+		configSvc,
 		services.TenantFilter(),
 	)
 	legacyController := uidentitycontroller.NewLegacy(uidentitySvc)
@@ -82,9 +90,17 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 // trigger control stay in the host task-management module.
 func registerManagedJobs(ctx context.Context, registrar pluginhost.CronRegistrar) error {
 	services := registrar.Services()
-	if services == nil || services.Config() == nil {
+	if services == nil || services.BizCtx() == nil || services.TenantFilter() == nil {
+		return gerror.New("linapro-uidentity-cas jobs require host bizctx and tenant-filter services")
+	}
+	plugins := services.Plugins()
+	if plugins == nil {
 		return gerror.New("linapro-uidentity-cas jobs require plugin-scoped config service")
 	}
-	jobSvc := uidentityjobs.New(services.BizCtx(), services.Config(), services.TenantFilter())
+	configSvc := plugins.Config()
+	if configSvc == nil {
+		return gerror.New("linapro-uidentity-cas jobs require plugin-scoped config service")
+	}
+	jobSvc := uidentityjobs.New(services.BizCtx(), configSvc, services.TenantFilter())
 	return jobSvc.Register(ctx, registrar)
 }

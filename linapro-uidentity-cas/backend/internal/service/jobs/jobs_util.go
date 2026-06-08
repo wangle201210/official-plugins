@@ -19,7 +19,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 
 	"lina-core/pkg/bizerr"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
@@ -65,7 +65,7 @@ func (s *serviceImpl) tenantID(ctx context.Context) int {
 		current := s.bizCtxSvc.Current(ctx)
 		return current.TenantID
 	}
-	return plugincontract.CurrentFromContext(ctx).TenantID
+	return bizctxcap.CurrentFromContext(ctx).TenantID
 }
 
 func (s *serviceImpl) requireConfigString(ctx context.Context, key string) (string, error) {

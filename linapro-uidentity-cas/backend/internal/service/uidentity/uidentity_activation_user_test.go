@@ -13,7 +13,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 
 	_ "lina-core/pkg/dbdriver"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
@@ -22,10 +22,10 @@ import (
 const uidentityTestDBLink = "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/linapro?sslmode=disable"
 
 type testTenantFilter struct {
-	current plugincontract.TenantFilterContext
+	current tenantcap.TenantFilterContext
 }
 
-func (f testTenantFilter) Context(context.Context) plugincontract.TenantFilterContext {
+func (f testTenantFilter) Context(context.Context) tenantcap.TenantFilterContext {
 	return f.current
 }
 
@@ -33,7 +33,7 @@ func (f testTenantFilter) Apply(_ context.Context, model *gdb.Model, qualifier s
 	if model == nil || f.current.PlatformBypass {
 		return model
 	}
-	column := plugincontract.TenantFilterColumn
+	column := tenantcap.TenantFilterColumn
 	if qualifier != "" {
 		column = qualifier + "." + column
 	}
@@ -62,7 +62,7 @@ func TestRebindUnionIDToAccountMigratesExistingBinding(t *testing.T) {
 	insertUIdentityTestDetail(t, ctx, tenantID, newAccountID, "")
 
 	service := &serviceImpl{
-		tenantFilter: testTenantFilter{current: plugincontract.TenantFilterContext{
+		tenantFilter: testTenantFilter{current: tenantcap.TenantFilterContext{
 			TenantID: tenantID,
 			UserID:   actorID,
 		}},

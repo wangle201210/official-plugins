@@ -8,8 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	configsvc "lina-core/pkg/plugin/capability/config"
-	plugincontract "lina-core/pkg/plugin/capability/contract"
+	"lina-core/pkg/plugin/capability/plugincap"
 )
 
 const legacyConfigTestPluginID = "linapro-uidentity-cas"
@@ -95,10 +94,10 @@ legacy:
 	}
 }
 
-func newLegacyConfigTestService(t *testing.T, content string) plugincontract.ConfigService {
+func newLegacyConfigTestService(t *testing.T, content string) plugincap.ConfigService {
 	t.Helper()
 
-	return configsvc.NewFactory(t.TempDir(), t.TempDir()).
+	return plugincap.NewConfigFactory(t.TempDir(), t.TempDir()).
 		WithArtifactConfig(legacyConfigTestPluginID, []byte(content)).
 		ForPlugin(legacyConfigTestPluginID)
 }

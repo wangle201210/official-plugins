@@ -46,9 +46,13 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if cacheSvc == nil {
 		return gerror.New("media routes require host cache service")
 	}
-	configSvc := hostServices.Config()
+	plugins := hostServices.Plugins()
+	if plugins == nil {
+		return gerror.New("media routes require host plugin config service")
+	}
+	configSvc := plugins.Config()
 	if configSvc == nil {
-		return gerror.New("media routes require host config service")
+		return gerror.New("media routes require host plugin config service")
 	}
 	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(hostServices.BizCtx()), cacheSvc)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/plugin/capability/bizctx"
+	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )
@@ -19,7 +19,7 @@ import (
 // newTestMediaService creates a media service with an explicit test bizctx adapter.
 func newTestMediaService(t *testing.T) Service {
 	t.Helper()
-	svc, err := newWithRouteMemoryCache(bizctx.New(nil), newMemoryRouteMemoryCache())
+	svc, err := newWithRouteMemoryCache(bizctxcap.New(nil), newMemoryRouteMemoryCache())
 	if err != nil {
 		t.Fatalf("create test media service: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestParseTietaTokenUsesMediaClient(t *testing.T) {
 func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 	ctx := context.Background()
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(bizctx.New(nil), cacheSvc)
+	svc, err := newWithRouteMemoryCache(bizctxcap.New(nil), cacheSvc)
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}
