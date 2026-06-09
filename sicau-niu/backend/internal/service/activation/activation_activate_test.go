@@ -8,6 +8,7 @@ package activation
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -66,33 +67,94 @@ func TestActivateOutOfRangeRejected(t *testing.T) {
 	}
 }
 
-// TestActivateNotYetOnlineRejected verifies a direct activation call cannot
-// bypass the online-time visibility gate and no activation row is written.
-func TestActivateNotYetOnlineRejected(t *testing.T) {
+// TestActivateInvisibleNiuRejected verifies a direct activation call cannot
+// bypass any player-visible-list gate and no activation row is written.
+func TestActivateInvisibleNiuRejected(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
-	future := time.Now().Add(time.Hour)
-	niuID := insertNiuRow(t, ctx, do.Niu{
-		Code:     "NIU-ACT-FUTURE",
-		NiuType:  cattlesvc.NiuTypeCommon.String(),
-		Lat:      30.0,
-		Lng:      103.0,
-		OnlineAt: &future,
-		Status:   cattlesvc.NiuStatusInactive.String(),
-	})
-	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-future"})
 
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
-	assertBizCode(t, err, CodeNiuNotVisible.RuntimeCode())
+	now := time.Now()
+	past := now.Add(-time.Hour)
+	future := now.Add(time.Hour)
+	excludedWeekday := isoWeekday(now)%7 + 1
 
-	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
-	if countErr != nil {
-		t.Fatalf("count activations failed: %v", countErr)
+	cases := []struct {
+		name string
+		row  do.Niu
+	}{
+		{
+			name: "online time empty",
+			row: do.Niu{
+				Code:    "NIU-ACT-NO-ONLINE",
+				NiuType: cattlesvc.NiuTypeCommon.String(),
+				Lat:     30.0,
+				Lng:     103.0,
+				Status:  cattlesvc.NiuStatusInactive.String(),
+			},
+		},
+		{
+			name: "online time in future",
+			row: do.Niu{
+				Code:     "NIU-ACT-FUTURE",
+				NiuType:  cattlesvc.NiuTypeCommon.String(),
+				Lat:      30.0,
+				Lng:      103.0,
+				OnlineAt: &future,
+				Status:   cattlesvc.NiuStatusInactive.String(),
+			},
+		},
+		{
+			name: "weekday window excludes now",
+			row: do.Niu{
+				Code:            "NIU-ACT-WEEKDAY",
+				NiuType:         cattlesvc.NiuTypeCommon.String(),
+				Lat:             30.0,
+				Lng:             103.0,
+				OnlineAt:        &past,
+				VisibleWeekdays: strconv.Itoa(excludedWeekday),
+				Status:          cattlesvc.NiuStatusInactive.String(),
+			},
+		},
+		{
+			name: "time window excludes now",
+			row: do.Niu{
+				Code:         "NIU-ACT-TIME",
+				NiuType:      cattlesvc.NiuTypeCommon.String(),
+				Lat:          30.0,
+				Lng:          103.0,
+				OnlineAt:     &past,
+				VisibleStart: oneMinuteAfter(now),
+				VisibleEnd:   oneMinuteAfter(now),
+				Status:       cattlesvc.NiuStatusInactive.String(),
+			},
+		},
 	}
-	if count != 0 {
-		t.Fatalf("expected no activation rows, got %d", count)
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			niuID := insertNiuRow(t, ctx, tc.row)
+			playerID := insertUserRow(t, ctx, do.User{Openid: "openid-invisible-" + strconv.Itoa(i)})
+
+			_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
+			assertBizCode(t, err, CodeNiuNotVisible.RuntimeCode())
+
+			count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
+			if countErr != nil {
+				t.Fatalf("count activations failed: %v", countErr)
+			}
+			if count != 0 {
+				t.Fatalf("expected no activation rows, got %d", count)
+			}
+		})
 	}
+}
+
+// oneMinuteAfter returns an HH:MM clock window bound that is guaranteed to be
+// after now's current minute, wrapping at midnight.
+func oneMinuteAfter(now time.Time) string {
+	minute := (now.Hour()*60 + now.Minute() + 1) % (24 * 60)
+	return time.Date(2000, 1, 1, minute/60, minute%60, 0, 0, time.Local).Format("15:04")
 }
 
 // TestActivateFirstActivatorFlipsStatus verifies the first in-range activation
