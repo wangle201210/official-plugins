@@ -23,7 +23,6 @@ func toNiuItem(item *cattlesvc.NiuItem) *v1.NiuItem {
 		CollegeName:     item.CollegeName,
 		Lat:             item.Lat,
 		Lng:             item.Lng,
-		ReleaseStage:    item.ReleaseStage,
 		OnlineAt:        item.OnlineAt,
 		VisibleWeekdays: item.VisibleWeekdays,
 		VisibleStart:    item.VisibleStart,

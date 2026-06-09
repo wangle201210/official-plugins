@@ -39,12 +39,6 @@ var (
 		"Special cattle name cannot be empty",
 		gcode.CodeInvalidParameter,
 	)
-	// CodeNiuStageInvalid reports that the release stage is not an allowed enum value.
-	CodeNiuStageInvalid = bizerr.MustDefine(
-		"PLUGIN_SICAU_NIU_NIU_STAGE_INVALID",
-		"Cattle release stage is invalid",
-		gcode.CodeInvalidParameter,
-	)
 	// CodeNiuCollegeRequired reports that a college cattle must link a college.
 	CodeNiuCollegeRequired = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_NIU_COLLEGE_REQUIRED",

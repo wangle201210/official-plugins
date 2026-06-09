@@ -19,7 +19,6 @@ func (c *ControllerV1) UpdateNiu(ctx context.Context, req *v1.UpdateNiuReq) (res
 		CollegeId:       req.CollegeId,
 		Lat:             req.Lat,
 		Lng:             req.Lng,
-		ReleaseStage:    req.ReleaseStage,
 		OnlineAt:        req.OnlineAt,
 		VisibleWeekdays: req.VisibleWeekdays,
 		VisibleStart:    req.VisibleStart,

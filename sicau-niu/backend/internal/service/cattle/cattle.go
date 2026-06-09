@@ -2,7 +2,7 @@
 // operator-facing CRUD for cattle (普通牛/特殊牛) and iron-cow identifiers. Cattle
 // carry a unique serial code, a stable type/subtype enum, an optional linked
 // college (reusing the C1 college dictionary), GPS anchors, a default-inactive
-// status and an optional release schedule. Deleting a cattle cascade soft-deletes
+// status and an optional online-time visibility schedule. Deleting a cattle cascade soft-deletes
 // its unique main card in one transaction so no dangling card remains. Iron-cow
 // rows register a unique device code; their real-time location is written later
 // by the C4 bonus flow and is never set on the operator side. All store access
@@ -21,7 +21,7 @@ import (
 // Service defines the cattle and iron-cow content-asset contract.
 type Service interface {
 	// ListNiu returns one DB-side paged, ID-descending cattle page for the
-	// operator console. Filtering (keyword/type/stage), ordering and pagination
+	// operator console. Filtering (keyword/type), ordering and pagination
 	// run in the database; the current page's college names and card-binding
 	// flags are batch-assembled in two bounded queries to avoid N+1. It returns a
 	// query bizerr on store failure.

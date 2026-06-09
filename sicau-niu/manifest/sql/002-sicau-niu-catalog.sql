@@ -6,7 +6,7 @@
 -- Dialect: PostgreSQL. Idempotent: safe to re-run.
 -- ------------------------------------------------------------
 
--- 牛表:活动虚拟牛,含类型、特殊子类、关联院系、GPS 锚点、放出节奏与状态。
+-- 牛表:活动虚拟牛,含类型、特殊子类、关联院系、GPS 锚点、上线时间与状态。
 CREATE TABLE IF NOT EXISTS plugin_sicau_niu_niu (
     "id"               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "code"             VARCHAR(32) NOT NULL DEFAULT '',
@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS plugin_sicau_niu_niu (
     "college_id"       BIGINT NOT NULL DEFAULT 0,
     "lat"              DOUBLE PRECISION NOT NULL DEFAULT 0,
     "lng"              DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "release_stage"    VARCHAR(16) NOT NULL DEFAULT '',
     "online_at"        TIMESTAMP,
     "visible_weekdays" VARCHAR(20) NOT NULL DEFAULT '',
     "visible_start"    VARCHAR(5) NOT NULL DEFAULT '',
@@ -35,8 +34,7 @@ COMMENT ON COLUMN plugin_sicau_niu_niu."name" IS 'Cattle name, used by special c
 COMMENT ON COLUMN plugin_sicau_niu_niu."college_id" IS 'Linked college ID for college cattle, 0 means none';
 COMMENT ON COLUMN plugin_sicau_niu_niu."lat" IS 'GPS latitude anchor';
 COMMENT ON COLUMN plugin_sicau_niu_niu."lng" IS 'GPS longitude anchor';
-COMMENT ON COLUMN plugin_sicau_niu_niu."release_stage" IS 'Release stage: warmup, main, climax, closing';
-COMMENT ON COLUMN plugin_sicau_niu_niu."online_at" IS 'Scheduled online time';
+COMMENT ON COLUMN plugin_sicau_niu_niu."online_at" IS 'Scheduled online time; NULL means not yet online';
 COMMENT ON COLUMN plugin_sicau_niu_niu."visible_weekdays" IS 'Optional visible weekdays, e.g. 1,3,5';
 COMMENT ON COLUMN plugin_sicau_niu_niu."visible_start" IS 'Optional visible window start HH:MM';
 COMMENT ON COLUMN plugin_sicau_niu_niu."visible_end" IS 'Optional visible window end HH:MM';
@@ -47,8 +45,8 @@ COMMENT ON COLUMN plugin_sicau_niu_niu."deleted_at" IS 'Soft-delete time, NULL m
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_niu_code
     ON plugin_sicau_niu_niu ("code") WHERE "deleted_at" IS NULL;
-CREATE INDEX IF NOT EXISTS idx_sicau_niu_niu_stage_online
-    ON plugin_sicau_niu_niu ("release_stage", "online_at");
+CREATE INDEX IF NOT EXISTS idx_sicau_niu_niu_online
+    ON plugin_sicau_niu_niu ("online_at") WHERE "deleted_at" IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sicau_niu_niu_college
     ON plugin_sicau_niu_niu ("college_id");
 

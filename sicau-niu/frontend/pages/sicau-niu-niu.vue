@@ -40,23 +40,12 @@ const specialSubtypeMap: Record<string, string> = {
   spirit: "精神",
 };
 
-const releaseStageMap: Record<string, string> = {
-  warmup: "预热",
-  main: "主体",
-  climax: "高潮",
-  closing: "收尾",
-};
-
 function formatNiuType(code: string) {
   return niuTypeMap[code] ?? "-";
 }
 
 function formatSpecialSubtype(code: string) {
   return specialSubtypeMap[code] ?? "-";
-}
-
-function formatReleaseStage(code: string) {
-  return releaseStageMap[code] ?? "-";
 }
 
 const [RecordModal, recordModalApi] = useVbenModal({
@@ -79,19 +68,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
           options: [
             { label: "普通", value: "common" },
             { label: "特殊", value: "special" },
-          ],
-        },
-      },
-      {
-        component: "Select",
-        fieldName: "releaseStage",
-        label: "上线阶段",
-        componentProps: {
-          options: [
-            { label: "预热", value: "warmup" },
-            { label: "主体", value: "main" },
-            { label: "高潮", value: "climax" },
-            { label: "收尾", value: "closing" },
           ],
         },
       },
@@ -140,10 +116,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
         width: 90,
       },
       {
-        field: "releaseStage",
-        formatter: ({ cellValue }) => formatReleaseStage(cellValue),
-        title: "上线阶段",
-        width: 100,
+        field: "onlineAt",
+        formatter: ({ cellValue }) => formatTimestamp(cellValue),
+        title: "上线时间",
+        width: 180,
       },
       {
         field: "createdAt",

@@ -16,7 +16,6 @@ export interface NiuItem {
   collegeName: string;
   lat: number;
   lng: number;
-  releaseStage: string;
   onlineAt: number | null;
   visibleWeekdays: string;
   visibleStart: string;
@@ -32,7 +31,6 @@ export interface NiuListParams {
   pageSize?: number;
   keyword?: string;
   niuType?: string;
-  releaseStage?: string;
 }
 
 export interface NiuSaveInput {
@@ -43,7 +41,6 @@ export interface NiuSaveInput {
   collegeId: number;
   lat: number;
   lng: number;
-  releaseStage: string;
   onlineAt: number | null;
   visibleWeekdays: string;
   visibleStart: string;

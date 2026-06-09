@@ -1,5 +1,5 @@
 // Package activation implements the sicau-niu C3 player gameplay capability:
-// the visible-cattle map list (filtered by release schedule), LBS activation with
+// the visible-cattle map list (filtered by online-time visibility), LBS activation with
 // shared-pool first-activator concurrency, the per-day activation limit and the
 // no-duplicate-per-cattle rule, on-activation card issuance, the player's personal
 // card collection (图鉴) and the activation poster composition data. Every
@@ -38,18 +38,18 @@ type Config struct {
 // activation, personal card collection and activation poster data.
 type Service interface {
 	// VisibleNiu returns the cattle currently visible to playerID, filtered by
-	// release schedule (release stage set, online time reached, optional weekday/
-	// time window matched). Each item carries its GPS anchor, shared-pool status
-	// and whether the player has already activated it. The set is bounded and the
-	// per-player activation flags are batch-assembled in one query to avoid N+1. It
-	// returns a query bizerr on store failure.
+	// online time plus optional weekday/time window. Each item carries its GPS
+	// anchor, shared-pool status and whether the player has already activated it.
+	// The set is bounded and the per-player activation flags are batch-assembled in
+	// one query to avoid N+1. It returns a query bizerr on store failure.
 	VisibleNiu(ctx context.Context, playerID int64) (out []*VisibleNiuItem, err error)
-	// Activate activates the target cattle for playerID after LBS distance, daily
-	// limit and no-duplicate validation. The first-activator race is serialized by
-	// a per-cattle row lock inside a transaction; the first activator flips the
-	// cattle to active and arrival order starts at 1. The cattle main card is
-	// returned on success (nil when the cattle has no main card). It returns the
-	// relevant validation bizerr on rejection or a store bizerr on failure.
+	// Activate activates the target cattle for playerID after online visibility,
+	// LBS distance, daily limit and no-duplicate validation. The first-activator
+	// race is serialized by a per-cattle row lock inside a transaction; the first
+	// activator flips the cattle to active and arrival order starts at 1. The
+	// cattle main card is returned on success (nil when the cattle has no main
+	// card). It returns the relevant validation bizerr on rejection or a store
+	// bizerr on failure.
 	Activate(ctx context.Context, playerID int64, in *ActivateInput) (out *ActivateOutput, err error)
 	// Collection returns playerID's personal card collection: the main cards of the
 	// cattle the player has activated, optionally filtered by category, ordered by

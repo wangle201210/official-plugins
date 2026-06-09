@@ -1,4 +1,4 @@
-// cattle_type_test.go verifies the cattle stable enums: type/subtype/stage/status
+// cattle_type_test.go verifies the cattle stable enums: type/subtype/status
 // validation, persisted string form and the subtype/college requirement helpers.
 // These are pure-logic, same-package tests that need no database.
 
@@ -98,41 +98,6 @@ func TestSpecialSubtypeRequiresCollege(t *testing.T) {
 	for _, st := range []SpecialSubtype{SpecialSubtypeContribution, SpecialSubtypeAlumni, SpecialSubtypeSpirit} {
 		if st.requiresCollege() {
 			t.Fatalf("expected subtype %q not to require a linked college", st)
-		}
-	}
-}
-
-// TestReleaseStageValid verifies the allowed release stages pass and any other
-// value is rejected. The empty stage is allowed because release scheduling is
-// optional.
-func TestReleaseStageValid(t *testing.T) {
-	valid := []ReleaseStage{"", ReleaseStageWarmup, ReleaseStageMain, ReleaseStageClimax, ReleaseStageClosing}
-	for _, st := range valid {
-		if !st.valid() {
-			t.Fatalf("expected release stage %q to be valid", st)
-		}
-	}
-
-	invalid := []ReleaseStage{"WARMUP", "main ", "intro", "final"}
-	for _, st := range invalid {
-		if st.valid() {
-			t.Fatalf("expected release stage %q to be invalid", st)
-		}
-	}
-}
-
-// TestReleaseStageString verifies the persisted string form matches the constant
-// value.
-func TestReleaseStageString(t *testing.T) {
-	cases := map[ReleaseStage]string{
-		ReleaseStageWarmup:  "warmup",
-		ReleaseStageMain:    "main",
-		ReleaseStageClimax:  "climax",
-		ReleaseStageClosing: "closing",
-	}
-	for st, want := range cases {
-		if got := st.String(); got != want {
-			t.Fatalf("expected %q, got %q", want, got)
 		}
 	}
 }

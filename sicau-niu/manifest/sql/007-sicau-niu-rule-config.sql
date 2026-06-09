@@ -6,6 +6,14 @@
 -- Dialect: PostgreSQL. Idempotent.
 -- ------------------------------------------------------------
 
+DROP INDEX IF EXISTS idx_sicau_niu_niu_stage_online;
+
+ALTER TABLE IF EXISTS plugin_sicau_niu_niu
+    DROP COLUMN IF EXISTS "release_stage";
+
+CREATE INDEX IF NOT EXISTS idx_sicau_niu_niu_online
+    ON plugin_sicau_niu_niu ("online_at") WHERE "deleted_at" IS NULL;
+
 CREATE TABLE IF NOT EXISTS plugin_sicau_niu_rule_config (
     "id"           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "config_key"   VARCHAR(64) NOT NULL DEFAULT '',

@@ -8,6 +8,7 @@ package activation
 import (
 	"context"
 	"testing"
+	"time"
 
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
@@ -16,11 +17,12 @@ import (
 // stageNiuWithCard inserts a cattle plus its main card and returns the cattle ID.
 func stageNiuWithCard(t *testing.T, ctx context.Context, code, category, title string) int64 {
 	t.Helper()
+	past := time.Now().Add(-time.Hour)
 	niuID := insertNiuRow(t, ctx, do.Niu{
 		Code: code, NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	insertCardRow(t, ctx, do.Card{NiuId: niuID, Category: category, Title: title, Content: "c"})
 	return niuID

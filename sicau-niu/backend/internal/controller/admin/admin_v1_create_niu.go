@@ -19,7 +19,6 @@ func (c *ControllerV1) CreateNiu(ctx context.Context, req *v1.CreateNiuReq) (res
 		CollegeId:       req.CollegeId,
 		Lat:             req.Lat,
 		Lng:             req.Lng,
-		ReleaseStage:    req.ReleaseStage,
 		OnlineAt:        req.OnlineAt,
 		VisibleWeekdays: req.VisibleWeekdays,
 		VisibleStart:    req.VisibleStart,

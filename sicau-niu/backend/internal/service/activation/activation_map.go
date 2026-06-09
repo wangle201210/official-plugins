@@ -1,7 +1,7 @@
 // activation_map.go implements the player-facing visible-cattle map list and the
-// release-schedule visibility computation. Listing pushes the stage/online-time
-// filter to the database, then applies the optional weekday/time-window match to
-// the bounded result set in memory, and batch-assembles the current player's
+// online-time visibility computation. Listing pushes the online-time filter to
+// the database, then applies the optional weekday/time-window match to the
+// bounded result set in memory, and batch-assembles the current player's
 // activation flags in one query keyed by the visible cattle IDs to avoid N+1.
 
 package activation
@@ -47,7 +47,6 @@ func (s *serviceImpl) VisibleNiu(ctx context.Context, playerID int64) ([]*Visibl
 
 	rows := make([]*entitymodel.Niu, 0)
 	err := dao.Niu.Ctx(ctx).
-		WhereNot(dao.Niu.Columns().ReleaseStage, "").
 		Where(dao.Niu.Columns().OnlineAt+" IS NOT NULL").
 		WhereLTE(dao.Niu.Columns().OnlineAt, now).
 		OrderAsc(dao.Niu.Columns().Id).
@@ -59,7 +58,7 @@ func (s *serviceImpl) VisibleNiu(ctx context.Context, playerID int64) ([]*Visibl
 
 	visible := make([]*entitymodel.Niu, 0, len(rows))
 	for _, row := range rows {
-		if isWithinVisibleWindow(row, now) {
+		if niuCurrentlyVisible(row, now) {
 			visible = append(visible, row)
 		}
 	}
@@ -117,10 +116,12 @@ func (s *serviceImpl) batchActivatedByMe(
 	return activated, nil
 }
 
-// isWithinVisibleWindow reports whether the cattle is within its optional visible
-// weekday and time window at now. An empty weekday list or an empty window bound
-// means that constraint is unrestricted.
-func isWithinVisibleWindow(row *entitymodel.Niu, now time.Time) bool {
+// niuCurrentlyVisible reports whether the cattle has reached its online time and
+// is within its optional visible weekday/time window at now.
+func niuCurrentlyVisible(row *entitymodel.Niu, now time.Time) bool {
+	if row == nil || row.OnlineAt == nil || row.OnlineAt.After(now) {
+		return false
+	}
 	if !weekdayMatches(row.VisibleWeekdays, now) {
 		return false
 	}

@@ -29,8 +29,7 @@ type NiuColumns struct {
 	CollegeId       string // Linked college ID for college cattle, 0 means none
 	Lat             string // GPS latitude anchor
 	Lng             string // GPS longitude anchor
-	ReleaseStage    string // Release stage: warmup, main, climax, closing
-	OnlineAt        string // Scheduled online time
+	OnlineAt        string // Scheduled online time; NULL means not yet online
 	VisibleWeekdays string // Optional visible weekdays, e.g. 1,3,5
 	VisibleStart    string // Optional visible window start HH:MM
 	VisibleEnd      string // Optional visible window end HH:MM
@@ -50,7 +49,6 @@ var niuColumns = NiuColumns{
 	CollegeId:       "college_id",
 	Lat:             "lat",
 	Lng:             "lng",
-	ReleaseStage:    "release_stage",
 	OnlineAt:        "online_at",
 	VisibleWeekdays: "visible_weekdays",
 	VisibleStart:    "visible_start",

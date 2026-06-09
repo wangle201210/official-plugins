@@ -90,6 +90,9 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		if txErr != nil {
 			return txErr
 		}
+		if !niuCurrentlyVisible(niuRow, activatedAt) {
+			return bizerr.NewCode(CodeNiuNotVisible)
+		}
 		threshold, txErr := s.activationLBSThreshold(ctx)
 		if txErr != nil {
 			return txErr

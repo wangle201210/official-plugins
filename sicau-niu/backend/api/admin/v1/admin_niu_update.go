@@ -1,5 +1,5 @@
 // admin_niu_update.go defines the request and response DTOs for updating one
-// cattle, including its release-schedule configuration.
+// cattle, including its online-time visibility configuration.
 
 package v1
 
@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UpdateNiuReq is the request for updating one cattle.
 type UpdateNiuReq struct {
-	g.Meta          `path:"/plugins/sicau-niu/admin/niu/{id}" method:"put" tags:"Sicau Niu Admin" summary:"Update cattle" dc:"Update a cattle's attributes and release schedule. The code must stay unique among active cattle; type/subtype/college rules match creation. Status is not changed here. Protected by host unified permission check." permission:"sicau-niu:niu:update"`
+	g.Meta          `path:"/plugins/sicau-niu/admin/niu/{id}" method:"put" tags:"Sicau Niu Admin" summary:"Update cattle" dc:"Update a cattle's attributes and online-time visibility rules. The code must stay unique among active cattle; type/subtype/college rules match creation. Status is not changed here. Protected by host unified permission check." permission:"sicau-niu:niu:update"`
 	Id              int64   `json:"id" v:"required|min:1" dc:"Cattle ID from the path" eg:"1"`
 	Code            string  `json:"code" v:"required|length:1,64" dc:"Cattle serial code; must be unique among active cattle" eg:"N001"`
 	NiuType         string  `json:"niuType" v:"required" dc:"Cattle type: common=普通牛, special=特殊牛" eg:"special"`
@@ -16,8 +16,7 @@ type UpdateNiuReq struct {
 	CollegeId       int64   `json:"collegeId" dc:"Linked college ID; required for college subtype cattle, 0 otherwise" eg:"3"`
 	Lat             float64 `json:"lat" dc:"GPS latitude anchor" eg:"30.123456"`
 	Lng             float64 `json:"lng" dc:"GPS longitude anchor" eg:"103.123456"`
-	ReleaseStage    string  `json:"releaseStage" dc:"Release stage: warmup=预热, main=主体, climax=高潮, closing=收尾; empty when unset" eg:"main"`
-	OnlineAt        *int64  `json:"onlineAt" dc:"Scheduled online time as Unix timestamp in milliseconds; left unchanged when null or non-positive" eg:"1776333600000"`
+	OnlineAt        *int64  `json:"onlineAt" dc:"Scheduled online time as Unix timestamp in milliseconds; null or non-positive clears it and means not yet online" eg:"1776333600000"`
 	VisibleWeekdays string  `json:"visibleWeekdays" dc:"Optional visible weekdays as comma-separated ISO weekday numbers, e.g. 1,3,5; empty clears it" eg:"1,3,5"`
 	VisibleStart    string  `json:"visibleStart" dc:"Optional visible window start as HH:MM; empty clears it" eg:"08:00"`
 	VisibleEnd      string  `json:"visibleEnd" dc:"Optional visible window end as HH:MM; empty clears it" eg:"20:00"`

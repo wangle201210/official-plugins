@@ -18,22 +18,23 @@ SELECT v.name FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_college c WHERE c."name" = v.name AND c."deleted_at" IS NULL);
 
 -- 2) 牛 (niu) — keyed by code; college resolved by name.
-INSERT INTO plugin_sicau_niu_niu ("code","niu_type","special_subtype","name","college_id","lat","lng","status","release_stage")
+INSERT INTO plugin_sicau_niu_niu ("code","niu_type","special_subtype","name","college_id","lat","lng","status","online_at")
 SELECT v.code, v.niu_type, v.subtype, v.name,
        COALESCE((SELECT id FROM plugin_sicau_niu_college WHERE "name" = v.college AND "deleted_at" IS NULL), 0),
-       v.lat, v.lng, v.status, v.stage
+       v.lat, v.lng, v.status,
+       CASE WHEN v.online_now THEN CURRENT_TIMESTAMP - INTERVAL '1 day' ELSE CURRENT_TIMESTAMP + INTERVAL '7 days' END
 FROM (VALUES
-    ('NIU-001','special','college','信工守护牛','信息工程学院',30.7035,103.8290,'active','main'),
-    ('NIU-002','special','college','水院奔流牛','水利水电学院',30.7041,103.8302,'active','main'),
-    ('NIU-003','special','spirit','川农魂','农学院',30.7028,103.8275,'active','climax'),
-    ('NIU-004','special','contribution','奉献牛','动物科技学院',30.7050,103.8311,'active','main'),
-    ('NIU-005','special','alumni','校友纪念牛','经济学院',30.7019,103.8262,'inactive','warmup'),
-    ('NIU-006','common','','望江牛','风景园林学院',30.7063,103.8330,'active','main'),
-    ('NIU-007','common','','耕读牛','食品学院',30.7008,103.8248,'inactive','warmup'),
-    ('NIU-008','common','','勤学牛','林学院',30.7075,103.8345,'active','main'),
-    ('NIU-009','common','','笃行牛','农学院',30.6998,103.8236,'inactive','warmup'),
-    ('NIU-010','common','','至善牛','信息工程学院',30.7088,103.8360,'active','closing')
-) AS v(code,niu_type,subtype,name,college,lat,lng,status,stage)
+    ('NIU-001','special','college','信工守护牛','信息工程学院',30.7035,103.8290,'active',true),
+    ('NIU-002','special','college','水院奔流牛','水利水电学院',30.7041,103.8302,'active',true),
+    ('NIU-003','special','spirit','川农魂','农学院',30.7028,103.8275,'active',true),
+    ('NIU-004','special','contribution','奉献牛','动物科技学院',30.7050,103.8311,'active',true),
+    ('NIU-005','special','alumni','校友纪念牛','经济学院',30.7019,103.8262,'inactive',false),
+    ('NIU-006','common','','望江牛','风景园林学院',30.7063,103.8330,'active',true),
+    ('NIU-007','common','','耕读牛','食品学院',30.7008,103.8248,'inactive',false),
+    ('NIU-008','common','','勤学牛','林学院',30.7075,103.8345,'active',true),
+    ('NIU-009','common','','笃行牛','农学院',30.6998,103.8236,'inactive',false),
+    ('NIU-010','common','','至善牛','信息工程学院',30.7088,103.8360,'active',true)
+) AS v(code,niu_type,subtype,name,college,lat,lng,status,online_now)
 WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_niu n WHERE n."code" = v.code AND n."deleted_at" IS NULL);
 
 -- 3) 铁牛 (iron) — keyed by code.

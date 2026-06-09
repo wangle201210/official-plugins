@@ -1,7 +1,7 @@
 // activation_visible_test.go covers the DB-gated visible-cattle map list: the
-// release-schedule DB-side filter (stage set + online time reached), the
-// in-memory weekday/time-window filter, and the batch-assembled per-player
-// activation flag. Each test stages its own cattle and asserts only on its rows.
+// online-time DB-side filter, the in-memory weekday/time-window filter, and the
+// batch-assembled per-player activation flag. Each test stages its own cattle and
+// asserts only on its rows.
 
 package activation
 
@@ -14,9 +14,10 @@ import (
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 )
 
-// TestVisibleNiuFiltersByReleaseSchedule verifies a cattle with a blank stage or a
-// future online time is excluded while an online, staged cattle is included.
-func TestVisibleNiuFiltersByReleaseSchedule(t *testing.T) {
+// TestVisibleNiuFiltersByOnlineTime verifies a cattle with no online time or a
+// future online time is excluded while a cattle whose online time has arrived is
+// included.
+func TestVisibleNiuFiltersByOnlineTime(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
@@ -27,24 +28,21 @@ func TestVisibleNiuFiltersByReleaseSchedule(t *testing.T) {
 	visibleID := insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-VIS-ON", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		OnlineAt:     &past,
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	// Future online time: hidden.
 	insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-VIS-FUTURE", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		OnlineAt:     &future,
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &future,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
-	// Blank stage: hidden.
+	// Blank online time: hidden.
 	insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-VIS-NOSTAGE", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		OnlineAt: &past,
-		Status:   cattlesvc.NiuStatusInactive.String(),
+		Status: cattlesvc.NiuStatusInactive.String(),
 	})
 
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-vis"})
@@ -53,7 +51,7 @@ func TestVisibleNiuFiltersByReleaseSchedule(t *testing.T) {
 		t.Fatalf("visible niu failed: %v", err)
 	}
 	if len(items) != 1 || items[0].Id != visibleID {
-		t.Fatalf("expected only the online staged cattle, got %+v", items)
+		t.Fatalf("expected only the already-online cattle, got %+v", items)
 	}
 }
 
@@ -69,16 +67,14 @@ func TestVisibleNiuActivatedByMeFlag(t *testing.T) {
 	activatedID := insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-VIS-MINE", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		OnlineAt:     &past,
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	otherID := insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-VIS-OTHER", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		OnlineAt:     &past,
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-vis-mine"})
 	if _, err := svc.Activate(ctx, me, &ActivateInput{NiuId: activatedID, Lat: 30.0, Lng: 103.0}); err != nil {

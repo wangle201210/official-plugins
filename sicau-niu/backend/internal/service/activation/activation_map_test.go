@@ -1,6 +1,6 @@
-// activation_map_test.go covers the release-schedule visibility-window helpers
-// (weekday and time-window matching) used to filter the visible-cattle map list.
-// These are pure-logic tests with no database dependency.
+// activation_map_test.go covers the online-time visibility helpers (weekday and
+// time-window matching) used to filter the visible-cattle map list. These are
+// pure-logic tests with no database dependency.
 
 package activation
 
@@ -49,20 +49,33 @@ func TestTimeWindowMatches(t *testing.T) {
 	}
 }
 
-// TestIsWithinVisibleWindowCombines verifies the combined weekday + time-window
-// gate used per visible cattle.
-func TestIsWithinVisibleWindowCombines(t *testing.T) {
+// TestNiuCurrentlyVisibleCombines verifies the combined online-time, weekday and
+// time-window gate used per visible cattle.
+func TestNiuCurrentlyVisibleCombines(t *testing.T) {
+	past := mondayNoon.Add(-time.Hour)
+	future := mondayNoon.Add(time.Hour)
 	row := &entitymodel.Niu{
+		OnlineAt:        &past,
 		VisibleWeekdays: "1",
 		VisibleStart:    "09:00",
 		VisibleEnd:      "18:00",
 	}
-	if !isWithinVisibleWindow(row, mondayNoon) {
+	if !niuCurrentlyVisible(row, mondayNoon) {
 		t.Fatal("expected Monday noon to be within the visible window")
 	}
 
-	rowWrongDay := &entitymodel.Niu{VisibleWeekdays: "2"}
-	if isWithinVisibleWindow(rowWrongDay, mondayNoon) {
+	rowWrongDay := &entitymodel.Niu{OnlineAt: &past, VisibleWeekdays: "2"}
+	if niuCurrentlyVisible(rowWrongDay, mondayNoon) {
 		t.Fatal("expected a non-matching weekday to be invisible")
+	}
+
+	rowFuture := &entitymodel.Niu{OnlineAt: &future}
+	if niuCurrentlyVisible(rowFuture, mondayNoon) {
+		t.Fatal("expected a future online time to be invisible")
+	}
+
+	rowUnset := &entitymodel.Niu{}
+	if niuCurrentlyVisible(rowUnset, mondayNoon) {
+		t.Fatal("expected an unset online time to be invisible")
 	}
 }

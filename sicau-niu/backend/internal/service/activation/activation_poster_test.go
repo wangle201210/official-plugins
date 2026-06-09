@@ -7,6 +7,7 @@ package activation
 import (
 	"context"
 	"testing"
+	"time"
 
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
@@ -35,11 +36,12 @@ func TestPosterReturnsCompositionData(t *testing.T) {
 		IdentityType: "student",
 	})
 
+	past := time.Now().Add(-time.Hour)
 	niuID := insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-POSTER-1", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	insertQuoteRow(t, ctx, do.Quote{Content: "任重道远", Enabled: 1})
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-poster"})
@@ -73,11 +75,12 @@ func TestPosterRejectedWhenNotActivated(t *testing.T) {
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newPosterServiceForTest(nil)
 
+	past := time.Now().Add(-time.Hour)
 	niuID := insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-POSTER-2", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-noposter"})
 

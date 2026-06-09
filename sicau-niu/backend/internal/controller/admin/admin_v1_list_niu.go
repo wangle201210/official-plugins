@@ -13,11 +13,10 @@ import (
 // college names and card-binding flags.
 func (c *ControllerV1) ListNiu(ctx context.Context, req *v1.ListNiuReq) (res *v1.ListNiuRes, err error) {
 	out, err := c.cattleSvc.ListNiu(ctx, &cattlesvc.ListNiuInput{
-		Keyword:      req.Keyword,
-		NiuType:      req.NiuType,
-		ReleaseStage: req.ReleaseStage,
-		PageNum:      req.PageNum,
-		PageSize:     req.PageSize,
+		Keyword:  req.Keyword,
+		NiuType:  req.NiuType,
+		PageNum:  req.PageNum,
+		PageSize: req.PageSize,
 	})
 	if err != nil {
 		return nil, err

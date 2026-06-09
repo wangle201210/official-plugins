@@ -8,7 +8,7 @@ const pluginID = "sicau-niu";
 // TC-2 covers the sicau-niu operator content-asset CRUD, the primary
 // user-observable path of the C2 niu-catalog-admin change. It exercises the two
 // most stable assets: 金句 (quote: content + enabled) and 普通牛 (common niu:
-// code + GPS + release stage). For each asset it creates a record and asserts it
+// code + optional online time). For each asset it creates a record and asserts it
 // persists in the list, edits it and asserts the updated row, then deletes it and
 // asserts removal. A unique run-scoped suffix keeps each test self-contained and
 // order-independent.

@@ -10,6 +10,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
@@ -32,13 +33,14 @@ func newActivationServiceForTest() *serviceImpl {
 // ID. The anchor is the origin used by the in-range/out-of-range assertions.
 func stageActivatableNiu(t *testing.T, ctx context.Context) int64 {
 	t.Helper()
+	past := time.Now().Add(-time.Hour)
 	return insertNiuRow(t, ctx, do.Niu{
-		Code:         "NIU-ACT-001",
-		NiuType:      cattlesvc.NiuTypeCommon.String(),
-		Lat:          30.0,
-		Lng:          103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		Code:     "NIU-ACT-001",
+		NiuType:  cattlesvc.NiuTypeCommon.String(),
+		Lat:      30.0,
+		Lng:      103.0,
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 }
 
@@ -54,6 +56,35 @@ func TestActivateOutOfRangeRejected(t *testing.T) {
 	// ~0.01 degree latitude offset is well over a kilometer, far outside 50m.
 	_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.01, Lng: 103.0})
 	assertBizCode(t, err, CodeOutOfRange.RuntimeCode())
+
+	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
+	if countErr != nil {
+		t.Fatalf("count activations failed: %v", countErr)
+	}
+	if count != 0 {
+		t.Fatalf("expected no activation rows, got %d", count)
+	}
+}
+
+// TestActivateNotYetOnlineRejected verifies a direct activation call cannot
+// bypass the online-time visibility gate and no activation row is written.
+func TestActivateNotYetOnlineRejected(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	future := time.Now().Add(time.Hour)
+	niuID := insertNiuRow(t, ctx, do.Niu{
+		Code:     "NIU-ACT-FUTURE",
+		NiuType:  cattlesvc.NiuTypeCommon.String(),
+		Lat:      30.0,
+		Lng:      103.0,
+		OnlineAt: &future,
+		Status:   cattlesvc.NiuStatusInactive.String(),
+	})
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-future"})
+
+	_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
+	assertBizCode(t, err, CodeNiuNotVisible.RuntimeCode())
 
 	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
 	if countErr != nil {
@@ -188,11 +219,12 @@ func TestActivateDailyLimitRejected(t *testing.T) {
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
 	firstNiu := stageActivatableNiu(t, ctx)
+	past := time.Now().Add(-time.Hour)
 	secondNiu := insertNiuRow(t, ctx, do.Niu{
 		Code: "NIU-ACT-002", NiuType: cattlesvc.NiuTypeCommon.String(),
 		Lat: 30.0, Lng: 103.0,
-		ReleaseStage: cattlesvc.ReleaseStageMain.String(),
-		Status:       cattlesvc.NiuStatusInactive.String(),
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-daily"})
 

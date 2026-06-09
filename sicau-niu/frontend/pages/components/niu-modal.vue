@@ -22,7 +22,6 @@ interface NiuFormValues {
   collegeId: number | null;
   lat: number | null;
   lng: number | null;
-  releaseStage: string;
   onlineAt: number | null;
   visibleWeekdays: string;
   visibleStart: string;
@@ -139,26 +138,11 @@ const [NiuForm, formApi] = useVbenForm({
       label: "经度",
     },
     {
-      component: "Select",
-      componentProps: {
-        "data-testid": "sicau-niu-niu-stage-select",
-        allowClear: true,
-        options: [
-          { label: "预热", value: "warmup" },
-          { label: "主体", value: "main" },
-          { label: "高潮", value: "climax" },
-          { label: "收尾", value: "closing" },
-        ],
-        placeholder: "请选择放出阶段",
-      },
-      fieldName: "releaseStage",
-      label: "放出阶段",
-    },
-    {
       component: "DatePicker",
       componentProps: {
         "data-testid": "sicau-niu-niu-online-input",
         class: "w-full",
+        placeholder: "留空表示暂不上线",
         showTime: true,
         valueFormat: "x",
       },
@@ -243,7 +227,6 @@ async function handleConfirm() {
       collegeId: isCollege ? (values.collegeId ?? 0) : 0,
       lat: values.lat ?? 0,
       lng: values.lng ?? 0,
-      releaseStage: values.releaseStage ?? "",
       onlineAt:
         values.onlineAt === null || values.onlineAt === undefined
           ? null
@@ -283,7 +266,6 @@ async function handleOpenChange(open: boolean) {
       collegeId: detail.collegeId > 0 ? detail.collegeId : null,
       lat: detail.lat,
       lng: detail.lng,
-      releaseStage: detail.releaseStage,
       onlineAt: detail.onlineAt,
       visibleWeekdays: detail.visibleWeekdays,
       visibleStart: detail.visibleStart,

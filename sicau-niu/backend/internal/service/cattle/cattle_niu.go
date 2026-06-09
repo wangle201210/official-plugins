@@ -2,9 +2,8 @@
 // cascade-deletion. Listing runs DB-side filtering/sorting/pagination and then
 // batch-assembles the linked college names and main-card binding flags in two
 // bounded queries to avoid N+1. Mutations enforce code uniqueness, type/subtype
-// and stage enum validation and college-existence validation with bounded
-// queries. Deletion soft-deletes the cattle and its unique main card in one
-// transaction.
+// and college-existence validation with bounded queries. Deletion soft-deletes
+// the cattle and its unique main card in one transaction.
 
 package cattle
 
@@ -28,8 +27,6 @@ type ListNiuInput struct {
 	Keyword string
 	// NiuType optionally filters cattle by type; empty lists all.
 	NiuType string
-	// ReleaseStage optionally filters cattle by release stage; empty lists all.
-	ReleaseStage string
 	// PageNum is the requested page number; defaults to 1 when non-positive.
 	PageNum int
 	// PageSize is the requested page size; defaults to 10 and is capped at 100.
@@ -56,7 +53,6 @@ type NiuItem struct {
 	CollegeName     string
 	Lat             float64
 	Lng             float64
-	ReleaseStage    string
 	OnlineAt        *int64
 	VisibleWeekdays string
 	VisibleStart    string
@@ -77,7 +73,6 @@ type NiuMutateInput struct {
 	CollegeId       int64
 	Lat             float64
 	Lng             float64
-	ReleaseStage    string
 	OnlineAt        *int64
 	VisibleWeekdays string
 	VisibleStart    string
@@ -99,9 +94,6 @@ func (s *serviceImpl) ListNiu(ctx context.Context, in *ListNiuInput) (*ListNiuOu
 		}
 		if niuType := strings.TrimSpace(in.NiuType); niuType != "" {
 			model = model.Where(do.Niu{NiuType: niuType})
-		}
-		if stage := strings.TrimSpace(in.ReleaseStage); stage != "" {
-			model = model.Where(do.Niu{ReleaseStage: stage})
 		}
 	}
 
@@ -253,7 +245,6 @@ func (s *serviceImpl) assembleNiuItems(ctx context.Context, rows []*entitymodel.
 			CollegeName:     collegeNames[row.CollegeId],
 			Lat:             row.Lat,
 			Lng:             row.Lng,
-			ReleaseStage:    row.ReleaseStage,
 			OnlineAt:        apitime.Milli(row.OnlineAt),
 			VisibleWeekdays: row.VisibleWeekdays,
 			VisibleStart:    row.VisibleStart,
@@ -335,7 +326,7 @@ func distinctPositive(rows []*entitymodel.Niu, key func(*entitymodel.Niu) int64)
 }
 
 // validateNiu validates the mutate input and builds the persisted DO. It enforces
-// code presence/uniqueness, type/subtype/stage enum rules and college-existence
+// code presence/uniqueness, type/subtype rules and college-existence
 // rules. excludeID is the cattle excluded from the code-uniqueness check on
 // update so an unchanged code does not collide with itself.
 func (s *serviceImpl) validateNiu(ctx context.Context, in *NiuMutateInput, excludeID int64) (do.Niu, error) {
@@ -350,10 +341,6 @@ func (s *serviceImpl) validateNiu(ctx context.Context, in *NiuMutateInput, exclu
 	niuType := NiuType(strings.TrimSpace(in.NiuType))
 	if !niuType.valid() {
 		return do.Niu{}, bizerr.NewCode(CodeNiuTypeInvalid)
-	}
-	stage := ReleaseStage(strings.TrimSpace(in.ReleaseStage))
-	if !stage.valid() {
-		return do.Niu{}, bizerr.NewCode(CodeNiuStageInvalid)
 	}
 
 	subtype, name, collegeID, err := s.validateNiuTypeShape(ctx, niuType, in)
@@ -377,7 +364,6 @@ func (s *serviceImpl) validateNiu(ctx context.Context, in *NiuMutateInput, exclu
 		CollegeId:       collegeID,
 		Lat:             in.Lat,
 		Lng:             in.Lng,
-		ReleaseStage:    stage.String(),
 		OnlineAt:        milliToTime(in.OnlineAt),
 		VisibleWeekdays: strings.TrimSpace(in.VisibleWeekdays),
 		VisibleStart:    strings.TrimSpace(in.VisibleStart),

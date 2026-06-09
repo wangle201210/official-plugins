@@ -21,8 +21,7 @@ type Niu struct {
 	CollegeId       any        // Linked college ID for college cattle, 0 means none
 	Lat             any        // GPS latitude anchor
 	Lng             any        // GPS longitude anchor
-	ReleaseStage    any        // Release stage: warmup, main, climax, closing
-	OnlineAt        *time.Time // Scheduled online time
+	OnlineAt        *time.Time // Scheduled online time; NULL means not yet online
 	VisibleWeekdays any        // Optional visible weekdays, e.g. 1,3,5
 	VisibleStart    any        // Optional visible window start HH:MM
 	VisibleEnd      any        // Optional visible window end HH:MM
