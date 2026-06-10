@@ -33,11 +33,13 @@ func (s *serviceImpl) wannaT(ctx context.Context) error {
 // newContainerAccount refreshes account counters for every container.
 func (s *serviceImpl) newContainerAccount(ctx context.Context) error {
 	tenantID := s.tenantID(ctx)
+	startAt := time.Now()
 	stats, err := executeContainerAccountJob(ctx, tenantID)
 	if err != nil {
 		return err
 	}
 	logger.Infof(ctx, "uidentity container account counts refreshed tenant=%d updated=%d", tenantID, stats.updateNum)
+	s.recordJobLog(ctx, jobNewContainerAccount, startAt, stats, nil)
 	return nil
 }
 
@@ -47,11 +49,13 @@ func (s *serviceImpl) changeContainer(ctx context.Context) error {
 	tenantID := s.tenantID(ctx)
 	mover, cleanup := s.changeContainerMover(ctx)
 	defer cleanup()
+	startAt := time.Now()
 	stats, err := executeChangeContainerJob(ctx, tenantID, time.Now().Year(), mover)
 	if err != nil {
 		return err
 	}
 	logger.Infof(ctx, "uidentity graduation container changed tenant=%d updated=%d failed=%d", tenantID, stats.updateNum, stats.errNum)
+	s.recordJobLog(ctx, jobChangeContainer, startAt, stats, nil)
 	return nil
 }
 

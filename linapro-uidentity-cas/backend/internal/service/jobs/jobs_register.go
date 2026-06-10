@@ -6,6 +6,7 @@ package jobs
 import (
 	"context"
 
+	"lina-core/pkg/logger"
 	"lina-core/pkg/plugin/pluginhost"
 )
 
@@ -48,12 +49,30 @@ func (s *serviceImpl) Register(ctx context.Context, registrar pluginhost.CronReg
 			declaration.name,
 			declaration.displayName,
 			declaration.description,
-			declaration.handler,
+			s.guardConcurrency(registrar, declaration.name, declaration.handler),
 		); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// guardConcurrency wraps one cron handler so it runs at most once at a time,
+// replicating the old per-job Redis lock. It first defers to a single primary
+// node in a multi-node deployment, then takes a per-job in-process lock so a
+// long run is not overlapped by the next trigger on the same node.
+func (s *serviceImpl) guardConcurrency(registrar pluginhost.CronRegistrar, name string, handler pluginhost.CronJobHandler) pluginhost.CronJobHandler {
+	return func(ctx context.Context) error {
+		if registrar != nil && !registrar.IsPrimaryNode() {
+			return nil
+		}
+		if _, busy := s.running.LoadOrStore(name, struct{}{}); busy {
+			logger.Warningf(ctx, "uidentity job %s skipped: previous run still in progress", name)
+			return nil
+		}
+		defer s.running.Delete(name)
+		return handler(ctx)
+	}
 }
 
 func (s *serviceImpl) declarations() []managedJobDeclaration {

@@ -89,7 +89,7 @@ type oracleDept struct {
 }
 
 func (s *serviceImpl) syncStudent(ctx context.Context) error {
-	return s.syncOracleStudentInfo(ctx, oracleTableBZKS, s.studentInput)
+	return s.syncOracleStudentInfo(ctx, jobSyncStudent, oracleTableBZKS, s.studentInput)
 }
 
 func (s *serviceImpl) syncStudentYJS(ctx context.Context) error {
@@ -111,6 +111,7 @@ func (s *serviceImpl) syncDept(ctx context.Context) error {
 	}
 	pageSize := defaultPageSize
 	tenantID := s.tenantID(ctx)
+	startAt := time.Now()
 	stats := jobRunStats{}
 	for page := 0; ; page++ {
 		var rows []*oracleDept
@@ -128,10 +129,11 @@ func (s *serviceImpl) syncDept(ctx context.Context) error {
 		}
 	}
 	logger.Infof(ctx, "uidentity oracle dept sync finished tenant=%d stats=%v", tenantID, sqlLogFields(stats))
+	s.recordJobLog(ctx, jobSyncDept, startAt, stats, nil)
 	return nil
 }
 
-func (s *serviceImpl) syncOracleStudentInfo(ctx context.Context, table string, convert func(*oracleStudentInfo) *accountSyncInput) error {
+func (s *serviceImpl) syncOracleStudentInfo(ctx context.Context, jobName string, table string, convert func(*oracleStudentInfo) *accountSyncInput) error {
 	db, err := s.oracleDB(ctx)
 	if err != nil {
 		return err
@@ -140,6 +142,7 @@ func (s *serviceImpl) syncOracleStudentInfo(ctx context.Context, table string, c
 	if err != nil {
 		return err
 	}
+	startAt := time.Now()
 	stats := jobRunStats{}
 	for page := 0; ; page++ {
 		var rows []*oracleStudentInfo
@@ -163,6 +166,7 @@ func (s *serviceImpl) syncOracleStudentInfo(ctx context.Context, table string, c
 		}
 	}
 	logger.Infof(ctx, "uidentity oracle student sync finished stats=%v", sqlLogFields(stats))
+	s.recordJobLog(ctx, jobName, startAt, stats, nil)
 	return nil
 }
 
@@ -175,6 +179,7 @@ func (s *serviceImpl) syncOracleStudentYJS(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	startAt := time.Now()
 	stats := jobRunStats{}
 	for page := 0; ; page++ {
 		var rows []*oracleStudentYJS
@@ -198,6 +203,7 @@ func (s *serviceImpl) syncOracleStudentYJS(ctx context.Context) error {
 		}
 	}
 	logger.Infof(ctx, "uidentity oracle graduate student sync finished stats=%v", sqlLogFields(stats))
+	s.recordJobLog(ctx, jobSyncStudentYJS, startAt, stats, nil)
 	return nil
 }
 
@@ -210,6 +216,7 @@ func (s *serviceImpl) syncOracleStudentWJ(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	startAt := time.Now()
 	stats := jobRunStats{}
 	for page := 0; ; page++ {
 		var rows []*oracleStudentWJ
@@ -233,6 +240,7 @@ func (s *serviceImpl) syncOracleStudentWJ(ctx context.Context) error {
 		}
 	}
 	logger.Infof(ctx, "uidentity oracle online student sync finished stats=%v", sqlLogFields(stats))
+	s.recordJobLog(ctx, jobSyncStudentWJ, startAt, stats, nil)
 	return nil
 }
 
@@ -245,6 +253,7 @@ func (s *serviceImpl) syncOracleStaff(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	startAt := time.Now()
 	stats := jobRunStats{}
 	for page := 0; ; page++ {
 		var rows []*oracleStaffJZG
@@ -268,6 +277,7 @@ func (s *serviceImpl) syncOracleStaff(ctx context.Context) error {
 		}
 	}
 	logger.Infof(ctx, "uidentity oracle staff sync finished stats=%v", sqlLogFields(stats))
+	s.recordJobLog(ctx, jobSyncJzg, startAt, stats, nil)
 	return nil
 }
 

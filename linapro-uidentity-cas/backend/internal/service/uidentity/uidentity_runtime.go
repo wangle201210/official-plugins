@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/mssola/useragent"
 
 	"lina-core/pkg/bizerr"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
@@ -273,8 +274,8 @@ func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.A
 	accountBlacklistCount, err := dao.AccountAppBlacklist.Ctx(ctx).
 		Where(dao.AccountAppBlacklist.Columns().AccountId, account.Id).
 		Where(dao.AccountAppBlacklist.Columns().AppId, app.Id).
-		Where("("+dao.AccountAppBlacklist.Columns().EffectAt+" IS NULL OR "+dao.AccountAppBlacklist.Columns().EffectAt+" <= ?)", now).
-		Where("("+dao.AccountAppBlacklist.Columns().ExpireAt+" IS NULL OR "+dao.AccountAppBlacklist.Columns().ExpireAt+" >= ?)", now).
+		Where("("+dao.AccountAppBlacklist.Columns().EffectAt+" IS NULL OR "+dao.AccountAppBlacklist.Columns().EffectAt+" < ?)", now).
+		Where("("+dao.AccountAppBlacklist.Columns().ExpireAt+" IS NULL OR "+dao.AccountAppBlacklist.Columns().ExpireAt+" > ?)", now).
 		Count()
 	if err != nil {
 		return err
@@ -297,8 +298,8 @@ func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.A
 	groupBlacklistCount, err := dao.GroupAppBlacklist.Ctx(ctx).
 		WhereIn(groupBlackColumns.GroupId, groupIDs).
 		Where(groupBlackColumns.AppId, app.Id).
-		Where("("+groupBlackColumns.EffectAt+" IS NULL OR "+groupBlackColumns.EffectAt+" <= ?)", now).
-		Where("("+groupBlackColumns.ExpireAt+" IS NULL OR "+groupBlackColumns.ExpireAt+" >= ?)", now).
+		Where("("+groupBlackColumns.EffectAt+" IS NULL OR "+groupBlackColumns.EffectAt+" < ?)", now).
+		Where("("+groupBlackColumns.ExpireAt+" IS NULL OR "+groupBlackColumns.ExpireAt+" > ?)", now).
 		Count()
 	if err != nil {
 		return err
@@ -312,7 +313,7 @@ func (s *serviceImpl) ensureRuntimeAccess(ctx context.Context, account *entity.A
 func (s *serviceImpl) recordCASLogin(ctx context.Context, accountID int64, appID int64, loginType string, message string) error {
 	now := time.Now()
 	actorID := s.actorID(ctx)
-	_, err := dao.CasLoginLog.Ctx(ctx).Data(do.CasLoginLog{
+	data := do.CasLoginLog{
 		AccountId:       accountID,
 		ChoiceAccountId: accountID,
 		AppId:           appID,
@@ -321,6 +322,24 @@ func (s *serviceImpl) recordCASLogin(ctx context.Context, accountID int64, appID
 		LoginType:       loginType,
 		CreateBy:        actorID,
 		UpdateBy:        actorID,
-	}).Insert()
+	}
+	fillCASLoginRequestFields(ctx, &data)
+	_, err := dao.CasLoginLog.Ctx(ctx).Data(data).Insert()
 	return err
+}
+
+// fillCASLoginRequestFields populates ip/browser/os/platform/remark from the
+// current request, matching the old LoginPreLog user-agent capture.
+func fillCASLoginRequestFields(ctx context.Context, data *do.CasLoginLog) {
+	r := g.RequestFromCtx(ctx)
+	if r == nil || data == nil {
+		return
+	}
+	ua := useragent.New(r.GetHeader("User-Agent"))
+	browserName, browserVersion := ua.Browser()
+	data.Ipaddr = r.GetClientIp()
+	data.Browser = strings.TrimSpace(browserName + " " + browserVersion)
+	data.Os = ua.OS()
+	data.Platform = ua.Platform()
+	data.Remark = r.GetHeader("User-Agent")
 }

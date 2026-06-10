@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	passwordChallengeTTL        = 15 * time.Minute
+	passwordChallengeTTL        = 5 * time.Minute
 	passwordChallengeCodePrefix = "pwd_challenge:"
 	passwordVerifiedDataPrefix  = "pwd_verified:"
 	passwordFailureCodePrefix   = "cas:pwd:errnum:"

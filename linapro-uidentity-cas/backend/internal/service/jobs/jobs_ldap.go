@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-ldap/ldap/v3"
 
@@ -39,6 +40,7 @@ func (s *serviceImpl) syncMysql2LDAP(ctx context.Context) error {
 	}
 	defer conn.Close()
 	tenantID := s.tenantID(ctx)
+	startAt := time.Now()
 	stats := jobRunStats{}
 	for page := 0; ; page++ {
 		accounts, err := ldapAccountPage(ctx, tenantID, page, cfg.pageSize)
@@ -73,6 +75,7 @@ func (s *serviceImpl) syncMysql2LDAP(ctx context.Context) error {
 		}
 	}
 	logger.Infof(ctx, "uidentity ldap sync finished tenant=%d stats=%v", tenantID, sqlLogFields(stats))
+	s.recordJobLog(ctx, jobSyncMysql2LDAP, startAt, stats, nil)
 	return nil
 }
 

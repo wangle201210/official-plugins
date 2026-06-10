@@ -12,8 +12,9 @@ import (
 )
 
 type fakeCronRegistrar struct {
-	names    []string
-	handlers map[string]pluginhost.CronJobHandler
+	names      []string
+	handlers   map[string]pluginhost.CronJobHandler
+	notPrimary bool
 }
 
 func (r *fakeCronRegistrar) Add(ctx context.Context, pattern string, name string, handler pluginhost.CronJobHandler) error {
@@ -30,7 +31,7 @@ func (r *fakeCronRegistrar) AddWithMetadata(_ context.Context, _ string, name st
 }
 
 func (r *fakeCronRegistrar) IsPrimaryNode() bool {
-	return true
+	return !r.notPrimary
 }
 
 func (r *fakeCronRegistrar) Services() pluginhost.Services {

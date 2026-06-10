@@ -6,6 +6,7 @@ package jobs
 
 import (
 	"context"
+	"sync"
 
 	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-core/pkg/plugin/capability/plugincap"
@@ -29,6 +30,11 @@ type serviceImpl struct {
 	bizCtxSvc    bizctxcap.Service
 	configSvc    plugincap.ConfigService
 	tenantFilter tenantcap.PluginTableFilterService
+
+	// running tracks per-job in-process execution so a slow run is never
+	// overlapped by the next trigger on this node, mirroring the old per-job
+	// Redis lock's skip-if-held behavior.
+	running sync.Map
 }
 
 // Ensure serviceImpl implements Service.

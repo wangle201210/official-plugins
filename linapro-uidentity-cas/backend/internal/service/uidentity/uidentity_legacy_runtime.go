@@ -9,9 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/util/gconv"
-	"github.com/mssola/useragent"
 
 	"lina-core/pkg/apitime"
 	"lina-core/pkg/bizerr"
@@ -697,7 +695,7 @@ func (s *serviceImpl) accessibleAccounts(ctx context.Context, account *entity.Ac
 		Fields(roleCols.GiveAccountId).
 		Where(roleCols.EmpoweredAccountId, account.Id).
 		Where(roleCols.AppId, app.Id).
-		Where("("+roleCols.ExpireAt+" IS NULL OR "+roleCols.ExpireAt+" >= ?)", now).
+		Where(roleCols.ExpireAt+" > ?", now).
 		All()
 	if err != nil {
 		return nil, err
@@ -758,8 +756,8 @@ func (s *serviceImpl) blockedAccountIDSet(ctx context.Context, accountIDs []int6
 		Fields(cols.AccountId).
 		WhereIn(cols.AccountId, accountIDs).
 		Where(cols.AppId, appID).
-		Where("("+cols.EffectAt+" IS NULL OR "+cols.EffectAt+" <= ?)", now).
-		Where("("+cols.ExpireAt+" IS NULL OR "+cols.ExpireAt+" >= ?)", now).
+		Where("("+cols.EffectAt+" IS NULL OR "+cols.EffectAt+" < ?)", now).
+		Where("("+cols.ExpireAt+" IS NULL OR "+cols.ExpireAt+" > ?)", now).
 		All()
 	if err != nil {
 		return nil, err
@@ -796,8 +794,8 @@ func (s *serviceImpl) groupBlockedAccountIDSet(ctx context.Context, accountIDs [
 		Fields(groupCols.GroupId).
 		WhereIn(groupCols.GroupId, uniqueInt64s(groupIDs)).
 		Where(groupCols.AppId, appID).
-		Where("("+groupCols.EffectAt+" IS NULL OR "+groupCols.EffectAt+" <= ?)", now).
-		Where("("+groupCols.ExpireAt+" IS NULL OR "+groupCols.ExpireAt+" >= ?)", now).
+		Where("("+groupCols.EffectAt+" IS NULL OR "+groupCols.EffectAt+" < ?)", now).
+		Where("("+groupCols.ExpireAt+" IS NULL OR "+groupCols.ExpireAt+" > ?)", now).
 		All()
 	if err != nil {
 		return nil, err
@@ -869,7 +867,7 @@ func (s *serviceImpl) hasDelegatedAccess(ctx context.Context, ownerID int64, sel
 		Where(dao.AccountAppRole.Columns().EmpoweredAccountId, ownerID).
 		Where(dao.AccountAppRole.Columns().GiveAccountId, selectedID).
 		Where(dao.AccountAppRole.Columns().AppId, appID).
-		Where("("+dao.AccountAppRole.Columns().ExpireAt+" IS NULL OR "+dao.AccountAppRole.Columns().ExpireAt+" >= ?)", now).
+		Where(dao.AccountAppRole.Columns().ExpireAt+" > ?", now).
 		Count()
 	if err != nil {
 		return false, err
@@ -890,14 +888,6 @@ func (s *serviceImpl) recordCASLoginWithID(ctx context.Context, accountID int64,
 		CreateBy:        actorID,
 		UpdateBy:        actorID,
 	}
-	if r := g.RequestFromCtx(ctx); r != nil {
-		ua := useragent.New(r.GetHeader("User-Agent"))
-		browserName, browserVersion := ua.Browser()
-		data.Ipaddr = r.GetClientIp()
-		data.Browser = strings.TrimSpace(browserName + " " + browserVersion)
-		data.Os = ua.OS()
-		data.Platform = ua.Platform()
-		data.Remark = r.GetHeader("User-Agent")
-	}
+	fillCASLoginRequestFields(ctx, &data)
 	return dao.CasLoginLog.Ctx(ctx).Data(data).InsertAndGetId()
 }

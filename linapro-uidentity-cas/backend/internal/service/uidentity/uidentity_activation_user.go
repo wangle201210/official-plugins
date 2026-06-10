@@ -792,8 +792,8 @@ func (s *serviceImpl) blockedApplicationIDs(ctx context.Context, accountID int64
 	accountRows, err := dao.AccountAppBlacklist.Ctx(ctx).
 		Fields(accountCols.AppId).
 		Where(accountCols.AccountId, accountID).
-		Where("("+accountCols.EffectAt+" IS NULL OR "+accountCols.EffectAt+" <= ?)", now).
-		Where("("+accountCols.ExpireAt+" IS NULL OR "+accountCols.ExpireAt+" >= ?)", now).
+		Where("("+accountCols.EffectAt+" IS NULL OR "+accountCols.EffectAt+" < ?)", now).
+		Where("("+accountCols.ExpireAt+" IS NULL OR "+accountCols.ExpireAt+" > ?)", now).
 		All()
 	if err != nil {
 		return nil, err
@@ -813,8 +813,8 @@ func (s *serviceImpl) blockedApplicationIDs(ctx context.Context, accountID int64
 		groupRows, err := dao.GroupAppBlacklist.Ctx(ctx).
 			Fields(groupCols.AppId).
 			WhereIn(groupCols.GroupId, groupIDs).
-			Where("("+groupCols.EffectAt+" IS NULL OR "+groupCols.EffectAt+" <= ?)", now).
-			Where("("+groupCols.ExpireAt+" IS NULL OR "+groupCols.ExpireAt+" >= ?)", now).
+			Where("("+groupCols.EffectAt+" IS NULL OR "+groupCols.EffectAt+" < ?)", now).
+			Where("("+groupCols.ExpireAt+" IS NULL OR "+groupCols.ExpireAt+" > ?)", now).
 			All()
 		if err != nil {
 			return nil, err

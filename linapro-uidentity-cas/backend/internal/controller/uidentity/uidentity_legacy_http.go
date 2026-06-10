@@ -463,6 +463,11 @@ func (c *LegacyController) CasGetLoginQRResult(r *ghttp.Request) {
 		legacyError(r, err)
 		return
 	}
+	if out != nil {
+		// The old GetCasLoginQrRes set the TGT cookie once the QR login
+		// resolved to a logged-in session.
+		legacySetTGTCookie(r, out.Login)
+	}
 	legacyOKWithMsg(r, legacyWechatLoginResultPayload(out), "ok")
 }
 
