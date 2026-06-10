@@ -421,5 +421,6 @@ func legacySystemOrderFieldNames() []string {
 		"userIdOrder", "usernameOrder", "configNameOrder", "configKeyOrder", "configTypeOrder",
 		"titleOrder", "pathOrder", "postNameOrder", "postCodeOrder", "dictIdOrder", "dictTypeOrder",
 		"tableIdOrder", "tableNameOrder", "columnIdOrder", "columnNameOrder",
+		"roleIdOrder", "roleNameOrder",
 	)
 }
