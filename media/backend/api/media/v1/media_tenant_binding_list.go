@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 type ListTenantBindingsReq struct {
 	g.Meta   `path:"/media/tenant-bindings" method:"get" tags:"策略绑定" summary:"查询租户策略绑定列表" dc:"分页查询租户ID与媒体策略的绑定关系。" permission:"media:management:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码" eg:"1"`
-	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数" eg:"10"`
+	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:10000" dc:"每页条数，最大10000" eg:"10"`
 	Keyword  string `json:"keyword" dc:"按租户ID模糊筛选" eg:"tenant-a"`
 }
 

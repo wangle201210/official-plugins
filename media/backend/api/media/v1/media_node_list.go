@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 type ListNodesReq struct {
 	g.Meta   `path:"/media/nodes" method:"get" tags:"节点管理" summary:"查询节点列表" dc:"分页查询节点配置，支持按节点名称、节点编号或网关地址模糊筛选。" permission:"media:management:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码" eg:"1"`
-	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数" eg:"10"`
+	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:10000" dc:"每页条数，最大10000" eg:"10"`
 	Keyword  string `json:"keyword" dc:"按节点编号、名称或网关地址模糊筛选" eg:"1"`
 }
 

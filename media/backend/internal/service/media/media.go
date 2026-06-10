@@ -28,12 +28,16 @@ type Service interface {
 	DeleteStrategy(ctx context.Context, id int64) error
 	// ListDeviceBindings returns paged device strategy bindings.
 	ListDeviceBindings(ctx context.Context, in ListBindingsInput) (*ListBindingsOutput, error)
+	// ListStrategyDeviceBindings returns paged device bindings for one strategy ID.
+	ListStrategyDeviceBindings(ctx context.Context, in ListStrategyDeviceBindingsInput) (*ListBindingsOutput, error)
 	// SaveDeviceBinding creates or updates one device strategy binding.
 	SaveDeviceBinding(ctx context.Context, in DeviceBindingMutationInput) (*DeviceBindingMutationOutput, error)
 	// DeleteDeviceBinding deletes one device strategy binding.
 	DeleteDeviceBinding(ctx context.Context, deviceID string) (*DeviceBindingMutationOutput, error)
 	// ListTenantBindings returns paged tenant strategy bindings.
 	ListTenantBindings(ctx context.Context, in ListBindingsInput) (*ListBindingsOutput, error)
+	// ListStrategyTenantBindings returns paged tenant bindings for one strategy ID.
+	ListStrategyTenantBindings(ctx context.Context, in ListStrategyTenantBindingsInput) (*ListBindingsOutput, error)
 	// SaveTenantBinding creates or updates one tenant strategy binding.
 	SaveTenantBinding(ctx context.Context, in TenantBindingMutationInput) (*TenantBindingMutationOutput, error)
 	// DeleteTenantBinding deletes one tenant strategy binding.

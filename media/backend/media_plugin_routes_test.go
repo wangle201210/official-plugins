@@ -24,6 +24,7 @@ import (
 	"lina-core/pkg/plugin/capability/cachecap"
 	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-core/pkg/plugin/pluginhost"
+	mediav1 "lina-plugin-media/backend/api/media/v1"
 	mediaopenv1 "lina-plugin-media/backend/api/mediaopen/v1"
 )
 
@@ -636,6 +637,34 @@ func TestMediaOpenRequestDTOsDeclarePublicAccess(t *testing.T) {
 	}
 }
 
+// TestMediaManagementListDTOsAllowTenThousandPageSize verifies API validation matches service paging bounds.
+func TestMediaManagementListDTOsAllowTenThousandPageSize(t *testing.T) {
+	requests := []interface{}{
+		mediav1.ListAliasesReq{},
+		mediav1.ListDeviceBindingsReq{},
+		mediav1.ListDeviceNodesReq{},
+		mediav1.ListNodesReq{},
+		mediav1.ListStrategiesReq{},
+		mediav1.ListStrategyDeviceBindingsReq{},
+		mediav1.ListStrategyTenantBindingsReq{},
+		mediav1.ListTenantBindingsReq{},
+		mediav1.ListTenantDeviceBindingsReq{},
+		mediav1.ListTenantStreamConfigsReq{},
+		mediav1.ListTenantWhitesReq{},
+	}
+	for _, request := range requests {
+		reqType := reflect.TypeOf(request)
+		pageSizeField, ok := reqType.FieldByName("PageSize")
+		if !ok {
+			t.Fatalf("expected %s to expose PageSize", reqType.Name())
+		}
+		validationTag := string(pageSizeField.Tag)
+		if !strings.Contains(validationTag, "max:10000") {
+			t.Fatalf("expected %s.PageSize to allow max 10000, got tag=%s", reqType.Name(), validationTag)
+		}
+	}
+}
+
 // TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes verifies the plugin-owned
 // documentation endpoint does not depend on lina-core's global API document.
 func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
@@ -729,6 +758,12 @@ func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
 			"post": "流别名",
 		},
 		"/api/v1/media/device-bindings": {
+			"get": "策略绑定",
+		},
+		"/api/v1/media/strategies/{strategyId}/device-bindings": {
+			"get": "策略绑定",
+		},
+		"/api/v1/media/strategies/{strategyId}/tenant-bindings": {
 			"get": "策略绑定",
 		},
 		"/api/v1/media/tenant-stream-configs": {
@@ -924,6 +959,132 @@ func TestMediaManagementRoutesPreferHostAuth(t *testing.T) {
 			tenancyCalls.Load(),
 			permissionCalls.Load(),
 		)
+	}
+}
+
+// TestMediaManagementRoutesListStrategyTenantBindingsOnlyReadsTenantBindings verifies strategy lookup excludes tenant-device bindings.
+func TestMediaManagementRoutesListStrategyTenantBindingsOnlyReadsTenantBindings(t *testing.T) {
+	setMediaRouteTietaMock(t, true)
+	setupMediaRouteSQLite(t)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_strategy_tenant (tenant_id, strategy_id) VALUES
+			('tenant-a', 1),
+			('tenant-b', 1),
+			('tenant-c', 2)`,
+	); err != nil {
+		t.Fatalf("insert tenant binding fixtures: %v", err)
+	}
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_strategy_device_tenant (tenant_id, device_id, strategy_id) VALUES
+			('tenant-device-only', '34020000001320000001', 1)`,
+	); err != nil {
+		t.Fatalf("insert tenant-device binding fixture: %v", err)
+	}
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/media/strategies/1/tenant-bindings?pageNum=1&pageSize=10",
+		"",
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected strategy tenant binding route to pass, got status=%d body=%s", response.status, response.body)
+	}
+	var out mediav1.ListStrategyTenantBindingsRes
+	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+		t.Fatalf("expected strategy tenant binding JSON response, got body=%s err=%v", response.body, err)
+	}
+	if out.Total != 2 || len(out.List) != 2 {
+		t.Fatalf("expected only two tenant binding rows, got total=%d list=%+v", out.Total, out.List)
+	}
+	if out.List[0].TenantId != "tenant-a" || out.List[1].TenantId != "tenant-b" {
+		t.Fatalf("expected tenant bindings ordered by tenant ID, got %+v", out.List)
+	}
+	for _, item := range out.List {
+		if item.StrategyId != 1 {
+			t.Fatalf("expected strategy ID 1 rows only, got %+v", item)
+		}
+		if item.TenantId == "tenant-device-only" {
+			t.Fatalf("expected tenant-device strategy binding rows to be excluded, got %+v", out.List)
+		}
+	}
+}
+
+// TestMediaManagementRoutesListStrategyDeviceBindingsOnlyReadsDeviceBindings verifies strategy lookup excludes tenant-device bindings.
+func TestMediaManagementRoutesListStrategyDeviceBindingsOnlyReadsDeviceBindings(t *testing.T) {
+	setMediaRouteTietaMock(t, true)
+	setupMediaRouteSQLite(t)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	))
+	defer shutdown()
+
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_strategy_device (device_id, strategy_id) VALUES
+			('34020000001320000001', 1),
+			('34020000001320000002', 1),
+			('34020000001320000003', 2)`,
+	); err != nil {
+		t.Fatalf("insert device binding fixtures: %v", err)
+	}
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_strategy_device_tenant (tenant_id, device_id, strategy_id) VALUES
+			('tenant-a', '34020000001320000999', 1)`,
+	); err != nil {
+		t.Fatalf("insert tenant-device binding fixture: %v", err)
+	}
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/media/strategies/1/device-bindings?pageNum=1&pageSize=10",
+		"",
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected strategy device binding route to pass, got status=%d body=%s", response.status, response.body)
+	}
+	var out mediav1.ListStrategyDeviceBindingsRes
+	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+		t.Fatalf("expected strategy device binding JSON response, got body=%s err=%v", response.body, err)
+	}
+	if out.Total != 2 || len(out.List) != 2 {
+		t.Fatalf("expected only two device binding rows, got total=%d list=%+v", out.Total, out.List)
+	}
+	if out.List[0].DeviceId != "34020000001320000001" || out.List[1].DeviceId != "34020000001320000002" {
+		t.Fatalf("expected device bindings ordered by device ID, got %+v", out.List)
+	}
+	for _, item := range out.List {
+		if item.StrategyId != 1 {
+			t.Fatalf("expected strategy ID 1 rows only, got %+v", item)
+		}
+		if item.DeviceId == "34020000001320000999" {
+			t.Fatalf("expected tenant-device strategy binding rows to be excluded, got %+v", out.List)
+		}
 	}
 }
 

@@ -21,6 +21,20 @@ type ListBindingsInput struct {
 	Keyword  string // Keyword fuzzy-matches tenant ID or device ID.
 }
 
+// ListStrategyTenantBindingsInput defines tenant binding list filters for one strategy.
+type ListStrategyTenantBindingsInput struct {
+	StrategyId int64 // StrategyId is the required media strategy ID.
+	PageNum    int   // PageNum is the requested page number.
+	PageSize   int   // PageSize is the requested page size.
+}
+
+// ListStrategyDeviceBindingsInput defines device binding list filters for one strategy.
+type ListStrategyDeviceBindingsInput struct {
+	StrategyId int64 // StrategyId is the required media strategy ID.
+	PageNum    int   // PageNum is the requested page number.
+	PageSize   int   // PageSize is the requested page size.
+}
+
 // ListBindingsOutput defines paged media strategy bindings.
 type ListBindingsOutput struct {
 	List  []*BindingOutput // List contains current page bindings.
@@ -157,6 +171,14 @@ func (s *serviceImpl) ListDeviceBindings(ctx context.Context, in ListBindingsInp
 	return s.listDeviceBindings(ctx, in)
 }
 
+// ListStrategyDeviceBindings returns paged device strategy bindings for one strategy.
+func (s *serviceImpl) ListStrategyDeviceBindings(ctx context.Context, in ListStrategyDeviceBindingsInput) (*ListBindingsOutput, error) {
+	if err := validateMediaTablesReady(ctx); err != nil {
+		return nil, err
+	}
+	return s.listStrategyDeviceBindings(ctx, in)
+}
+
 // SaveDeviceBinding creates or updates one device strategy binding.
 func (s *serviceImpl) SaveDeviceBinding(ctx context.Context, in DeviceBindingMutationInput) (*DeviceBindingMutationOutput, error) {
 	if err := validateMediaTablesReady(ctx); err != nil {
@@ -209,6 +231,14 @@ func (s *serviceImpl) ListTenantBindings(ctx context.Context, in ListBindingsInp
 		return nil, err
 	}
 	return s.listTenantBindings(ctx, in)
+}
+
+// ListStrategyTenantBindings returns paged tenant strategy bindings for one strategy.
+func (s *serviceImpl) ListStrategyTenantBindings(ctx context.Context, in ListStrategyTenantBindingsInput) (*ListBindingsOutput, error) {
+	if err := validateMediaTablesReady(ctx); err != nil {
+		return nil, err
+	}
+	return s.listStrategyTenantBindings(ctx, in)
 }
 
 // SaveTenantBinding creates or updates one tenant strategy binding.
@@ -471,6 +501,32 @@ func (s *serviceImpl) listDeviceBindings(ctx context.Context, in ListBindingsInp
 	return &ListBindingsOutput{List: list, Total: total}, nil
 }
 
+// listStrategyDeviceBindings returns paged device bindings filtered by strategy ID.
+func (s *serviceImpl) listStrategyDeviceBindings(ctx context.Context, in ListStrategyDeviceBindingsInput) (*ListBindingsOutput, error) {
+	pageNum, pageSize := normalizePagination(in.PageNum, in.PageSize)
+	columns := dao.MediaStrategyDevice.Columns()
+	model := dao.MediaStrategyDevice.Ctx(ctx).Where(columns.StrategyId, in.StrategyId)
+
+	total, err := model.Count()
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaBindingCountQueryFailed)
+	}
+	rows := make([]*deviceBindingEntity, 0)
+	err = model.OrderAsc(columns.DeviceId).Page(pageNum, pageSize).Scan(&rows)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaBindingListQueryFailed)
+	}
+	list := make([]*BindingOutput, 0, len(rows))
+	for _, row := range rows {
+		list = append(list, &BindingOutput{
+			RowKey:     rowKeyPrefixDevice + row.DeviceId,
+			DeviceId:   row.DeviceId,
+			StrategyId: row.StrategyId,
+		})
+	}
+	return &ListBindingsOutput{List: list, Total: total}, nil
+}
+
 // listTenantBindings returns paged tenant bindings.
 func (s *serviceImpl) listTenantBindings(ctx context.Context, in ListBindingsInput) (*ListBindingsOutput, error) {
 	pageNum, pageSize := normalizePagination(in.PageNum, in.PageSize)
@@ -500,6 +556,32 @@ func (s *serviceImpl) listTenantBindings(ctx context.Context, in ListBindingsInp
 			TenantId:     row.TenantId,
 			StrategyId:   row.StrategyId,
 			StrategyName: strategyNames[row.StrategyId],
+		})
+	}
+	return &ListBindingsOutput{List: list, Total: total}, nil
+}
+
+// listStrategyTenantBindings returns paged tenant bindings filtered by strategy ID.
+func (s *serviceImpl) listStrategyTenantBindings(ctx context.Context, in ListStrategyTenantBindingsInput) (*ListBindingsOutput, error) {
+	pageNum, pageSize := normalizePagination(in.PageNum, in.PageSize)
+	columns := dao.MediaStrategyTenant.Columns()
+	model := dao.MediaStrategyTenant.Ctx(ctx).Where(columns.StrategyId, in.StrategyId)
+
+	total, err := model.Count()
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaBindingCountQueryFailed)
+	}
+	rows := make([]*tenantBindingEntity, 0)
+	err = model.OrderAsc(columns.TenantId).Page(pageNum, pageSize).Scan(&rows)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaBindingListQueryFailed)
+	}
+	list := make([]*BindingOutput, 0, len(rows))
+	for _, row := range rows {
+		list = append(list, &BindingOutput{
+			RowKey:     rowKeyPrefixTenant + row.TenantId,
+			TenantId:   row.TenantId,
+			StrategyId: row.StrategyId,
 		})
 	}
 	return &ListBindingsOutput{List: list, Total: total}, nil

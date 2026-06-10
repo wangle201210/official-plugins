@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 type ListTenantWhitesReq struct {
 	g.Meta   `path:"/media/tenant-whites" method:"get" tags:"租户白名单" summary:"查询租户白名单列表" dc:"分页查询租户白名单，支持按租户ID、白名单地址或描述模糊筛选。" permission:"media:management:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码" eg:"1"`
-	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数" eg:"10"`
+	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:10000" dc:"每页条数，最大10000" eg:"10"`
 	Keyword  string `json:"keyword" dc:"按租户ID、白名单地址或描述模糊筛选" eg:"tenant-a"`
 	Enable   *int   `json:"enable" dc:"启用状态：1开启，0关闭" eg:"1"`
 }

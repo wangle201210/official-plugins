@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 type ListTenantStreamConfigsReq struct {
 	g.Meta   `path:"/media/tenant-stream-configs" method:"get" tags:"租户流配置" summary:"查询租户流配置列表" dc:"分页查询租户流配置，支持按租户ID或节点编号模糊筛选。" permission:"media:management:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码" eg:"1"`
-	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数" eg:"10"`
+	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:10000" dc:"每页条数，最大10000" eg:"10"`
 	Keyword  string `json:"keyword" dc:"按租户ID或节点编号模糊筛选" eg:"tenant-a"`
 	Enable   *int   `json:"enable" dc:"启用状态：1开启，0关闭" eg:"1"`
 }

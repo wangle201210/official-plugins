@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 type ListStrategiesReq struct {
 	g.Meta   `path:"/media/strategies" method:"get" tags:"媒体策略" summary:"查询媒体策略列表" dc:"分页查询媒体策略，支持按策略名称模糊筛选。" permission:"media:management:query"`
 	PageNum  int    `json:"pageNum" d:"1" v:"min:1" dc:"页码" eg:"1"`
-	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:100" dc:"每页条数" eg:"10"`
+	PageSize int    `json:"pageSize" d:"10" v:"min:1|max:10000" dc:"每页条数，最大10000" eg:"10"`
 	Keyword  string `json:"keyword" dc:"按策略名称模糊筛选" eg:"直播"`
 	Enable   *int   `json:"enable" dc:"启用状态：1开启，0关闭；不传时查询全部" eg:"1"`
 	Global   *int   `json:"global" dc:"全局状态：1是，0否；不传时查询全部" eg:"1"`
