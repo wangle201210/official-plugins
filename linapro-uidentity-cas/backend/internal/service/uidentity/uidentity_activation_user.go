@@ -348,9 +348,9 @@ func (s *serviceImpl) LookupUnionID(ctx context.Context, unionID string) (*Union
 	}, nil
 }
 
-// BindUnionID consumes one bind challenge and attaches union ID to an account.
+// BindUnionID verifies one bind challenge and attaches union ID to an account.
 func (s *serviceImpl) BindUnionID(ctx context.Context, in UnionIDBindInput) (*UnionIDBindOutput, error) {
-	token, payload, err := s.unionIDChallenge(ctx, in.ChallengeID)
+	_, payload, err := s.unionIDChallenge(ctx, in.ChallengeID)
 	if err != nil {
 		return nil, err
 	}
@@ -375,11 +375,9 @@ func (s *serviceImpl) BindUnionID(ctx context.Context, in UnionIDBindInput) (*Un
 	if err := s.rebindUnionIDToAccount(ctx, account, payload.UnionID); err != nil {
 		return nil, err
 	}
-	if _, err := dao.Oauth2Token.Ctx(ctx).
-		Where(dao.Oauth2Token.Columns().Id, token.Id).
-		Delete(); err != nil {
-		return nil, err
-	}
+	// The old bind kept the cached uuid alive so the follow-up
+	// /cas/loginByUnionID call could still exchange it for the union ID;
+	// that login consumes the challenge instead.
 	return &UnionIDBindOutput{Number: account.Number}, nil
 }
 
@@ -508,6 +506,12 @@ func (s *serviceImpl) ListRuntimeAppRoles(ctx context.Context, in UserAppRoleLis
 	cols := dao.AccountAppRole.Columns()
 	model := dao.AccountAppRole.Ctx(ctx).
 		Where(cols.GiveAccountId, account.Id)
+	if in.EmpoweredAccountID > 0 {
+		model = model.Where(cols.EmpoweredAccountId, in.EmpoweredAccountID)
+	}
+	if in.AppID > 0 {
+		model = model.Where(cols.AppId, in.AppID)
+	}
 	total, err := model.Count()
 	if err != nil {
 		return nil, err

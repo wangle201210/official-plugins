@@ -14,9 +14,10 @@ func (c *ControllerV1) UserAppRoles(ctx context.Context, req *v1.UserAppRolesReq
 		return nil, err
 	}
 	out, err := c.uidentitySvc.ListRuntimeAppRoles(ctx, uidentitysvc.UserAppRoleListInput{
-		Number:   number,
-		PageNum:  req.PageNum,
-		PageSize: req.PageSize,
+		Number:             number,
+		EmpoweredAccountID: req.EmpoweredAccountId,
+		PageNum:            req.PageNum,
+		PageSize:           req.PageSize,
 	})
 	if err != nil {
 		return nil, err

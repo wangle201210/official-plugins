@@ -870,7 +870,13 @@ func (c *LegacyController) UserAppRoles(r *ghttp.Request) {
 		return
 	}
 	pageIndex, pageSize := legacyPage(r)
-	out, err := c.uidentitySvc.ListRuntimeAppRoles(r.Context(), uidentitysvc.UserAppRoleListInput{Number: number, PageNum: pageIndex, PageSize: pageSize})
+	out, err := c.uidentitySvc.ListRuntimeAppRoles(r.Context(), uidentitysvc.UserAppRoleListInput{
+		Number:             number,
+		EmpoweredAccountID: legacyInt64Param(r, "empoweredAccountId", "empowered_account_id"),
+		AppID:              legacyInt64Param(r, "appId", "app_id"),
+		PageNum:            pageIndex,
+		PageSize:           pageSize,
+	})
 	if err != nil {
 		legacyError(r, err)
 		return

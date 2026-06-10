@@ -124,11 +124,31 @@ func (s *serviceImpl) LoginByUnionID(ctx context.Context, in UnionIDLoginInput) 
 	if err != nil {
 		return nil, err
 	}
-	account, err := s.getAccountByUnionID(ctx, in.UnionID)
+	unionID := strings.TrimSpace(in.UnionID)
+	var challengeTokenID int64
+	// The old login received the QR uuid and exchanged it for the cached
+	// union ID; raw union IDs keep working for runtime clients.
+	if token, payload, challengeErr := s.unionIDChallenge(ctx, unionID); challengeErr == nil && payload != nil && strings.TrimSpace(payload.UnionID) != "" {
+		challengeTokenID = token.Id
+		unionID = strings.TrimSpace(payload.UnionID)
+	}
+	account, err := s.getAccountByUnionID(ctx, unionID)
 	if err != nil {
 		return nil, err
 	}
-	return s.issueRuntimeLogin(ctx, account, app, LoginTypeUnionID)
+	out, err := s.issueRuntimeLogin(ctx, account, app, LoginTypeUnionID)
+	if err != nil {
+		return nil, err
+	}
+	if challengeTokenID > 0 {
+		// The old flow deleted the cached uuid after a successful login.
+		if _, err := dao.Oauth2Token.Ctx(ctx).
+			Where(dao.Oauth2Token.Columns().Id, challengeTokenID).
+			Delete(); err != nil {
+			logger.Warningf(ctx, "legacy unionID login challenge cleanup failed err=%v", err)
+		}
+	}
+	return out, nil
 }
 
 // IssueServiceTicketFromTGT issues one ST from an existing TGT.

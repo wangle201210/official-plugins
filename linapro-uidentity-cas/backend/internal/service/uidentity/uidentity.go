@@ -267,8 +267,10 @@ type Service interface {
 	// LookupUnionID resolves a Wechat union ID or creates a bind challenge when
 	// the union ID is not bound to any account.
 	LookupUnionID(ctx context.Context, unionID string) (*UnionIDLookupOutput, error)
-	// BindUnionID consumes a bind challenge and attaches the union ID to an
-	// account verified by phone/SMS or number/password.
+	// BindUnionID verifies a bind challenge and attaches the union ID to an
+	// account verified by phone/SMS or number/password. The challenge stays
+	// alive so the follow-up union-ID login can exchange and consume it, like
+	// the old cached uuid flow.
 	BindUnionID(ctx context.Context, in UnionIDBindInput) (*UnionIDBindOutput, error)
 	// ChangeRuntimePassword updates an account password through runtime
 	// self-service policy checks.
@@ -854,9 +856,11 @@ type UserLogListInput struct {
 
 // UserAppRoleListInput carries runtime delegated-role list filters.
 type UserAppRoleListInput struct {
-	Number   string
-	PageNum  int
-	PageSize int
+	Number             string
+	EmpoweredAccountID int64
+	AppID              int64
+	PageNum            int
+	PageSize           int
 }
 
 // UserApplicationListInput carries runtime application list filters.

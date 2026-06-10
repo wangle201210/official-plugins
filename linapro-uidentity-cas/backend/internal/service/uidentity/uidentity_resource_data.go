@@ -58,6 +58,14 @@ func (s *serviceImpl) accountAppBlacklistData(ctx context.Context, body map[stri
 	}
 	copyStringFields(body, map[string]*any{"name": &data.Name})
 	copyInt64Fields(body, map[string]*any{"appId": &data.AppId, "accountId": &data.AccountId})
+	// The old Insert accepted the account number and resolved it to the ID.
+	if data.AccountId == nil && hasField(body, "number") {
+		account, err := s.getAccountByNumber(ctx, stringField(body, "number"))
+		if err != nil {
+			return nil, err
+		}
+		data.AccountId = account.Id
+	}
 	if value := timeField(body, "effectAt"); value != nil {
 		data.EffectAt = value
 	}
