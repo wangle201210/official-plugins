@@ -53,7 +53,7 @@ func (s *serviceImpl) SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSen
 	}
 	actorID := s.actorID(ctx)
 	code := fmt.Sprintf("%06d", smsCodeMin+rand.Intn(smsCodeMax-smsCodeMin+1))
-	id, err := dao.Sms.Ctx(ctx).Data(do.Sms{
+	record := do.Sms{
 		Phone:    phone,
 		Type:     smsType,
 		Content:  code,
@@ -61,9 +61,28 @@ func (s *serviceImpl) SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSen
 		RespMsg:  "recorded by plugin-local SMS sender",
 		CreateBy: actorID,
 		UpdateBy: actorID,
-	}).InsertAndGetId()
+	}
+	gateway, err := s.legacySMSGatewayConfig(ctx)
 	if err != nil {
 		return nil, err
+	}
+	var gatewayErr error
+	if gateway.enabled() {
+		body, sendErr := sendLegacySMSGateway(ctx, gateway, phone, gateway.content(code))
+		record.RespMsg = body
+		if sendErr != nil {
+			// Keep the old behavior: persist the failed delivery record, then
+			// surface the gateway failure to the caller.
+			record.Status = smsStatusFailed
+			gatewayErr = sendErr
+		}
+	}
+	id, err := dao.Sms.Ctx(ctx).Data(record).InsertAndGetId()
+	if err != nil {
+		return nil, err
+	}
+	if gatewayErr != nil {
+		return nil, gatewayErr
 	}
 	return &SMSSendOutput{ID: id}, nil
 }

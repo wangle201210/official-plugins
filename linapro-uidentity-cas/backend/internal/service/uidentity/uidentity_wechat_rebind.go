@@ -78,10 +78,21 @@ func (s *serviceImpl) CreateRuntimeWechatRebindState(ctx context.Context, in Wec
 	if err != nil {
 		return nil, err
 	}
+	authorizeURL := wechatRebindAuthorizeURL(baseURL, state, payload.Callback)
+	if authorizeURL == "" {
+		// Without an external adapter, build the official Wechat OAuth URL the
+		// old service produced through GetBindUrl when credentials exist.
+		authorizeURL, err = s.builtinWechatAuthorizeURL(ctx, configKeyLegacyWechatRebindCallbackURL, map[string]string{
+			"cascallback": payload.Callback,
+		}, state)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &WechatRebindStateOutput{
 		State:     state,
 		Status:    payload.Status,
-		URL:       wechatRebindAuthorizeURL(baseURL, state, payload.Callback),
+		URL:       authorizeURL,
 		ExpiredAt: &millis,
 	}, nil
 }
@@ -97,6 +108,13 @@ func (s *serviceImpl) CompleteRuntimeWechatRebind(ctx context.Context, in Wechat
 	}
 	payload.Code = strings.TrimSpace(in.Code)
 	unionID := strings.TrimSpace(in.UnionID)
+	if unionID == "" && payload.Code != "" {
+		resolved, resolveErr := s.resolveLegacyWechatUnionID(ctx, payload.Code)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		unionID = resolved
+	}
 	if unionID == "" {
 		payload.Status = wechatRebindStatusUnsupported
 		payload.ErrorCode = CodeUnsupportedExternalFlow.RuntimeCode()

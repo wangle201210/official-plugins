@@ -70,11 +70,28 @@ func (s *serviceImpl) StartActivation(ctx context.Context, in ActivationStartInp
 	}, nil
 }
 
-// RecordActivationFace stores face proof for one activation challenge.
+// RecordActivationFace verifies face proof for one activation challenge. When
+// artemis credentials are configured the submitted image is compared against
+// the external certificate photo library before the face marker is stored.
 func (s *serviceImpl) RecordActivationFace(ctx context.Context, in ActivationFaceInput) (*ActivationStepOutput, error) {
 	token, payload, err := s.activationChallenge(ctx, in.ChallengeID)
 	if err != nil {
 		return nil, err
+	}
+	account, err := s.getAccountByID(ctx, payload.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	detail, err := s.accountDetailByAccountID(ctx, payload.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	pass, msg, err := s.verifyActivationFace(ctx, account.Number, detail.Idcard, in.FaceURL)
+	if err != nil {
+		return nil, err
+	}
+	if !pass {
+		return &ActivationStepOutput{ChallengeID: in.ChallengeID, Success: false, Message: msg}, nil
 	}
 	if err := s.updateAccountDetailWithAudit(ctx, payload.AccountID, do.AccountDetails{Face: int64(1), UpdateBy: s.actorID(ctx)}); err != nil {
 		return nil, err
@@ -182,10 +199,21 @@ func (s *serviceImpl) CreateActivationWechatState(ctx context.Context, in Activa
 	if err != nil {
 		return nil, err
 	}
+	authorizeURL := activationWechatAuthorizeURL(baseURL, in.ChallengeID, payload.Callback)
+	if authorizeURL == "" {
+		// Without an external adapter, build the official Wechat OAuth URL the
+		// old service produced through GetBindUrl when credentials exist.
+		authorizeURL, err = s.builtinWechatAuthorizeURL(ctx, configKeyLegacyWechatActivationCallbackURL, map[string]string{
+			"cascallback": payload.Callback,
+		}, in.ChallengeID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &ActivationWechatStateOutput{
 		State:  in.ChallengeID,
 		Status: payload.WechatStatus,
-		URL:    activationWechatAuthorizeURL(baseURL, in.ChallengeID, payload.Callback),
+		URL:    authorizeURL,
 	}, nil
 }
 
@@ -200,6 +228,13 @@ func (s *serviceImpl) CompleteActivationWechat(ctx context.Context, in Activatio
 	}
 	payload.Code = strings.TrimSpace(in.Code)
 	unionID := strings.TrimSpace(in.UnionID)
+	if unionID == "" && payload.Code != "" {
+		resolved, resolveErr := s.resolveLegacyWechatUnionID(ctx, payload.Code)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		unionID = resolved
+	}
 	if unionID == "" {
 		payload.Stage = "wechat"
 		payload.WechatStatus = activationWechatStatusUnsupported

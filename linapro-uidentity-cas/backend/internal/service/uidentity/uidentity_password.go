@@ -30,6 +30,7 @@ const (
 	smsTypeCasActive            = "active"
 	smsTypeCasBind              = "bind"
 	smsStatusSuccess            = 1
+	smsStatusFailed             = 2
 )
 
 type passwordChallengeData struct {

@@ -1916,7 +1916,7 @@ func legacyActivationFacePayload(out *uidentitysvc.ActivationStepOutput) map[str
 	if out == nil {
 		return map[string]any{}
 	}
-	return map[string]any{"uuid": out.ChallengeID, "pass": out.Success, "msg": ""}
+	return map[string]any{"uuid": out.ChallengeID, "pass": out.Success, "msg": out.Message}
 }
 
 func legacyActivationStepPayload(out *uidentitysvc.ActivationStepOutput) map[string]any {

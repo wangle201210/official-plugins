@@ -234,8 +234,10 @@ type Service interface {
 	// StartActivation verifies base account information and creates an
 	// activation challenge backed by plugin token storage.
 	StartActivation(ctx context.Context, in ActivationStartInput) (*ActivationOutput, error)
-	// RecordActivationFace stores a face proof marker for an activation
-	// challenge without requiring external face-service integration.
+	// RecordActivationFace verifies a face proof for an activation challenge.
+	// With configured artemis credentials the image is compared against the
+	// external certificate photo library; otherwise the plugin-local marker
+	// behavior is kept.
 	RecordActivationFace(ctx context.Context, in ActivationFaceInput) (*ActivationStepOutput, error)
 	// SetActivationPassword validates and stores a new password for the account
 	// attached to an activation challenge.
@@ -300,8 +302,12 @@ type Service interface {
 	// runtime granting account.
 	UpdateRuntimeAppRole(ctx context.Context, in UserAppRoleUpdateInput) error
 	// SendSMSCode records one bounded plugin-local SMS verification code for
-	// CAS login, activation, phone binding, or password reset.
+	// CAS login, activation, phone binding, or password reset, delivering it
+	// through the configured legacy SMS gateway when one is available.
 	SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSendOutput, error)
+	// VerifyLegacyAPISignature enforces the old appid/ts/sign md5 signature
+	// contract for legacy third-party user self-service routes.
+	VerifyLegacyAPISignature(ctx context.Context, in LegacyAPISignatureInput) error
 	// UploadLegacyFiles stores legacy single, multiple, or base64 image uploads
 	// in plugin-owned local storage and returns old uploadFile-compatible
 	// projections.
@@ -742,6 +748,8 @@ type ActivationOutput struct {
 type ActivationStepOutput struct {
 	ChallengeID string
 	Success     bool
+	// Message carries the old face verification failure text shown to users.
+	Message string
 }
 
 // ActivationStateOutput carries activation state read result.
@@ -877,6 +885,15 @@ type SMSSendInput struct {
 	Phone string
 	Code  string
 	UUID  string
+}
+
+// LegacyAPISignatureInput carries old third-party API signature headers and
+// the raw request body covered by the digest.
+type LegacyAPISignatureInput struct {
+	AppID     string
+	Timestamp string
+	Sign      string
+	Body      []byte
 }
 
 // SMSSendOutput carries the plugin SMS record ID.

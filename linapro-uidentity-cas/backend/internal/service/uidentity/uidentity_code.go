@@ -83,4 +83,12 @@ var (
 	CodeLegacyGenInvalid = bizerr.MustDefine("UIDENTITY_LEGACY_GEN_INVALID", "Legacy code-generation request is invalid", gcode.CodeInvalidParameter)
 	// CodeLegacyGenFailed reports failure while rendering or writing legacy generated files.
 	CodeLegacyGenFailed = bizerr.MustDefine("UIDENTITY_LEGACY_GEN_FAILED", "Legacy code generation failed", gcode.CodeInternalError)
+	// CodeAPISignatureInvalid reports a missing or mismatched legacy third-party API signature.
+	CodeAPISignatureInvalid = bizerr.MustDefine("UIDENTITY_API_SIGNATURE_INVALID", "API signature is invalid", gcode.CodeNotAuthorized)
+	// CodeAPISignatureExpired reports a legacy third-party API signature outside the replay window.
+	CodeAPISignatureExpired = bizerr.MustDefine("UIDENTITY_API_SIGNATURE_EXPIRED", "API signature timestamp is outside the allowed window", gcode.CodeNotAuthorized)
+	// CodeSMSGatewayFailed reports a legacy SMS gateway delivery failure.
+	CodeSMSGatewayFailed = bizerr.MustDefine("UIDENTITY_SMS_GATEWAY_FAILED", "SMS gateway delivery failed", gcode.CodeInternalError)
+	// CodeFaceVerifyFailed reports an external face verification transport failure.
+	CodeFaceVerifyFailed = bizerr.MustDefine("UIDENTITY_FACE_VERIFY_FAILED", "Face verification request failed", gcode.CodeInternalError)
 )

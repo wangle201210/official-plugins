@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/util/gconv"
 
 	"lina-core/pkg/bizerr"
@@ -80,10 +79,22 @@ func (s *serviceImpl) CreateWechatLoginQR(ctx context.Context, in WechatLoginQRI
 	if err != nil {
 		return nil, err
 	}
+	authorizeURL := wechatLoginAuthorizeURL(baseURL, app.ClientId, state, payload.Callback)
+	if authorizeURL == "" {
+		// Without an external adapter, build the official Wechat OAuth URL the
+		// old service produced through GetOauthUrl when credentials exist.
+		authorizeURL, err = s.builtinWechatAuthorizeURL(ctx, configKeyLegacyWechatLoginCallbackURL, map[string]string{
+			"appid":       app.ClientId,
+			"cascallback": payload.Callback,
+		}, state)
+		if err != nil {
+			return nil, err
+		}
+	}
 	millis := expiredAt.UnixMilli()
 	return &WechatLoginQROutput{
 		State:     state,
-		URL:       wechatLoginAuthorizeURL(baseURL, app.ClientId, state, payload.Callback),
+		URL:       authorizeURL,
 		ExpiredAt: &millis,
 	}, nil
 }
@@ -160,19 +171,7 @@ func (s *serviceImpl) CompleteWechatLoginQR(ctx context.Context, in WechatLoginC
 }
 
 func (s *serviceImpl) resolveWechatLoginUnionID(ctx context.Context, code string) (string, error) {
-	resolveURL, err := s.configSvc.String(ctx, configKeyWechatLoginCodeResolveURL, "")
-	if err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(resolveURL) == "" {
-		return "", nil
-	}
-	resp, err := g.Client().SetTimeout(10*time.Second).Get(ctx, resolveURL, map[string]any{"code": strings.TrimSpace(code)})
-	if err != nil {
-		return "", err
-	}
-	defer resp.Close()
-	return wechatUnionIDFromPayload(resp.ReadAll()), nil
+	return s.resolveLegacyWechatUnionID(ctx, code)
 }
 
 // GetWechatLoginQRResult returns pending or terminal QR login state.

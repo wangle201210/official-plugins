@@ -7,7 +7,7 @@ import (
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
-// ActivationFace records an activation face proof marker.
+// ActivationFace verifies and records an activation face proof.
 func (c *ControllerV1) ActivationFace(ctx context.Context, req *v1.ActivationFaceReq) (res *v1.ActivationFaceRes, err error) {
 	out, err := c.uidentitySvc.RecordActivationFace(ctx, uidentitysvc.ActivationFaceInput{
 		ChallengeID: req.ChallengeId,
@@ -16,5 +16,5 @@ func (c *ControllerV1) ActivationFace(ctx context.Context, req *v1.ActivationFac
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ActivationFaceStepRes{UUID: out.ChallengeID, Pass: out.Success, Msg: ""}, nil
+	return &v1.ActivationFaceStepRes{UUID: out.ChallengeID, Pass: out.Success, Msg: out.Message}, nil
 }
