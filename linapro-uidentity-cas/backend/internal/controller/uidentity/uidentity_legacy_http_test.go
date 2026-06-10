@@ -405,6 +405,32 @@ func TestLegacyCasPasswordLoginKeepsOldWeakPasswordMessage(t *testing.T) {
 	}
 }
 
+func TestLegacyActivationStartRequiresCaptchaLikeOldActivate(t *testing.T) {
+	service := &legacyHTTPFakeService{loginCaptchaErr: bizerr.NewCode(uidentitysvc.CodeSMSCaptchaInvalid)}
+	baseURL := startLegacyHTTPTestServer(t, "activate-captcha", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.POST("/activate/baseInfo", controller.ActivationStart)
+	})
+	resp, err := http.PostForm(baseURL+"/api/v1/activate/baseInfo", url.Values{
+		"number": []string{"A001"},
+		"name":   []string{"Alice"},
+		"idcard": []string{"510000200001010000"},
+		"uuid":   []string{"captcha-uuid"},
+		"code":   []string{"0000"},
+	})
+	if err != nil {
+		t.Fatalf("call legacy activation start: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode legacy activation start response: %v", err)
+	}
+	if payload["code"] == float64(legacyStatusOK) || payload["msg"] != legacyMsgCaptchaInvalid {
+		t.Fatalf("legacy activation start must reject invalid captcha: %#v", payload)
+	}
+}
+
 func TestLegacyAdminLogoutKeepsOldEnvelopeAndRecordsLogout(t *testing.T) {
 	service := &legacyHTTPFakeService{}
 	baseURL := startLegacyHTTPTestServer(t, "admin-logout", service, func(group *ghttp.RouterGroup, controller *LegacyController) {

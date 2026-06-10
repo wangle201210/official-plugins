@@ -24,7 +24,7 @@ func TestBuildLegacyCASSuccessXML(t *testing.T) {
 			Gender:   1,
 			Idcard:   "510000200001010000",
 		},
-	})
+	}, 1001, "教职工")
 	if err != nil {
 		t.Fatalf("build legacy CAS success XML: %v", err)
 	}
@@ -34,9 +34,11 @@ func TestBuildLegacyCASSuccessXML(t *testing.T) {
 		"<cas:authenticationSuccess>",
 		"<cas:user>A001</cas:user>",
 		"<cas:workcode>A001</cas:workcode>",
-		"<cas:departmentid>20</cas:departmentid>",
+		// departmentid carries the unit business code, not the unit row ID.
+		"<cas:departmentid>1001</cas:departmentid>",
 		"<cas:email>alice@example.com</cas:email>",
 		"<cas:userType>01</cas:userType>",
+		"<cas:containerName>教职工</cas:containerName>",
 	} {
 		if !strings.Contains(xmlText, expected) {
 			t.Fatalf("expected XML to contain %q, got %s", expected, xmlText)

@@ -248,8 +248,9 @@ type Service interface {
 	// SetActivationPassword validates and stores a new password for the account
 	// attached to an activation challenge.
 	SetActivationPassword(ctx context.Context, in ActivationPasswordInput) (*ActivationStepOutput, error)
-	// SetActivationPhone validates an activation SMS code, binds phone, and
-	// activates the account attached to the challenge.
+	// SetActivationPhone validates an activation SMS code and binds the phone
+	// to the account attached to the challenge; activation itself completes at
+	// the Wechat bind step like the old flow.
 	SetActivationPhone(ctx context.Context, in ActivationPhoneInput) (*ActivationStepOutput, error)
 	// SetActivationWechat binds a Wechat union ID and activates the account
 	// attached to the challenge.

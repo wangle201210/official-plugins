@@ -9,6 +9,11 @@ import (
 
 // ActivationStart starts an account activation challenge.
 func (c *ControllerV1) ActivationStart(ctx context.Context, req *v1.ActivationStartReq) (res *v1.ActivationStartRes, err error) {
+	// The old activation entry verified a captcha first, accepting the
+	// rotating common pass in place of the captcha code.
+	if err := c.uidentitySvc.VerifyLoginCaptcha(ctx, req.Code, req.UUID); err != nil {
+		return nil, err
+	}
 	out, err := c.uidentitySvc.StartActivation(ctx, uidentitysvc.ActivationStartInput{
 		Number: req.Number,
 		Name:   req.Name,

@@ -26,6 +26,10 @@ const (
 	accountActiveLogTypeActivation accountActiveLogType = 0
 	// accountActiveLogTypeUnionBind records explicit UnionID binding requests.
 	accountActiveLogTypeUnionBind accountActiveLogType = 1
+
+	// activationSkipFaceContainerID is the old wj (foreign) container whose
+	// accounts activated without face verification.
+	activationSkipFaceContainerID = int64(4)
 )
 
 // StartActivation creates an activation challenge after base info matches.
@@ -68,8 +72,10 @@ func (s *serviceImpl) StartActivation(ctx context.Context, in ActivationStartInp
 	}
 	return &ActivationOutput{
 		ChallengeID: challengeID,
-		NeedFace:    detail.Face == 0,
-		Status:      int(account.Status),
+		// The old activation skipped face verification only for the wj
+		// (foreign) container; the stored face marker did not decide it.
+		NeedFace: account.ContainerId != activationSkipFaceContainerID,
+		Status:   int(account.Status),
 	}, nil
 }
 
@@ -136,7 +142,9 @@ func (s *serviceImpl) SetActivationPassword(ctx context.Context, in ActivationPa
 	return &ActivationStepOutput{ChallengeID: in.ChallengeID, Success: true}, nil
 }
 
-// SetActivationPhone binds phone and activates the account.
+// SetActivationPhone binds the phone for one activation challenge. Like the
+// old activation flow, the account only becomes active after the Wechat bind
+// step completes.
 func (s *serviceImpl) SetActivationPhone(ctx context.Context, in ActivationPhoneInput) (*ActivationStepOutput, error) {
 	token, payload, err := s.activationChallenge(ctx, in.ChallengeID)
 	if err != nil {
@@ -148,9 +156,11 @@ func (s *serviceImpl) SetActivationPhone(ctx context.Context, in ActivationPhone
 	if err := s.ensurePhoneAvailable(ctx, in.Phone, payload.AccountID); err != nil {
 		return nil, err
 	}
-	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Phone: strings.TrimSpace(in.Phone), Status: AccountStatusNormal, UpdateBy: s.actorID(ctx)}); err != nil {
+	if err := s.updateAccountWithAudit(ctx, payload.AccountID, do.Account{Phone: strings.TrimSpace(in.Phone), UpdateBy: s.actorID(ctx)}); err != nil {
 		return nil, err
 	}
+	// The old flow pushed the new telephoneNumber to LDAP best-effort.
+	s.syncAccountLDAPByID(ctx, payload.AccountID)
 	payload.Stage = "phone"
 	if err := s.updateRuntimePayload(ctx, token.Id, payload); err != nil {
 		return nil, err

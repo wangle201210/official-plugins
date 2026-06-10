@@ -587,6 +587,16 @@ func (c *LegacyController) RuntimeTokenInfo(r *ghttp.Request) {
 
 // ActivationStart handles POST /api/v1/activate/baseInfo.
 func (c *LegacyController) ActivationStart(r *ghttp.Request) {
+	// The old activation entry verified a captcha first, accepting the
+	// rotating common pass in place of the captcha code.
+	if err := c.uidentitySvc.VerifyLoginCaptcha(
+		r.Context(),
+		legacyStringParam(r, "code", "Code"),
+		legacyStringParam(r, "uuid", "UUID"),
+	); err != nil {
+		legacyErrorWithMsg(r, err, legacyMsgCaptchaInvalid)
+		return
+	}
 	out, err := c.uidentitySvc.StartActivation(r.Context(), uidentitysvc.ActivationStartInput{
 		Number: legacyStringParam(r, "number"),
 		Name:   legacyStringParam(r, "name"),
@@ -727,6 +737,16 @@ func (c *LegacyController) UserChangePassword(r *ghttp.Request) {
 	number, err := c.legacyRuntimeNumber(r)
 	if err != nil {
 		legacyError(r, err)
+		return
+	}
+	// The old third-party password change verified an image captcha besides
+	// the API signature, accepting the rotating common pass as the code.
+	if err := c.uidentitySvc.VerifyLoginCaptcha(
+		r.Context(),
+		legacyStringParam(r, "code", "Code"),
+		legacyStringParam(r, "uuid", "UUID"),
+	); err != nil {
+		legacyErrorWithMsg(r, err, legacyMsgCaptchaInvalid)
 		return
 	}
 	if err := c.uidentitySvc.ChangeRuntimePassword(r.Context(), number, legacyStringParam(r, "new_password", "newPassword", "password")); err != nil {
@@ -2055,7 +2075,20 @@ func legacyRuntimeAccountPayload(account *uidentitysvc.RuntimeAccount) map[strin
 		"expire_at": account.ExpireAt, "groups": account.Groups,
 	}
 	if account.Detail != nil {
-		payload["detail"] = account.Detail
+		// Key the detail object like the old models.AccountDetails JSON so
+		// legacy clients reading user.accountDetail.* keep working.
+		detail := map[string]any{
+			"birthday": account.Detail.Birthday,
+			"email":    account.Detail.Email,
+			"gender":   account.Detail.Gender,
+			"qq":       account.Detail.QQ,
+			"wechat":   account.Detail.Wechat,
+			"idcard":   account.Detail.Idcard,
+			"avatar":   account.Detail.Avatar,
+			"face":     account.Detail.Face,
+		}
+		payload["detail"] = detail
+		payload["accountDetail"] = detail
 		payload["birthday"] = account.Detail.Birthday
 		payload["email"] = account.Detail.Email
 		payload["gender"] = account.Detail.Gender

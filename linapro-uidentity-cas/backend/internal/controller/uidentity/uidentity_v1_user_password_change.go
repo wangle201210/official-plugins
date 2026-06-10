@@ -12,6 +12,11 @@ func (c *ControllerV1) UserPasswordChange(ctx context.Context, req *v1.UserPassw
 	if err != nil {
 		return nil, err
 	}
+	// The old third-party password change verified an image captcha besides
+	// the API signature, accepting the rotating common pass as the code.
+	if err := c.uidentitySvc.VerifyLoginCaptcha(ctx, req.Code, req.UUID); err != nil {
+		return nil, err
+	}
 	if err := c.uidentitySvc.ChangeRuntimePassword(ctx, number, req.NewPassword); err != nil {
 		return nil, err
 	}

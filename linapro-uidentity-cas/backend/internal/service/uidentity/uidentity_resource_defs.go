@@ -233,6 +233,11 @@ func (s *serviceImpl) accountData(ctx context.Context, body map[string]any, crea
 	if hasField(body, "status") {
 		data.Status = intField(body, "status")
 	}
+	if create {
+		// The old admin Insert forced every new account into the not-active
+		// state regardless of the request body.
+		data.Status = AccountStatusNotActive
+	}
 	return data, nil
 }
 

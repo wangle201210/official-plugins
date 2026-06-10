@@ -13,6 +13,7 @@ import (
 
 	"lina-core/pkg/apitime"
 	"lina-core/pkg/bizerr"
+	"lina-core/pkg/logger"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
@@ -192,6 +193,13 @@ func (s *serviceImpl) ValidateServiceTicket(ctx context.Context, in ServiceValid
 	if err != nil {
 		return nil, err
 	}
+	// The old validate consumed the ST immediately after the read, before any
+	// access checks, and ignored delete failures.
+	if _, err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Id, token.Id).
+		Delete(); err != nil {
+		logger.Warningf(ctx, "legacy ST consume failed ticket=%s err=%v", in.Ticket, err)
+	}
 	ownerID := payload.OwnerAccountID
 	if ownerID == 0 {
 		ownerID = payload.AccountID
@@ -221,17 +229,13 @@ func (s *serviceImpl) ValidateServiceTicket(ctx context.Context, in ServiceValid
 		return nil, err
 	}
 	if payload.LogID > 0 {
+		// The old flow treated the choice-account log update as best-effort.
 		if _, err := dao.CasLoginLog.Ctx(ctx).
 			Where(dao.CasLoginLog.Columns().Id, payload.LogID).
 			Data(do.CasLoginLog{ChoiceAccountId: selectedID, UpdateBy: s.actorID(ctx)}).
 			Update(); err != nil {
-			return nil, err
+			logger.Warningf(ctx, "legacy cas login log update failed logID=%d err=%v", payload.LogID, err)
 		}
-	}
-	if _, err := dao.Oauth2Token.Ctx(ctx).
-		Where(dao.Oauth2Token.Columns().Id, token.Id).
-		Delete(); err != nil {
-		return nil, err
 	}
 	user, err := s.runtimeAccountProjection(ctx, account)
 	if err != nil {

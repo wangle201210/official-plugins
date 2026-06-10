@@ -6,6 +6,8 @@ package uidentity
 import (
 	"context"
 	"encoding/xml"
+
+	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 )
 
 const (
@@ -25,10 +27,48 @@ func (s *serviceImpl) LegacyCASServiceXML(ctx context.Context, in LegacyCASServi
 	if err != nil {
 		return buildLegacyCASFailureXML(err.Error())
 	}
-	return buildLegacyCASSuccessXML(out.User)
+	// The old XML exposed the unit business code as departmentid and the
+	// container display name, not the alias used by runtime projections.
+	unitCode, err := s.legacyCASUnitCode(ctx, out.User)
+	if err != nil {
+		return buildLegacyCASFailureXML(err.Error())
+	}
+	containerName, err := s.legacyCASContainerName(ctx, out.User)
+	if err != nil {
+		return buildLegacyCASFailureXML(err.Error())
+	}
+	return buildLegacyCASSuccessXML(out.User, unitCode, containerName)
 }
 
-func buildLegacyCASSuccessXML(account *RuntimeAccount) (*LegacyCASServiceXMLOutput, error) {
+func (s *serviceImpl) legacyCASUnitCode(ctx context.Context, account *RuntimeAccount) (int64, error) {
+	if account == nil || account.UnitID <= 0 {
+		return 0, nil
+	}
+	value, err := dao.Units.Ctx(ctx).
+		Fields(dao.Units.Columns().Code).
+		Where(dao.Units.Columns().Id, account.UnitID).
+		Value()
+	if err != nil {
+		return 0, err
+	}
+	return value.Int64(), nil
+}
+
+func (s *serviceImpl) legacyCASContainerName(ctx context.Context, account *RuntimeAccount) (string, error) {
+	if account == nil || account.ContainerID <= 0 {
+		return "", nil
+	}
+	value, err := dao.Containers.Ctx(ctx).
+		Fields(dao.Containers.Columns().Name).
+		Where(dao.Containers.Columns().Id, account.ContainerID).
+		Value()
+	if err != nil {
+		return "", err
+	}
+	return value.String(), nil
+}
+
+func buildLegacyCASSuccessXML(account *RuntimeAccount, unitCode int64, containerName string) (*LegacyCASServiceXMLOutput, error) {
 	if account == nil {
 		return buildLegacyCASFailureXML("Runtime account is missing")
 	}
@@ -57,7 +97,7 @@ func buildLegacyCASSuccessXML(account *RuntimeAccount) (*LegacyCASServiceXMLOutp
 				LoginID:        account.Number,
 				WorkCode:       account.Number,
 				Sex:            int64(sex),
-				DepartmentID:   int(account.UnitID),
+				DepartmentID:   int(unitCode),
 				Mobile:         account.Phone,
 				Telephone:      account.Phone,
 				ID:             int(account.ID),
@@ -66,6 +106,7 @@ func buildLegacyCASSuccessXML(account *RuntimeAccount) (*LegacyCASServiceXMLOutp
 				Status:         account.Status,
 				Name:           account.Name,
 				UserType:       userType,
+				ContainerName:  containerName,
 			},
 		},
 	})
@@ -125,4 +166,5 @@ type legacyCASAttributes struct {
 	Status         int    `xml:"cas:status"`
 	Name           string `xml:"cas:name"`
 	UserType       string `xml:"cas:userType"`
+	ContainerName  string `xml:"cas:containerName"`
 }
