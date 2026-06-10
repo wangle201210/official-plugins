@@ -23,6 +23,8 @@ var (
 	CodePasswordChallengeInvalid = bizerr.MustDefine("UIDENTITY_PASSWORD_CHALLENGE_INVALID", "Password reset challenge is invalid or expired", gcode.CodeInvalidParameter)
 	// CodeSMSCodeInvalid reports that phone verification did not match a plugin SMS record.
 	CodeSMSCodeInvalid = bizerr.MustDefine("UIDENTITY_SMS_CODE_INVALID", "SMS verification code is invalid", gcode.CodeInvalidParameter)
+	// CodeSMSCodeExpired reports a missing or expired SMS verification code.
+	CodeSMSCodeExpired = bizerr.MustDefine("UIDENTITY_SMS_CODE_EXPIRED", "SMS verification code has expired", gcode.CodeInvalidParameter)
 	// CodeSMSCaptchaInvalid reports that legacy SMS send captcha validation failed.
 	CodeSMSCaptchaInvalid = bizerr.MustDefine("UIDENTITY_SMS_CAPTCHA_INVALID", "Captcha verification code is invalid", gcode.CodeInvalidParameter)
 	// CodeSMSRateLimited reports that one phone/type exceeded the local send cap.
@@ -35,6 +37,8 @@ var (
 	CodeAccountLocked = bizerr.MustDefine("UIDENTITY_ACCOUNT_LOCKED", "Account is locked", gcode.CodeNotAuthorized)
 	// CodeAccountInactive reports that runtime access hit a non-normal account.
 	CodeAccountInactive = bizerr.MustDefine("UIDENTITY_ACCOUNT_INACTIVE", "Account is not active", gcode.CodeNotAuthorized)
+	// CodeAccountAlreadyActive reports an activation attempt on an active account.
+	CodeAccountAlreadyActive = bizerr.MustDefine("UIDENTITY_ACCOUNT_ALREADY_ACTIVE", "Account is already active and does not need re-activation", gcode.CodeInvalidParameter)
 	// CodeApplicationDisabled reports runtime access to a disabled application.
 	CodeApplicationDisabled = bizerr.MustDefine("UIDENTITY_APPLICATION_DISABLED", "Application is disabled", gcode.CodeNotAuthorized)
 	// CodeAccessDenied reports blacklist or application access rejection.

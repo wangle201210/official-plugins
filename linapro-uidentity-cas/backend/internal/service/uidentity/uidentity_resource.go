@@ -177,6 +177,7 @@ func (s *serviceImpl) CreateResource(ctx context.Context, resource string, body 
 		if err := s.syncAccountGroupsFromBody(ctx, id, body); err != nil {
 			return 0, err
 		}
+		s.syncAccountLDAPByID(ctx, id)
 		return id, nil
 	}
 	id, err := def.model(ctx).Data(data).InsertAndGetId()
@@ -204,7 +205,11 @@ func (s *serviceImpl) UpdateResource(ctx context.Context, resource string, id in
 		if err := s.updateAccountWithAudit(ctx, id, data); err != nil {
 			return err
 		}
-		return s.syncAccountGroupsFromBody(ctx, id, body)
+		if err := s.syncAccountGroupsFromBody(ctx, id, body); err != nil {
+			return err
+		}
+		s.syncAccountLDAPByID(ctx, id)
+		return nil
 	}
 	if def.name == "account-details" {
 		return s.updateAccountDetailWithAudit(ctx, id, data)

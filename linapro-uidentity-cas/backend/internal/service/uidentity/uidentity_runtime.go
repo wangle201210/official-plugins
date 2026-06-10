@@ -126,7 +126,8 @@ func (s *serviceImpl) IssueOAuthToken(ctx context.Context, in OAuthIssueInput) (
 		return nil, err
 	}
 	if in.TtlSeconds <= 0 {
-		in.TtlSeconds = 3600
+		// Match the old CAS ATExpiration default of 2 hours.
+		in.TtlSeconds = int64((2 * time.Hour).Seconds())
 	}
 	code, err := randomToken("code")
 	if err != nil {

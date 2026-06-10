@@ -187,7 +187,11 @@ func (s *serviceImpl) createImportedAccount(ctx context.Context, row map[string]
 		return err
 	}
 	detailData := importedAccountDetailDO(ctx, s, accountID, row, true)
-	return s.createAccountDetailWithAudit(ctx, detailData, accountID)
+	if err := s.createAccountDetailWithAudit(ctx, detailData, accountID); err != nil {
+		return err
+	}
+	s.syncAccountLDAPByID(ctx, accountID)
+	return nil
 }
 
 func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity.Account, row map[string]string, unitIDs map[string]int64, containerIDs map[string]int64) error {
@@ -224,9 +228,14 @@ func (s *serviceImpl) updateImportedAccount(ctx context.Context, account *entity
 	}
 	detailData := importedAccountDetailDO(ctx, s, account.Id, row, count == 0)
 	if count == 0 {
-		return s.createAccountDetailWithAudit(ctx, detailData, account.Id)
+		if err := s.createAccountDetailWithAudit(ctx, detailData, account.Id); err != nil {
+			return err
+		}
+	} else if err := s.updateAccountDetailWithAudit(ctx, account.Id, detailData); err != nil {
+		return err
 	}
-	return s.updateAccountDetailWithAudit(ctx, account.Id, detailData)
+	s.syncAccountLDAPByID(ctx, account.Id)
+	return nil
 }
 
 func importedAccountDetailDO(ctx context.Context, s *serviceImpl, accountID int64, row map[string]string, create bool) do.AccountDetails {

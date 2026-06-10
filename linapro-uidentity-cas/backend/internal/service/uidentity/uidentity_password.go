@@ -31,6 +31,9 @@ const (
 	smsTypeCasBind              = "bind"
 	smsStatusSuccess            = 1
 	smsStatusFailed             = 2
+	smsStatusConsumed           = 3
+	// smsCodeTTL matches the old sms.Expiration: codes expire 5 minutes after send.
+	smsCodeTTL = 5 * time.Minute
 )
 
 type passwordChallengeData struct {
@@ -205,18 +208,47 @@ func (s *serviceImpl) passwordChallenge(ctx context.Context, code string) (*enti
 	return token, payload, nil
 }
 
+// verifySMSCode replicates the old sms.Check contract: a configured common
+// pass bypasses verification, otherwise the latest unconsumed code for the
+// phone/type is looked up, consumed one-time regardless of match, treated as
+// expired when missing or older than the 5-minute window, and compared.
 func (s *serviceImpl) verifySMSCode(ctx context.Context, phone string, code string, smsType string) error {
-	smsColumns := dao.Sms.Columns()
-	count, err := dao.Sms.Ctx(ctx).
-		Where(smsColumns.Phone, phone).
-		Where(smsColumns.Type, smsType).
-		Where(smsColumns.Content, code).
-		Where(smsColumns.Status, smsStatusSuccess).
-		Count()
+	now := time.Now()
+	commonPass, err := s.legacyCommonPassEnabled(ctx)
 	if err != nil {
 		return err
 	}
-	if count == 0 {
+	if commonPass && legacyCommonPassMatches(code, now) {
+		return nil
+	}
+	smsColumns := dao.Sms.Columns()
+	var record *entity.Sms
+	err = dao.Sms.Ctx(ctx).
+		Where(smsColumns.Phone, phone).
+		Where(smsColumns.Type, smsType).
+		Where(smsColumns.Status, smsStatusSuccess).
+		OrderDesc(smsColumns.Id).
+		Scan(&record)
+	if err != nil {
+		return err
+	}
+	if record == nil {
+		return bizerr.NewCode(CodeSMSCodeExpired)
+	}
+	// Consume every outstanding code for this phone/type so a verification
+	// attempt burns the code one-time, matching the old Redis Del-on-check.
+	if _, err := dao.Sms.Ctx(ctx).
+		Where(smsColumns.Phone, phone).
+		Where(smsColumns.Type, smsType).
+		Where(smsColumns.Status, smsStatusSuccess).
+		Data(do.Sms{Status: smsStatusConsumed, UpdateBy: s.actorID(ctx)}).
+		Update(); err != nil {
+		return err
+	}
+	if record.CreatedAt == nil || now.Sub(*record.CreatedAt) > smsCodeTTL {
+		return bizerr.NewCode(CodeSMSCodeExpired)
+	}
+	if record.Content != code {
 		return bizerr.NewCode(CodeSMSCodeInvalid)
 	}
 	return nil

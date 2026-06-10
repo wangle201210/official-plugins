@@ -564,7 +564,14 @@ func (c *LegacyController) ActivationStart(r *ghttp.Request) {
 		Idcard: legacyStringParam(r, "idcard", "idCard"),
 	})
 	if err != nil {
-		legacyError(r, err)
+		switch {
+		case bizerr.Is(err, uidentitysvc.CodeAccountAlreadyActive):
+			legacyErrorWithMsg(r, err, "账号已激活，无需重复激活！")
+		case bizerr.Is(err, uidentitysvc.CodeAccountLocked):
+			legacyErrorWithMsg(r, err, "账号已锁定，请联系信教中心")
+		default:
+			legacyError(r, err)
+		}
 		return
 	}
 	legacyOKWithMsg(r, legacyActivationStartPayload(out), legacyMsgValidateSuccess)

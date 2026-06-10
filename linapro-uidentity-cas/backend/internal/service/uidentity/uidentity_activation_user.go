@@ -44,6 +44,9 @@ func (s *serviceImpl) StartActivation(ctx context.Context, in ActivationStartInp
 	if detail.Idcard != in.Idcard {
 		return nil, bizerr.NewCode(CodeInvalidCredentials)
 	}
+	if account.Status == AccountStatusNormal {
+		return nil, bizerr.NewCode(CodeAccountAlreadyActive)
+	}
 	if account.Status == AccountStatusLocked {
 		return nil, bizerr.NewCode(CodeAccountLocked)
 	}

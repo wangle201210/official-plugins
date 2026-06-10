@@ -39,10 +39,12 @@ func (s *serviceImpl) SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSen
 		return nil, bizerr.NewCode(CodeImportInvalid)
 	}
 	smsCols := dao.Sms.Columns()
+	// Count both unconsumed and consumed sends so verifying a code does not
+	// free send quota, matching the old independent rolling counter.
 	sentCount, err := dao.Sms.Ctx(ctx).
 		Where(smsCols.Phone, phone).
 		Where(smsCols.Type, smsType).
-		Where(smsCols.Status, smsStatusSuccess).
+		WhereIn(smsCols.Status, []int{smsStatusSuccess, smsStatusConsumed}).
 		Where(smsCols.CreatedAt+" >= ?", time.Now().Add(-smsLocalRateWindow)).
 		Count()
 	if err != nil {
