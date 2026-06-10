@@ -7,13 +7,15 @@ import (
 	uidentitysvc "lina-plugin-linapro-uidentity-cas/backend/internal/service/uidentity"
 )
 
-// OAuthAccessToken exchanges one authorization code for OAuth tokens.
+// OAuthAccessToken exchanges one authorization code or refresh token for
+// OAuth tokens.
 func (c *ControllerV1) OAuthAccessToken(ctx context.Context, req *v1.OAuthAccessTokenReq) (res *v1.OAuthAccessTokenRes, err error) {
 	out, err := c.uidentitySvc.ExchangeOAuthAuthorizationCode(ctx, uidentitysvc.OAuthTokenExchangeInput{
 		GrantType:    req.GrantType,
 		ClientID:     req.ClientId,
 		ClientSecret: req.ClientSecret,
 		Code:         req.Code,
+		RefreshToken: req.RefreshToken,
 		RedirectURI:  req.RedirectUri,
 		TtlSeconds:   req.TtlSeconds,
 	})

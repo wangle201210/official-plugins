@@ -20,6 +20,7 @@ import (
 
 const (
 	oauthGrantTypeAuthorizationCode = "authorization_code"
+	oauthGrantTypeRefreshToken      = "refresh_token"
 	oauthTokenTypeBearer            = "Bearer"
 
 	oauthKindAuthorizationCode = "oauth_authorization_code"
@@ -31,6 +32,10 @@ const (
 
 	oauthCodeTTL   = 5 * time.Minute
 	oauthAccessTTL = 2 * time.Hour
+	// oauthRefreshTTL mirrors the old go-oauth2 DefaultAuthorizeCodeTokenCfg
+	// refresh-token lifetime so refresh grants stay usable after the access
+	// token expires.
+	oauthRefreshTTL = 72 * time.Hour
 )
 
 type oauthRuntimePayload struct {
@@ -45,6 +50,9 @@ type oauthRuntimePayload struct {
 	RedirectURI string `json:"redirectUri"`
 	Scope       string `json:"scope"`
 	State       string `json:"state,omitempty"`
+	// AccessExpiredAt bounds the access token separately from the stored row,
+	// whose expired_at carries the longer refresh-token lifetime.
+	AccessExpiredAt int64 `json:"accessExpiredAt,omitempty"`
 }
 
 // IssueOAuthAuthorizationCode validates credentials and creates one OAuth code.
@@ -103,10 +111,14 @@ func (s *serviceImpl) IssueOAuthAuthorizationCode(ctx context.Context, in OAuthA
 	}, nil
 }
 
-// ExchangeOAuthAuthorizationCode consumes a code and issues OAuth tokens.
+// ExchangeOAuthAuthorizationCode consumes a code and issues OAuth tokens, or
+// rotates an access/refresh pair when the refresh_token grant is requested.
 func (s *serviceImpl) ExchangeOAuthAuthorizationCode(ctx context.Context, in OAuthTokenExchangeInput) (*OAuthTokenExchangeOutput, error) {
 	if !oauthGrantTypeSupported(in.GrantType) {
 		return nil, bizerr.NewCode(CodeOAuthGrantInvalid)
+	}
+	if strings.TrimSpace(in.GrantType) == oauthGrantTypeRefreshToken {
+		return s.refreshOAuthAccessToken(ctx, in)
 	}
 	app, err := s.runtimeApplicationByClientID(ctx, in.ClientID)
 	if err != nil {
@@ -114,6 +126,9 @@ func (s *serviceImpl) ExchangeOAuthAuthorizationCode(ctx context.Context, in OAu
 	}
 	if !oauthClientSecretMatches(app.SecretKey, in.ClientSecret) {
 		return nil, bizerr.NewCode(CodeApplicationSecretInvalid)
+	}
+	if strings.TrimSpace(in.Code) == "" {
+		return nil, bizerr.NewCode(CodeOAuthGrantInvalid)
 	}
 	token, payload, err := s.oauthAuthorizationCode(ctx, in.Code)
 	if err != nil {
@@ -132,7 +147,60 @@ func (s *serviceImpl) ExchangeOAuthAuthorizationCode(ctx context.Context, in OAu
 	if err := s.ensureRuntimeAccess(ctx, account, app); err != nil {
 		return nil, err
 	}
-	ttl := oauthTTL(in.TtlSeconds, oauthAccessTTL)
+	return s.issueOAuthAccessPair(ctx, token.Id, in.TtlSeconds, oauthRuntimePayload{
+		AccountID:   account.Id,
+		Number:      account.Number,
+		AppID:       app.Id,
+		ClientID:    app.ClientId,
+		RedirectURI: payload.RedirectURI,
+		Scope:       payload.Scope,
+		State:       payload.State,
+	})
+}
+
+// refreshOAuthAccessToken rotates one access/refresh pair like the old
+// go-oauth2 default refresh config: the consumed access and refresh tokens are
+// removed and a new pair is generated.
+func (s *serviceImpl) refreshOAuthAccessToken(ctx context.Context, in OAuthTokenExchangeInput) (*OAuthTokenExchangeOutput, error) {
+	app, err := s.runtimeApplicationByClientID(ctx, in.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	if !oauthClientSecretMatches(app.SecretKey, in.ClientSecret) {
+		return nil, bizerr.NewCode(CodeApplicationSecretInvalid)
+	}
+	if strings.TrimSpace(in.RefreshToken) == "" {
+		return nil, bizerr.NewCode(CodeOAuthGrantInvalid)
+	}
+	token, payload, err := s.oauthTokenByRefresh(ctx, in.RefreshToken)
+	if err != nil {
+		return nil, err
+	}
+	if payload.ClientID != app.ClientId || payload.AppID != app.Id {
+		return nil, bizerr.NewCode(CodeOAuthGrantInvalid)
+	}
+	account, err := s.getAccountByID(ctx, payload.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.ensureRuntimeAccess(ctx, account, app); err != nil {
+		return nil, err
+	}
+	return s.issueOAuthAccessPair(ctx, token.Id, in.TtlSeconds, oauthRuntimePayload{
+		AccountID:   payload.AccountID,
+		Number:      payload.Number,
+		AppID:       payload.AppID,
+		ClientID:    payload.ClientID,
+		RedirectURI: payload.RedirectURI,
+		Scope:       payload.Scope,
+		State:       payload.State,
+	})
+}
+
+// issueOAuthAccessPair consumes the granting row and stores one access/refresh
+// pair whose row outlives the access token by the refresh lifetime.
+func (s *serviceImpl) issueOAuthAccessPair(ctx context.Context, consumedTokenID int64, ttlSeconds int64, payload oauthRuntimePayload) (*OAuthTokenExchangeOutput, error) {
+	ttl := oauthTTL(ttlSeconds, oauthAccessTTL)
 	access, err := randomToken("OA")
 	if err != nil {
 		return nil, err
@@ -141,23 +209,20 @@ func (s *serviceImpl) ExchangeOAuthAuthorizationCode(ctx context.Context, in OAu
 	if err != nil {
 		return nil, err
 	}
-	expiredAt := time.Now().Add(ttl)
-	accessPayload := oauthRuntimePayload{
-		Kind:        oauthKindAccessToken,
-		AccessToken: access,
-		Refresh:     refresh,
-		AccountID:   account.Id,
-		Number:      account.Number,
-		AppID:       app.Id,
-		ClientID:    app.ClientId,
-		RedirectURI: payload.RedirectURI,
-		Scope:       payload.Scope,
-		State:       payload.State,
+	now := time.Now()
+	accessExpiredAt := now.Add(ttl)
+	rowExpiredAt := now.Add(oauthRefreshTTL)
+	if accessExpiredAt.After(rowExpiredAt) {
+		rowExpiredAt = accessExpiredAt
 	}
-	if err := s.consumeOAuthCodeAndCreateAccess(ctx, token.Id, expiredAt, access, refresh, accessPayload); err != nil {
+	payload.Kind = oauthKindAccessToken
+	payload.AccessToken = access
+	payload.Refresh = refresh
+	payload.AccessExpiredAt = accessExpiredAt.UnixMilli()
+	if err := s.consumeOAuthGrantAndCreateAccess(ctx, consumedTokenID, rowExpiredAt, access, refresh, payload); err != nil {
 		return nil, err
 	}
-	millis := expiredAt.UnixMilli()
+	millis := accessExpiredAt.UnixMilli()
 	return &OAuthTokenExchangeOutput{
 		AccessToken:  access,
 		RefreshToken: refresh,
@@ -209,7 +274,24 @@ func (s *serviceImpl) oauthAccessToken(ctx context.Context, accessToken string) 
 		return nil, err
 	}
 	_, payload, err := parseOAuthRuntimeToken(token, oauthKindAccessToken)
-	return payload, err
+	if err != nil {
+		return nil, err
+	}
+	if oauthAccessPayloadExpired(payload, time.Now()) {
+		return nil, bizerr.NewCode(CodeTicketInvalid)
+	}
+	return payload, nil
+}
+
+func (s *serviceImpl) oauthTokenByRefresh(ctx context.Context, refreshToken string) (*entity.Oauth2Token, *oauthRuntimePayload, error) {
+	var token *entity.Oauth2Token
+	err := dao.Oauth2Token.Ctx(ctx).
+		Where(dao.Oauth2Token.Columns().Refresh, oauthRefreshPrefix+strings.TrimSpace(refreshToken)).
+		Scan(&token)
+	if err != nil {
+		return nil, nil, err
+	}
+	return parseOAuthRuntimeToken(token, oauthKindAccessToken)
 }
 
 func (s *serviceImpl) oauthTokenByCode(ctx context.Context, code string, kind string) (*entity.Oauth2Token, *oauthRuntimePayload, error) {
@@ -223,9 +305,9 @@ func (s *serviceImpl) oauthTokenByCode(ctx context.Context, code string, kind st
 	return parseOAuthRuntimeToken(token, kind)
 }
 
-func (s *serviceImpl) consumeOAuthCodeAndCreateAccess(
+func (s *serviceImpl) consumeOAuthGrantAndCreateAccess(
 	ctx context.Context,
-	codeTokenID int64,
+	consumedTokenID int64,
 	expiredAt time.Time,
 	access string,
 	refresh string,
@@ -238,7 +320,7 @@ func (s *serviceImpl) consumeOAuthCodeAndCreateAccess(
 	actorID := s.actorID(ctx)
 	return dao.Oauth2Token.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		result, err := tx.Model(dao.Oauth2Token.Table()).Safe().Ctx(ctx).
-			Where(dao.Oauth2Token.Columns().Id, codeTokenID).
+			Where(dao.Oauth2Token.Columns().Id, consumedTokenID).
 			Delete()
 		if err != nil {
 			return err
@@ -298,7 +380,13 @@ func oauthTTL(ttlSeconds int64, fallback time.Duration) time.Duration {
 
 func oauthGrantTypeSupported(grantType string) bool {
 	trimmed := strings.TrimSpace(grantType)
-	return trimmed == "" || trimmed == oauthGrantTypeAuthorizationCode
+	return trimmed == "" || trimmed == oauthGrantTypeAuthorizationCode || trimmed == oauthGrantTypeRefreshToken
+}
+
+// oauthAccessPayloadExpired reports whether the payload-level access expiry
+// passed; rows created before AccessExpiredAt existed rely on row expiry only.
+func oauthAccessPayloadExpired(payload *oauthRuntimePayload, now time.Time) bool {
+	return payload != nil && payload.AccessExpiredAt > 0 && payload.AccessExpiredAt <= now.UnixMilli()
 }
 
 func oauthClientSecretMatches(expected string, actual string) bool {

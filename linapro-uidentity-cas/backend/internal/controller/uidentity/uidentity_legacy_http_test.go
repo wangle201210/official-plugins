@@ -318,6 +318,93 @@ func TestLegacyAdminLoginRouteUsesOldFieldsAndTopLevelToken(t *testing.T) {
 	}
 }
 
+func TestLegacyCasPasswordLoginRequiresCaptchaLikeOldCasLogin(t *testing.T) {
+	service := &legacyHTTPFakeService{loginCaptchaErr: bizerr.NewCode(uidentitysvc.CodeSMSCaptchaInvalid)}
+	baseURL := startLegacyHTTPTestServer(t, "cas-login-captcha", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.POST("/cas/login", controller.CasPasswordLogin)
+	})
+	resp, err := http.PostForm(baseURL+"/api/v1/cas/login", url.Values{
+		"number":   []string{"A001"},
+		"password": []string{"secret"},
+		"appid":    []string{"portal"},
+		"uuid":     []string{"captcha-uuid"},
+		"code":     []string{"0000"},
+	})
+	if err != nil {
+		t.Fatalf("call legacy cas login: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode legacy cas login response: %v", err)
+	}
+	if payload["code"] == float64(legacyStatusOK) || payload["msg"] != legacyMsgCaptchaInvalid {
+		t.Fatalf("legacy cas login must reject invalid captcha: %#v", payload)
+	}
+	if service.loginCaptchaCode != "0000" || service.loginCaptchaUUID != "captcha-uuid" {
+		t.Fatalf("legacy cas login did not forward captcha fields: %#v", service)
+	}
+	if service.passwordLoginCalled {
+		t.Fatal("legacy cas login must not reach password validation on captcha failure")
+	}
+}
+
+func TestLegacyCasPasswordLoginPassesCaptchaThenLogsIn(t *testing.T) {
+	service := &legacyHTTPFakeService{}
+	baseURL := startLegacyHTTPTestServer(t, "cas-login-ok", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.POST("/cas/login", controller.CasPasswordLogin)
+	})
+	resp, err := http.PostForm(baseURL+"/api/v1/cas/login", url.Values{
+		"number":   []string{"A001"},
+		"password": []string{"secret"},
+		"appid":    []string{"portal"},
+		"uuid":     []string{"captcha-uuid"},
+		"code":     []string{"1234"},
+	})
+	if err != nil {
+		t.Fatalf("call legacy cas login: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode legacy cas login response: %v", err)
+	}
+	if payload["code"] != float64(legacyStatusOK) || payload["msg"] != legacyMsgLoginSuccess {
+		t.Fatalf("legacy cas login should succeed after captcha: %#v", payload)
+	}
+	if service.passwordLoginInput.Number != "A001" || service.passwordLoginInput.ClientID != "portal" {
+		t.Fatalf("legacy cas login did not pass old fields: %#v", service.passwordLoginInput)
+	}
+}
+
+func TestLegacyCasPasswordLoginKeepsOldWeakPasswordMessage(t *testing.T) {
+	service := &legacyHTTPFakeService{loginErr: bizerr.NewCode(uidentitysvc.CodeLoginPasswordWeak)}
+	baseURL := startLegacyHTTPTestServer(t, "cas-login-weak", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
+		group.POST("/cas/login", controller.CasPasswordLogin)
+	})
+	resp, err := http.PostForm(baseURL+"/api/v1/cas/login", url.Values{
+		"number":   []string{"A001"},
+		"password": []string{"weakpass"},
+		"appid":    []string{"portal"},
+		"uuid":     []string{"captcha-uuid"},
+		"code":     []string{"1234"},
+	})
+	if err != nil {
+		t.Fatalf("call legacy cas login: %v", err)
+	}
+	defer closeHTTPResponse(t, resp)
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode legacy cas login response: %v", err)
+	}
+	if payload["code"] == float64(legacyStatusOK) || payload["msg"] != legacyMsgLoginPasswordWeak {
+		t.Fatalf("legacy cas login must keep the old weak-password message: %#v", payload)
+	}
+}
+
 func TestLegacyAdminLogoutKeepsOldEnvelopeAndRecordsLogout(t *testing.T) {
 	service := &legacyHTTPFakeService{}
 	baseURL := startLegacyHTTPTestServer(t, "admin-logout", service, func(group *ghttp.RouterGroup, controller *LegacyController) {
@@ -474,6 +561,11 @@ type legacyHTTPFakeService struct {
 	uidentitysvc.Service
 
 	passwordLoginInput    uidentitysvc.PasswordLoginInput
+	passwordLoginCalled   bool
+	loginErr              error
+	loginCaptchaCode      string
+	loginCaptchaUUID      string
+	loginCaptchaErr       error
 	logoutInput           uidentitysvc.LegacyAdminLogoutInput
 	changePhoneInput      uidentitysvc.ChangePhoneInput
 	applicationListInput  uidentitysvc.UserApplicationListInput
@@ -485,12 +577,22 @@ type legacyHTTPFakeService struct {
 
 func (s *legacyHTTPFakeService) LoginByPassword(_ context.Context, in uidentitysvc.PasswordLoginInput) (*uidentitysvc.RuntimeLoginOutput, error) {
 	s.passwordLoginInput = in
+	s.passwordLoginCalled = true
+	if s.loginErr != nil {
+		return nil, s.loginErr
+	}
 	return &uidentitysvc.RuntimeLoginOutput{
 		CallbackURL: "https://app.example/callback?ticket=ST-1",
 		TGT:         "TGT-1",
 		ST:          "ST-1",
 		User:        &uidentitysvc.RuntimeAccount{Number: "A001"},
 	}, nil
+}
+
+func (s *legacyHTTPFakeService) VerifyLoginCaptcha(_ context.Context, code string, uuid string) error {
+	s.loginCaptchaCode = code
+	s.loginCaptchaUUID = uuid
+	return s.loginCaptchaErr
 }
 
 func (s *legacyHTTPFakeService) LegacyRedirectConfig(context.Context) (*uidentitysvc.LegacyRedirectConfigOutput, error) {

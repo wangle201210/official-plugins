@@ -19,6 +19,9 @@ var (
 	CodeDeleteIDsTooMany = bizerr.MustDefine("UIDENTITY_DELETE_IDS_TOO_MANY", "Delete supports at most {limit} IDs per request", gcode.CodeInvalidParameter)
 	// CodePasswordWeak reports a password that does not satisfy active policy.
 	CodePasswordWeak = bizerr.MustDefine("UIDENTITY_PASSWORD_WEAK", "Password does not satisfy active policy", gcode.CodeInvalidParameter)
+	// CodeLoginPasswordWeak reports a password login rejected because the
+	// current password fails the strong-password rule and must be reset.
+	CodeLoginPasswordWeak = bizerr.MustDefine("UIDENTITY_LOGIN_PASSWORD_WEAK", "Password does not satisfy the strong-password rule, reset it or login with an SMS code", gcode.CodeNotAuthorized)
 	// CodePasswordChallengeInvalid reports a missing, expired, or invalid password challenge.
 	CodePasswordChallengeInvalid = bizerr.MustDefine("UIDENTITY_PASSWORD_CHALLENGE_INVALID", "Password reset challenge is invalid or expired", gcode.CodeInvalidParameter)
 	// CodeSMSCodeInvalid reports that phone verification did not match a plugin SMS record.

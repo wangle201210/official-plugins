@@ -89,6 +89,12 @@ func (s *serviceImpl) SendSMSCode(ctx context.Context, in SMSSendInput) (*SMSSen
 	return &SMSSendOutput{ID: id}, nil
 }
 
+// VerifyLoginCaptcha validates a login captcha like the old CAS login, which
+// accepted the rotating common pass in place of the captcha code.
+func (s *serviceImpl) VerifyLoginCaptcha(ctx context.Context, code string, uuid string) error {
+	return s.verifyLegacySMSCaptcha(ctx, code, uuid, time.Now())
+}
+
 func (s *serviceImpl) verifyLegacySMSCaptcha(ctx context.Context, code string, uuid string, now time.Time) error {
 	code = strings.TrimSpace(code)
 	uuid = strings.TrimSpace(uuid)

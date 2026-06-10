@@ -16,13 +16,14 @@ type OAuthAuthorizationCodeReq struct {
 	TtlSeconds  int64  `json:"ttlSeconds" d:"300" v:"min:60|max:1800" dc:"Authorization code TTL in seconds, between 60 and 1800" eg:"300"`
 }
 
-// OAuthAccessTokenReq defines authorization-code token exchange.
+// OAuthAccessTokenReq defines authorization-code or refresh-token exchange.
 type OAuthAccessTokenReq struct {
-	g.Meta       `path:"/api/v1/oauth/token" method:"post" tags:"UIdentity OAuth Runtime" summary:"Exchange OAuth authorization code" dc:"Validate client secret and a one-time authorization code, consume the code, issue access and refresh tokens, and record an OAuth authorization log."`
-	GrantType    string `json:"grant_type" d:"authorization_code" dc:"OAuth grant type; only authorization_code is supported" eg:"authorization_code"`
+	g.Meta       `path:"/api/v1/oauth/token" method:"post" tags:"UIdentity OAuth Runtime" summary:"Exchange OAuth authorization code or refresh token" dc:"Validate client secret, then either consume a one-time authorization code or rotate an access/refresh token pair for the refresh_token grant, and record an OAuth authorization log."`
+	GrantType    string `json:"grant_type" d:"authorization_code" dc:"OAuth grant type; authorization_code and refresh_token are supported" eg:"authorization_code"`
 	ClientId     string `json:"client_id" v:"required" dc:"Application client ID" eg:"portal"`
 	ClientSecret string `json:"client_secret" v:"required" dc:"Application client secret, raw or URL-escaped for legacy clients" eg:"secret"`
-	Code         string `json:"code" v:"required" dc:"One-time authorization code" eg:"OC_abcdef"`
+	Code         string `json:"code" dc:"One-time authorization code; required for the authorization_code grant" eg:"OC_abcdef"`
+	RefreshToken string `json:"refresh_token" dc:"Refresh token; required for the refresh_token grant" eg:"OR_abcdef"`
 	RedirectUri  string `json:"redirect_uri" dc:"Redirect URI used by the authorization request; required to match when the code stored one" eg:"https://example.com/oauth/callback"`
 	TtlSeconds   int64  `json:"ttlSeconds" d:"7200" v:"min:60|max:86400" dc:"Access token TTL in seconds, between 60 and 86400" eg:"7200"`
 }

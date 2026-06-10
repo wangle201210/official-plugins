@@ -2,7 +2,10 @@
 
 package uidentity
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestOAuthClientSecretMatchesLegacyEscapedSecret(t *testing.T) {
 	if !oauthClientSecretMatches("a+b secret", "a%2Bb+secret") {
@@ -33,7 +36,29 @@ func TestOAuthGrantTypeSupported(t *testing.T) {
 	if !oauthGrantTypeSupported(oauthGrantTypeAuthorizationCode) {
 		t.Fatalf("expected authorization_code grant type to be supported")
 	}
+	if !oauthGrantTypeSupported(oauthGrantTypeRefreshToken) {
+		t.Fatalf("expected refresh_token grant type to be supported")
+	}
 	if oauthGrantTypeSupported("password") {
 		t.Fatalf("expected password grant type to be rejected")
+	}
+}
+
+func TestOAuthAccessPayloadExpired(t *testing.T) {
+	now := time.Now()
+	if oauthAccessPayloadExpired(nil, now) {
+		t.Fatalf("expected nil payload to never report access expiry")
+	}
+	legacyRow := &oauthRuntimePayload{}
+	if oauthAccessPayloadExpired(legacyRow, now) {
+		t.Fatalf("expected rows without AccessExpiredAt to rely on row expiry only")
+	}
+	live := &oauthRuntimePayload{AccessExpiredAt: now.Add(time.Hour).UnixMilli()}
+	if oauthAccessPayloadExpired(live, now) {
+		t.Fatalf("expected future access expiry to stay valid")
+	}
+	expired := &oauthRuntimePayload{AccessExpiredAt: now.Add(-time.Second).UnixMilli()}
+	if !oauthAccessPayloadExpired(expired, now) {
+		t.Fatalf("expected past access expiry to be rejected")
 	}
 }

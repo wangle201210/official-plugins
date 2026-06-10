@@ -179,8 +179,13 @@ type Service interface {
 	// ValidateLegacyAdminCASTicket validates the old GoAdmin CAS callback
 	// ticket and resolves the account without issuing a LinaPro auth session.
 	ValidateLegacyAdminCASTicket(ctx context.Context, in CASLoginInput) (*CASLoginOutput, error)
-	// LoginByPassword validates application, account password, account status,
-	// blacklist rules, and delegated accounts before issuing CAS TGT/ST values.
+	// VerifyLoginCaptcha validates a login captcha code and UUID, accepting
+	// the legacy rotating common pass in place of the captcha code when the
+	// common-pass switch is enabled.
+	VerifyLoginCaptcha(ctx context.Context, code string, uuid string) error
+	// LoginByPassword validates application, account password, strong-password
+	// policy, account status, blacklist rules, and delegated accounts before
+	// issuing CAS TGT/ST values.
 	LoginByPassword(ctx context.Context, in PasswordLoginInput) (*RuntimeLoginOutput, error)
 	// LoginByPhone validates application, phone-bound account, and SMS code
 	// before issuing CAS TGT/ST values for legacy phone login clients.
@@ -220,7 +225,8 @@ type Service interface {
 	// access before creating a short-lived one-time OAuth authorization code.
 	IssueOAuthAuthorizationCode(ctx context.Context, in OAuthAuthorizationCodeInput) (*OAuthAuthorizationCodeOutput, error)
 	// ExchangeOAuthAuthorizationCode validates client secret and consumes one
-	// authorization code before issuing OAuth access and refresh tokens.
+	// authorization code before issuing OAuth access and refresh tokens. With
+	// the refresh_token grant it instead rotates an access/refresh pair.
 	ExchangeOAuthAuthorizationCode(ctx context.Context, in OAuthTokenExchangeInput) (*OAuthTokenExchangeOutput, error)
 	// GetOAuthAccessTokenInfo validates an OAuth access token and returns the
 	// bound account/application projection without consuming the token.
@@ -492,12 +498,14 @@ type OAuthAuthorizationCodeOutput struct {
 	State       string
 }
 
-// OAuthTokenExchangeInput carries authorization-code exchange input.
+// OAuthTokenExchangeInput carries authorization-code or refresh-token
+// exchange input.
 type OAuthTokenExchangeInput struct {
 	GrantType    string
 	ClientID     string
 	ClientSecret string
 	Code         string
+	RefreshToken string
 	RedirectURI  string
 	TtlSeconds   int64
 }

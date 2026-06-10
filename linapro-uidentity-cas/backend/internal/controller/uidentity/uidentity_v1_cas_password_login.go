@@ -9,6 +9,11 @@ import (
 
 // CasPasswordLogin validates account password login and returns CAS tickets.
 func (c *ControllerV1) CasPasswordLogin(ctx context.Context, req *v1.CasPasswordLoginReq) (res *v1.CasPasswordLoginRes, err error) {
+	// The old CAS password login verified a captcha first, accepting the
+	// rotating common pass in place of the captcha code.
+	if err := c.uidentitySvc.VerifyLoginCaptcha(ctx, req.Code, req.UUID); err != nil {
+		return nil, err
+	}
 	out, err := c.uidentitySvc.LoginByPassword(ctx, uidentitysvc.PasswordLoginInput{
 		ClientID: req.ClientId,
 		Number:   req.Number,

@@ -90,6 +90,14 @@ func (s *serviceImpl) LoginByPassword(ctx context.Context, in PasswordLoginInput
 	if err := s.verifyAccountPassword(ctx, account, in.Password); err != nil {
 		return nil, err
 	}
+	// The old CAS login rejected correct-but-weak passwords and forced a
+	// reset or an SMS login instead.
+	if _, err := s.validatePassword(ctx, in.Password); err != nil {
+		if bizerr.Is(err, CodePasswordWeak) {
+			return nil, bizerr.NewCode(CodeLoginPasswordWeak)
+		}
+		return nil, err
+	}
 	return s.issueRuntimeLogin(ctx, account, app, LoginTypePassword)
 }
 

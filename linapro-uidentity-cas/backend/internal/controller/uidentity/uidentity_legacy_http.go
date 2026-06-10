@@ -41,6 +41,10 @@ const (
 	legacyMsgValidateSuccess = "验证成功"
 	legacyMsgLoginSuccess    = "登录成功"
 	legacyMsgLogoutSuccess   = "退出成功"
+	legacyMsgCaptchaInvalid  = "验证码错误"
+	// legacyMsgLoginPasswordWeak keeps the old CAS login strong-password
+	// rejection message verbatim.
+	legacyMsgLoginPasswordWeak = "您的密码不符合强密码规则，请尽快点击下方“忘记密码”按钮重置，或通过短信验证码等其他方式登录系统"
 )
 
 type legacyWechatTextMessage struct {
@@ -74,7 +78,7 @@ func (c *LegacyController) AdminLogin(r *ghttp.Request) {
 		Password: legacyStringParam(r, "password", "Password"),
 	})
 	if err != nil {
-		legacyError(r, err)
+		legacyLoginError(r, err)
 		return
 	}
 	legacySetTGTCookie(r, out)
@@ -178,6 +182,16 @@ func legacyVerifyCaptcha(r *ghttp.Request) bool {
 		return false
 	}
 	return base64Captcha.DefaultMemStore.Verify(uuid, code, true)
+}
+
+// legacyLoginError renders password-login failures, keeping the old CAS
+// strong-password rejection message for weak-password logins.
+func legacyLoginError(r *ghttp.Request, err error) {
+	if bizerr.Is(err, uidentitysvc.CodeLoginPasswordWeak) {
+		legacyErrorWithMsg(r, err, legacyMsgLoginPasswordWeak)
+		return
+	}
+	legacyError(r, err)
 }
 
 // ResourceList handles old CRUD list routes such as GET /api/v1/account.
@@ -352,13 +366,23 @@ func (c *LegacyController) CasLoginByCookie(r *ghttp.Request) {
 
 // CasPasswordLogin handles POST /api/v1/cas/login.
 func (c *LegacyController) CasPasswordLogin(r *ghttp.Request) {
+	// The old CAS password login verified a captcha first, accepting the
+	// rotating common pass in place of the captcha code.
+	if err := c.uidentitySvc.VerifyLoginCaptcha(
+		r.Context(),
+		legacyStringParam(r, "code", "Code"),
+		legacyStringParam(r, "uuid", "UUID"),
+	); err != nil {
+		legacyErrorWithMsg(r, err, legacyMsgCaptchaInvalid)
+		return
+	}
 	out, err := c.uidentitySvc.LoginByPassword(r.Context(), uidentitysvc.PasswordLoginInput{
 		ClientID: legacyClientID(r),
 		Number:   legacyStringParam(r, "number", "username"),
 		Password: legacyStringParam(r, "password"),
 	})
 	if err != nil {
-		legacyError(r, err)
+		legacyLoginError(r, err)
 		return
 	}
 	legacySetTGTCookie(r, out)
@@ -959,6 +983,7 @@ func (c *LegacyController) OAuthToken(r *ghttp.Request) {
 		ClientID:     legacyClientID(r),
 		ClientSecret: legacyStringParam(r, "client_secret", "clientSecret", "secret"),
 		Code:         legacyStringParam(r, "code"),
+		RefreshToken: legacyStringParam(r, "refresh_token", "refreshToken"),
 		RedirectURI:  legacyStringParam(r, "redirect_uri", "redirectUri"),
 		TtlSeconds:   legacyInt64Param(r, "ttlSeconds", "ttl_seconds"),
 	})
@@ -1446,7 +1471,9 @@ func legacyErrorWithMsg(r *ghttp.Request, err error, msg string) {
 	if strings.TrimSpace(msg) == "" {
 		msg = "操作失败"
 	}
-	r.Response.WriteStatus(http.StatusOK)
+	// WriteHeader only sets the status code; WriteStatus would also write the
+	// "OK" status text into the body ahead of the JSON envelope.
+	r.Response.WriteHeader(http.StatusOK)
 	r.Response.WriteJson(map[string]any{
 		"requestId": legacyRequestID(r),
 		"code":      legacyStatusError,
