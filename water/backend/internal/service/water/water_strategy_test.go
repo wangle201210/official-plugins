@@ -9,7 +9,6 @@ func TestParseWatermarkStrategySnapshotNode(t *testing.T) {
 	cfg, err := parseWatermarkStrategy(`record:
   enabled: true
 snapshot_watermark:
-  enabled: true
   text: 园区安防
   fontSize: 48
   color: "#00ff88"
@@ -20,9 +19,6 @@ snapshot_watermark:
 	}
 	if cfg == nil {
 		t.Fatal("expected watermark config")
-	}
-	if !cfg.Enabled {
-		t.Fatal("expected enabled config")
 	}
 	if cfg.Text != "园区安防" {
 		t.Fatalf("expected text to roundtrip, got %q", cfg.Text)
@@ -38,7 +34,6 @@ snapshot_watermark:
 // TestParseWatermarkStrategyNumericAlign verifies numeric alignment inside snapshot watermark YAML.
 func TestParseWatermarkStrategyNumericAlign(t *testing.T) {
 	cfg, err := parseWatermarkStrategy(`snapshot_watermark:
-  enabled: true
   text: 热点水印
   fontSize: 64
   align: 9
@@ -60,7 +55,6 @@ func TestParseWatermarkStrategyNumericAlign(t *testing.T) {
 // TestParseWatermarkStrategyDefaultOpacity verifies omitted opacity uses the snapshot watermark default.
 func TestParseWatermarkStrategyDefaultOpacity(t *testing.T) {
 	cfg, err := parseWatermarkStrategy(`snapshot_watermark:
-  enabled: true
   text: 默认透明度`)
 	if err != nil {
 		t.Fatalf("parse watermark strategy failed: %v", err)

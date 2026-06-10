@@ -99,7 +99,6 @@ type resolvedStrategy struct {
 
 // watermarkConfig defines the normalized snapshot watermark rendering configuration.
 type watermarkConfig struct {
-	Enabled  bool               `json:"enabled" yaml:"enabled"`   // Enabled reports whether watermark rendering should run.
 	Text     string             `json:"text" yaml:"text"`         // Text is the watermark text.
 	Font     string             `json:"font" yaml:"font"`         // Font is an optional font file path.
 	FontSize int                `json:"fontSize" yaml:"fontSize"` // FontSize is the text size in pixels.

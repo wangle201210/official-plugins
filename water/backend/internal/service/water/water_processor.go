@@ -40,7 +40,7 @@ func (s *serviceImpl) processSnapshot(ctx context.Context, in SubmitSnapInput) (
 	if err != nil {
 		return nil, err
 	}
-	if cfg == nil || !cfg.Enabled {
+	if cfg == nil {
 		return skippedProcessOutputWithStrategy(inputImage, strategy, start)
 	}
 
@@ -82,7 +82,7 @@ func skippedProcessOutput(input []byte, source StrategySource, sourceLabel strin
 	}, nil
 }
 
-// skippedProcessOutputWithStrategy returns the original image when a strategy has no enabled watermark config.
+// skippedProcessOutputWithStrategy returns the original image when a strategy has no watermark config.
 func skippedProcessOutputWithStrategy(input []byte, strategy *resolvedStrategy, start time.Time) (*ProcessOutput, error) {
 	dataURL, err := ensurePNGDataURL(input)
 	if err != nil {
@@ -91,7 +91,7 @@ func skippedProcessOutputWithStrategy(input []byte, strategy *resolvedStrategy, 
 	return &ProcessOutput{
 		Success:      true,
 		Status:       TaskStatusSkipped,
-		Message:      "策略未启用水印，已跳过",
+		Message:      "策略未配置水印，已跳过",
 		Image:        dataURL,
 		StrategyId:   strategy.StrategyId,
 		StrategyName: strategy.StrategyName,

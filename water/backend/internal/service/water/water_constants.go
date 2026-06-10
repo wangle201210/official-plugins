@@ -17,7 +17,7 @@ const (
 	TaskStatusProcessing TaskStatus = "processing"
 	// TaskStatusSuccess means the task produced a watermarked image.
 	TaskStatusSuccess TaskStatus = "success"
-	// TaskStatusSkipped means no enabled watermark config was found and the original image was returned.
+	// TaskStatusSkipped means no matching strategy or watermark config was found and the original image was returned.
 	TaskStatusSkipped TaskStatus = "skipped"
 	// TaskStatusFailed means the task failed.
 	TaskStatusFailed TaskStatus = "failed"

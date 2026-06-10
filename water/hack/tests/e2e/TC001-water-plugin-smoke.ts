@@ -49,7 +49,6 @@ async function createWatermarkStrategy(api: Awaited<ReturnType<typeof createAdmi
         enable: 1,
         global: 0,
         strategy: `snapshot_watermark:
-  enabled: true
   text: LinaPro Water
   fontSize: 18
   color: "#ffffff"

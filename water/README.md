@@ -10,7 +10,6 @@ Snapshot watermark rendering rules are stored in the `snapshot_watermark` node o
 
 ```yaml
 snapshot_watermark:
-  enabled: true
   text: LinaPro Water
   fontSize: 40
   color: "#ffffff"
@@ -18,7 +17,7 @@ snapshot_watermark:
   opacity: 0.7
 ```
 
-When `opacity` is omitted, the plugin uses `0.15`.
+`media_strategy.enable` is the only switch for whether a strategy participates in watermark rendering. When `opacity` is omitted, the plugin uses `0.15`.
 
 The service runtime concurrency is configured in the host backend config:
 

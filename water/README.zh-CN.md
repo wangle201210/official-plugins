@@ -10,7 +10,6 @@
 
 ```yaml
 snapshot_watermark:
-  enabled: true
   text: LinaPro Water
   fontSize: 40
   color: "#ffffff"
@@ -18,7 +17,7 @@ snapshot_watermark:
   opacity: 0.7
 ```
 
-未配置`opacity`时，插件默认使用`0.15`。
+`media_strategy.enable`是策略是否参与水印渲染的唯一开关。未配置`opacity`时，插件默认使用`0.15`。
 
 服务端运行并发配置在宿主后端配置文件中：
 
