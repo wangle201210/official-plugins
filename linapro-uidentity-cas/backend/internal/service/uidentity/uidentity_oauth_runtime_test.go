@@ -5,6 +5,8 @@ package uidentity
 import (
 	"testing"
 	"time"
+
+	"lina-plugin-linapro-uidentity-cas/backend/internal/model/entity"
 )
 
 func TestOAuthClientSecretMatchesLegacyEscapedSecret(t *testing.T) {
@@ -41,6 +43,28 @@ func TestOAuthGrantTypeSupported(t *testing.T) {
 	}
 	if oauthGrantTypeSupported("password") {
 		t.Fatalf("expected password grant type to be rejected")
+	}
+}
+
+func TestAccountValidityWindowContains(t *testing.T) {
+	now := time.Now()
+	past := now.Add(-time.Hour)
+	future := now.Add(time.Hour)
+	if !accountValidityWindowContains(&entity.Account{EffectAt: &past, ExpireAt: &future}, now) {
+		t.Fatalf("expected in-window account to pass")
+	}
+	if accountValidityWindowContains(&entity.Account{EffectAt: &future, ExpireAt: &future}, now) {
+		t.Fatalf("expected not-yet-effective account to fail")
+	}
+	if accountValidityWindowContains(&entity.Account{EffectAt: &past, ExpireAt: &past}, now) {
+		t.Fatalf("expected expired account to fail")
+	}
+	// The old SQL comparison excluded NULL-dated delegated accounts.
+	if accountValidityWindowContains(&entity.Account{ExpireAt: &future}, now) {
+		t.Fatalf("expected NULL effect_at to fail like the old SQL filter")
+	}
+	if accountValidityWindowContains(nil, now) {
+		t.Fatalf("expected nil account to fail")
 	}
 }
 

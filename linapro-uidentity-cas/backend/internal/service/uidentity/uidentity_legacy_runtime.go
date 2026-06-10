@@ -542,6 +542,15 @@ func runtimeTokenExpired(expiredAt int64, now time.Time) bool {
 	return expiredAt <= 0 || expiredAt <= now.UnixMilli()
 }
 
+// accountValidityWindowContains mirrors the old delegated-account preload
+// condition: effect_at < now AND expire_at > now, both required.
+func accountValidityWindowContains(account *entity.Account, now time.Time) bool {
+	if account == nil || account.EffectAt == nil || account.ExpireAt == nil {
+		return false
+	}
+	return account.EffectAt.Before(now) && account.ExpireAt.After(now)
+}
+
 func callbackWithTicket(callbackURL string, ticket string) string {
 	return callbackWithQuery(callbackURL, "ticket", ticket)
 }
@@ -740,6 +749,11 @@ func (s *serviceImpl) accessibleAccounts(ctx context.Context, account *entity.Ac
 	allowed := make([]*entity.Account, 0, len(accounts))
 	for _, candidate := range accounts {
 		if candidate.Status != AccountStatusNormal {
+			continue
+		}
+		// The old preload also required delegated accounts to sit inside
+		// their own account validity window (effect_at < now < expire_at).
+		if candidate.Id != account.Id && !accountValidityWindowContains(candidate, now) {
 			continue
 		}
 		if _, ok := accountBlocked[candidate.Id]; ok {

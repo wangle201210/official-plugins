@@ -1175,7 +1175,42 @@ func (c *LegacyController) CasLoginIndex(r *ghttp.Request) {
 // Stats handles GET /api/v1/stat/get.
 func (c *LegacyController) Stats(r *ghttp.Request) {
 	out, err := c.uidentitySvc.Stats(r.Context())
-	legacyWriteServiceOutputWithMsg(r, out, err, legacyMsgQuerySuccess)
+	if err != nil {
+		legacyError(r, err)
+		return
+	}
+	legacyOKWithMsg(r, legacyStatsPayload(out), legacyMsgQuerySuccess)
+}
+
+// legacyStatsPayload keys the statistics like the old dto.StatResp JSON so
+// legacy dashboard charts keep parsing the response.
+func legacyStatsPayload(out *uidentitysvc.StatsOutput) map[string]any {
+	if out == nil {
+		return nil
+	}
+	return map[string]any{
+		"account_count":       out.AccountCount,
+		"auth_count":          out.AuthCount,
+		"app_count":           out.AppCount,
+		"user_by_container":   legacyStatItems(out.UserByContainer),
+		"app_by_type":         legacyStatItems(out.AppByType),
+		"auth_by_type":        legacyStatItems(out.AuthByType),
+		"cas_by_account_type": legacyStatItems(out.CasByAccountType),
+		"pass_level":          legacyStatItems(out.PassLevel),
+		"login_type":          legacyStatItems(out.LoginType),
+		"login_app":           legacyStatItems(out.LoginApp),
+	}
+}
+
+func legacyStatItems(items []*uidentitysvc.StatItem) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		result = append(result, map[string]any{"name": item.Name, "total": item.Total})
+	}
+	return result
 }
 
 // ServerMonitor handles GET /api/v1/server-monitor.
