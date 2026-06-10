@@ -7,9 +7,26 @@
 -- ------------------------------------------------------------
 
 DROP INDEX IF EXISTS idx_sicau_niu_niu_stage_online;
+DROP INDEX IF EXISTS idx_sicau_niu_niu_online;
 
 ALTER TABLE IF EXISTS plugin_sicau_niu_niu
     DROP COLUMN IF EXISTS "release_stage";
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'plugin_sicau_niu_niu'
+          AND column_name = 'online_at'
+          AND data_type = 'timestamp without time zone'
+    ) THEN
+        ALTER TABLE plugin_sicau_niu_niu
+            ALTER COLUMN "online_at" TYPE TIMESTAMPTZ
+            USING "online_at" AT TIME ZONE 'UTC';
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_sicau_niu_niu_online
     ON plugin_sicau_niu_niu ("online_at") WHERE "deleted_at" IS NULL;

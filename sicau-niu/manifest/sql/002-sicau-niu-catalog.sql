@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS plugin_sicau_niu_niu (
     "college_id"       BIGINT NOT NULL DEFAULT 0,
     "lat"              DOUBLE PRECISION NOT NULL DEFAULT 0,
     "lng"              DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "online_at"        TIMESTAMP,
+    "online_at"        TIMESTAMPTZ,
     "visible_weekdays" VARCHAR(20) NOT NULL DEFAULT '',
     "visible_start"    VARCHAR(5) NOT NULL DEFAULT '',
     "visible_end"      VARCHAR(5) NOT NULL DEFAULT '',

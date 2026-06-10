@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gdb"
+
+	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 )
@@ -52,6 +55,60 @@ func TestVisibleNiuFiltersByOnlineTime(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].Id != visibleID {
 		t.Fatalf("expected only the already-online cattle, got %+v", items)
+	}
+}
+
+// TestVisibleNiuIncludesApiCreatedPastOnlineAt verifies the operator Unix-ms
+// onlineAt input is stored as an absolute instant. The write and read run under
+// different PostgreSQL session time zones to catch TIMESTAMP-without-time-zone
+// drift that would otherwise hide an already-online cattle from the player map.
+func TestVisibleNiuIncludesApiCreatedPastOnlineAt(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	activationSvc := newActivationServiceForTest()
+	cattleSvc := cattlesvc.New(nil)
+
+	onlineAt := time.Now().Add(-time.Hour).UnixMilli()
+	var niuID int64
+	err := dao.Niu.Transaction(ctx, func(txCtx context.Context, tx gdb.TX) error {
+		if _, execErr := tx.Exec("SET LOCAL TIME ZONE 'Asia/Shanghai'"); execErr != nil {
+			return execErr
+		}
+		id, createErr := cattleSvc.CreateNiu(txCtx, &cattlesvc.NiuMutateInput{
+			Code:     "NIU-VIS-API-ONLINE",
+			NiuType:  cattlesvc.NiuTypeCommon.String(),
+			Lat:      30.0,
+			Lng:      103.0,
+			OnlineAt: &onlineAt,
+		})
+		if createErr != nil {
+			return createErr
+		}
+		niuID = id
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("create niu with session timezone failed: %v", err)
+	}
+
+	me := insertUserRow(t, ctx, do.User{Openid: "openid-vis-api-online"})
+	var items []*VisibleNiuItem
+	err = dao.Niu.Transaction(ctx, func(txCtx context.Context, tx gdb.TX) error {
+		if _, execErr := tx.Exec("SET LOCAL TIME ZONE 'UTC'"); execErr != nil {
+			return execErr
+		}
+		list, visibleErr := activationSvc.VisibleNiu(txCtx, me)
+		if visibleErr != nil {
+			return visibleErr
+		}
+		items = list
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("visible niu with session timezone failed: %v", err)
+	}
+	if len(items) != 1 || items[0].Id != niuID {
+		t.Fatalf("expected API-created already-online cattle visible, got %+v", items)
 	}
 }
 
