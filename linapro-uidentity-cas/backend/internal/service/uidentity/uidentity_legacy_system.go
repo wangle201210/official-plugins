@@ -80,7 +80,73 @@ func (s *serviceImpl) GetLegacySystemResource(ctx context.Context, resource stri
 	if row.IsEmpty() {
 		return nil, bizerr.NewCode(CodeResourceNotFound)
 	}
-	return projectRecord(row, &def.resourceDefinition), nil
+	record := projectRecord(row, &def.resourceDefinition)
+	if err := s.enrichLegacySystemRecord(ctx, resource, id, record); err != nil {
+		return nil, err
+	}
+	return record, nil
+}
+
+// enrichLegacySystemRecord restores the relation fields the old detail
+// services filled server-side for edit forms: role menuIds and menu apis.
+func (s *serviceImpl) enrichLegacySystemRecord(ctx context.Context, resource string, id int64, record Record) error {
+	switch resource {
+	case "roles":
+		menuIDs, err := s.legacyRoleMenuIDs(ctx, id)
+		if err != nil {
+			return err
+		}
+		record["menuIds"] = menuIDs
+	case "menus":
+		apiIDs, apiRecords, err := s.legacyMenuAPIs(ctx, id)
+		if err != nil {
+			return err
+		}
+		record["apis"] = apiIDs
+		record["sysApi"] = apiRecords
+	}
+	return nil
+}
+
+// legacyMenuAPIs returns the API IDs and projected sys_api rows bound to one
+// menu, matching the old menu Get Preload("SysApi") response.
+func (s *serviceImpl) legacyMenuAPIs(ctx context.Context, menuID int64) ([]int64, []Record, error) {
+	apiIDs := []int64{}
+	apiRecords := []Record{}
+	if menuID <= 0 {
+		return apiIDs, apiRecords, nil
+	}
+	ruleCols := dao.SysMenuApiRule.Columns()
+	rules, err := dao.SysMenuApiRule.Ctx(ctx).
+		Fields(ruleCols.SysApiId).
+		Where(ruleCols.SysMenuMenuId, menuID).
+		All()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, rule := range rules {
+		if id := rule[ruleCols.SysApiId].Int64(); id > 0 {
+			apiIDs = append(apiIDs, id)
+		}
+	}
+	if len(apiIDs) == 0 {
+		return apiIDs, apiRecords, nil
+	}
+	apiDef, err := s.legacySystemDefinition("apis")
+	if err != nil {
+		return nil, nil, err
+	}
+	rows, err := apiDef.model(ctx).
+		Fields(projectionFields(&apiDef.resourceDefinition)...).
+		WhereIn(apiDef.idColumn, apiIDs).
+		All()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, row := range rows {
+		apiRecords = append(apiRecords, projectRecord(row, &apiDef.resourceDefinition))
+	}
+	return apiIDs, apiRecords, nil
 }
 
 // CreateLegacySystemResource inserts one old admin system resource row.
@@ -93,7 +159,66 @@ func (s *serviceImpl) CreateLegacySystemResource(ctx context.Context, resource s
 	if err != nil {
 		return 0, err
 	}
-	return def.model(ctx).Data(data).InsertAndGetId()
+	id, err := def.model(ctx).Data(data).InsertAndGetId()
+	if err != nil {
+		return 0, err
+	}
+	if err := s.syncLegacySystemRelations(ctx, resource, id, body); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// syncLegacySystemRelations persists the relation lists the old role and menu
+// writes maintained: sys_role_menu from menuIds and sys_menu_api_rule from
+// apis/sysApi.
+func (s *serviceImpl) syncLegacySystemRelations(ctx context.Context, resource string, id int64, body map[string]any) error {
+	if id <= 0 {
+		return nil
+	}
+	switch resource {
+	case "roles":
+		if !hasField(body, "menuIds") {
+			return nil
+		}
+		menuIDs := uniquePositiveInt64s(gconv.SliceInt64(body["menuIds"]))
+		cols := dao.SysRoleMenu.Columns()
+		if _, err := dao.SysRoleMenu.Ctx(ctx).Where(cols.RoleId, id).Delete(); err != nil {
+			return err
+		}
+		for _, menuID := range menuIDs {
+			if _, err := dao.SysRoleMenu.Ctx(ctx).
+				Data(do.SysRoleMenu{RoleId: id, MenuId: menuID}).
+				Insert(); err != nil {
+				return err
+			}
+		}
+	case "menus":
+		if !hasField(body, "apis") && !hasField(body, "sysApi") {
+			return nil
+		}
+		apiIDs := uniquePositiveInt64s(gconv.SliceInt64(body["apis"]))
+		if len(apiIDs) == 0 {
+			for _, item := range gconv.SliceMap(body["sysApi"]) {
+				if apiID := gconv.Int64(item["id"]); apiID > 0 {
+					apiIDs = append(apiIDs, apiID)
+				}
+			}
+			apiIDs = uniquePositiveInt64s(apiIDs)
+		}
+		cols := dao.SysMenuApiRule.Columns()
+		if _, err := dao.SysMenuApiRule.Ctx(ctx).Where(cols.SysMenuMenuId, id).Delete(); err != nil {
+			return err
+		}
+		for _, apiID := range apiIDs {
+			if _, err := dao.SysMenuApiRule.Ctx(ctx).
+				Data(do.SysMenuApiRule{SysMenuMenuId: id, SysApiId: apiID}).
+				Insert(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // UpdateLegacySystemResource updates one old admin system resource row.
@@ -109,12 +234,14 @@ func (s *serviceImpl) UpdateLegacySystemResource(ctx context.Context, resource s
 	if err != nil {
 		return err
 	}
-	_, err = def.model(ctx).
+	if _, err = def.model(ctx).
 		Where(def.idColumn, id).
 		OmitNilData().
 		Data(data).
-		Update()
-	return err
+		Update(); err != nil {
+		return err
+	}
+	return s.syncLegacySystemRelations(ctx, resource, id, body)
 }
 
 // DeleteLegacySystemResource deletes old admin system resource rows.
