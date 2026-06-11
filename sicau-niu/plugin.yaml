@@ -61,18 +61,33 @@ public_assets:
 # Plugin menu declaration list; the host syncs menus, button permissions, and route entries from it.
 # 插件菜单声明列表，宿主按该列表同步菜单、按钮权限和路由入口。
 menus:
-  # 顶级独立目录:寻牛活动。省略 parent_key 表示挂在侧边栏根级(与系统管理/扩展中心同级)。
-  - key: plugin:sicau-niu:root
-    name: 寻牛活动
-    icon: ant-design:trophy-outlined
+  # 一级目录按运营职责拆分，并显式提供唯一路由路径，避免侧边栏开合状态共用空 path。
+  - key: plugin:sicau-niu:config
+    name: 寻牛配置
+    path: sicau-niu-config
+    icon: ant-design:setting-outlined
     type: D
     sort: 20
-    remark: 寻牛活动管理端独立菜单
+    remark: 寻牛活动基础字典、牛只、卡片和荣誉配置
+  - key: plugin:sicau-niu:operation
+    name: 寻牛运营
+    path: sicau-niu-operation
+    icon: ant-design:dashboard-outlined
+    type: D
+    sort: 21
+    remark: 寻牛活动玩家运营、结算和规则维护
+  - key: plugin:sicau-niu:records
+    name: 寻牛记录
+    path: sicau-niu-records
+    icon: ant-design:file-search-outlined
+    type: D
+    sort: 22
+    remark: 寻牛活动互动、打卡和账户流水记录
   # 院系字典管理页面。
   - key: plugin:sicau-niu:college
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:config
     name: 院系字典
-    path: sicau-niu-college
+    path: /sicau-niu-college
     component: system/plugin/dynamic-page
     perms: sicau-niu:college:list
     icon: ant-design:bank-outlined
@@ -102,25 +117,25 @@ menus:
     remark: 院系字典删除权限
   # 玩家信息查询页面。
   - key: plugin:sicau-niu:player
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:operation
     name: 寻牛玩家
-    path: sicau-niu-player
+    path: /sicau-niu-player
     component: system/plugin/dynamic-page
     perms: sicau-niu:player:list
     icon: ant-design:team-outlined
     type: M
-    sort: 2
+    sort: 1
     remark: 寻牛活动玩家基础信息查询
   # 牛管理页面(C2)。
   - key: plugin:sicau-niu:niu
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:config
     name: 牛管理
-    path: sicau-niu-niu
+    path: /sicau-niu-niu
     component: system/plugin/dynamic-page
     perms: sicau-niu:niu:list
     icon: ant-design:appstore-outlined
     type: M
-    sort: 3
+    sort: 2
     remark: 寻牛活动牛资产维护
   - key: plugin:sicau-niu:niu-create
     parent_key: plugin:sicau-niu:niu
@@ -142,14 +157,14 @@ menus:
     sort: 3
   # 铁牛管理页面(C2)。
   - key: plugin:sicau-niu:iron
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:config
     name: 铁牛管理
-    path: sicau-niu-iron
+    path: /sicau-niu-iron
     component: system/plugin/dynamic-page
     perms: sicau-niu:iron:list
     icon: ant-design:robot-outlined
     type: M
-    sort: 4
+    sort: 3
     remark: 寻牛活动铁牛标识登记
   - key: plugin:sicau-niu:iron-create
     parent_key: plugin:sicau-niu:iron
@@ -171,14 +186,14 @@ menus:
     sort: 3
   # 卡片管理页面(C2)。
   - key: plugin:sicau-niu:card
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:config
     name: 卡片管理
-    path: sicau-niu-card
+    path: /sicau-niu-card
     component: system/plugin/dynamic-page
     perms: sicau-niu:card:list
     icon: ant-design:idcard-outlined
     type: M
-    sort: 5
+    sort: 4
     remark: 寻牛活动校史卡片维护
   - key: plugin:sicau-niu:card-create
     parent_key: plugin:sicau-niu:card
@@ -200,14 +215,14 @@ menus:
     sort: 3
   # 金句管理页面(C2)。
   - key: plugin:sicau-niu:quote
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:config
     name: 金句管理
-    path: sicau-niu-quote
+    path: /sicau-niu-quote
     component: system/plugin/dynamic-page
     perms: sicau-niu:quote:list
     icon: ant-design:message-outlined
     type: M
-    sort: 6
+    sort: 5
     remark: 寻牛活动校史金句维护
   - key: plugin:sicau-niu:quote-create
     parent_key: plugin:sicau-niu:quote
@@ -229,14 +244,14 @@ menus:
     sort: 3
   # 荣誉配置页面(C5)。
   - key: plugin:sicau-niu:honor
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:config
     name: 荣誉配置
-    path: sicau-niu-honor
+    path: /sicau-niu-honor
     component: system/plugin/dynamic-page
     perms: sicau-niu:honor:list
     icon: ant-design:trophy-outlined
     type: M
-    sort: 7
+    sort: 6
     remark: 寻牛活动荣誉定义维护
   - key: plugin:sicau-niu:honor-create
     parent_key: plugin:sicau-niu:honor
@@ -258,14 +273,14 @@ menus:
     sort: 3
   # 运营结算页面(C7):看板、名册导出、证书批量发放、风控告警、归档。
   - key: plugin:sicau-niu:settlement
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:operation
     name: 运营结算
-    path: sicau-niu-settlement
+    path: /sicau-niu-settlement
     component: system/plugin/dynamic-page
     perms: sicau-niu:settlement:view
     icon: ant-design:fund-projection-screen-outlined
     type: M
-    sort: 8
+    sort: 2
     remark: 寻牛活动数据看板、导出、结算发证、风控告警与结算归档
   - key: plugin:sicau-niu:settlement-export
     parent_key: plugin:sicau-niu:settlement
@@ -291,58 +306,58 @@ menus:
     perms: sicau-niu:settlement:rules
     type: B
     sort: 4
-  # 活动记录只读查询页(C niu-activity-records):与其它页同级直接挂在"寻牛活动"下。
+  # 活动记录只读查询页(C niu-activity-records):统一挂在"寻牛记录"分组下。
   - key: plugin:sicau-niu:record-feeding
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:records
     name: 喂草记录
-    path: sicau-niu-record-feeding
+    path: /sicau-niu-record-feeding
     component: system/plugin/dynamic-page
     perms: sicau-niu:record:list
     icon: ant-design:fire-outlined
     type: M
-    sort: 9
+    sort: 1
   - key: plugin:sicau-niu:record-steal
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:records
     name: 偷草记录
-    path: sicau-niu-record-steal
+    path: /sicau-niu-record-steal
     component: system/plugin/dynamic-page
     perms: sicau-niu:record:list
     icon: ant-design:swap-outlined
     type: M
-    sort: 10
+    sort: 2
   - key: plugin:sicau-niu:record-gift
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:records
     name: 送草记录
-    path: sicau-niu-record-gift
+    path: /sicau-niu-record-gift
     component: system/plugin/dynamic-page
     perms: sicau-niu:record:list
     icon: ant-design:gift-outlined
     type: M
-    sort: 11
+    sort: 3
   - key: plugin:sicau-niu:record-checkin
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:records
     name: 签到记录
-    path: sicau-niu-record-checkin
+    path: /sicau-niu-record-checkin
     component: system/plugin/dynamic-page
     perms: sicau-niu:record:list
     icon: ant-design:calendar-outlined
     type: M
-    sort: 12
+    sort: 4
   - key: plugin:sicau-niu:record-activation
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:records
     name: 激活记录
-    path: sicau-niu-record-activation
+    path: /sicau-niu-record-activation
     component: system/plugin/dynamic-page
     perms: sicau-niu:record:list
     icon: ant-design:aim-outlined
     type: M
-    sort: 13
+    sort: 5
   - key: plugin:sicau-niu:record-grasstxn
-    parent_key: plugin:sicau-niu:root
+    parent_key: plugin:sicau-niu:records
     name: 草账户流水
-    path: sicau-niu-record-grasstxn
+    path: /sicau-niu-record-grasstxn
     component: system/plugin/dynamic-page
     perms: sicau-niu:record:list
     icon: ant-design:account-book-outlined
     type: M
-    sort: 14
+    sort: 6

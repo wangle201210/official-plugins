@@ -1,23 +1,22 @@
 import { expect, type Locator, type Page } from "@host-tests/support/playwright";
 
-import { PluginPage } from "@host-tests/pages/PluginPage";
+import { SicauNiuOperatorPage } from "./SicauNiuOperatorPage";
 
 // SicauNiuRecordPage drives the sicau-niu operator activity-record query pages owned
 // by the niu-activity-records change: the feeding / steal / gift / check-in /
-// activation / grass-ledger read-only lists, mounted directly under the "寻牛活动"
-// menu like the other operator pages. Each page is a read-only vxe grid; the
-// assertions anchor on a column header unique to the page so the test proves the
-// page, route and list API mounted and rendered without depending on any specific
-// row being present.
-export class SicauNiuRecordPage extends PluginPage {
+// activation / grass-ledger read-only lists, mounted under the "寻牛记录"
+// directory. Each page is a read-only vxe grid; the assertions anchor on a
+// column header unique to the page so the test proves the page, route and list
+// API mounted and rendered without depending on any specific row being present.
+export class SicauNiuRecordPage extends SicauNiuOperatorPage {
   constructor(page: Page) {
     super(page);
   }
 
-  // openRecord opens the named record page from the sidebar (the "寻牛活动" parent is
-  // auto-expanded by clickSidebarMenuItem).
+  // openRecord opens the named record page from the sidebar via the grouped
+  // record directory.
   async openRecord(menuName: string) {
-    await this.clickSidebarMenuItem(menuName);
+    await this.openGroupedMenu("寻牛记录", menuName);
   }
 
   // columnHeader returns the grid column header cell with the given title.

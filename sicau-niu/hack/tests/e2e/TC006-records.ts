@@ -68,7 +68,7 @@ SELECT "id" FROM inserted_attempt;
 
 // TC-6 covers the sicau-niu operator activity-record query pages owned by the
 // niu-activity-records change: the read-only feeding, steal and grass-ledger lists
-// nested under the "活动记录" sub-directory. It navigates two levels deep and asserts
+// nested under the "寻牛记录" directory. It navigates through that group and asserts
 // each page mounts and its read-only grid renders (a page-unique column header
 // becomes visible), proving the page, route and list API are wired. Row presence
 // depends on activity data, so the assertions anchor on the grid structure rather

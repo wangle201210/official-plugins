@@ -1,12 +1,12 @@
 import { expect, type Locator, type Page } from "@host-tests/support/playwright";
 
-import { PluginPage } from "@host-tests/pages/PluginPage";
+import { SicauNiuOperatorPage } from "./SicauNiuOperatorPage";
 
 // SicauNiuCollegePage drives the sicau-niu operator "院系字典" (college dictionary)
 // page: navigation from the sidebar menu plus create / edit / delete flows used by
 // the plugin-owned college CRUD E2E. Selectors anchor on the page data-testid
 // attributes and the vxe row text so assertions prove the persisted list state.
-export class SicauNiuCollegePage extends PluginPage {
+export class SicauNiuCollegePage extends SicauNiuOperatorPage {
   constructor(page: Page) {
     super(page);
   }
@@ -52,7 +52,7 @@ export class SicauNiuCollegePage extends PluginPage {
 
   // openFromMenu navigates to the college dictionary page through the sidebar.
   async openFromMenu() {
-    await this.clickSidebarMenuItem("院系字典");
+    await this.openGroupedMenu("寻牛配置", "院系字典");
     await expect(this.gridAddButton()).toBeVisible();
   }
 

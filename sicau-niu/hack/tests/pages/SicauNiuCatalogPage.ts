@@ -1,15 +1,15 @@
 import { expect, type Locator, type Page } from "@host-tests/support/playwright";
 
-import { PluginPage } from "@host-tests/pages/PluginPage";
+import { SicauNiuOperatorPage } from "./SicauNiuOperatorPage";
 
 // SicauNiuCatalogPage drives the sicau-niu operator content-asset pages owned by
 // the C2 niu-catalog-admin change: the "金句管理" (quotes) and "牛管理" (niu) lists.
 // It exposes sidebar navigation plus create / edit / delete flows whose
 // assertions anchor on the page data-testid attributes and the persisted vxe row
 // text, so the E2E proves list state rather than only button clicks. The
-// "寻牛活动" parent directory is auto-expanded by clickSidebarMenuItem, so the
-// nested menu items can be clicked directly.
-export class SicauNiuCatalogPage extends PluginPage {
+// Asset pages now live under the "寻牛配置" directory, so navigation expands the
+// group before clicking the target page.
+export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
   constructor(page: Page) {
     super(page);
   }
@@ -79,7 +79,7 @@ export class SicauNiuCatalogPage extends PluginPage {
   }
 
   async openQuoteFromMenu() {
-    await this.clickSidebarMenuItem("金句管理");
+    await this.openGroupedMenu("寻牛配置", "金句管理");
     await expect(this.quoteAddButton()).toBeVisible();
   }
 
@@ -144,7 +144,7 @@ export class SicauNiuCatalogPage extends PluginPage {
   }
 
   async openNiuFromMenu() {
-    await this.clickSidebarMenuItem("牛管理");
+    await this.openGroupedMenu("寻牛配置", "牛管理");
     await expect(this.niuAddButton()).toBeVisible();
   }
 
@@ -194,7 +194,7 @@ export class SicauNiuCatalogPage extends PluginPage {
   }
 
   async openIronFromMenu() {
-    await this.clickSidebarMenuItem("铁牛管理");
+    await this.openGroupedMenu("寻牛配置", "铁牛管理");
     await expect(this.ironAddButton()).toBeVisible();
   }
 

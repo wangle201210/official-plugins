@@ -1,17 +1,17 @@
 import { expect, type Locator, type Page } from "@host-tests/support/playwright";
 
-import { PluginPage } from "@host-tests/pages/PluginPage";
+import { SicauNiuOperatorPage } from "./SicauNiuOperatorPage";
 
 // SicauNiuHonorPage drives the sicau-niu operator honor-config page owned by the
 // C5 niu-ranking-honor change: the "荣誉配置" list. It exposes sidebar navigation
 // plus create / edit / delete flows whose assertions anchor on the page
 // data-testid attributes and the persisted vxe row text, so the E2E proves list
-// state rather than only button clicks. The "寻牛活动" parent directory is
-// auto-expanded by clickSidebarMenuItem, so the nested menu item is clickable
-// directly. The honor form's 类型 / 解锁规则 Selects are NOT interacted with on
+// state rather than only button clicks. The page lives under the "寻牛配置"
+// directory, so navigation expands that group before clicking it. The honor
+// form's 类型 / 解锁规则 Selects are NOT interacted with on
 // create; the form submits their defaultValue (badge / participation), which
 // keeps the create flow free of dropdown-overlay flakiness.
-export class SicauNiuHonorPage extends PluginPage {
+export class SicauNiuHonorPage extends SicauNiuOperatorPage {
   constructor(page: Page) {
     super(page);
   }
@@ -59,7 +59,7 @@ export class SicauNiuHonorPage extends PluginPage {
   }
 
   async openHonorFromMenu() {
-    await this.clickSidebarMenuItem("荣誉配置");
+    await this.openGroupedMenu("寻牛配置", "荣誉配置");
     await expect(this.honorAddButton()).toBeVisible();
   }
 

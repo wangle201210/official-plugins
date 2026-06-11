@@ -4,16 +4,16 @@ import {
   type Page,
 } from "@host-tests/support/playwright";
 
-import { PluginPage } from "@host-tests/pages/PluginPage";
+import { SicauNiuOperatorPage } from "./SicauNiuOperatorPage";
 
 // SicauNiuSettlementPage drives the sicau-niu operator settlement page owned by the
 // C7 niu-settlement change and extended by C8 (activity), C9/C7 and C10 (anomaly).
 // It exposes sidebar navigation plus the dashboard / activity / risk / anomaly /
 // archive sections and a create-archive flow whose assertion anchors on the
 // persisted archive table row rather than only a button click, so the E2E proves
-// settlement state. The "寻牛活动" parent directory is auto-expanded by
-// clickSidebarMenuItem, so the nested "运营结算" item is clickable directly.
-export class SicauNiuSettlementPage extends PluginPage {
+// settlement state. The page lives under the "寻牛运营" directory, so navigation
+// expands that group before clicking it.
+export class SicauNiuSettlementPage extends SicauNiuOperatorPage {
   constructor(page: Page) {
     super(page);
   }
@@ -79,7 +79,7 @@ export class SicauNiuSettlementPage extends PluginPage {
   // openSettlementFromMenu navigates to the operator settlement page and waits for
   // the dashboard section to render, proving the page mounted and loaded.
   async openSettlementFromMenu() {
-    await this.clickSidebarMenuItem("运营结算");
+    await this.openGroupedMenu("寻牛运营", "运营结算");
     await expect(this.dashboard()).toBeVisible();
   }
 
