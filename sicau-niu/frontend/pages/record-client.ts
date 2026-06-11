@@ -80,6 +80,26 @@ export interface ActivationRecord {
   createdAt: number | null;
 }
 
+export interface ActivationAttemptRecord {
+  id: number;
+  userId: number;
+  nickname: string;
+  niuId: number;
+  niuName: string;
+  niuCode: string;
+  nearestNiuId: number;
+  nearestNiuName: string;
+  nearestNiuCode: string;
+  result: string;
+  lat: number;
+  lng: number;
+  distanceM: number;
+  thresholdM: number;
+  photoPath: string;
+  attemptedAt: number | null;
+  createdAt: number | null;
+}
+
 export interface GrassTxnRecord {
   id: number;
   userId: number;
@@ -129,6 +149,15 @@ export function listActivations(
 ) {
   return listRecords<ActivationRecord>(
     "plugins/sicau-niu/admin/records/activations",
+    params,
+  );
+}
+
+export function listActivationAttempts(
+  params: PagedParams & { userId?: number; niuId?: number; result?: string },
+) {
+  return listRecords<ActivationAttemptRecord>(
+    "plugins/sicau-niu/admin/records/activation-attempts",
     params,
   );
 }

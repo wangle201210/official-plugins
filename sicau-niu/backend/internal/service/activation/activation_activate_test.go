@@ -15,6 +15,7 @@ import (
 
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
+	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 )
 
@@ -45,6 +46,19 @@ func stageActivatableNiu(t *testing.T, ctx context.Context) int64 {
 	})
 }
 
+func activationAttemptsForPlayer(t *testing.T, ctx context.Context, playerID int64) []*entitymodel.ActivationAttempt {
+	t.Helper()
+	rows := make([]*entitymodel.ActivationAttempt, 0)
+	err := dao.ActivationAttempt.Ctx(ctx).
+		Where(dao.ActivationAttempt.Columns().UserId, playerID).
+		OrderAsc(dao.ActivationAttempt.Columns().Id).
+		Scan(&rows)
+	if err != nil {
+		t.Fatalf("query activation attempts failed: %v", err)
+	}
+	return rows
+}
+
 // TestActivateNoNearbyNiuRejected verifies a location beyond the LBS threshold is
 // rejected with CodeNoNearbyNiu and no activation row is written.
 func TestActivateNoNearbyNiuRejected(t *testing.T) {
@@ -64,6 +78,17 @@ func TestActivateNoNearbyNiuRejected(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("expected no activation rows, got %d", count)
+	}
+	attempts := activationAttemptsForPlayer(t, ctx, playerID)
+	if len(attempts) != 1 {
+		t.Fatalf("expected one failed attempt row, got %d", len(attempts))
+	}
+	attempt := attempts[0]
+	if attempt.Result != string(activationAttemptOutOfRange) {
+		t.Fatalf("expected out-of-range attempt, got %q", attempt.Result)
+	}
+	if attempt.NearestNiuId != niuID || attempt.NiuId != 0 || attempt.DistanceM <= 50 || attempt.ThresholdM != 50 {
+		t.Fatalf("attempt audit fields not recorded correctly: %+v", attempt)
 	}
 }
 
@@ -185,6 +210,14 @@ func TestActivateFirstActivatorFlipsStatus(t *testing.T) {
 	}
 	if out.Card == nil || out.Card.Title != "川农大精神" {
 		t.Fatalf("expected issued main card, got %+v", out.Card)
+	}
+	attempts := activationAttemptsForPlayer(t, ctx, playerID)
+	if len(attempts) != 1 {
+		t.Fatalf("expected one success attempt row, got %d", len(attempts))
+	}
+	attempt := attempts[0]
+	if attempt.Result != string(activationAttemptSuccess) || attempt.NiuId != niuID || attempt.NearestNiuId != niuID {
+		t.Fatalf("success attempt audit fields not recorded correctly: %+v", attempt)
 	}
 
 	statusVar, statusErr := dao.Niu.Ctx(ctx).
@@ -342,6 +375,10 @@ func TestActivateDailyLimitRejected(t *testing.T) {
 	_ = secondNiu
 	_, err = svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
 	assertBizCode(t, err, CodeDailyLimitReached.RuntimeCode())
+	attempts := activationAttemptsForPlayer(t, ctx, playerID)
+	if len(attempts) != 1 {
+		t.Fatalf("expected daily-limit rejection not to add attempt rows, got %d", len(attempts))
+	}
 }
 
 // TestActivateNilInputRejected verifies an empty activation payload is rejected

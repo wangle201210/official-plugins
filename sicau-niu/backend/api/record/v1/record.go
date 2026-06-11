@@ -148,6 +148,43 @@ type ActivationItem struct {
 	CreatedAt    *int64 `json:"createdAt" eg:"1717488000000"`
 }
 
+// ActivationAttemptsReq is the request for the activation-attempt audit query.
+type ActivationAttemptsReq struct {
+	g.Meta   `path:"/plugins/sicau-niu/admin/records/activation-attempts" method:"get" tags:"Sicau Niu Record" summary:"List activation attempt records" dc:"Read-only paged photo check-in activation attempt audit records; player and cattle names are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	UserId   int64  `json:"userId" dc:"Filter by player ID; lists all when 0" eg:"0"`
+	NiuId    int64  `json:"niuId" dc:"Filter by activated or nearest cattle ID; lists all when 0" eg:"0"`
+	Result   string `json:"result" dc:"Filter by attempt result: success, no_nearby, out_of_range; lists all when empty" eg:"out_of_range"`
+	PageNum  int    `json:"pageNum" eg:"1"`
+	PageSize int    `json:"pageSize" eg:"10"`
+}
+
+// ActivationAttemptsRes is the response for the activation-attempt audit query.
+type ActivationAttemptsRes struct {
+	List  []*ActivationAttemptItem `json:"list" eg:"[]"`
+	Total int                      `json:"total" eg:"0"`
+}
+
+// ActivationAttemptItem is one photo check-in attempt audit row.
+type ActivationAttemptItem struct {
+	Id             int64   `json:"id" eg:"1"`
+	UserId         int64   `json:"userId" eg:"1"`
+	Nickname       string  `json:"nickname" dc:"Player nickname" eg:"川农牛仔"`
+	NiuId          int64   `json:"niuId" dc:"Activated cattle ID when result is success, otherwise 0" eg:"7"`
+	NiuName        string  `json:"niuName" dc:"Activated cattle name" eg:"信工牛"`
+	NiuCode        string  `json:"niuCode" dc:"Activated cattle code" eg:"NIU-007"`
+	NearestNiuId   int64   `json:"nearestNiuId" dc:"Nearest visible inactive cattle candidate ID when available" eg:"7"`
+	NearestNiuName string  `json:"nearestNiuName" dc:"Nearest candidate cattle name" eg:"信工牛"`
+	NearestNiuCode string  `json:"nearestNiuCode" dc:"Nearest candidate cattle code" eg:"NIU-007"`
+	Result         string  `json:"result" dc:"Attempt result: success, no_nearby, out_of_range" eg:"out_of_range"`
+	Lat            float64 `json:"lat" dc:"Player reported GPS latitude" eg:"30.123456"`
+	Lng            float64 `json:"lng" dc:"Player reported GPS longitude" eg:"103.123456"`
+	DistanceM      float64 `json:"distanceM" dc:"Distance in meters to nearest candidate, 0 when unavailable" eg:"63.5"`
+	ThresholdM     float64 `json:"thresholdM" dc:"LBS threshold in meters used for the attempt" eg:"50"`
+	PhotoPath      string  `json:"photoPath" dc:"Uploaded check-in photo path; empty when absent" eg:"/uploads/2026/06/attempt-1.jpg"`
+	AttemptedAt    *int64  `json:"attemptedAt" dc:"Attempt time, Unix ms" eg:"1717488000000"`
+	CreatedAt      *int64  `json:"createdAt" eg:"1717488000000"`
+}
+
 // GrassTxnsReq is the request for the grass-ledger query.
 type GrassTxnsReq struct {
 	g.Meta   `path:"/plugins/sicau-niu/admin/records/grass-txns" method:"get" tags:"Sicau Niu Record" summary:"List grass ledger" dc:"Read-only paged grass-account ledger entries with optional player filtering; player nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`

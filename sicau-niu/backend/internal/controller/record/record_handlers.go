@@ -108,6 +108,28 @@ func (c *ControllerV1) Activations(ctx context.Context, req *v1.ActivationsReq) 
 	return &v1.ActivationsRes{List: list, Total: out.Total}, nil
 }
 
+// ActivationAttempts returns the paged photo check-in attempt audit records.
+func (c *ControllerV1) ActivationAttempts(ctx context.Context, req *v1.ActivationAttemptsReq) (res *v1.ActivationAttemptsRes, err error) {
+	out, err := c.recordSvc.ListActivationAttempts(ctx, &recordsvc.ListActivationAttemptsInput{
+		UserId: req.UserId, NiuId: req.NiuId, Result: req.Result, PageNum: req.PageNum, PageSize: req.PageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+	list := make([]*v1.ActivationAttemptItem, 0, len(out.List))
+	for _, row := range out.List {
+		list = append(list, &v1.ActivationAttemptItem{
+			Id: row.Id, UserId: row.UserId, Nickname: row.Nickname,
+			NiuId: row.NiuId, NiuName: row.NiuName, NiuCode: row.NiuCode,
+			NearestNiuId: row.NearestNiuId, NearestNiuName: row.NearestNiuName, NearestNiuCode: row.NearestNiuCode,
+			Result: row.Result, Lat: row.Lat, Lng: row.Lng,
+			DistanceM: row.DistanceM, ThresholdM: row.ThresholdM, PhotoPath: row.PhotoPath,
+			AttemptedAt: row.AttemptedAt, CreatedAt: row.CreatedAt,
+		})
+	}
+	return &v1.ActivationAttemptsRes{List: list, Total: out.Total}, nil
+}
+
 // GrassTxns returns the paged grass-ledger entries.
 func (c *ControllerV1) GrassTxns(ctx context.Context, req *v1.GrassTxnsReq) (res *v1.GrassTxnsRes, err error) {
 	out, err := c.recordSvc.ListGrassTxns(ctx, &recordsvc.ListGrassTxnsInput{

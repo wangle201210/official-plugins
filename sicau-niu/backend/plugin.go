@@ -394,6 +394,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					recordController.Gifts,
 					recordController.Checkins,
 					recordController.Activations,
+					recordController.ActivationAttempts,
 					recordController.GrassTxns,
 				)
 			})

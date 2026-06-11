@@ -229,7 +229,31 @@ WHERE a."user_id" = u."id"
   AND a."deleted_at" IS NULL
   AND (a."photo_path" = '' OR a."photo_path" NOT LIKE 'http%');
 
--- 10) 喂草 (feeding) — many records over the last 7 days so leaderboards, dashboard
+-- 10) 打卡尝试 (activation_attempt) — success and failed photo check-ins for the
+--     operator audit table. Failures stay out of the activation table so first
+--     activator, arrival order and collection statistics remain clean.
+INSERT INTO plugin_sicau_niu_activation_attempt (
+    "user_id","niu_id","nearest_niu_id","result","lat","lng","distance_m","threshold_m","photo_path","attempted_at"
+)
+SELECT u."id", COALESCE(an."id", 0), COALESCE(nn."id", 0), v."result",
+       v."lat", v."lng", v."distance_m", 50,
+       v."photo_path", (CURRENT_DATE - v."days_ago" + v."clock"::time)
+FROM (VALUES
+    ('mock-openid-001','NIU-001','NIU-001','success',30.000010,103.000010,1.5,2,'09:10:00','https://picsum.photos/seed/sicau-niu-attempt-success/1024/768'),
+    ('mock-openid-004','',       'NIU-005','out_of_range',30.010000,103.000000,1111.9,1,'14:25:00','https://picsum.photos/seed/sicau-niu-attempt-far/1024/768'),
+    ('mock-openid-010','',       '',       'no_nearby',29.980000,102.980000,0,0,'16:40:00','https://picsum.photos/seed/sicau-niu-attempt-empty/1024/768')
+) AS v("openid","activated_code","nearest_code","result","lat","lng","distance_m","days_ago","clock","photo_path")
+JOIN plugin_sicau_niu_user u ON u."openid" = v."openid" AND u."deleted_at" IS NULL
+LEFT JOIN plugin_sicau_niu_niu an ON an."code" = v."activated_code" AND an."deleted_at" IS NULL
+LEFT JOIN plugin_sicau_niu_niu nn ON nn."code" = v."nearest_code" AND nn."deleted_at" IS NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM plugin_sicau_niu_activation_attempt aa
+    WHERE aa."user_id" = u."id"
+      AND aa."result" = v."result"
+      AND aa."photo_path" = v."photo_path"
+      AND aa."deleted_at" IS NULL);
+
+-- 11) 喂草 (feeding) — many records over the last 7 days so leaderboards, dashboard
 --     and the DAU/retention activity views have data. No unique key: guard on a
 --     deterministic (user, niu, base_amount, day-offset) marker via NOT EXISTS on the
 --     same shape to stay idempotent.
@@ -259,7 +283,7 @@ WHERE NOT EXISTS (
       AND f."base_amount" = v.base AND f."effect_amount" = v.effect
       AND f."created_at"::date = (CURRENT_DATE - v.days_ago) AND f."deleted_at" IS NULL);
 
--- 11) 签到 (checkin) — keyed by (user_id, checkin_date); a few recent days each.
+-- 12) 签到 (checkin) — keyed by (user_id, checkin_date); a few recent days each.
 INSERT INTO plugin_sicau_niu_checkin ("user_id","checkin_date","amount")
 SELECT u.id, (CURRENT_DATE - v.days_ago)::text, v.amount
 FROM (VALUES
@@ -273,7 +297,7 @@ WHERE NOT EXISTS (
     SELECT 1 FROM plugin_sicau_niu_checkin c
     WHERE c."user_id" = u.id AND c."checkin_date" = (CURRENT_DATE - v.days_ago)::text AND c."deleted_at" IS NULL);
 
--- 12) 偷草 (steal) — actor/target by openid; guard on (actor, target, steal_date).
+-- 13) 偷草 (steal) — actor/target by openid; guard on (actor, target, steal_date).
 INSERT INTO plugin_sicau_niu_steal ("actor_user_id","target_user_id","amount","steal_date")
 SELECT a.id, t.id, v.amount, (CURRENT_DATE - v.days_ago)::text
 FROM (VALUES
@@ -290,7 +314,7 @@ WHERE NOT EXISTS (
     WHERE s."actor_user_id" = a.id AND s."target_user_id" = t.id
       AND s."steal_date" = (CURRENT_DATE - v.days_ago)::text AND s."deleted_at" IS NULL);
 
--- 13) 送草 (gift) — from/to by openid; guard on (from, to, gift_date).
+-- 14) 送草 (gift) — from/to by openid; guard on (from, to, gift_date).
 INSERT INTO plugin_sicau_niu_gift ("from_user_id","to_user_id","amount","gift_date")
 SELECT f.id, t.id, v.amount, (CURRENT_DATE - v.days_ago)::text
 FROM (VALUES
@@ -305,7 +329,7 @@ WHERE NOT EXISTS (
     WHERE g."from_user_id" = f.id AND g."to_user_id" = t.id
       AND g."gift_date" = (CURRENT_DATE - v.days_ago)::text AND g."deleted_at" IS NULL);
 
--- 14) 玩家荣誉授予 (user_honor) — keyed by (user_id, honor_id); user/honor by business key.
+-- 15) 玩家荣誉授予 (user_honor) — keyed by (user_id, honor_id); user/honor by business key.
 INSERT INTO plugin_sicau_niu_user_honor ("user_id","honor_id","unlocked_at")
 SELECT u.id, h.id, NOW()
 FROM (VALUES
@@ -324,7 +348,7 @@ WHERE NOT EXISTS (
     SELECT 1 FROM plugin_sicau_niu_user_honor uh
     WHERE uh."user_id" = u.id AND uh."honor_id" = h.id AND uh."deleted_at" IS NULL);
 
--- 15) 结算归档 (settlement) — one demo snapshot; guard on title.
+-- 16) 结算归档 (settlement) — one demo snapshot; guard on title.
 INSERT INTO plugin_sicau_niu_settlement ("title","snapshot","operator_id","archived_at")
 SELECT '寻牛活动结算公示（演示）',
        '{"playerCount":10,"activatedNiuCount":6,"firstActivatorCount":7,"certificateGrantedCount":4}',

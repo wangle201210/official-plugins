@@ -37,6 +37,35 @@ SELECT "id" FROM inserted_activation;
 `);
 }
 
+function seedActivationAttemptWithPhoto(suffix: string) {
+  const openid = pgEscapeLiteral(`e2e-activation-attempt-${suffix}`);
+  const nickname = pgEscapeLiteral(`尝试玩家-${suffix}`);
+  const niuCode = pgEscapeLiteral(`E2E-ATTEMPT-${suffix}`);
+  const niuName = pgEscapeLiteral(`尝试牛-${suffix}`);
+  const photoPath = pgEscapeLiteral(tinyPhotoDataURL);
+  return queryPgScalar(`
+WITH inserted_user AS (
+  INSERT INTO plugin_sicau_niu_user ("openid", "nickname")
+  VALUES ('${openid}', '${nickname}')
+  RETURNING "id"
+),
+inserted_niu AS (
+  INSERT INTO plugin_sicau_niu_niu ("code", "niu_type", "name", "lat", "lng", "online_at", "status")
+  VALUES ('${niuCode}', 'common', '${niuName}', 30.7035, 103.8290, CURRENT_TIMESTAMP - INTERVAL '1 day', 'inactive')
+  RETURNING "id"
+),
+inserted_attempt AS (
+  INSERT INTO plugin_sicau_niu_activation_attempt (
+    "user_id", "niu_id", "nearest_niu_id", "result", "lat", "lng", "distance_m", "threshold_m", "photo_path", "attempted_at"
+  )
+  SELECT inserted_user."id", 0, inserted_niu."id", 'out_of_range', 30.7135, 103.8290, 1111.9, 50, '${photoPath}', CURRENT_TIMESTAMP
+  FROM inserted_user, inserted_niu
+  RETURNING "id"
+)
+SELECT "id" FROM inserted_attempt;
+`);
+}
+
 // TC-6 covers the sicau-niu operator activity-record query pages owned by the
 // niu-activity-records change: the read-only feeding, steal and grass-ledger lists
 // nested under the "活动记录" sub-directory. It navigates two levels deep and asserts
@@ -74,6 +103,20 @@ test.describe("TC-6 sicau-niu 活动记录查询", () => {
     await recordPage.expectGridRendered("照片");
     await recordPage.expectActivationPhotoPreview(
       activationId,
+      tinyPhotoDataURL,
+    );
+  });
+
+  test("TC-6e: 打卡尝试记录可查看失败原因和照片", async () => {
+    const attemptId = seedActivationAttemptWithPhoto(`${Date.now()}`);
+
+    await recordPage.openRecord("激活记录");
+    await recordPage.page.getByRole("tab", { name: "打卡尝试" }).click();
+    await recordPage.expectGridRendered("判距(米)");
+    await recordPage.expectActivationRecordPageHeightStable();
+    await expect(recordPage.page.getByText("超出判距").first()).toBeVisible();
+    await recordPage.expectActivationAttemptPhotoPreview(
+      attemptId,
       tinyPhotoDataURL,
     );
   });

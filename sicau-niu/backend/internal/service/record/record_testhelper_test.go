@@ -37,6 +37,7 @@ var recordTables = []string{
 	"plugin_sicau_niu_gift",
 	"plugin_sicau_niu_checkin",
 	"plugin_sicau_niu_grass_txn",
+	"plugin_sicau_niu_activation_attempt",
 	"plugin_sicau_niu_activation",
 	"plugin_sicau_niu_niu",
 	"plugin_sicau_niu_user",
@@ -48,6 +49,7 @@ var recordSchemaFiles = []string{
 	"002-sicau-niu-catalog.sql",
 	"003-sicau-niu-activation.sql",
 	"004-sicau-niu-grass.sql",
+	"007-sicau-niu-rule-config.sql",
 }
 
 var (
@@ -111,6 +113,27 @@ func insertActivationRow(t *testing.T, ctx context.Context, userID, niuID int64,
 	}).Insert()
 	if err != nil {
 		t.Fatalf("insert activation failed: %v", err)
+	}
+}
+
+// insertActivationAttemptRow inserts one photo check-in attempt audit row.
+func insertActivationAttemptRow(t *testing.T, ctx context.Context, userID, niuID, nearestNiuID int64, result, photoPath string, distanceM, thresholdM float64) {
+	t.Helper()
+	now := time.Now().UTC()
+	_, err := dao.ActivationAttempt.Ctx(ctx).Data(do.ActivationAttempt{
+		UserId:       userID,
+		NiuId:        niuID,
+		NearestNiuId: nearestNiuID,
+		Result:       result,
+		Lat:          30.123456,
+		Lng:          103.123456,
+		DistanceM:    distanceM,
+		ThresholdM:   thresholdM,
+		PhotoPath:    photoPath,
+		AttemptedAt:  &now,
+	}).Insert()
+	if err != nil {
+		t.Fatalf("insert activation attempt failed: %v", err)
 	}
 }
 

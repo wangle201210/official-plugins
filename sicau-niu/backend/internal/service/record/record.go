@@ -37,6 +37,9 @@ type Service interface {
 	// ListActivations returns one DB-side paged activation-record page with player
 	// and cattle names batch-assembled.
 	ListActivations(ctx context.Context, in *ListActivationsInput) (out *ListActivationsOutput, err error)
+	// ListActivationAttempts returns one DB-side paged activation-attempt audit page
+	// with player and cattle names batch-assembled.
+	ListActivationAttempts(ctx context.Context, in *ListActivationAttemptsInput) (out *ListActivationAttemptsOutput, err error)
 	// ListGrassTxns returns one DB-side paged grass-ledger page with player
 	// nicknames batch-assembled.
 	ListGrassTxns(ctx context.Context, in *ListGrassTxnsInput) (out *ListGrassTxnsOutput, err error)

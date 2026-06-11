@@ -33,6 +33,45 @@ COMMENT ON COLUMN plugin_sicau_niu_rule_config."deleted_at" IS 'Soft-delete time
 CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_rule_config_key
     ON plugin_sicau_niu_rule_config ("config_key") WHERE "deleted_at" IS NULL;
 
+CREATE TABLE IF NOT EXISTS plugin_sicau_niu_activation_attempt (
+    "id"             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    "user_id"        BIGINT NOT NULL DEFAULT 0,
+    "niu_id"         BIGINT NOT NULL DEFAULT 0,
+    "nearest_niu_id" BIGINT NOT NULL DEFAULT 0,
+    "result"         VARCHAR(32) NOT NULL DEFAULT '',
+    "lat"            DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "lng"            DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "distance_m"     DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "threshold_m"    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "photo_path"     VARCHAR(500) NOT NULL DEFAULT '',
+    "attempted_at"   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at"     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"     TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at"     TIMESTAMPTZ
+);
+
+COMMENT ON TABLE plugin_sicau_niu_activation_attempt IS 'sicau-niu player photo check-in activation attempt audit table';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."user_id" IS 'Player ID that submitted the photo check-in';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."niu_id" IS 'Activated cattle ID when result is success, otherwise 0';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."nearest_niu_id" IS 'Nearest visible inactive cattle candidate ID when available';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."result" IS 'Attempt result: success, no_nearby, out_of_range';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."lat" IS 'Player reported GPS latitude';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."lng" IS 'Player reported GPS longitude';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."distance_m" IS 'Distance in meters to nearest candidate, 0 when unavailable';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."threshold_m" IS 'LBS activation threshold in meters used for the attempt';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."photo_path" IS 'Uploaded photo storage path, evidence only';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."attempted_at" IS 'Attempt time';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."created_at" IS 'Creation time';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."updated_at" IS 'Update time';
+COMMENT ON COLUMN plugin_sicau_niu_activation_attempt."deleted_at" IS 'Soft-delete time, NULL means active';
+
+CREATE INDEX IF NOT EXISTS idx_sicau_niu_activation_attempt_time
+    ON plugin_sicau_niu_activation_attempt ("attempted_at" DESC, "id" DESC) WHERE "deleted_at" IS NULL;
+CREATE INDEX IF NOT EXISTS idx_sicau_niu_activation_attempt_user
+    ON plugin_sicau_niu_activation_attempt ("user_id", "attempted_at" DESC) WHERE "deleted_at" IS NULL;
+CREATE INDEX IF NOT EXISTS idx_sicau_niu_activation_attempt_result
+    ON plugin_sicau_niu_activation_attempt ("result", "attempted_at" DESC) WHERE "deleted_at" IS NULL;
+
 DO $$
 DECLARE
     time_column RECORD;

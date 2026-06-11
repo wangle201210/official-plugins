@@ -31,10 +31,26 @@ const (
 	laterActivatorFlag = 0
 )
 
+// activationAttemptResult is the stored audit result for a photo check-in.
+type activationAttemptResult string
+
+const (
+	activationAttemptSuccess    activationAttemptResult = "success"
+	activationAttemptNoNearby   activationAttemptResult = "no_nearby"
+	activationAttemptOutOfRange activationAttemptResult = "out_of_range"
+)
+
 // activationCandidateCap bounds the server-side GPS matching query. The activity
 // has at most 120 cattle, so this keeps the match path predictable without
 // pagination.
 const activationCandidateCap = 200
+
+type activationMatch struct {
+	niu          *entitymodel.Niu
+	nearestNiuID int64
+	distance     float64
+	result       activationAttemptResult
+}
 
 // ActivateInput defines the LBS activation request.
 type ActivateInput struct {
@@ -89,15 +105,24 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 	activityDate := activatedAt.Format(activityDateLayout)
 
 	var output *ActivateOutput
+	var activationErr error
 	err := dao.Niu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		threshold, txErr := s.activationLBSThreshold(ctx)
 		if txErr != nil {
 			return txErr
 		}
-		niuRow, txErr := matchAndLockNearbyInactiveNiu(ctx, in.Lat, in.Lng, activatedAt, threshold)
+		match, txErr := matchAndLockNearbyInactiveNiu(ctx, in.Lat, in.Lng, activatedAt, threshold)
 		if txErr != nil {
 			return txErr
 		}
+		if match.niu == nil {
+			if txErr = insertActivationAttempt(ctx, playerID, in, 0, match.nearestNiuID, match.result, match.distance, threshold, activatedAt); txErr != nil {
+				return txErr
+			}
+			activationErr = bizerr.NewCode(CodeNoNearbyNiu)
+			return nil
+		}
+		niuRow := match.niu
 		niuID := niuRow.Id
 
 		priorCount, txErr := dao.Activation.Ctx(ctx).
@@ -133,6 +158,9 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		}).Insert(); txErr != nil {
 			return bizerr.WrapCode(txErr, CodeWriteFailed)
 		}
+		if txErr = insertActivationAttempt(ctx, playerID, in, niuID, niuID, activationAttemptSuccess, match.distance, threshold, activatedAt); txErr != nil {
+			return txErr
+		}
 
 		output = &ActivateOutput{
 			NiuId:       niuID,
@@ -144,6 +172,9 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 	})
 	if err != nil {
 		return nil, err
+	}
+	if activationErr != nil {
+		return nil, activationErr
 	}
 
 	card, err := s.loadMainCard(ctx, output.NiuId)
@@ -181,6 +212,38 @@ func (s *serviceImpl) guardDailyLimit(ctx context.Context, playerID int64) error
 	return nil
 }
 
+// insertActivationAttempt records one photo check-in audit row. Daily-limit
+// rejections intentionally call guardDailyLimit before this point and are not
+// written to keep the audit table focused on location matching outcomes.
+func insertActivationAttempt(
+	ctx context.Context,
+	playerID int64,
+	in *ActivateInput,
+	niuID int64,
+	nearestNiuID int64,
+	result activationAttemptResult,
+	distance float64,
+	threshold float64,
+	attemptedAt time.Time,
+) error {
+	_, err := dao.ActivationAttempt.Ctx(ctx).Data(do.ActivationAttempt{
+		UserId:       playerID,
+		NiuId:        niuID,
+		NearestNiuId: nearestNiuID,
+		Result:       string(result),
+		Lat:          in.Lat,
+		Lng:          in.Lng,
+		DistanceM:    distance,
+		ThresholdM:   threshold,
+		PhotoPath:    in.PhotoPath,
+		AttemptedAt:  &attemptedAt,
+	}).Insert()
+	if err != nil {
+		return bizerr.WrapCode(err, CodeWriteFailed)
+	}
+	return nil
+}
+
 // matchAndLockNearbyInactiveNiu finds the nearest currently visible inactive
 // cattle within threshold and returns it locked. Concurrent activations may flip a
 // candidate before this transaction locks it, so each locked row is rechecked and
@@ -190,7 +253,7 @@ func matchAndLockNearbyInactiveNiu(
 	lat, lng float64,
 	now time.Time,
 	threshold float64,
-) (*entitymodel.Niu, error) {
+) (*activationMatch, error) {
 	candidates, err := nearbyInactiveCandidates(ctx, now)
 	if err != nil {
 		return nil, err
@@ -206,12 +269,10 @@ func matchAndLockNearbyInactiveNiu(
 			continue
 		}
 		distance := haversineMeters(lat, lng, row.Lat, row.Lng)
-		if distance <= threshold {
-			ranked = append(ranked, rankedCandidate{id: row.Id, distance: distance})
-		}
+		ranked = append(ranked, rankedCandidate{id: row.Id, distance: distance})
 	}
 	if len(ranked) == 0 {
-		return nil, bizerr.NewCode(CodeNoNearbyNiu)
+		return &activationMatch{result: activationAttemptNoNearby}, nil
 	}
 
 	sort.SliceStable(ranked, func(i, j int) bool {
@@ -220,8 +281,19 @@ func matchAndLockNearbyInactiveNiu(
 		}
 		return ranked[i].distance < ranked[j].distance
 	})
+	nearest := ranked[0]
+	if nearest.distance > threshold {
+		return &activationMatch{
+			nearestNiuID: nearest.id,
+			distance:     nearest.distance,
+			result:       activationAttemptOutOfRange,
+		}, nil
+	}
 
 	for _, candidate := range ranked {
+		if candidate.distance > threshold {
+			break
+		}
 		niuRow, err := lockNiu(ctx, candidate.id)
 		if err != nil {
 			return nil, err
@@ -232,12 +304,22 @@ func matchAndLockNearbyInactiveNiu(
 		if !niuCurrentlyVisible(niuRow, now) {
 			continue
 		}
-		if distance := haversineMeters(lat, lng, niuRow.Lat, niuRow.Lng); distance > threshold {
+		distance := haversineMeters(lat, lng, niuRow.Lat, niuRow.Lng)
+		if distance > threshold {
 			continue
 		}
-		return niuRow, nil
+		return &activationMatch{
+			niu:          niuRow,
+			nearestNiuID: candidate.id,
+			distance:     distance,
+			result:       activationAttemptSuccess,
+		}, nil
 	}
-	return nil, bizerr.NewCode(CodeNoNearbyNiu)
+	return &activationMatch{
+		nearestNiuID: nearest.id,
+		distance:     nearest.distance,
+		result:       activationAttemptNoNearby,
+	}, nil
 }
 
 // nearbyInactiveCandidates returns a bounded, projected candidate set for GPS

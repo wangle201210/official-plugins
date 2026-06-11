@@ -20,5 +20,6 @@ type IRecordV1 interface {
 	Gifts(ctx context.Context, req *v1.GiftsReq) (res *v1.GiftsRes, err error)
 	Checkins(ctx context.Context, req *v1.CheckinsReq) (res *v1.CheckinsRes, err error)
 	Activations(ctx context.Context, req *v1.ActivationsReq) (res *v1.ActivationsRes, err error)
+	ActivationAttempts(ctx context.Context, req *v1.ActivationAttemptsReq) (res *v1.ActivationAttemptsRes, err error)
 	GrassTxns(ctx context.Context, req *v1.GrassTxnsReq) (res *v1.GrassTxnsRes, err error)
 }

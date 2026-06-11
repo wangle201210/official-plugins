@@ -146,3 +146,46 @@ func TestListActivationsReturnsPhotoPath(t *testing.T) {
 		t.Fatalf("record relation fields not assembled: %+v", row)
 	}
 }
+
+// TestListActivationAttemptsReturnsAuditFields verifies photo check-in attempts
+// expose result, GPS, distance and batch-assembled player/cattle fields.
+func TestListActivationAttemptsReturnsAuditFields(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLRecordDB(t, ctx)
+	svc := New()
+
+	user := insertUserRow(t, ctx, "尝试玩家")
+	nearest := insertNiuRow(t, ctx, "最近牛")
+	const photoPath = "https://picsum.photos/seed/sicau-niu-attempt-test/1024/768"
+	insertActivationAttemptRow(t, ctx, user, 0, nearest, ActivationAttemptResultOutOfRange, photoPath, 62.5, 50)
+
+	out, err := svc.ListActivationAttempts(ctx, &ListActivationAttemptsInput{
+		UserId: user, Result: ActivationAttemptResultOutOfRange, PageNum: 1, PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("ListActivationAttempts error: %v", err)
+	}
+	if out.Total != 1 || len(out.List) != 1 {
+		t.Fatalf("expected one activation attempt, got total=%d list=%d", out.Total, len(out.List))
+	}
+	row := out.List[0]
+	if row.Result != ActivationAttemptResultOutOfRange || row.PhotoPath != photoPath {
+		t.Fatalf("attempt result/photo not projected: %+v", row)
+	}
+	if row.Nickname != "尝试玩家" || row.NearestNiuName != "最近牛" || row.NearestNiuCode == "" {
+		t.Fatalf("attempt relation fields not assembled: %+v", row)
+	}
+	if row.Lat == 0 || row.Lng == 0 || row.DistanceM != 62.5 || row.ThresholdM != 50 {
+		t.Fatalf("attempt GPS/distance fields not projected: %+v", row)
+	}
+
+	byNearest, err := svc.ListActivationAttempts(ctx, &ListActivationAttemptsInput{
+		NiuId: nearest, PageNum: 1, PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("ListActivationAttempts(nearest) error: %v", err)
+	}
+	if byNearest.Total != 1 || len(byNearest.List) != 1 || byNearest.List[0].NearestNiuId != nearest {
+		t.Fatalf("expected nearest-cattle filter to include failed attempts, got total=%d list=%d", byNearest.Total, len(byNearest.List))
+	}
+}
