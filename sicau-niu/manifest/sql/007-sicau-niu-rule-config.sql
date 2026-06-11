@@ -12,33 +12,14 @@ DROP INDEX IF EXISTS idx_sicau_niu_niu_online;
 ALTER TABLE IF EXISTS plugin_sicau_niu_niu
     DROP COLUMN IF EXISTS "release_stage";
 
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'plugin_sicau_niu_niu'
-          AND column_name = 'online_at'
-          AND data_type = 'timestamp without time zone'
-    ) THEN
-        ALTER TABLE plugin_sicau_niu_niu
-            ALTER COLUMN "online_at" TYPE TIMESTAMPTZ
-            USING "online_at" AT TIME ZONE 'UTC';
-    END IF;
-END $$;
-
-CREATE INDEX IF NOT EXISTS idx_sicau_niu_niu_online
-    ON plugin_sicau_niu_niu ("online_at") WHERE "deleted_at" IS NULL;
-
 CREATE TABLE IF NOT EXISTS plugin_sicau_niu_rule_config (
     "id"           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "config_key"   VARCHAR(64) NOT NULL DEFAULT '',
     "config_value" VARCHAR(255) NOT NULL DEFAULT '',
     "remark"       VARCHAR(255) NOT NULL DEFAULT '',
-    "created_at"   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    "updated_at"   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    "deleted_at"   TIMESTAMP
+    "created_at"   TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"   TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at"   TIMESTAMPTZ
 );
 
 COMMENT ON TABLE plugin_sicau_niu_rule_config IS 'sicau-niu operator-maintained runtime rule configuration';
@@ -51,6 +32,39 @@ COMMENT ON COLUMN plugin_sicau_niu_rule_config."deleted_at" IS 'Soft-delete time
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_rule_config_key
     ON plugin_sicau_niu_rule_config ("config_key") WHERE "deleted_at" IS NULL;
+
+DO $$
+DECLARE
+    time_column RECORD;
+BEGIN
+    FOR time_column IN
+        SELECT column_meta.table_name, column_meta.column_name
+        FROM information_schema.columns AS column_meta
+        JOIN information_schema.tables AS table_meta
+          ON table_meta.table_schema = column_meta.table_schema
+         AND table_meta.table_name = column_meta.table_name
+        WHERE column_meta.table_schema = current_schema()
+          AND column_meta.table_name LIKE 'plugin_sicau_niu_%'
+          AND column_meta.data_type = 'timestamp without time zone'
+          AND table_meta.table_type = 'BASE TABLE'
+        ORDER BY column_meta.table_name, column_meta.ordinal_position
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE %I.%I ALTER COLUMN %I TYPE TIMESTAMPTZ',
+            current_schema(),
+            time_column.table_name,
+            time_column.column_name
+        );
+    END LOOP;
+END $$;
+
+DO $$
+BEGIN
+    IF to_regclass('plugin_sicau_niu_niu') IS NOT NULL THEN
+        CREATE INDEX IF NOT EXISTS idx_sicau_niu_niu_online
+            ON plugin_sicau_niu_niu ("online_at") WHERE "deleted_at" IS NULL;
+    END IF;
+END $$;
 
 INSERT INTO plugin_sicau_niu_rule_config ("config_key", "config_value", "remark")
 SELECT 'activation.lbsThresholdMeters', '50', 'LBS 激活判距阈值（米）'

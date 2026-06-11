@@ -59,6 +59,11 @@ test.describe("TC-2 sicau-niu 内容资产 CRUD", () => {
     await expect(catalogPage.niuRow(code)).toBeVisible();
   });
 
+  test("TC-2e: 铁牛管理只读展示最近同步经纬度", async () => {
+    await catalogPage.openIronFromMenu();
+    await catalogPage.expectIronLocationReadonly();
+  });
+
   // 注:牛的编辑/删除经后端单元测试(cattle DB 门控:更新 code 冲突、删除、删牛级联软删
   // 主卡)与 API 验证(GET/PUT/DELETE 均 code:0)覆盖;其复杂编辑表单(类型/子类/院系联动
   // + 详情回填)在 Playwright 下交互不稳定,牛的 UI 编辑/删除 E2E 留待后续硬化。本 TC 以

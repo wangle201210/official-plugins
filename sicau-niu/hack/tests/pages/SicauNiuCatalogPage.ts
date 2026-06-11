@@ -181,6 +181,47 @@ export class SicauNiuCatalogPage extends PluginPage {
     await expect(this.niuRow(code)).toHaveCount(0);
   }
 
+  // ---------------------------------------------------------------------------
+  // 铁牛管理 (iron) — location display is read-only, fed by the background IOT job
+  // ---------------------------------------------------------------------------
+
+  ironAddButton(): Locator {
+    return this.page.getByTestId("sicau-niu-iron-add").first();
+  }
+
+  ironModal(): Locator {
+    return this.page.getByRole("dialog", { name: /新增铁牛|编辑铁牛/ }).last();
+  }
+
+  async openIronFromMenu() {
+    await this.clickSidebarMenuItem("铁牛管理");
+    await expect(this.ironAddButton()).toBeVisible();
+  }
+
+  async expectIronLocationReadonly() {
+    await expect(this.tableColumn("纬度")).toBeVisible();
+    await expect(this.tableColumn("经度")).toBeVisible();
+    await expect(this.tableColumn("最近同步时间")).toBeVisible();
+
+    const rowWithCoordinate = this.page
+      .locator(".vxe-body--row")
+      .filter({ hasText: /\d{2}\.\d{6}/ })
+      .first();
+    await expect(rowWithCoordinate).toBeVisible();
+    await expect(rowWithCoordinate).toContainText(/\d{2}\.\d{6}/);
+
+    await this.page.getByRole("button", { name: /编\s*辑/ }).first().click();
+    const snapshot = this.ironModal().getByTestId(
+      "sicau-niu-iron-location-snapshot",
+    );
+    await expect(snapshot).toBeVisible();
+    await expect(snapshot).toContainText("定位信息");
+    await expect(snapshot).toContainText("纬度");
+    await expect(snapshot).toContainText("经度");
+    await expect(snapshot.locator("input, textarea")).toHaveCount(0);
+    await this.ironModal().getByRole("button", { name: /取\s*消/ }).click();
+  }
+
   // rowActionButton locates a row by its text and returns the named action
   // button (编辑 / 删除) within that row, matching the C1 page-object pattern.
   private async rowActionButton(text: string, action: RegExp) {

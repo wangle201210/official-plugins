@@ -1,19 +1,17 @@
 // Package backend wires the sicau-niu source plugin into the host plugin
-// registry. It registers the embedded plugin assets and binds three HTTP route
-// surfaces under the plugin API prefix: a public WeChat player login route, a
-// player-token-protected surface (phone binding, profile, college dropdown, the
-// C3/C4 gameplay endpoints, and the C5 leaderboards and player honor list)
-// guarded by the plugin-owned player-auth middleware, and an operator surface
-// (college dictionary CRUD, player query, the C2 content-asset CRUD for cattle,
-// iron-cows, cards and quotes, and the C5 honor-definition CRUD) guarded by the
-// host Auth+Tenancy+Permission chain. The plugin owns its WeChat-gateway,
-// player-token, identity, college, cattle, card, ranking and honor services; the
-// service graph is constructed once at route-registration time from the
-// plugin-scoped configuration.
+// registry. It registers the embedded plugin assets, binds the plugin HTTP route
+// surfaces, and contributes the background IOT locator refresh job. Player
+// requests read only local plugin tables; the 1-minute locator cron refreshes
+// physical iron-cow coordinates from the external IOT platform on the primary
+// node. The plugin owns its WeChat-gateway, player-token, identity, college,
+// cattle, card, ranking, honor and locator-refresh services; each service graph
+// is constructed once at callback registration time from plugin-scoped
+// configuration.
 package backend
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -123,6 +121,36 @@ const (
 	defaultAnomalyFeedDaily  = 100
 	defaultAnomalyStealDaily = 5
 	defaultAnomalyListLimit  = 200
+	// configKeyIOTLocatorBaseURL is the plugin config key for the external IOT
+	// positioning platform base URL.
+	configKeyIOTLocatorBaseURL = "niu.baseUrl"
+	// configKeyIOTLocatorKey is the plugin config key for the external IOT key.
+	configKeyIOTLocatorKey = "niu.key"
+	// configKeyIOTLocatorSecret is the plugin config key for the external IOT secret.
+	configKeyIOTLocatorSecret = "niu.secret"
+	// configKeyIOTLocatorPageSize is the plugin config key for locator-list page size.
+	configKeyIOTLocatorPageSize = "niu.pageSize"
+	// configKeyIOTLocatorRefreshInterval is the plugin config key for locator
+	// refresh interval.
+	configKeyIOTLocatorRefreshInterval = "niu.refreshInterval"
+	// configKeyIOTLocatorTokenTTL is the plugin config key for the external token TTL.
+	configKeyIOTLocatorTokenTTL = "niu.tokenTTL"
+	// defaultIOTLocatorRefreshInterval is the required default iron-cow location
+	// refresh cadence.
+	defaultIOTLocatorRefreshInterval = time.Minute
+	// defaultIOTLocatorTokenTTL follows the IOT platform document's three-day token validity.
+	defaultIOTLocatorTokenTTL = 72 * time.Hour
+	// defaultIOTLocatorPageSize bounds one external locator-list request.
+	defaultIOTLocatorPageSize = 100
+	// defaultIOTLocatorHTTPTimeout bounds one external IOT HTTP request so a slow
+	// platform response does not overlap the next 1-minute refresh indefinitely.
+	defaultIOTLocatorHTTPTimeout = 8 * time.Second
+	// ironLocationRefreshCronName identifies the iron-cow IOT refresh cron declaration.
+	ironLocationRefreshCronName = "sicau-niu-iron-location-refresh"
+	// ironLocationRefreshCronDisplayName is the English source title for the locator refresh cron.
+	ironLocationRefreshCronDisplayName = "Sicau Niu Iron Location Refresh"
+	// ironLocationRefreshCronDescription is the English source description for the locator refresh cron.
+	ironLocationRefreshCronDescription = "Refreshes registered iron-cow locator coordinates from the IOT positioning platform."
 )
 
 // init registers the embedded sicau-niu source plugin and its route callbacks.
@@ -133,6 +161,13 @@ func init() {
 		pluginhost.ExtensionPointHTTPRouteRegister,
 		pluginhost.CallbackExecutionModeBlocking,
 		registerRoutes,
+	); err != nil {
+		panic(err)
+	}
+	if err := plugin.Cron().RegisterCron(
+		pluginhost.ExtensionPointCronRegister,
+		pluginhost.CallbackExecutionModeBlocking,
+		registerIronLocationCron,
 	); err != nil {
 		panic(err)
 	}
@@ -219,7 +254,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		activationConfig,
 	)
 	grassService := grasssvc.New(rulesService, grassConfig)
-	feedingService := feedingsvc.New(grassService, feedingsvc.NewMockIronLocation(), rulesService, feedingConfig)
+	feedingService := feedingsvc.New(grassService, feedingsvc.NewStoredIronLocation(), rulesService, feedingConfig)
 	grassSocialService := grasssocialsvc.New(grassService, rulesService, grassSocialConfig)
 	rankingService := rankingsvc.New(rulesService, rankingConfig)
 	honorService := honorsvc.New(
@@ -365,6 +400,119 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		})
 	})
 	return nil
+}
+
+// registerIronLocationCron contributes the primary-node IOT locator refresh job
+// when niu.key and niu.secret are configured. Missing credentials keep
+// development and test deployments on stored/mock coordinates without registering
+// an external polling job.
+func registerIronLocationCron(ctx context.Context, registrar pluginhost.CronRegistrar) error {
+	if registrar == nil {
+		return gerror.New("sicau-niu iron-location cron requires registrar")
+	}
+	configSvc, err := pluginConfigFromServices(registrar.Services(), "sicau-niu iron-location cron")
+	if err != nil {
+		return err
+	}
+	enabled, refresher, interval, err := buildIronLocationRefresh(ctx, configSvc)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return nil
+	}
+	return registrar.AddWithMetadata(
+		ctx,
+		"@every "+interval.String(),
+		ironLocationRefreshCronName,
+		ironLocationRefreshCronDisplayName,
+		ironLocationRefreshCronDescription,
+		func(ctx context.Context) error {
+			return refreshIronLocations(ctx, registrar.IsPrimaryNode(), refresher)
+		},
+	)
+}
+
+// refreshIronLocations runs one primary-node refresh cycle. The cron registrar
+// already guards disabled plugins; this function keeps primary-node gating and
+// refresher dependency checks testable without touching host scheduler state.
+func refreshIronLocations(ctx context.Context, primaryNode bool, refresher feedingsvc.IronLocationRefresher) error {
+	if !primaryNode {
+		return nil
+	}
+	if refresher == nil {
+		return gerror.New("sicau-niu iron-location refresh requires refresher")
+	}
+	_, err := refresher.Refresh(ctx)
+	return err
+}
+
+// pluginConfigFromServices extracts the plugin-scoped ConfigService from host
+// callback services and returns explicit setup errors for invalid callback wiring.
+func pluginConfigFromServices(services pluginhost.Services, purpose string) (plugincap.ConfigService, error) {
+	if services == nil {
+		return nil, gerror.New(purpose + " requires plugin config service")
+	}
+	plugins := services.Plugins()
+	if plugins == nil {
+		return nil, gerror.New(purpose + " requires plugin config service")
+	}
+	configSvc := plugins.Config()
+	if configSvc == nil {
+		return nil, gerror.New(purpose + " requires plugin config service")
+	}
+	return configSvc, nil
+}
+
+// buildIronLocationRefresh reads IOT locator config and constructs the background
+// refresher. It returns enabled=false when no credentials are configured.
+func buildIronLocationRefresh(
+	ctx context.Context,
+	config plugincap.ConfigService,
+) (enabled bool, refresher feedingsvc.IronLocationRefresher, interval time.Duration, err error) {
+	key, err := config.String(ctx, configKeyIOTLocatorKey, "")
+	if err != nil {
+		return false, nil, 0, gerror.Wrap(err, "sicau-niu read IOT locator key failed")
+	}
+	secret, err := config.String(ctx, configKeyIOTLocatorSecret, "")
+	if err != nil {
+		return false, nil, 0, gerror.Wrap(err, "sicau-niu read IOT locator secret failed")
+	}
+	if key == "" && secret == "" {
+		return false, nil, 0, nil
+	}
+
+	baseURL, err := config.String(ctx, configKeyIOTLocatorBaseURL, "")
+	if err != nil {
+		return false, nil, 0, gerror.Wrap(err, "sicau-niu read IOT locator baseUrl failed")
+	}
+	pageSize, err := config.Int(ctx, configKeyIOTLocatorPageSize, defaultIOTLocatorPageSize)
+	if err != nil {
+		return false, nil, 0, gerror.Wrap(err, "sicau-niu read IOT locator pageSize failed")
+	}
+	interval, err = config.Duration(ctx, configKeyIOTLocatorRefreshInterval, defaultIOTLocatorRefreshInterval)
+	if err != nil {
+		return false, nil, 0, gerror.Wrap(err, "sicau-niu read IOT locator refreshInterval failed")
+	}
+	if interval < defaultIOTLocatorRefreshInterval {
+		interval = defaultIOTLocatorRefreshInterval
+	}
+	tokenTTL, err := config.Duration(ctx, configKeyIOTLocatorTokenTTL, defaultIOTLocatorTokenTTL)
+	if err != nil {
+		return false, nil, 0, gerror.Wrap(err, "sicau-niu read IOT locator tokenTTL failed")
+	}
+
+	refresher, err = feedingsvc.NewIOTIronLocationRefresher(feedingsvc.IronLocationConfig{
+		BaseURL:  baseURL,
+		Key:      key,
+		Secret:   secret,
+		PageSize: pageSize,
+		TokenTTL: tokenTTL,
+	}, &http.Client{Timeout: defaultIOTLocatorHTTPTimeout})
+	if err != nil {
+		return false, nil, 0, err
+	}
+	return true, refresher, interval, nil
 }
 
 // buildAuthDependencies constructs the player token service and WeChat gateway

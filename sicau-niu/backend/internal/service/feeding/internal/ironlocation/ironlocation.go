@@ -1,12 +1,11 @@
 // Package ironlocation is the feeding capability's iron-cow real-time location
 // seam. It returns the current GPS positions of registered iron cows used to
-// decide the feeding proximity bonus. The seam isolates the (currently mocked)
-// external positioning integration behind a narrow contract so the real external
-// API can replace the implementation without touching the feeding bonus logic.
-// The mock implementation returns the iron cows' stored last_lat/last_lng from
-// the plugin iron table; iron cows without a recorded position are skipped by the
-// caller. All store access uses the generated DAO so GoFrame manages soft-delete
-// and timestamp columns.
+// decide the feeding proximity bonus. The player request path reads only the
+// latest stored last_lat/last_lng from the plugin iron table; the external IOT
+// platform is refreshed by a separate cron job so feeding does not block on
+// network calls. Iron cows without a recorded position are skipped by the caller.
+// All store access uses the generated DAO so GoFrame manages soft-delete and
+// timestamp columns.
 package ironlocation
 
 import (
@@ -36,24 +35,24 @@ type Gateway interface {
 	Positions(ctx context.Context) (out []*IronPosition, err error)
 }
 
-// Interface compliance assertion for the mock location gateway.
-var _ Gateway = (*mockGateway)(nil)
+// Interface compliance assertion for the stored location gateway.
+var _ Gateway = (*storedGateway)(nil)
 
-// mockGateway is the development location gateway. It returns the iron cows'
-// stored last_lat/last_lng instead of calling an external positioning API.
-type mockGateway struct{}
+// storedGateway returns the iron cows' stored last_lat/last_lng. It is used by
+// the feeding request path so external IOT refresh frequency stays decoupled
+// from player traffic.
+type storedGateway struct{}
 
-// NewMock creates the mock iron-cow location gateway backed by the stored
-// last_lat/last_lng columns. The real external-API implementation replaces this
-// behind the Gateway seam without changing the feeding bonus logic.
-func NewMock() Gateway {
-	return &mockGateway{}
+// NewStored creates the request-path iron-cow location gateway backed by the
+// stored last_lat/last_lng columns.
+func NewStored() Gateway {
+	return &storedGateway{}
 }
 
 // Positions returns the stored positions of iron cows that have a non-zero
 // recorded location. The whole iron set is small and read in one query, so the
 // proximity check never issues a per-iron query.
-func (g *mockGateway) Positions(ctx context.Context) ([]*IronPosition, error) {
+func (g *storedGateway) Positions(ctx context.Context) ([]*IronPosition, error) {
 	rows := make([]*entitymodel.Iron, 0)
 	err := dao.Iron.Ctx(ctx).
 		Fields(

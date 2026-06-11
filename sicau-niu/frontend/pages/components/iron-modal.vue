@@ -5,9 +5,10 @@ import { computed, ref } from "vue";
 
 import { useVbenModal } from "@vben/common-ui";
 
-import { message } from "ant-design-vue";
+import { Descriptions, DescriptionsItem, message } from "ant-design-vue";
 
 import { useVbenForm, z } from "#/adapter/form";
+import { formatTimestamp } from "#/utils/time";
 
 import { createIron, updateIron } from "../iron-client";
 
@@ -20,6 +21,11 @@ interface IronFormValues {
 }
 
 const recordId = ref(0);
+const snapshot = ref<Pick<IronItem, "lastLat" | "lastLng" | "locatedAt">>({
+  lastLat: 0,
+  lastLng: 0,
+  locatedAt: null,
+});
 const formValues: IronFormValues = {
   code: "",
   name: "",
@@ -114,6 +120,11 @@ async function handleOpenChange(open: boolean) {
   }
   const data = modalApi.getData<Partial<IronItem>>();
   recordId.value = data?.id ?? 0;
+  snapshot.value = {
+    lastLat: data?.lastLat ?? 0,
+    lastLng: data?.lastLng ?? 0,
+    locatedAt: data?.locatedAt ?? null,
+  };
   await formApi.setValues({
     code: data?.code ?? formValues.code,
     name: data?.name ?? formValues.name,
@@ -123,7 +134,23 @@ async function handleOpenChange(open: boolean) {
 
 async function handleClosed() {
   recordId.value = 0;
+  snapshot.value = {
+    lastLat: 0,
+    lastLng: 0,
+    locatedAt: null,
+  };
   await formApi.resetForm();
+}
+
+function formatCoordinate(value: number) {
+  if (!value || Number.isNaN(value)) {
+    return "-";
+  }
+  return value.toFixed(6);
+}
+
+function formatLocatedAt(value: number | null) {
+  return value ? formatTimestamp(value) : "-";
 }
 </script>
 
@@ -131,6 +158,25 @@ async function handleClosed() {
   <Modal :title="title">
     <div data-testid="sicau-niu-iron-form">
       <IronForm />
+      <Descriptions
+        v-if="isEdit"
+        bordered
+        class="mt-4"
+        data-testid="sicau-niu-iron-location-snapshot"
+        size="small"
+        title="定位信息"
+        :column="1"
+      >
+        <DescriptionsItem label="纬度">
+          {{ formatCoordinate(snapshot.lastLat) }}
+        </DescriptionsItem>
+        <DescriptionsItem label="经度">
+          {{ formatCoordinate(snapshot.lastLng) }}
+        </DescriptionsItem>
+        <DescriptionsItem label="最近同步时间">
+          {{ formatLocatedAt(snapshot.locatedAt) }}
+        </DescriptionsItem>
+      </Descriptions>
     </div>
   </Modal>
 </template>

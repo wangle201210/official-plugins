@@ -99,13 +99,28 @@ ironBonus:
   # 牛锚点与任一铁牛当前位置之间触发喂草加成的最大直线距离（米）。
   thresholdMeters: 12
 
-# Iron-cow real-time location seam (C4 niu-feeding).
-# 铁牛实时定位接缝（C4 niu-feeding）。
-ironLocation:
-  # When true, the location gateway returns the iron cows' stored last_lat/last_lng
-  # instead of calling an external positioning API.
-  # 为 true 时，定位网关返回铁牛已存储的 last_lat/last_lng，而非调用外部定位 API。
-  mock: true
+# IOT platform locator refresh settings for physical iron cows.
+# 实体铁牛 IOT 平台定位刷新配置。
+niu:
+  # IOT positioning platform base URL. The default follows
+  # `IOT平台太阳能定位器接口文档v1.0.pdf`.
+  # IOT 定位平台基础地址。默认值来自`IOT平台太阳能定位器接口文档v1.0.pdf`。
+  baseUrl: "https://xudongli.amorcloud.cn/exportIotPlus/iotPlus"
+  # Fixed public key used by `/open/device/getToken`.
+  # `/open/device/getToken`使用的固定公匙。
+  key: ""
+  # Fixed private secret used by `/open/device/getToken`.
+  # `/open/device/getToken`使用的固定私匙。
+  secret: ""
+  # Background refresh interval for registered iron-cow coordinates.
+  # 已登记铁牛坐标后台刷新间隔。
+  refreshInterval: 1min
+  # Locator list page size used by `/open/device/getInfoList`.
+  # `/open/device/getInfoList`定位器列表分页大小。
+  pageSize: 100
+  # Documented token validity. The refresher renews the token before this TTL.
+  # 文档声明的 token 有效期；刷新器会提前续期。
+  tokenTTL: 72h
 
 # Risk anomaly alert thresholds (M13, C10 niu-risk-anomaly).
 # 风控异常告警阈值（M13，C10 niu-risk-anomaly）。

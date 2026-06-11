@@ -38,6 +38,19 @@ type Config struct {
 	IronBonusThresholdMeters float64
 }
 
+// IronLocationConfig carries pure-value settings for the background IOT refresh
+// path that updates stored iron-cow coordinates.
+type IronLocationConfig = ironlocation.Config
+
+// IronLocationRefreshResult summarizes one background IOT refresh cycle.
+type IronLocationRefreshResult = ironlocation.RefreshResult
+
+// IronLocationRefresher updates stored iron-cow coordinates from the IOT platform.
+type IronLocationRefresher = ironlocation.Refresher
+
+// IronLocationHTTPClient is the explicit HTTP dependency accepted by the IOT refresher.
+type IronLocationHTTPClient = ironlocation.HTTPClient
+
 // Service defines the C4 feeding contract: feed an activated cattle and read the
 // player's recent feeding trail.
 type Service interface {
@@ -70,16 +83,21 @@ type serviceImpl struct {
 }
 
 // IronLocationGateway is the iron-cow real-time location seam re-exported from
-// this package so the route-assembly layer can construct the mock gateway and
-// inject it without reaching across the package-internal boundary.
+// this package so the route-assembly layer can construct the stored-coordinate
+// gateway and inject it without reaching across the package-internal boundary.
 type IronLocationGateway = ironlocation.Gateway
 
-// NewMockIronLocation creates the development iron-cow location gateway backed by
-// the stored iron last_lat/last_lng. The route-assembly layer constructs it once
-// and injects it so the real external-API implementation can replace it behind
-// the stable seam.
-func NewMockIronLocation() IronLocationGateway {
-	return ironlocation.NewMock()
+// NewStoredIronLocation creates the request-path iron-cow location gateway backed
+// by stored coordinates. Feeding should use this gateway so player requests do
+// not call the external IOT platform directly.
+func NewStoredIronLocation() IronLocationGateway {
+	return ironlocation.NewStored()
+}
+
+// NewIOTIronLocationRefresher creates the background refresher that pulls
+// external IOT coordinates and writes them into the plugin iron table.
+func NewIOTIronLocationRefresher(config IronLocationConfig, client IronLocationHTTPClient) (IronLocationRefresher, error) {
+	return ironlocation.NewIOTRefresher(config, client)
 }
 
 // New creates a feeding service with explicit dependencies: the grass ledger

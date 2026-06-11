@@ -7,8 +7,12 @@ package cattle
 import (
 	"context"
 	"testing"
+	"time"
+
+	"github.com/gogf/gf/v2/database/gdb"
 
 	"lina-plugin-sicau-niu/backend/internal/dao"
+	"lina-plugin-sicau-niu/backend/internal/model/do"
 )
 
 // TestCreateIronRejectsDuplicateCode verifies a second iron-cow reusing an active
@@ -85,4 +89,52 @@ func TestDeleteIronMissingReturnsNotFound(t *testing.T) {
 	svc := newCattleServiceForTest()
 	err := svc.DeleteIron(ctx, 525252)
 	assertBizCode(t, err, CodeIronNotFound.RuntimeCode())
+}
+
+// TestListIronReturnsLocatedAtAsAbsoluteMillis verifies located_at is stored and
+// returned as a real instant, not shifted by the PostgreSQL session time zone.
+func TestListIronReturnsLocatedAtAsAbsoluteMillis(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLCattleDB(t, ctx)
+
+	locatedAt := time.Date(2026, time.June, 11, 16, 15, 23, 193000000, time.FixedZone("Asia/Shanghai", 8*60*60))
+	err := dao.Iron.Transaction(ctx, func(txCtx context.Context, tx gdb.TX) error {
+		if _, execErr := tx.Exec("SET LOCAL TIME ZONE 'UTC'"); execErr != nil {
+			return execErr
+		}
+		_, insertErr := dao.Iron.Ctx(txCtx).Data(do.Iron{
+			Code:      "IRON-TZ",
+			Name:      "Time Zone Iron",
+			LastLat:   29.982093672013686,
+			LastLng:   102.99276695413675,
+			LocatedAt: &locatedAt,
+		}).Insert()
+		return insertErr
+	})
+	if err != nil {
+		t.Fatalf("insert iron with UTC session failed: %v", err)
+	}
+
+	svc := newCattleServiceForTest()
+	var out *ListIronOutput
+	err = dao.Iron.Transaction(ctx, func(txCtx context.Context, tx gdb.TX) error {
+		if _, execErr := tx.Exec("SET LOCAL TIME ZONE 'Asia/Shanghai'"); execErr != nil {
+			return execErr
+		}
+		list, listErr := svc.ListIron(txCtx, &ListIronInput{Keyword: "IRON-TZ", PageNum: 1, PageSize: 10})
+		if listErr != nil {
+			return listErr
+		}
+		out = list
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("list iron with Asia/Shanghai session failed: %v", err)
+	}
+	if out == nil || len(out.List) != 1 {
+		t.Fatalf("expected one iron row, got %+v", out)
+	}
+	if out.List[0].LocatedAt == nil || *out.List[0].LocatedAt != locatedAt.UnixMilli() {
+		t.Fatalf("expected locatedAt %d, got %+v", locatedAt.UnixMilli(), out.List[0].LocatedAt)
+	}
 }

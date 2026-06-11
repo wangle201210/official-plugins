@@ -14,3 +14,17 @@ var CodeQueryFailed = bizerr.MustDefine(
 	"Failed to query iron-cow locations",
 	gcode.CodeInternalError,
 )
+
+// CodeIOTRequestFailed reports that the external IOT positioning platform request failed.
+var CodeIOTRequestFailed = bizerr.MustDefine(
+	"PLUGIN_SICAU_NIU_IRON_LOCATION_IOT_REQUEST_FAILED",
+	"Failed to reach the IOT positioning platform",
+	gcode.CodeInternalError,
+)
+
+// CodeIOTResponseInvalid reports that the external IOT positioning platform returned an unusable response.
+var CodeIOTResponseInvalid = bizerr.MustDefine(
+	"PLUGIN_SICAU_NIU_IRON_LOCATION_IOT_RESPONSE_INVALID",
+	"The IOT positioning platform response is invalid",
+	gcode.CodeInternalError,
+)

@@ -62,10 +62,22 @@ const [Grid, gridApi] = useVbenVxeGrid({
         title: "名称",
       },
       {
+        field: "lastLat",
+        formatter: ({ cellValue }) => formatCoordinate(cellValue),
+        title: "纬度",
+        width: 140,
+      },
+      {
+        field: "lastLng",
+        formatter: ({ cellValue }) => formatCoordinate(cellValue),
+        title: "经度",
+        width: 140,
+      },
+      {
         field: "locatedAt",
         formatter: ({ cellValue }) =>
           cellValue ? formatTimestamp(cellValue) : "-",
-        title: "最近定位时间",
+        title: "最近同步时间",
         width: 180,
       },
       {
@@ -133,6 +145,9 @@ function handleEditIron(row: IronItem) {
     id: row.id,
     code: row.code,
     name: row.name,
+    lastLat: row.lastLat,
+    lastLng: row.lastLng,
+    locatedAt: row.locatedAt,
     remark: row.remark,
   });
   recordModalApi.open();
@@ -145,6 +160,13 @@ async function handleDeleteIron(row: IronItem) {
 
 function handleReload() {
   gridApi.query();
+}
+
+function formatCoordinate(value: unknown) {
+  if (typeof value !== "number" || value === 0 || Number.isNaN(value)) {
+    return "-";
+  }
+  return value.toFixed(6);
 }
 </script>
 

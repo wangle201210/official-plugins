@@ -50,10 +50,12 @@ var sicauNiuTables = []string{
 
 // cattleSchemaFiles lists the plugin install DDL files applied to the shared test
 // database in order. 001 creates the user/college tables consumed for linked
-// college validation; 002 creates the cattle/iron/card/quote catalog tables.
+// college validation; 002 creates the cattle/iron/card/quote catalog tables; 007
+// applies current-iteration column cleanup and timestamp type normalization.
 var cattleSchemaFiles = []string{
 	"001-sicau-niu-identity.sql",
 	"002-sicau-niu-catalog.sql",
+	"007-sicau-niu-rule-config.sql",
 }
 
 // cattleDBHarness holds the lazily-provisioned shared test database state.
