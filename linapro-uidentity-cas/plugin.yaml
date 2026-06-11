@@ -24,7 +24,6 @@ license: Apache-2.0
 # No pages are shipped. Menus below are hidden permission anchors synchronized by the host.
 menus:
   - key: plugin:linapro-uidentity-cas:permissions
-    parent_key: system
     name: UIdentity CAS Permissions
     type: D
     visible: 0

@@ -17,14 +17,21 @@ import (
 func insertSMSTestCode(t *testing.T, ctx context.Context, phone string, smsType string, code string, createdAt time.Time) int64 {
 	t.Helper()
 	id, err := dao.Sms.Ctx(ctx).Data(do.Sms{
-		Phone:     phone,
-		Type:      smsType,
-		Content:   code,
-		Status:    smsStatusSuccess,
-		CreatedAt: &createdAt,
+		Phone:   phone,
+		Type:    smsType,
+		Content: code,
+		Status:  smsStatusSuccess,
 	}).InsertAndGetId()
 	if err != nil {
 		t.Fatalf("insert sms code: %v", err)
+	}
+	// gf's soft-time maintainer overrides created_at on Insert, so backdate
+	// the row explicitly for expiry-window assertions.
+	if _, err := dao.Sms.Ctx(ctx).
+		Where(dao.Sms.Columns().Id, id).
+		Data(map[string]any{dao.Sms.Columns().CreatedAt: createdAt}).
+		Update(); err != nil {
+		t.Fatalf("backdate sms code: %v", err)
 	}
 	return id
 }

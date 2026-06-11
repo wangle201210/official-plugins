@@ -604,7 +604,7 @@ func (s *serviceImpl) activationChallengeByModel(ctx context.Context, model *gdb
 	if err != nil {
 		return nil, nil, err
 	}
-	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
+	if token == nil || runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeActivationInvalid)
 	}
 	payload := &activationChallengeData{}
@@ -622,7 +622,7 @@ func (s *serviceImpl) unionIDChallenge(ctx context.Context, challengeID string) 
 	if err != nil {
 		return nil, nil, err
 	}
-	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
+	if token == nil || runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeUnionIDChallengeInvalid)
 	}
 	payload := &unionIDChallengeData{}

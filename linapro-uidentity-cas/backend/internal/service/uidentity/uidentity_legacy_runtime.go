@@ -475,7 +475,8 @@ func (s *serviceImpl) runtimeTicketByAccess(ctx context.Context, access string, 
 }
 
 func parseRuntimeToken(token *entity.Oauth2Token, kind string) (*entity.Oauth2Token, *runtimeTicketPayload, error) {
-	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
+	// gf Scan leaves the pointer nil when no row matches.
+	if token == nil || runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeTicketInvalid)
 	}
 	payload := &runtimeTicketPayload{}
@@ -562,13 +563,33 @@ func runtimeTokenExpired(expiredAt int64, now time.Time) bool {
 	return expiredAt <= 0 || expiredAt <= now.UnixMilli()
 }
 
+// legacyLocalClockTime reinterprets a DB-scanned naive timestamp in the local
+// timezone: the pgsql driver stores local clock faces but labels scanned
+// values as UTC, which would skew Go-side age and window comparisons.
+func legacyLocalClockTime(value time.Time) time.Time {
+	if value.IsZero() {
+		return value
+	}
+	return time.Date(value.Year(), value.Month(), value.Day(), value.Hour(), value.Minute(), value.Second(), value.Nanosecond(), time.Local)
+}
+
+// legacyLocalClockTimePtr converts an optional scanned timestamp like
+// legacyLocalClockTime.
+func legacyLocalClockTimePtr(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	converted := legacyLocalClockTime(*value)
+	return &converted
+}
+
 // accountValidityWindowContains mirrors the old delegated-account preload
 // condition: effect_at < now AND expire_at > now, both required.
 func accountValidityWindowContains(account *entity.Account, now time.Time) bool {
 	if account == nil || account.EffectAt == nil || account.ExpireAt == nil {
 		return false
 	}
-	return account.EffectAt.Before(now) && account.ExpireAt.After(now)
+	return legacyLocalClockTime(*account.EffectAt).Before(now) && legacyLocalClockTime(*account.ExpireAt).After(now)
 }
 
 func callbackWithTicket(callbackURL string, ticket string) string {
@@ -630,7 +651,7 @@ func (s *serviceImpl) runtimeAccountProjection(ctx context.Context, account *ent
 		ContainerName: containerName,
 		UnitID:        account.UnitId,
 		UnitName:      unitName,
-		ExpireAt:      apitime.Milli(account.ExpireAt),
+		ExpireAt:      apitime.Milli(legacyLocalClockTimePtr(account.ExpireAt)),
 		Groups:        groupNames[account.Id],
 		Detail: &RuntimeAccountDetail{
 			Birthday: runtimeBirthday(detail.Birthday),
@@ -694,7 +715,7 @@ func (s *serviceImpl) runtimeAccountProjectionBatch(ctx context.Context, account
 			ContainerName: containerNames[account.ContainerId],
 			UnitID:        account.UnitId,
 			UnitName:      unitNames[account.UnitId],
-			ExpireAt:      apitime.Milli(account.ExpireAt),
+			ExpireAt:      apitime.Milli(legacyLocalClockTimePtr(account.ExpireAt)),
 			Groups:        groupNames[account.Id],
 			Detail: &RuntimeAccountDetail{
 				Birthday: runtimeBirthday(detail.Birthday),

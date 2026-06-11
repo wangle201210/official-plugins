@@ -358,7 +358,8 @@ func (s *serviceImpl) consumeOAuthGrantAndCreateAccess(
 }
 
 func parseOAuthRuntimeToken(token *entity.Oauth2Token, kind string) (*entity.Oauth2Token, *oauthRuntimePayload, error) {
-	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
+	// gf Scan leaves the pointer nil when no row matches.
+	if token == nil || runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, nil, bizerr.NewCode(CodeTicketInvalid)
 	}
 	payload := &oauthRuntimePayload{}

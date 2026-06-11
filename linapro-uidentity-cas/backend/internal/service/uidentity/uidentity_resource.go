@@ -417,8 +417,9 @@ func projectRecord(row gdb.Record, def *resourceDefinition) Record {
 		if _, ok := def.timeFields[apiName]; ok {
 			// The old gorm models marshaled time.Time values as RFC3339
 			// strings (zero values as 0001-01-01T00:00:00Z), which the
-			// legacy frontend formatters parse.
-			record[apiName] = value.Time().Format(time.RFC3339Nano)
+			// legacy frontend formatters parse. Reinterpret the scanned
+			// clock face in local time so the offset marker is correct.
+			record[apiName] = legacyLocalClockTime(value.Time()).Format(time.RFC3339Nano)
 			continue
 		}
 		if _, ok := def.dateFields[apiName]; ok {
@@ -475,6 +476,9 @@ func parseIDList(ids string) []int64 {
 }
 
 func (s *serviceImpl) actorID(ctx context.Context) int64 {
+	if s == nil || s.tenantFilter == nil {
+		return 0
+	}
 	tenantCtx := s.tenantFilter.Context(ctx)
 	if tenantCtx.ActingUserID > 0 {
 		return int64(tenantCtx.ActingUserID)

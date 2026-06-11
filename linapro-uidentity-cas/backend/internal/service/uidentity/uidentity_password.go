@@ -198,7 +198,7 @@ func (s *serviceImpl) passwordChallenge(ctx context.Context, code string) (*enti
 	if err != nil {
 		return nil, passwordChallengeData{}, err
 	}
-	if runtimeTokenExpired(token.ExpiredAt, time.Now()) {
+	if token == nil || runtimeTokenExpired(token.ExpiredAt, time.Now()) {
 		return nil, passwordChallengeData{}, bizerr.NewCode(CodePasswordChallengeInvalid)
 	}
 	payload := passwordChallengeData{}
@@ -245,7 +245,7 @@ func (s *serviceImpl) verifySMSCode(ctx context.Context, phone string, code stri
 		Update(); err != nil {
 		return err
 	}
-	if record.CreatedAt == nil || now.Sub(*record.CreatedAt) > smsCodeTTL {
+	if record.CreatedAt == nil || now.Sub(legacyLocalClockTime(*record.CreatedAt)) > smsCodeTTL {
 		return bizerr.NewCode(CodeSMSCodeExpired)
 	}
 	if record.Content != code {

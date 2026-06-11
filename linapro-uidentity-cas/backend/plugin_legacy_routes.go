@@ -238,10 +238,14 @@ func registerLegacyRoutes(routes pluginhost.RouteRegistrar, middlewares pluginho
 		registerLegacyBaseMiddlewares(group, middlewares)
 		registerLegacyPublicRoutes(group, legacyController)
 		group.Group("/", func(group pluginhost.RouteGroup) {
+			// The old console authenticated every protected route with the
+			// CAS TGT issued by /api/v1/login. Valid TGT bearers bypass the
+			// host auth chain; host tokens keep working unchanged.
 			group.Middleware(
-				middlewares.Auth(),
-				middlewares.Tenancy(),
-				middlewares.Permission(),
+				legacyController.LegacyTGTAuthDetect(),
+				uidentitycontroller.LegacySkipForTGT(middlewares.Auth()),
+				uidentitycontroller.LegacySkipForTGT(middlewares.Tenancy()),
+				uidentitycontroller.LegacySkipForTGT(middlewares.Permission()),
 			)
 			registerLegacyProtectedRoutes(group, legacyController)
 			registerLegacyResourceRoutes(group, legacyController)

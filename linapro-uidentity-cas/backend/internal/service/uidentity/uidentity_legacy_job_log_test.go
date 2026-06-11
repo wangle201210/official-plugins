@@ -32,7 +32,11 @@ func TestLegacyJobLogRecordProjectsOldFields(t *testing.T) {
 		record["deleteNum"] != int64(1) || record["errNum"] != int64(2) {
 		t.Fatalf("counter projection missing: %#v", record)
 	}
-	if record["createdAt"] != &created || record["createTime"] != &created {
+	wantCreated := legacyLocalClockTime(created)
+	gotCreated, ok := record["createdAt"].(*time.Time)
+	gotCreateTime, okTime := record["createTime"].(*time.Time)
+	if !ok || !okTime || gotCreated == nil || gotCreateTime == nil ||
+		!gotCreated.Equal(wantCreated) || !gotCreateTime.Equal(wantCreated) {
 		t.Fatalf("create time projection missing: %#v", record)
 	}
 }

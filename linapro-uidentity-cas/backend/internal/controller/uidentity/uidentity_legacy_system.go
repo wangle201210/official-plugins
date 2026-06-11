@@ -284,6 +284,28 @@ func (c *LegacyController) LegacyGenToDB(r *ghttp.Request) {
 
 // LegacyGetInfo handles GET /api/v1/getinfo.
 func (c *LegacyController) LegacyGetInfo(r *ghttp.Request) {
+	// TGT-authenticated old-frontend sessions resolve getinfo from the CAS
+	// account like the old admin console did for its logged-in user.
+	if accountID, number, ok := legacyTGTAccount(r); ok {
+		account, err := c.uidentitySvc.GetRuntimeUserInfo(r.Context(), number)
+		if err != nil {
+			legacyError(r, err)
+			return
+		}
+		legacyOKWithMsg(r, map[string]any{
+			"roles":        []string{"admin"},
+			"permissions":  []string{"*:*:*"},
+			"buttons":      []string{"*:*:*"},
+			"introduction": " am a super administrator",
+			"avatar":       "",
+			"userName":     account.Name,
+			"userId":       accountID,
+			"deptId":       account.UnitID,
+			"name":         account.Name,
+			"code":         200,
+		}, "")
+		return
+	}
 	out, err := c.uidentitySvc.LegacyGetInfo(r.Context())
 	if err != nil {
 		legacyError(r, err)

@@ -184,6 +184,59 @@ func legacyVerifyCaptcha(r *ghttp.Request) bool {
 	return base64Captcha.DefaultMemStore.Verify(uuid, code, true)
 }
 
+const (
+	legacyTGTAuthCtxKey        = "legacy.tgt.authenticated"
+	legacyTGTAccountIDCtxKey   = "legacy.tgt.accountId"
+	legacyTGTAccountNumCtxKey  = "legacy.tgt.accountNumber"
+	legacyTGTBearerTokenPrefix = "TGT_"
+)
+
+// LegacyTGTAuthDetect authenticates old-frontend requests that carry a CAS
+// TGT as the bearer token, the contract the old go-admin console used. Valid
+// TGT requests skip the host auth chain via legacySkipForTGT.
+func (c *LegacyController) LegacyTGTAuthDetect() ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		if token := legacyBearerTGT(r); token != "" {
+			if out, err := c.uidentitySvc.CheckTicketGranting(r.Context(), token); err == nil && out != nil {
+				r.SetCtxVar(legacyTGTAuthCtxKey, true)
+				r.SetCtxVar(legacyTGTAccountIDCtxKey, out.AccountID)
+				r.SetCtxVar(legacyTGTAccountNumCtxKey, out.Number)
+			}
+		}
+		r.Middleware.Next()
+	}
+}
+
+// LegacySkipForTGT bypasses one host middleware when the request was already
+// authenticated by a legacy TGT.
+func LegacySkipForTGT(next func(*ghttp.Request)) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		if r.GetCtxVar(legacyTGTAuthCtxKey).Bool() {
+			r.Middleware.Next()
+			return
+		}
+		next(r)
+	}
+}
+
+func legacyBearerTGT(r *ghttp.Request) string {
+	token := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(r.GetHeader("Authorization")), "Bearer"))
+	if token == "" {
+		token = legacyStringParam(r, "token")
+	}
+	if strings.HasPrefix(token, legacyTGTBearerTokenPrefix) {
+		return token
+	}
+	return ""
+}
+
+func legacyTGTAccount(r *ghttp.Request) (int64, string, bool) {
+	if !r.GetCtxVar(legacyTGTAuthCtxKey).Bool() {
+		return 0, "", false
+	}
+	return r.GetCtxVar(legacyTGTAccountIDCtxKey).Int64(), r.GetCtxVar(legacyTGTAccountNumCtxKey).String(), true
+}
+
 // legacyLoginError renders password-login failures, keeping the old CAS
 // strong-password rejection message for weak-password logins.
 func legacyLoginError(r *ghttp.Request, err error) {

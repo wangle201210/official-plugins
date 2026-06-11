@@ -180,10 +180,10 @@ func legacyJobLogRecord(row *legacyJobLogRow) Record {
 		"job_id":          row.JobId,
 		"jobName":         jobName,
 		"job_name":        jobName,
-		"startAt":         row.StartAt,
-		"start_at":        row.StartAt,
-		"endAt":           row.EndAt,
-		"end_at":          row.EndAt,
+		"startAt":         legacyLocalClockTimePtr(row.StartAt),
+		"start_at":        legacyLocalClockTimePtr(row.StartAt),
+		"endAt":           legacyLocalClockTimePtr(row.EndAt),
+		"end_at":          legacyLocalClockTimePtr(row.EndAt),
 		"createNum":       createNum,
 		"create_num":      createNum,
 		"updateNum":       updateNum,
@@ -206,9 +206,9 @@ func legacyJobLogRecord(row *legacyJobLogRow) Record {
 		"job_snapshot":    row.JobSnapshot,
 		"paramsSnapshot":  row.ParamsSnapshot,
 		"params_snapshot": row.ParamsSnapshot,
-		"createdAt":       row.CreatedAt,
-		"createTime":      row.CreatedAt,
-		"created_at":      row.CreatedAt,
+		"createdAt":       legacyLocalClockTimePtr(row.CreatedAt),
+		"createTime":      legacyLocalClockTimePtr(row.CreatedAt),
+		"created_at":      legacyLocalClockTimePtr(row.CreatedAt),
 	}
 }
 
