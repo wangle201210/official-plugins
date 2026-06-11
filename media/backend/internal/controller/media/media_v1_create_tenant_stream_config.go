@@ -19,5 +19,5 @@ func (c *ControllerV1) CreateTenantStreamConfig(ctx context.Context, req *v1.Cre
 	if err != nil {
 		return nil, err
 	}
-	return &v1.CreateTenantStreamConfigRes{TenantId: out.TenantId}, nil
+	return &v1.CreateTenantStreamConfigRes{TenantId: out.TenantId, NodeNum: out.NodeNum}, nil
 }

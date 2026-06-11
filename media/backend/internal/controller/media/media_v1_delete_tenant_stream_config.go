@@ -7,11 +7,11 @@ import (
 	"lina-plugin-media/backend/api/media/v1"
 )
 
-// DeleteTenantStreamConfig deletes one tenant stream config.
+// DeleteTenantStreamConfig deletes one tenant stream config by tenant ID and node number.
 func (c *ControllerV1) DeleteTenantStreamConfig(ctx context.Context, req *v1.DeleteTenantStreamConfigReq) (res *v1.DeleteTenantStreamConfigRes, err error) {
-	out, err := c.mediaSvc.DeleteTenantStreamConfig(ctx, req.TenantId)
+	out, err := c.mediaSvc.DeleteTenantStreamConfig(ctx, req.TenantId, req.NodeNum)
 	if err != nil {
 		return nil, err
 	}
-	return &v1.DeleteTenantStreamConfigRes{TenantId: out.TenantId}, nil
+	return &v1.DeleteTenantStreamConfigRes{TenantId: out.TenantId, NodeNum: out.NodeNum}, nil
 }

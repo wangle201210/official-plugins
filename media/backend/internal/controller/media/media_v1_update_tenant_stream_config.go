@@ -10,7 +10,7 @@ import (
 
 // UpdateTenantStreamConfig updates one tenant stream config.
 func (c *ControllerV1) UpdateTenantStreamConfig(ctx context.Context, req *v1.UpdateTenantStreamConfigReq) (res *v1.UpdateTenantStreamConfigRes, err error) {
-	out, err := c.mediaSvc.UpdateTenantStreamConfig(ctx, req.OldTenantId, mediasvc.TenantStreamConfigMutationInput{
+	out, err := c.mediaSvc.UpdateTenantStreamConfig(ctx, req.OldTenantId, req.OldNodeNum, mediasvc.TenantStreamConfigMutationInput{
 		TenantId:      req.TenantId,
 		MaxConcurrent: req.MaxConcurrent,
 		NodeNum:       req.NodeNum,
@@ -19,5 +19,5 @@ func (c *ControllerV1) UpdateTenantStreamConfig(ctx context.Context, req *v1.Upd
 	if err != nil {
 		return nil, err
 	}
-	return &v1.UpdateTenantStreamConfigRes{TenantId: out.TenantId}, nil
+	return &v1.UpdateTenantStreamConfigRes{TenantId: out.TenantId, NodeNum: out.NodeNum}, nil
 }

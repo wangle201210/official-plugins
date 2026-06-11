@@ -874,7 +874,7 @@ const [TenantStreamConfigGrid, tenantStreamConfigGridApi] = useVbenVxeGrid({
       },
     },
     rowConfig: {
-      keyField: "tenantId",
+      keyField: "rowKey",
     },
     id: "media-tenant-stream-config-grid",
   },
@@ -1024,7 +1024,9 @@ function tenantWhiteRowKey(row: Pick<MediaTenantWhite, "ip" | "tenantId">) {
   return `${row.tenantId}:${row.ip}`;
 }
 
-function deviceNodeRowKey(row: Pick<MediaDeviceNode, "channelId" | "deviceId">) {
+function deviceNodeRowKey(
+  row: Pick<MediaDeviceNode, "channelId" | "deviceId">,
+) {
   return `${row.deviceId}:${row.channelId}`;
 }
 
@@ -1066,7 +1068,10 @@ function handleAddDeviceNode() {
 }
 
 function handleEditDeviceNode(row: MediaDeviceNode) {
-  deviceNodeModalApi.setData({ channelId: row.channelId, deviceId: row.deviceId });
+  deviceNodeModalApi.setData({
+    channelId: row.channelId,
+    deviceId: row.deviceId,
+  });
   deviceNodeModalApi.open();
 }
 
@@ -1077,17 +1082,23 @@ async function handleDeleteDeviceNode(row: MediaDeviceNode) {
 }
 
 function handleAddTenantStreamConfig() {
-  tenantStreamConfigModalApi.setData({ tenantId: undefined });
+  tenantStreamConfigModalApi.setData({
+    nodeNum: undefined,
+    tenantId: undefined,
+  });
   tenantStreamConfigModalApi.open();
 }
 
 function handleEditTenantStreamConfig(row: MediaTenantStreamConfig) {
-  tenantStreamConfigModalApi.setData({ tenantId: row.tenantId });
+  tenantStreamConfigModalApi.setData({
+    nodeNum: row.nodeNum,
+    tenantId: row.tenantId,
+  });
   tenantStreamConfigModalApi.open();
 }
 
 async function handleDeleteTenantStreamConfig(row: MediaTenantStreamConfig) {
-  await deleteMediaTenantStreamConfig(row.tenantId);
+  await deleteMediaTenantStreamConfig(row.tenantId, row.nodeNum);
   message.success("租户流配置已删除");
   await tenantStreamConfigGridApi.query();
 }
@@ -1653,7 +1664,7 @@ function reloadTenantStreamConfigs() {
               <Space>
                 <ghost-button
                   v-if="canEdit()"
-                  :data-testid="`media-tenant-stream-edit-${row.tenantId}`"
+                  :data-testid="`media-tenant-stream-edit-${row.rowKey}`"
                   @click.stop="handleEditTenantStreamConfig(row)"
                 >
                   编辑
@@ -1665,7 +1676,7 @@ function reloadTenantStreamConfigs() {
                 >
                   <ghost-button
                     danger
-                    :data-testid="`media-tenant-stream-delete-${row.tenantId}`"
+                    :data-testid="`media-tenant-stream-delete-${row.rowKey}`"
                     @click.stop=""
                   >
                     删除

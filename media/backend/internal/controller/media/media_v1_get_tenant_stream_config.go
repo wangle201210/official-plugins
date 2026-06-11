@@ -7,9 +7,9 @@ import (
 	"lina-plugin-media/backend/api/media/v1"
 )
 
-// GetTenantStreamConfig returns one tenant stream config by tenant ID.
+// GetTenantStreamConfig returns one tenant stream config by tenant ID and node number.
 func (c *ControllerV1) GetTenantStreamConfig(ctx context.Context, req *v1.GetTenantStreamConfigReq) (res *v1.GetTenantStreamConfigRes, err error) {
-	out, err := c.mediaSvc.GetTenantStreamConfig(ctx, req.TenantId)
+	out, err := c.mediaSvc.GetTenantStreamConfig(ctx, req.TenantId, req.NodeNum)
 	if err != nil {
 		return nil, err
 	}

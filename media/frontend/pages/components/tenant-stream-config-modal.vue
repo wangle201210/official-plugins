@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import type {
-  MediaNode,
-  MediaTenantStreamConfigInput,
-} from "../media-client";
+import type { MediaNode, MediaTenantStreamConfigInput } from "../media-client";
 
 import { computed, reactive, ref } from "vue";
 
@@ -28,10 +25,12 @@ import {
 const emit = defineEmits<{ reload: [] }>();
 
 interface TenantStreamConfigModalData {
+  nodeNum?: number;
   tenantId?: string;
 }
 
 interface TenantStreamConfigFormData extends MediaTenantStreamConfigInput {
+  oldNodeNum?: number;
   oldTenantId?: string;
 }
 
@@ -62,6 +61,9 @@ const { resetFields, validate, validateInfos } = Form.useForm(
 
 function setFormData(values: Partial<TenantStreamConfigFormData> = {}) {
   Object.assign(formData, defaultValues, values);
+  if (values.oldNodeNum === undefined) {
+    delete formData.oldNodeNum;
+  }
   if (values.oldTenantId === undefined) {
     delete formData.oldTenantId;
   }
@@ -86,9 +88,13 @@ const [Modal, modalApi] = useVbenModal({
       resetFields();
       setFormData();
       await loadNodeOptions();
-      if (data.tenantId) {
-        const record = await getMediaTenantStreamConfig(data.tenantId);
+      if (data.tenantId && data.nodeNum !== undefined) {
+        const record = await getMediaTenantStreamConfig(
+          data.tenantId,
+          data.nodeNum,
+        );
         setFormData({
+          oldNodeNum: record.nodeNum,
           oldTenantId: record.tenantId,
           tenantId: record.tenantId,
           maxConcurrent: record.maxConcurrent,
@@ -114,8 +120,16 @@ async function handleConfirm() {
       nodeNum: Number(formData.nodeNum),
       enable: Number(formData.enable),
     };
-    if (isEdit.value && formData.oldTenantId) {
-      await updateMediaTenantStreamConfig(formData.oldTenantId, values);
+    if (
+      isEdit.value &&
+      formData.oldTenantId &&
+      formData.oldNodeNum !== undefined
+    ) {
+      await updateMediaTenantStreamConfig(
+        formData.oldTenantId,
+        formData.oldNodeNum,
+        values,
+      );
       message.success("租户流配置已更新");
     } else {
       await createMediaTenantStreamConfig(values);

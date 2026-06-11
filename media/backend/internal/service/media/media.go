@@ -110,14 +110,14 @@ type Service interface {
 	DeleteDeviceNode(ctx context.Context, deviceID string, channelID string) (*DeviceNodeMutationOutput, error)
 	// ListTenantStreamConfigs returns paged tenant stream configs.
 	ListTenantStreamConfigs(ctx context.Context, in ListTenantStreamConfigsInput) (*ListTenantStreamConfigsOutput, error)
-	// GetTenantStreamConfig returns one tenant stream config by tenant ID.
-	GetTenantStreamConfig(ctx context.Context, tenantID string) (*TenantStreamConfigOutput, error)
+	// GetTenantStreamConfig returns one tenant stream config by tenant ID and node number.
+	GetTenantStreamConfig(ctx context.Context, tenantID string, nodeNum int) (*TenantStreamConfigOutput, error)
 	// CreateTenantStreamConfig creates one tenant stream config.
 	CreateTenantStreamConfig(ctx context.Context, in TenantStreamConfigMutationInput) (*TenantStreamConfigMutationOutput, error)
-	// UpdateTenantStreamConfig updates one tenant stream config by old tenant ID.
-	UpdateTenantStreamConfig(ctx context.Context, oldTenantID string, in TenantStreamConfigMutationInput) (*TenantStreamConfigMutationOutput, error)
-	// DeleteTenantStreamConfig deletes one tenant stream config.
-	DeleteTenantStreamConfig(ctx context.Context, tenantID string) (*TenantStreamConfigMutationOutput, error)
+	// UpdateTenantStreamConfig updates one tenant stream config by old tenant ID and node number.
+	UpdateTenantStreamConfig(ctx context.Context, oldTenantID string, oldNodeNum int, in TenantStreamConfigMutationInput) (*TenantStreamConfigMutationOutput, error)
+	// DeleteTenantStreamConfig deletes one tenant stream config by tenant ID and node number.
+	DeleteTenantStreamConfig(ctx context.Context, tenantID string, nodeNum int) (*TenantStreamConfigMutationOutput, error)
 }
 
 // Interface compliance assertion for the default media service implementation.

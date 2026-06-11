@@ -169,6 +169,7 @@ export interface MediaDeviceNodeInput {
 }
 
 export interface MediaTenantStreamConfig {
+  rowKey?: string;
   tenantId: string;
   maxConcurrent: number;
   nodeNum: number;
@@ -261,10 +262,7 @@ export async function listMediaTenantBindings(params?: MediaBindingListParams) {
   return { items: res.list, total: res.total };
 }
 
-export function saveMediaTenantBinding(
-  tenantId: string,
-  strategyId: number,
-) {
+export function saveMediaTenantBinding(tenantId: string, strategyId: number) {
   return requestClient.put<MediaTenantBinding>(
     `/media/tenant-bindings/${encodePathSegment(tenantId)}`,
     { tenantId, strategyId },
@@ -420,9 +418,7 @@ export function deleteMediaNode(nodeNum: number) {
   return requestClient.delete(`/media/nodes/${nodeNum}`);
 }
 
-export async function listMediaDeviceNodes(
-  params?: MediaDeviceNodeListParams,
-) {
+export async function listMediaDeviceNodes(params?: MediaDeviceNodeListParams) {
   const res = await requestClient.get<{
     list: MediaDeviceNode[];
     total: number;
@@ -473,19 +469,29 @@ export async function listMediaTenantStreamConfigs(
     list: MediaTenantStreamConfig[];
     total: number;
   }>("/media/tenant-stream-configs", { params });
-  return { items: res.list, total: res.total };
+  return {
+    items: res.list.map((item) => ({
+      ...item,
+      rowKey: tenantStreamConfigRowKey(item.tenantId, item.nodeNum),
+    })),
+    total: res.total,
+  };
 }
 
-export function getMediaTenantStreamConfig(tenantId: string) {
+export function tenantStreamConfigRowKey(tenantId: string, nodeNum: number) {
+  return `${tenantId}:${nodeNum}`;
+}
+
+export function getMediaTenantStreamConfig(tenantId: string, nodeNum: number) {
   return requestClient.get<MediaTenantStreamConfig>(
-    `/media/tenant-stream-configs/${encodePathSegment(tenantId)}`,
+    `/media/tenant-stream-configs/${encodePathSegment(tenantId)}/nodes/${nodeNum}`,
   );
 }
 
 export function createMediaTenantStreamConfig(
   data: MediaTenantStreamConfigInput,
 ) {
-  return requestClient.post<{ tenantId: string }>(
+  return requestClient.post<{ nodeNum: number; tenantId: string }>(
     "/media/tenant-stream-configs",
     data,
   );
@@ -493,16 +499,20 @@ export function createMediaTenantStreamConfig(
 
 export function updateMediaTenantStreamConfig(
   oldTenantId: string,
+  oldNodeNum: number,
   data: MediaTenantStreamConfigInput,
 ) {
-  return requestClient.put<{ tenantId: string }>(
-    `/media/tenant-stream-configs/${encodePathSegment(oldTenantId)}`,
+  return requestClient.put<{ nodeNum: number; tenantId: string }>(
+    `/media/tenant-stream-configs/${encodePathSegment(oldTenantId)}/nodes/${oldNodeNum}`,
     data,
   );
 }
 
-export function deleteMediaTenantStreamConfig(tenantId: string) {
+export function deleteMediaTenantStreamConfig(
+  tenantId: string,
+  nodeNum: number,
+) {
   return requestClient.delete(
-    `/media/tenant-stream-configs/${encodePathSegment(tenantId)}`,
+    `/media/tenant-stream-configs/${encodePathSegment(tenantId)}/nodes/${nodeNum}`,
   );
 }

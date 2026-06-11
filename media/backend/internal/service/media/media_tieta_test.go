@@ -237,6 +237,90 @@ func TestListTenantWhiteIPsByTokenReturnsEnabledTenantIPs(t *testing.T) {
 	}
 }
 
+// TestTenantStreamConfigUsesTenantAndNodeKey verifies tenant stream configs are keyed by tenant and node.
+func TestTenantStreamConfigUsesTenantAndNodeKey(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	svc := newTestMediaService(t)
+
+	insertTestNode(t, ctx, 1, "节点一")
+	insertTestNode(t, ctx, 2, "节点二")
+
+	first, err := svc.CreateTenantStreamConfig(ctx, TenantStreamConfigMutationInput{
+		TenantId:      "tenant-a",
+		MaxConcurrent: 10,
+		NodeNum:       1,
+		Enable:        int(TenantStreamEnabled),
+	})
+	if err != nil {
+		t.Fatalf("create first tenant stream config: %v", err)
+	}
+	if first.TenantId != "tenant-a" || first.NodeNum != 1 {
+		t.Fatalf("unexpected first mutation output: %+v", first)
+	}
+
+	second, err := svc.CreateTenantStreamConfig(ctx, TenantStreamConfigMutationInput{
+		TenantId:      "tenant-a",
+		MaxConcurrent: 20,
+		NodeNum:       2,
+		Enable:        int(TenantStreamEnabled),
+	})
+	if err != nil {
+		t.Fatalf("create second tenant stream config: %v", err)
+	}
+	if second.TenantId != "tenant-a" || second.NodeNum != 2 {
+		t.Fatalf("unexpected second mutation output: %+v", second)
+	}
+
+	if _, err = svc.CreateTenantStreamConfig(ctx, TenantStreamConfigMutationInput{
+		TenantId:      "tenant-a",
+		MaxConcurrent: 30,
+		NodeNum:       2,
+		Enable:        int(TenantStreamEnabled),
+	}); err == nil {
+		t.Fatal("expected duplicate tenant stream config error")
+	}
+
+	updated, err := svc.UpdateTenantStreamConfig(ctx, "tenant-a", 1, TenantStreamConfigMutationInput{
+		TenantId:      "tenant-a",
+		MaxConcurrent: 40,
+		NodeNum:       1,
+		Enable:        int(TenantStreamDisabled),
+	})
+	if err != nil {
+		t.Fatalf("update first tenant stream config: %v", err)
+	}
+	if updated.TenantId != "tenant-a" || updated.NodeNum != 1 {
+		t.Fatalf("unexpected updated mutation output: %+v", updated)
+	}
+
+	firstDetail, err := svc.GetTenantStreamConfig(ctx, "tenant-a", 1)
+	if err != nil {
+		t.Fatalf("get first tenant stream config: %v", err)
+	}
+	if firstDetail.MaxConcurrent != 40 || firstDetail.Enable != int(TenantStreamDisabled) {
+		t.Fatalf("expected first config updated, got %+v", firstDetail)
+	}
+
+	secondDetail, err := svc.GetTenantStreamConfig(ctx, "tenant-a", 2)
+	if err != nil {
+		t.Fatalf("get second tenant stream config: %v", err)
+	}
+	if secondDetail.MaxConcurrent != 20 || secondDetail.Enable != int(TenantStreamEnabled) {
+		t.Fatalf("expected second config unchanged, got %+v", secondDetail)
+	}
+
+	if _, err = svc.DeleteTenantStreamConfig(ctx, "tenant-a", 1); err != nil {
+		t.Fatalf("delete first tenant stream config: %v", err)
+	}
+	if _, err = svc.GetTenantStreamConfig(ctx, "tenant-a", 1); err == nil {
+		t.Fatal("expected first config to be deleted")
+	}
+	if _, err = svc.GetTenantStreamConfig(ctx, "tenant-a", 2); err != nil {
+		t.Fatalf("expected second config to remain after deleting first: %v", err)
+	}
+}
+
 // TestResolveStrategyByTokenRejectsTenantMismatch verifies callers cannot override the token tenant.
 func TestResolveStrategyByTokenRejectsTenantMismatch(t *testing.T) {
 	ctx := context.Background()
@@ -334,7 +418,7 @@ func setupMediaStrategySQLite(t *testing.T, ctx context.Context) {
 		)`,
 		`CREATE TABLE media_device_node (device_id TEXT NOT NULL, channel_id TEXT NOT NULL, node_num INTEGER NOT NULL)`,
 		`CREATE TABLE media_node (id INTEGER PRIMARY KEY AUTOINCREMENT, node_num INTEGER NOT NULL, name TEXT NOT NULL, qn_url TEXT NOT NULL, basic_url TEXT NOT NULL, dn_url TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-		`CREATE TABLE media_tenant_stream_config (tenant_id TEXT PRIMARY KEY, max_concurrent INTEGER NOT NULL, node_num INTEGER NOT NULL, enable INTEGER NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+		`CREATE TABLE media_tenant_stream_config (tenant_id TEXT NOT NULL, max_concurrent INTEGER NOT NULL, node_num INTEGER NOT NULL, enable INTEGER NOT NULL, creator_id INTEGER, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updater_id INTEGER, update_time TEXT, PRIMARY KEY (tenant_id, node_num))`,
 		`CREATE TABLE media_tenant_white (tenant_id TEXT NOT NULL, ip TEXT NOT NULL, enable INTEGER NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (tenant_id, ip))`,
 		`CREATE TABLE media_stream_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, alias TEXT NOT NULL, auto_remove INTEGER NOT NULL, stream_path TEXT NOT NULL, device_id TEXT NOT NULL, channel_id TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 	}
@@ -371,6 +455,21 @@ func insertTestTenantWhite(t *testing.T, ctx context.Context, tenantID string, i
 		Enable:   enable,
 	}).Insert(); err != nil {
 		t.Fatalf("insert tenant whitelist: %v", err)
+	}
+}
+
+// insertTestNode inserts one media node fixture.
+func insertTestNode(t *testing.T, ctx context.Context, nodeNum int, name string) {
+	t.Helper()
+
+	if _, err := dao.MediaNode.Ctx(ctx).Data(do.MediaNode{
+		NodeNum:  nodeNum,
+		Name:     name,
+		QnUrl:    "https://qn.example.com",
+		BasicUrl: "https://basic.example.com",
+		DnUrl:    "https://dn.example.com",
+	}).Insert(); err != nil {
+		t.Fatalf("insert media node: %v", err)
 	}
 }
 

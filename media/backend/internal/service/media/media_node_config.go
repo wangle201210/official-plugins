@@ -128,6 +128,7 @@ type TenantStreamConfigMutationInput struct {
 // TenantStreamConfigMutationOutput defines tenant stream config mutation result.
 type TenantStreamConfigMutationOutput struct {
 	TenantId string // TenantId is the media tenant ID.
+	NodeNum  int    // NodeNum is the linked node number.
 }
 
 // Generated entity aliases for media node config tables.
@@ -501,6 +502,7 @@ func (s *serviceImpl) ListTenantStreamConfigs(ctx context.Context, in ListTenant
 	items := make([]*tenantStreamConfigEntity, 0)
 	err = model.
 		OrderAsc(columns.TenantId).
+		OrderAsc(columns.NodeNum).
 		Page(pageNum, pageSize).
 		Scan(&items)
 	if err != nil {
@@ -518,9 +520,9 @@ func (s *serviceImpl) ListTenantStreamConfigs(ctx context.Context, in ListTenant
 	return &ListTenantStreamConfigsOutput{List: list, Total: total}, nil
 }
 
-// GetTenantStreamConfig returns one tenant stream config by tenant ID.
-func (s *serviceImpl) GetTenantStreamConfig(ctx context.Context, tenantID string) (*TenantStreamConfigOutput, error) {
-	record, err := s.getTenantStreamConfigEntity(ctx, tenantID)
+// GetTenantStreamConfig returns one tenant stream config by tenant ID and node number.
+func (s *serviceImpl) GetTenantStreamConfig(ctx context.Context, tenantID string, nodeNum int) (*TenantStreamConfigOutput, error) {
+	record, err := s.getTenantStreamConfigEntity(ctx, tenantID, nodeNum)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +545,7 @@ func (s *serviceImpl) CreateTenantStreamConfig(ctx context.Context, in TenantStr
 	if _, err = s.getNodeEntity(ctx, normalized.NodeNum); err != nil {
 		return nil, err
 	}
-	exists, err := s.tenantStreamConfigExists(ctx, normalized.TenantId)
+	exists, err := s.tenantStreamConfigExists(ctx, normalized.TenantId, normalized.NodeNum)
 	if err != nil {
 		return nil, err
 	}
@@ -566,16 +568,20 @@ func (s *serviceImpl) CreateTenantStreamConfig(ctx context.Context, in TenantStr
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaTenantStreamCreateFailed)
 	}
-	return &TenantStreamConfigMutationOutput{TenantId: normalized.TenantId}, nil
+	return &TenantStreamConfigMutationOutput{TenantId: normalized.TenantId, NodeNum: normalized.NodeNum}, nil
 }
 
-// UpdateTenantStreamConfig updates one tenant stream config by old tenant ID.
-func (s *serviceImpl) UpdateTenantStreamConfig(ctx context.Context, oldTenantID string, in TenantStreamConfigMutationInput) (*TenantStreamConfigMutationOutput, error) {
+// UpdateTenantStreamConfig updates one tenant stream config by old tenant ID and node number.
+func (s *serviceImpl) UpdateTenantStreamConfig(ctx context.Context, oldTenantID string, oldNodeNum int, in TenantStreamConfigMutationInput) (*TenantStreamConfigMutationOutput, error) {
 	normalizedOldTenantID, err := normalizeTenantStreamConfigKey(oldTenantID)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = s.getTenantStreamConfigEntity(ctx, normalizedOldTenantID); err != nil {
+	normalizedOldNodeNum, err := normalizeNodeNum(oldNodeNum)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.getTenantStreamConfigEntity(ctx, normalizedOldTenantID, normalizedOldNodeNum); err != nil {
 		return nil, err
 	}
 	normalized, err := normalizeTenantStreamConfigMutationInput(in)
@@ -585,8 +591,8 @@ func (s *serviceImpl) UpdateTenantStreamConfig(ctx context.Context, oldTenantID 
 	if _, err = s.getNodeEntity(ctx, normalized.NodeNum); err != nil {
 		return nil, err
 	}
-	if normalized.TenantId != normalizedOldTenantID {
-		exists, err := s.tenantStreamConfigExists(ctx, normalized.TenantId)
+	if normalized.TenantId != normalizedOldTenantID || normalized.NodeNum != normalizedOldNodeNum {
+		exists, err := s.tenantStreamConfigExists(ctx, normalized.TenantId, normalized.NodeNum)
 		if err != nil {
 			return nil, err
 		}
@@ -596,7 +602,7 @@ func (s *serviceImpl) UpdateTenantStreamConfig(ctx context.Context, oldTenantID 
 	}
 
 	_, err = dao.MediaTenantStreamConfig.Ctx(ctx).
-		Where(do.MediaTenantStreamConfig{TenantId: normalizedOldTenantID}).
+		Where(do.MediaTenantStreamConfig{TenantId: normalizedOldTenantID, NodeNum: normalizedOldNodeNum}).
 		Data(do.MediaTenantStreamConfig{
 			TenantId:      normalized.TenantId,
 			MaxConcurrent: normalized.MaxConcurrent,
@@ -609,26 +615,30 @@ func (s *serviceImpl) UpdateTenantStreamConfig(ctx context.Context, oldTenantID 
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaTenantStreamUpdateFailed)
 	}
-	return &TenantStreamConfigMutationOutput{TenantId: normalized.TenantId}, nil
+	return &TenantStreamConfigMutationOutput{TenantId: normalized.TenantId, NodeNum: normalized.NodeNum}, nil
 }
 
-// DeleteTenantStreamConfig deletes one tenant stream config.
-func (s *serviceImpl) DeleteTenantStreamConfig(ctx context.Context, tenantID string) (*TenantStreamConfigMutationOutput, error) {
+// DeleteTenantStreamConfig deletes one tenant stream config by tenant ID and node number.
+func (s *serviceImpl) DeleteTenantStreamConfig(ctx context.Context, tenantID string, nodeNum int) (*TenantStreamConfigMutationOutput, error) {
 	normalizedTenantID, err := normalizeTenantStreamConfigKey(tenantID)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = s.getTenantStreamConfigEntity(ctx, normalizedTenantID); err != nil {
+	normalizedNodeNum, err := normalizeNodeNum(nodeNum)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.getTenantStreamConfigEntity(ctx, normalizedTenantID, normalizedNodeNum); err != nil {
 		return nil, err
 	}
 
 	_, err = dao.MediaTenantStreamConfig.Ctx(ctx).
-		Where(do.MediaTenantStreamConfig{TenantId: normalizedTenantID}).
+		Where(do.MediaTenantStreamConfig{TenantId: normalizedTenantID, NodeNum: normalizedNodeNum}).
 		Delete()
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaTenantStreamDeleteFailed)
 	}
-	return &TenantStreamConfigMutationOutput{TenantId: normalizedTenantID}, nil
+	return &TenantStreamConfigMutationOutput{TenantId: normalizedTenantID, NodeNum: normalizedNodeNum}, nil
 }
 
 // nodeExists reports whether one media node exists.
@@ -725,9 +735,9 @@ func (s *serviceImpl) getDeviceNodeEntity(ctx context.Context, deviceID string, 
 }
 
 // tenantStreamConfigExists reports whether one tenant stream config exists.
-func (s *serviceImpl) tenantStreamConfigExists(ctx context.Context, tenantID string) (bool, error) {
+func (s *serviceImpl) tenantStreamConfigExists(ctx context.Context, tenantID string, nodeNum int) (bool, error) {
 	count, err := dao.MediaTenantStreamConfig.Ctx(ctx).
-		Where(do.MediaTenantStreamConfig{TenantId: tenantID}).
+		Where(do.MediaTenantStreamConfig{TenantId: tenantID, NodeNum: nodeNum}).
 		Count()
 	if err != nil {
 		return false, bizerr.WrapCode(err, CodeMediaTenantStreamDetailQueryFailed)
@@ -735,8 +745,8 @@ func (s *serviceImpl) tenantStreamConfigExists(ctx context.Context, tenantID str
 	return count > 0, nil
 }
 
-// getTenantStreamConfigEntity returns one tenant stream config entity by tenant ID.
-func (s *serviceImpl) getTenantStreamConfigEntity(ctx context.Context, tenantID string) (*tenantStreamConfigEntity, error) {
+// getTenantStreamConfigEntity returns one tenant stream config entity by tenant ID and node number.
+func (s *serviceImpl) getTenantStreamConfigEntity(ctx context.Context, tenantID string, nodeNum int) (*tenantStreamConfigEntity, error) {
 	if err := validateMediaTablesReady(ctx); err != nil {
 		return nil, err
 	}
@@ -744,10 +754,14 @@ func (s *serviceImpl) getTenantStreamConfigEntity(ctx context.Context, tenantID 
 	if err != nil {
 		return nil, err
 	}
+	normalizedNodeNum, err := normalizeNodeNum(nodeNum)
+	if err != nil {
+		return nil, err
+	}
 
 	var record *tenantStreamConfigEntity
 	err = dao.MediaTenantStreamConfig.Ctx(ctx).
-		Where(do.MediaTenantStreamConfig{TenantId: normalizedTenantID}).
+		Where(do.MediaTenantStreamConfig{TenantId: normalizedTenantID, NodeNum: normalizedNodeNum}).
 		Scan(&record)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaTenantStreamDetailQueryFailed)
