@@ -11,7 +11,6 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/util/gconv"
 
-	"lina-core/pkg/apitime"
 	"lina-core/pkg/bizerr"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 )
@@ -110,10 +109,8 @@ func (s *serviceImpl) ListResource(ctx context.Context, in ResourceListInput) (*
 		return nil, err
 	}
 	records := projectResult(result, def)
-	if def.name == "accounts" && len(records) > 0 {
-		if err := s.decorateAccountRecords(ctx, records); err != nil {
-			return nil, err
-		}
+	if err := s.decorateResourceRecords(ctx, def, records); err != nil {
+		return nil, err
 	}
 	return &ResourceListOutput{List: records, Total: total}, nil
 }
@@ -135,10 +132,8 @@ func (s *serviceImpl) GetResource(ctx context.Context, resource string, id int64
 		return nil, bizerr.NewCode(CodeResourceNotFound)
 	}
 	record := projectRecord(result, def)
-	if def.name == "accounts" {
-		if err := s.decorateAccountRecords(ctx, []Record{record}); err != nil {
-			return nil, err
-		}
+	if err := s.decorateResourceRecords(ctx, def, []Record{record}); err != nil {
+		return nil, err
 	}
 	return record, nil
 }
@@ -420,7 +415,10 @@ func projectRecord(row gdb.Record, def *resourceDefinition) Record {
 	for apiName, columnName := range def.apiToColumn {
 		value := row[columnName]
 		if _, ok := def.timeFields[apiName]; ok {
-			record[apiName] = apitime.MilliFromTime(value.Time())
+			// The old gorm models marshaled time.Time values as RFC3339
+			// strings (zero values as 0001-01-01T00:00:00Z), which the
+			// legacy frontend formatters parse.
+			record[apiName] = value.Time().Format(time.RFC3339Nano)
 			continue
 		}
 		if _, ok := def.dateFields[apiName]; ok {

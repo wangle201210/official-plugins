@@ -67,12 +67,108 @@ func (s *serviceImpl) decorateAccountRecords(ctx context.Context, records []Reco
 	if err != nil {
 		return err
 	}
+	containerRecords, err := s.relatedRecordsByID(ctx, "containers", containerIDs)
+	if err != nil {
+		return err
+	}
+	unitRecords, err := s.relatedRecordsByID(ctx, "units", unitIDs)
+	if err != nil {
+		return err
+	}
+	detailRecords, err := s.accountDetailRecordsByAccountIDs(ctx, accountIDs)
+	if err != nil {
+		return err
+	}
+	groupRecords, err := s.accountGroupRecords(ctx, accountIDs)
+	if err != nil {
+		return err
+	}
 	for _, record := range records {
+		accountID := gconv.Int64(record["id"])
 		record["containerName"] = containerNames[gconv.Int64(record["containerId"])]
 		record["unitName"] = unitNames[gconv.Int64(record["unitId"])]
-		record["groupNames"] = groupNames[gconv.Int64(record["id"])]
+		record["groupNames"] = groupNames[accountID]
+		// The old GetPage preloaded these relations; keep the old model JSON
+		// keys so legacy table columns keep rendering.
+		if value, ok := containerRecords[gconv.Int64(record["containerId"])]; ok {
+			record["container"] = value
+		}
+		if value, ok := unitRecords[gconv.Int64(record["unitId"])]; ok {
+			record["units"] = value
+		}
+		if value, ok := detailRecords[accountID]; ok {
+			record["accountDetail"] = value
+		}
+		record["group"] = groupRecords[accountID]
 	}
 	return nil
+}
+
+func (s *serviceImpl) accountDetailRecordsByAccountIDs(ctx context.Context, accountIDs []int64) (map[int64]Record, error) {
+	result := make(map[int64]Record, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return result, nil
+	}
+	def, err := s.resourceDefinition("account-details")
+	if err != nil {
+		return nil, err
+	}
+	rows, err := def.model(ctx).
+		Fields(projectionFields(def)...).
+		WhereIn(def.idColumn, accountIDs).
+		All()
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		record := projectRecord(row, def)
+		if id := gconv.Int64(record["accountId"]); id > 0 {
+			result[id] = record
+		}
+	}
+	return result, nil
+}
+
+func (s *serviceImpl) accountGroupRecords(ctx context.Context, accountIDs []int64) (map[int64][]Record, error) {
+	result := make(map[int64][]Record, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return result, nil
+	}
+	relationCols := dao.AccountGroup.Columns()
+	relations, err := dao.AccountGroup.Ctx(ctx).
+		Fields(relationCols.AccountId, relationCols.GroupsId).
+		WhereIn(relationCols.AccountId, accountIDs).
+		All()
+	if err != nil {
+		return nil, err
+	}
+	groupIDs := make([]int64, 0, len(relations))
+	seen := make(map[int64]struct{}, len(relations))
+	for _, relation := range relations {
+		groupID := relation[relationCols.GroupsId].Int64()
+		if groupID <= 0 {
+			continue
+		}
+		if _, ok := seen[groupID]; ok {
+			continue
+		}
+		seen[groupID] = struct{}{}
+		groupIDs = append(groupIDs, groupID)
+	}
+	if len(groupIDs) == 0 {
+		return result, nil
+	}
+	groups, err := s.relatedRecordsByID(ctx, "groups", groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	for _, relation := range relations {
+		accountID := relation[relationCols.AccountId].Int64()
+		if group, ok := groups[relation[relationCols.GroupsId].Int64()]; ok {
+			result[accountID] = append(result[accountID], group)
+		}
+	}
+	return result, nil
 }
 
 func (s *serviceImpl) nameMap(ctx context.Context, model *gdb.Model, idColumn string, nameColumn string, ids []int64) (map[int64]string, error) {

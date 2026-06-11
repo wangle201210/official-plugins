@@ -2108,12 +2108,17 @@ func legacyRuntimeAccountPayload(account *uidentitysvc.RuntimeAccount) map[strin
 	if account == nil {
 		return nil
 	}
+	// The old account JSON carried expireAt as an RFC3339 time string.
+	var expireAt any
+	if account.ExpireAt != nil {
+		expireAt = time.UnixMilli(*account.ExpireAt).Format(time.RFC3339Nano)
+	}
 	payload := map[string]any{
 		"id": account.ID, "number": account.Number, "name": account.Name, "phone": account.Phone, "status": account.Status,
 		"passLevel": account.PassLevel, "pass_level": account.PassLevel, "containerId": account.ContainerID, "container_id": account.ContainerID,
 		"containerName": account.ContainerName, "container_name": account.ContainerName, "unitId": account.UnitID, "unit_id": account.UnitID,
-		"unitName": account.UnitName, "unit_name": account.UnitName, "unit": account.UnitName, "expireAt": account.ExpireAt,
-		"expire_at": account.ExpireAt, "groups": account.Groups,
+		"unitName": account.UnitName, "unit_name": account.UnitName, "unit": account.UnitName, "expireAt": expireAt,
+		"expire_at": expireAt, "groups": account.Groups,
 	}
 	if account.Detail != nil {
 		// Key the detail object like the old models.AccountDetails JSON so
