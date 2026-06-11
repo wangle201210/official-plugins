@@ -1,16 +1,15 @@
-// activation_activate.go implements the LBS activation action with shared-pool
-// first-activator concurrency. It validates the reported location against the
-// configured LBS threshold, the per-day limit and the no-duplicate rule, then
-// inside a transaction takes a per-cattle row lock (SELECT ... FOR UPDATE) to
-// serialize concurrent activations of the same cattle so exactly one player
-// becomes the first activator. The first activator flips the cattle to active and
-// arrival order starts at 1; later activators get an incremented order. The
+// activation_activate.go implements the LBS activation action for mini-program
+// photo check-ins. It validates the per-day limit, matches the nearest currently
+// visible inactive cattle within the configured distance threshold, then takes a
+// per-cattle row lock (SELECT ... FOR UPDATE) inside the activation transaction
+// before writing the first activation and flipping the cattle to active. The
 // cattle main card is issued on success.
 
 package activation
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -32,10 +31,13 @@ const (
 	laterActivatorFlag = 0
 )
 
+// activationCandidateCap bounds the server-side GPS matching query. The activity
+// has at most 120 cattle, so this keeps the match path predictable without
+// pagination.
+const activationCandidateCap = 200
+
 // ActivateInput defines the LBS activation request.
 type ActivateInput struct {
-	// NiuId is the target cattle ID to activate.
-	NiuId int64
 	// Lat is the player reported GPS latitude.
 	Lat float64
 	// Lng is the player reported GPS longitude.
@@ -46,6 +48,8 @@ type ActivateInput struct {
 
 // ActivateOutput defines the result of a successful activation.
 type ActivateOutput struct {
+	// NiuId is the server matched and activated cattle ID.
+	NiuId int64
 	// IsFirst reports whether the player is the cattle first-activator.
 	IsFirst bool
 	// OrderNo is the player's arrival order for this cattle, starting at 1.
@@ -70,14 +74,14 @@ type IssuedCard struct {
 
 // Activate runs the validated, transactional LBS activation for playerID.
 func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *ActivateInput) (*ActivateOutput, error) {
-	if in == nil || in.NiuId <= 0 {
-		return nil, bizerr.NewCode(CodeNiuIDRequired)
+	if in == nil {
+		return nil, bizerr.NewCode(CodeNoNearbyNiu)
 	}
 	if playerID <= 0 {
 		return nil, bizerr.NewCode(CodeActivationNotFound)
 	}
 
-	if err := s.guardDailyAndDuplicate(ctx, playerID, in.NiuId); err != nil {
+	if err := s.guardDailyLimit(ctx, playerID); err != nil {
 		return nil, err
 	}
 
@@ -86,23 +90,18 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 
 	var output *ActivateOutput
 	err := dao.Niu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		niuRow, txErr := lockNiu(ctx, in.NiuId)
-		if txErr != nil {
-			return txErr
-		}
-		if !niuCurrentlyVisible(niuRow, activatedAt) {
-			return bizerr.NewCode(CodeNiuNotVisible)
-		}
 		threshold, txErr := s.activationLBSThreshold(ctx)
 		if txErr != nil {
 			return txErr
 		}
-		if distance := haversineMeters(in.Lat, in.Lng, niuRow.Lat, niuRow.Lng); distance > threshold {
-			return bizerr.NewCode(CodeOutOfRange)
+		niuRow, txErr := matchAndLockNearbyInactiveNiu(ctx, in.Lat, in.Lng, activatedAt, threshold)
+		if txErr != nil {
+			return txErr
 		}
+		niuID := niuRow.Id
 
 		priorCount, txErr := dao.Activation.Ctx(ctx).
-			Where(dao.Activation.Columns().NiuId, in.NiuId).
+			Where(dao.Activation.Columns().NiuId, niuID).
 			Count()
 		if txErr != nil {
 			return bizerr.WrapCode(txErr, CodeQueryFailed)
@@ -112,7 +111,7 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 
 		if isFirst {
 			if _, txErr = dao.Niu.Ctx(ctx).
-				Where(do.Niu{Id: in.NiuId}).
+				Where(do.Niu{Id: niuID}).
 				Data(do.Niu{Status: cattlesvc.NiuStatusActive.String()}).
 				Update(); txErr != nil {
 				return bizerr.WrapCode(txErr, CodeWriteFailed)
@@ -125,7 +124,7 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		}
 		if _, txErr = dao.Activation.Ctx(ctx).Data(do.Activation{
 			UserId:       playerID,
-			NiuId:        in.NiuId,
+			NiuId:        niuID,
 			ActivityDate: activityDate,
 			ActivatedAt:  &activatedAt,
 			IsFirst:      isFirstFlag,
@@ -136,6 +135,7 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		}
 
 		output = &ActivateOutput{
+			NiuId:       niuID,
 			IsFirst:     isFirst,
 			OrderNo:     orderNo,
 			ActivatedAt: apitime.MilliFromTime(activatedAt),
@@ -146,7 +146,7 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		return nil, err
 	}
 
-	card, err := s.loadMainCard(ctx, in.NiuId)
+	card, err := s.loadMainCard(ctx, output.NiuId)
 	if err != nil {
 		return nil, err
 	}
@@ -163,10 +163,10 @@ func (s *serviceImpl) activationLBSThreshold(ctx context.Context) (float64, erro
 	return s.rulesSvc.ActivationLBSThresholdMeters(ctx)
 }
 
-// guardDailyAndDuplicate rejects a second activation on the same natural day and a
-// repeat activation of the same cattle before entering the transaction. The
-// active-set unique indexes back-stop these checks against the concurrent race.
-func (s *serviceImpl) guardDailyAndDuplicate(ctx context.Context, playerID, niuID int64) error {
+// guardDailyLimit rejects a second activation on the same natural day before
+// entering the transaction. The active-set unique index back-stops this check
+// against the concurrent race.
+func (s *serviceImpl) guardDailyLimit(ctx context.Context, playerID int64) error {
 	today := time.Now().Format(activityDateLayout)
 	dailyCount, err := dao.Activation.Ctx(ctx).
 		Where(dao.Activation.Columns().UserId, playerID).
@@ -178,18 +178,95 @@ func (s *serviceImpl) guardDailyAndDuplicate(ctx context.Context, playerID, niuI
 	if dailyCount > 0 {
 		return bizerr.NewCode(CodeDailyLimitReached)
 	}
-
-	duplicateCount, err := dao.Activation.Ctx(ctx).
-		Where(dao.Activation.Columns().UserId, playerID).
-		Where(dao.Activation.Columns().NiuId, niuID).
-		Count()
-	if err != nil {
-		return bizerr.WrapCode(err, CodeQueryFailed)
-	}
-	if duplicateCount > 0 {
-		return bizerr.NewCode(CodeAlreadyActivated)
-	}
 	return nil
+}
+
+// matchAndLockNearbyInactiveNiu finds the nearest currently visible inactive
+// cattle within threshold and returns it locked. Concurrent activations may flip a
+// candidate before this transaction locks it, so each locked row is rechecked and
+// the matcher continues to the next candidate when that happens.
+func matchAndLockNearbyInactiveNiu(
+	ctx context.Context,
+	lat, lng float64,
+	now time.Time,
+	threshold float64,
+) (*entitymodel.Niu, error) {
+	candidates, err := nearbyInactiveCandidates(ctx, now)
+	if err != nil {
+		return nil, err
+	}
+
+	type rankedCandidate struct {
+		id       int64
+		distance float64
+	}
+	ranked := make([]rankedCandidate, 0, len(candidates))
+	for _, row := range candidates {
+		if !niuCurrentlyVisible(row, now) {
+			continue
+		}
+		distance := haversineMeters(lat, lng, row.Lat, row.Lng)
+		if distance <= threshold {
+			ranked = append(ranked, rankedCandidate{id: row.Id, distance: distance})
+		}
+	}
+	if len(ranked) == 0 {
+		return nil, bizerr.NewCode(CodeNoNearbyNiu)
+	}
+
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].distance == ranked[j].distance {
+			return ranked[i].id < ranked[j].id
+		}
+		return ranked[i].distance < ranked[j].distance
+	})
+
+	for _, candidate := range ranked {
+		niuRow, err := lockNiu(ctx, candidate.id)
+		if err != nil {
+			return nil, err
+		}
+		if niuRow.Status != cattlesvc.NiuStatusInactive.String() {
+			continue
+		}
+		if !niuCurrentlyVisible(niuRow, now) {
+			continue
+		}
+		if distance := haversineMeters(lat, lng, niuRow.Lat, niuRow.Lng); distance > threshold {
+			continue
+		}
+		return niuRow, nil
+	}
+	return nil, bizerr.NewCode(CodeNoNearbyNiu)
+}
+
+// nearbyInactiveCandidates returns a bounded, projected candidate set for GPS
+// matching. Online time and inactive status are pushed to the database; optional
+// weekday/time windows and exact Haversine distance are checked in memory.
+func nearbyInactiveCandidates(ctx context.Context, now time.Time) ([]*entitymodel.Niu, error) {
+	rows := make([]*entitymodel.Niu, 0)
+	columns := dao.Niu.Columns()
+	err := dao.Niu.Ctx(ctx).
+		Fields(
+			columns.Id,
+			columns.Lat,
+			columns.Lng,
+			columns.OnlineAt,
+			columns.VisibleWeekdays,
+			columns.VisibleStart,
+			columns.VisibleEnd,
+			columns.Status,
+		).
+		Where(columns.OnlineAt+" IS NOT NULL").
+		WhereLTE(columns.OnlineAt, now).
+		Where(columns.Status, cattlesvc.NiuStatusInactive.String()).
+		OrderAsc(columns.Id).
+		Limit(activationCandidateCap).
+		Scan(&rows)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	return rows, nil
 }
 
 // lockNiu loads the target cattle row under a row lock (SELECT ... FOR UPDATE)

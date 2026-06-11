@@ -75,6 +75,7 @@ export interface ActivationRecord {
   activityDate: string;
   isFirst: number;
   orderNo: number;
+  photoPath: string;
   activatedAt: number | null;
   createdAt: number | null;
 }

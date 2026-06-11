@@ -1,16 +1,16 @@
 // player_activations.go defines the request and response DTOs for the LBS
-// activation action: the current player reports their location and an optional
-// photo path to activate a cattle; the response carries the first-activator flag,
-// arrival order, activation time and the cattle main card (issued on activation).
+// activation action: the current player reports their check-in location and an
+// optional photo path, then the server matches a nearby unactivated cattle; the
+// response carries the matched cattle ID, first-activator flag, arrival order,
+// activation time and the cattle main card (issued on activation).
 
 package v1
 
 import "github.com/gogf/gf/v2/frame/g"
 
-// ActivateReq is the request for activating a cattle at its GPS anchor.
+// ActivateReq is the request for activating a nearby cattle by GPS check-in.
 type ActivateReq struct {
-	g.Meta    `path:"/plugins/sicau-niu/player/activations" method:"post" tags:"Sicau Niu Player" summary:"Activate a cattle (LBS)" dc:"Activate the target cattle only when it is currently visible to the player map. The server checks online time, optional weekday/time windows and the Haversine distance between the reported location and the cattle GPS anchor against the configured threshold (no image recognition; the photo is evidence only). Each player may activate at most one cattle per natural day and may not re-activate the same cattle. The first activator becomes the cattle first-activator and flips it to active (shared-pool visible); later activators get an incremented arrival order. The cattle main card is issued on success. Requires a valid player token."`
-	NiuId     int64   `json:"niuId" v:"required" dc:"Target cattle ID to activate" eg:"1"`
+	g.Meta    `path:"/plugins/sicau-niu/player/activations" method:"post" tags:"Sicau Niu Player" summary:"Activate a nearby cattle (LBS)" dc:"Activate a nearby unactivated cattle by the player's reported GPS check-in location. The mini program does not pass a cattle ID. The server finds the nearest currently visible inactive cattle within the configured Haversine threshold, locks and rechecks the matched cattle in a transaction, flips it to active and issues the cattle main card. The photo is evidence only; no image recognition is performed. Each player may activate at most one cattle per natural day. Requires a valid player token."`
 	Lat       float64 `json:"lat" v:"required" dc:"Player reported GPS latitude" eg:"30.123456"`
 	Lng       float64 `json:"lng" v:"required" dc:"Player reported GPS longitude" eg:"103.123456"`
 	PhotoPath string  `json:"photoPath" dc:"Optional activation photo storage path (evidence only, no recognition); empty when omitted" eg:"sicau-niu/activation/1.jpg"`
@@ -18,6 +18,7 @@ type ActivateReq struct {
 
 // ActivateRes is the response for a successful cattle activation.
 type ActivateRes struct {
+	NiuId       int64           `json:"niuId" dc:"Server matched and activated cattle ID" eg:"1"`
 	IsFirst     bool            `json:"isFirst" dc:"Whether the current player is the cattle first-activator" eg:"true"`
 	OrderNo     int             `json:"orderNo" dc:"Arrival order for this cattle, starting at 1" eg:"1"`
 	ActivatedAt *int64          `json:"activatedAt" dc:"Activation time as Unix timestamp in milliseconds" eg:"1776333600000"`

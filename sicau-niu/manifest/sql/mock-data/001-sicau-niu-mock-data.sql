@@ -48,25 +48,46 @@ WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_iron i WHERE i."code" = v.code 
 
 -- 4) 卡片 (card) — one main card per cattle; niu resolved by code.
 INSERT INTO plugin_sicau_niu_card ("niu_id","category","title","content","image_path")
-SELECT (SELECT id FROM plugin_sicau_niu_niu WHERE "code" = v.code AND "deleted_at" IS NULL),
-       v.category, v.title, v.content, ''
+SELECT (SELECT "id" FROM plugin_sicau_niu_niu WHERE "code" = v."code" AND "deleted_at" IS NULL),
+       v."category", v."title", v."content", v."image_path"
 FROM (VALUES
-    ('NIU-001','college','信息工程学院','学院以信息技术见长，培养数字川农的中坚力量。'),
-    ('NIU-002','college','水利水电学院','治水兴农，水院与都江堰精神一脉相承。'),
-    ('NIU-003','spirit','川农大精神','爱国敬业、艰苦奋斗、团结协作、求实创新。'),
-    ('NIU-004','person','杰出贡献者','一代代川农人扎根西部、奉献三农。'),
-    ('NIU-005','event','建校120周年','百廿川农，弦歌不辍。'),
-    ('NIU-006','research','作物科学','作物遗传育种成果服务国家粮食安全。'),
-    ('NIU-007','event','耕读传统','耕读结合，知行合一。'),
-    ('NIU-008','person','勤学楷模','勤学笃行，止于至善。'),
-    ('NIU-009','research','动物营养','畜牧科技助力乡村振兴。'),
-    ('NIU-010','event','校史长廊','从相辉堂到温江，川农足迹遍布巴蜀。')
-) AS v(code,category,title,content)
-WHERE (SELECT id FROM plugin_sicau_niu_niu WHERE "code" = v.code AND "deleted_at" IS NULL) IS NOT NULL
+    ('NIU-001','college','信息工程学院','学院以信息技术见长，培养数字川农的中坚力量。','https://picsum.photos/seed/sicau-niu-card-001/960/540'),
+    ('NIU-002','college','水利水电学院','治水兴农，水院与都江堰精神一脉相承。','https://picsum.photos/seed/sicau-niu-card-002/960/540'),
+    ('NIU-003','spirit','川农大精神','爱国敬业、艰苦奋斗、团结协作、求实创新。','https://picsum.photos/seed/sicau-niu-card-003/960/540'),
+    ('NIU-004','person','杰出贡献者','一代代川农人扎根西部、奉献三农。','https://picsum.photos/seed/sicau-niu-card-004/960/540'),
+    ('NIU-005','event','建校120周年','百廿川农，弦歌不辍。','https://picsum.photos/seed/sicau-niu-card-005/960/540'),
+    ('NIU-006','research','作物科学','作物遗传育种成果服务国家粮食安全。','https://picsum.photos/seed/sicau-niu-card-006/960/540'),
+    ('NIU-007','event','耕读传统','耕读结合，知行合一。','https://picsum.photos/seed/sicau-niu-card-007/960/540'),
+    ('NIU-008','person','勤学楷模','勤学笃行，止于至善。','https://picsum.photos/seed/sicau-niu-card-008/960/540'),
+    ('NIU-009','research','动物营养','畜牧科技助力乡村振兴。','https://picsum.photos/seed/sicau-niu-card-009/960/540'),
+    ('NIU-010','event','校史长廊','从相辉堂到温江，川农足迹遍布巴蜀。','https://picsum.photos/seed/sicau-niu-card-010/960/540')
+) AS v("code","category","title","content","image_path")
+WHERE (SELECT "id" FROM plugin_sicau_niu_niu WHERE "code" = v."code" AND "deleted_at" IS NULL) IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM plugin_sicau_niu_card c
-    WHERE c."niu_id" = (SELECT id FROM plugin_sicau_niu_niu WHERE "code" = v.code AND "deleted_at" IS NULL)
+    WHERE c."niu_id" = (SELECT "id" FROM plugin_sicau_niu_niu WHERE "code" = v."code" AND "deleted_at" IS NULL)
       AND c."deleted_at" IS NULL);
+
+-- Keep already-loaded demo cards useful when mock data is re-applied after the
+-- first install: only fill empty or non-HTTP demo image paths.
+UPDATE plugin_sicau_niu_card AS c
+SET "image_path" = v."image_path"
+FROM (VALUES
+    ('NIU-001','https://picsum.photos/seed/sicau-niu-card-001/960/540'),
+    ('NIU-002','https://picsum.photos/seed/sicau-niu-card-002/960/540'),
+    ('NIU-003','https://picsum.photos/seed/sicau-niu-card-003/960/540'),
+    ('NIU-004','https://picsum.photos/seed/sicau-niu-card-004/960/540'),
+    ('NIU-005','https://picsum.photos/seed/sicau-niu-card-005/960/540'),
+    ('NIU-006','https://picsum.photos/seed/sicau-niu-card-006/960/540'),
+    ('NIU-007','https://picsum.photos/seed/sicau-niu-card-007/960/540'),
+    ('NIU-008','https://picsum.photos/seed/sicau-niu-card-008/960/540'),
+    ('NIU-009','https://picsum.photos/seed/sicau-niu-card-009/960/540'),
+    ('NIU-010','https://picsum.photos/seed/sicau-niu-card-010/960/540')
+) AS v("code","image_path")
+JOIN plugin_sicau_niu_niu n ON n."code" = v."code" AND n."deleted_at" IS NULL
+WHERE c."niu_id" = n."id"
+  AND c."deleted_at" IS NULL
+  AND (c."image_path" = '' OR c."image_path" NOT LIKE 'http%');
 
 -- 5) 金句 (quote) — keyed by content; all enabled.
 INSERT INTO plugin_sicau_niu_quote ("content","enabled")
@@ -83,38 +104,72 @@ SELECT v.content, 1 FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_quote q WHERE q."content" = v.content AND q."deleted_at" IS NULL);
 
 -- 6) 荣誉定义 (honor_def) — keyed by code.
-INSERT INTO plugin_sicau_niu_honor_def ("honor_type","code","name","unlock_type","threshold","category","sort")
-SELECT v.htype, v.code, v.name, v.utype, v.threshold, v.category, v.sort FROM (VALUES
-    ('badge','participation_badge','寻牛参与纪念徽章','participation',0,'',1),
-    ('badge','feed_bronze','青铜喂养官','feed_count',5,'',2),
-    ('badge','feed_silver','白银喂养官','feed_count',15,'',3),
-    ('badge','activation_explorer','寻牛探索者','activation_count',3,'',4),
-    ('avatar_frame','frame_anniversary','120周年头像框','participation',0,'',5),
-    ('badge','category_person','人物收藏徽章','category_complete',0,'person',6),
-    ('certificate','cert_participation','川农120周年参与证书','participation',0,'',7),
-    ('certificate','cert_full_complete','川农120图鉴收藏证书','full_complete',0,'',8)
-) AS v(htype,code,name,utype,threshold,category,sort)
-WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_honor_def h WHERE h."code" = v.code AND h."deleted_at" IS NULL);
+INSERT INTO plugin_sicau_niu_honor_def ("honor_type","code","name","unlock_type","threshold","category","image_path","sort")
+SELECT v."htype", v."code", v."name", v."utype", v."threshold", v."category", v."image_path", v."sort" FROM (VALUES
+    ('badge','participation_badge','寻牛参与纪念徽章','participation',0,'','https://picsum.photos/seed/sicau-niu-honor-001/512/512',1),
+    ('badge','feed_bronze','青铜喂养官','feed_count',5,'','https://picsum.photos/seed/sicau-niu-honor-002/512/512',2),
+    ('badge','feed_silver','白银喂养官','feed_count',15,'','https://picsum.photos/seed/sicau-niu-honor-003/512/512',3),
+    ('badge','activation_explorer','寻牛探索者','activation_count',3,'','https://picsum.photos/seed/sicau-niu-honor-004/512/512',4),
+    ('avatar_frame','frame_anniversary','120周年头像框','participation',0,'','https://picsum.photos/seed/sicau-niu-honor-005/512/512',5),
+    ('badge','category_person','人物收藏徽章','category_complete',0,'person','https://picsum.photos/seed/sicau-niu-honor-006/512/512',6),
+    ('certificate','cert_participation','川农120周年参与证书','participation',0,'','https://picsum.photos/seed/sicau-niu-honor-007/512/512',7),
+    ('certificate','cert_full_complete','川农120图鉴收藏证书','full_complete',0,'','https://picsum.photos/seed/sicau-niu-honor-008/512/512',8)
+) AS v("htype","code","name","utype","threshold","category","image_path","sort")
+WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_honor_def h WHERE h."code" = v."code" AND h."deleted_at" IS NULL);
+
+UPDATE plugin_sicau_niu_honor_def AS h
+SET "image_path" = v."image_path"
+FROM (VALUES
+    ('participation_badge','https://picsum.photos/seed/sicau-niu-honor-001/512/512'),
+    ('feed_bronze','https://picsum.photos/seed/sicau-niu-honor-002/512/512'),
+    ('feed_silver','https://picsum.photos/seed/sicau-niu-honor-003/512/512'),
+    ('activation_explorer','https://picsum.photos/seed/sicau-niu-honor-004/512/512'),
+    ('frame_anniversary','https://picsum.photos/seed/sicau-niu-honor-005/512/512'),
+    ('category_person','https://picsum.photos/seed/sicau-niu-honor-006/512/512'),
+    ('cert_participation','https://picsum.photos/seed/sicau-niu-honor-007/512/512'),
+    ('cert_full_complete','https://picsum.photos/seed/sicau-niu-honor-008/512/512')
+) AS v("code","image_path")
+WHERE h."code" = v."code"
+  AND h."deleted_at" IS NULL
+  AND (h."image_path" = '' OR h."image_path" NOT LIKE 'http%');
 
 -- 7) 玩家 (user) — keyed by openid; college resolved by name. Two players share a
 --    device fingerprint (fp-shared) to demonstrate the one-device-many-accounts risk.
-INSERT INTO plugin_sicau_niu_user ("openid","phone","nickname","identity_type","college_id","grade","device_fingerprint")
-SELECT v.openid, v.phone, v.nickname, v.identity,
-       COALESCE((SELECT id FROM plugin_sicau_niu_college WHERE "name" = v.college AND "deleted_at" IS NULL), 0),
-       v.grade, v.fp
+INSERT INTO plugin_sicau_niu_user ("openid","phone","nickname","avatar","identity_type","college_id","grade","device_fingerprint")
+SELECT v."openid", v."phone", v."nickname", v."avatar", v."identity",
+       COALESCE((SELECT "id" FROM plugin_sicau_niu_college WHERE "name" = v."college" AND "deleted_at" IS NULL), 0),
+       v."grade", v."fp"
 FROM (VALUES
-    ('mock-openid-001','13900000001','信工的牛同学','student','信息工程学院',2023,'fp-001'),
-    ('mock-openid-002','13900000002','水院小张','student','水利水电学院',2022,'fp-002'),
-    ('mock-openid-003','13900000003','农学阿明','student','农学院',2024,'fp-003'),
-    ('mock-openid-004','13900000004','动科李华','student','动物科技学院',2021,'fp-004'),
-    ('mock-openid-005','13900000005','园林小美','student','风景园林学院',2023,'fp-005'),
-    ('mock-openid-006','13900000006','食院老饕','student','食品学院',2022,'fp-006'),
-    ('mock-openid-007','13900000007','九零届校友','alumni','经济学院',2009,'fp-007'),
-    ('mock-openid-008','13900000008','王老师','teacher','林学院',0,'fp-008'),
-    ('mock-openid-009','13900000009','川农好友老陈','friend','',0,'fp-shared'),
-    ('mock-openid-010','13900000010','川农好友小周','friend','',0,'fp-shared')
-) AS v(openid,phone,nickname,identity,college,grade,fp)
-WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_user u WHERE u."openid" = v.openid AND u."deleted_at" IS NULL);
+    ('mock-openid-001','13900000001','信工的牛同学','https://picsum.photos/seed/sicau-niu-avatar-001/160/160','student','信息工程学院',2023,'fp-001'),
+    ('mock-openid-002','13900000002','水院小张','https://picsum.photos/seed/sicau-niu-avatar-002/160/160','student','水利水电学院',2022,'fp-002'),
+    ('mock-openid-003','13900000003','农学阿明','https://picsum.photos/seed/sicau-niu-avatar-003/160/160','student','农学院',2024,'fp-003'),
+    ('mock-openid-004','13900000004','动科李华','https://picsum.photos/seed/sicau-niu-avatar-004/160/160','student','动物科技学院',2021,'fp-004'),
+    ('mock-openid-005','13900000005','园林小美','https://picsum.photos/seed/sicau-niu-avatar-005/160/160','student','风景园林学院',2023,'fp-005'),
+    ('mock-openid-006','13900000006','食院老饕','https://picsum.photos/seed/sicau-niu-avatar-006/160/160','student','食品学院',2022,'fp-006'),
+    ('mock-openid-007','13900000007','九零届校友','https://picsum.photos/seed/sicau-niu-avatar-007/160/160','alumni','经济学院',2009,'fp-007'),
+    ('mock-openid-008','13900000008','王老师','https://picsum.photos/seed/sicau-niu-avatar-008/160/160','teacher','林学院',0,'fp-008'),
+    ('mock-openid-009','13900000009','川农好友老陈','https://picsum.photos/seed/sicau-niu-avatar-009/160/160','friend','',0,'fp-shared'),
+    ('mock-openid-010','13900000010','川农好友小周','https://picsum.photos/seed/sicau-niu-avatar-010/160/160','friend','',0,'fp-shared')
+) AS v("openid","phone","nickname","avatar","identity","college","grade","fp")
+WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_user u WHERE u."openid" = v."openid" AND u."deleted_at" IS NULL);
+
+UPDATE plugin_sicau_niu_user AS u
+SET "avatar" = v."avatar"
+FROM (VALUES
+    ('mock-openid-001','https://picsum.photos/seed/sicau-niu-avatar-001/160/160'),
+    ('mock-openid-002','https://picsum.photos/seed/sicau-niu-avatar-002/160/160'),
+    ('mock-openid-003','https://picsum.photos/seed/sicau-niu-avatar-003/160/160'),
+    ('mock-openid-004','https://picsum.photos/seed/sicau-niu-avatar-004/160/160'),
+    ('mock-openid-005','https://picsum.photos/seed/sicau-niu-avatar-005/160/160'),
+    ('mock-openid-006','https://picsum.photos/seed/sicau-niu-avatar-006/160/160'),
+    ('mock-openid-007','https://picsum.photos/seed/sicau-niu-avatar-007/160/160'),
+    ('mock-openid-008','https://picsum.photos/seed/sicau-niu-avatar-008/160/160'),
+    ('mock-openid-009','https://picsum.photos/seed/sicau-niu-avatar-009/160/160'),
+    ('mock-openid-010','https://picsum.photos/seed/sicau-niu-avatar-010/160/160')
+) AS v("openid","avatar")
+WHERE u."openid" = v."openid"
+  AND u."deleted_at" IS NULL
+  AND (u."avatar" = '' OR u."avatar" NOT LIKE 'http%');
 
 -- 8) 草账户 (grass_account) — one per player; keyed by user_id.
 INSERT INTO plugin_sicau_niu_grass_account ("user_id","balance")
@@ -129,27 +184,50 @@ WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_grass_account a WHERE a."user_i
 -- 9) 激活 (activation) — first activators + ordinary; keyed by (user_id, niu_id).
 --    activity_date and activated_at are spread over recent days for a meaningful
 --    first-activator wall and dashboard.
-INSERT INTO plugin_sicau_niu_activation ("user_id","niu_id","activity_date","activated_at","is_first","order_no")
-SELECT u.id, n.id, v.adate::date, (v.adate || ' 10:00:00')::timestamp, v.is_first, v.order_no
+INSERT INTO plugin_sicau_niu_activation ("user_id","niu_id","activity_date","activated_at","is_first","order_no","photo_path")
+SELECT u."id", n."id", v."adate"::date, (v."adate" || ' 10:00:00')::timestamp, v."is_first", v."order_no", v."photo_path"
 FROM (VALUES
-    ('mock-openid-001','NIU-001', to_char(CURRENT_DATE - 9,'YYYY-MM-DD'), 1, 1),
-    ('mock-openid-002','NIU-002', to_char(CURRENT_DATE - 8,'YYYY-MM-DD'), 1, 1),
-    ('mock-openid-003','NIU-003', to_char(CURRENT_DATE - 7,'YYYY-MM-DD'), 1, 1),
-    ('mock-openid-004','NIU-004', to_char(CURRENT_DATE - 6,'YYYY-MM-DD'), 1, 1),
-    ('mock-openid-005','NIU-006', to_char(CURRENT_DATE - 5,'YYYY-MM-DD'), 1, 1),
-    ('mock-openid-001','NIU-008', to_char(CURRENT_DATE - 4,'YYYY-MM-DD'), 1, 1),
-    ('mock-openid-006','NIU-010', to_char(CURRENT_DATE - 3,'YYYY-MM-DD'), 1, 1),
-    ('mock-openid-002','NIU-001', to_char(CURRENT_DATE - 3,'YYYY-MM-DD'), 0, 2),
-    ('mock-openid-003','NIU-002', to_char(CURRENT_DATE - 2,'YYYY-MM-DD'), 0, 2),
-    ('mock-openid-007','NIU-003', to_char(CURRENT_DATE - 2,'YYYY-MM-DD'), 0, 2),
-    ('mock-openid-008','NIU-006', to_char(CURRENT_DATE - 1,'YYYY-MM-DD'), 0, 3),
-    ('mock-openid-009','NIU-008', to_char(CURRENT_DATE - 1,'YYYY-MM-DD'), 0, 2)
-) AS v(openid,code,adate,is_first,order_no)
-JOIN plugin_sicau_niu_user u ON u."openid" = v.openid AND u."deleted_at" IS NULL
-JOIN plugin_sicau_niu_niu  n ON n."code"   = v.code   AND n."deleted_at" IS NULL
+    ('mock-openid-001','NIU-001', to_char(CURRENT_DATE - 9,'YYYY-MM-DD'), 1, 1,'https://picsum.photos/seed/sicau-niu-activation-001/1024/768'),
+    ('mock-openid-002','NIU-002', to_char(CURRENT_DATE - 8,'YYYY-MM-DD'), 1, 1,'https://picsum.photos/seed/sicau-niu-activation-002/1024/768'),
+    ('mock-openid-003','NIU-003', to_char(CURRENT_DATE - 7,'YYYY-MM-DD'), 1, 1,'https://picsum.photos/seed/sicau-niu-activation-003/1024/768'),
+    ('mock-openid-004','NIU-004', to_char(CURRENT_DATE - 6,'YYYY-MM-DD'), 1, 1,'https://picsum.photos/seed/sicau-niu-activation-004/1024/768'),
+    ('mock-openid-005','NIU-006', to_char(CURRENT_DATE - 5,'YYYY-MM-DD'), 1, 1,'https://picsum.photos/seed/sicau-niu-activation-005/1024/768'),
+    ('mock-openid-001','NIU-008', to_char(CURRENT_DATE - 4,'YYYY-MM-DD'), 1, 1,'https://picsum.photos/seed/sicau-niu-activation-006/1024/768'),
+    ('mock-openid-006','NIU-010', to_char(CURRENT_DATE - 3,'YYYY-MM-DD'), 1, 1,'https://picsum.photos/seed/sicau-niu-activation-007/1024/768'),
+    ('mock-openid-002','NIU-001', to_char(CURRENT_DATE - 3,'YYYY-MM-DD'), 0, 2,'https://picsum.photos/seed/sicau-niu-activation-008/1024/768'),
+    ('mock-openid-003','NIU-002', to_char(CURRENT_DATE - 2,'YYYY-MM-DD'), 0, 2,'https://picsum.photos/seed/sicau-niu-activation-009/1024/768'),
+    ('mock-openid-007','NIU-003', to_char(CURRENT_DATE - 2,'YYYY-MM-DD'), 0, 2,'https://picsum.photos/seed/sicau-niu-activation-010/1024/768'),
+    ('mock-openid-008','NIU-006', to_char(CURRENT_DATE - 1,'YYYY-MM-DD'), 0, 3,'https://picsum.photos/seed/sicau-niu-activation-011/1024/768'),
+    ('mock-openid-009','NIU-008', to_char(CURRENT_DATE - 1,'YYYY-MM-DD'), 0, 2,'https://picsum.photos/seed/sicau-niu-activation-012/1024/768')
+) AS v("openid","code","adate","is_first","order_no","photo_path")
+JOIN plugin_sicau_niu_user u ON u."openid" = v."openid" AND u."deleted_at" IS NULL
+JOIN plugin_sicau_niu_niu  n ON n."code"   = v."code"   AND n."deleted_at" IS NULL
 WHERE NOT EXISTS (
     SELECT 1 FROM plugin_sicau_niu_activation a
-    WHERE a."user_id" = u.id AND a."niu_id" = n.id AND a."deleted_at" IS NULL);
+    WHERE a."user_id" = u."id" AND a."niu_id" = n."id" AND a."deleted_at" IS NULL);
+
+UPDATE plugin_sicau_niu_activation AS a
+SET "photo_path" = v."photo_path"
+FROM (VALUES
+    ('mock-openid-001','NIU-001','https://picsum.photos/seed/sicau-niu-activation-001/1024/768'),
+    ('mock-openid-002','NIU-002','https://picsum.photos/seed/sicau-niu-activation-002/1024/768'),
+    ('mock-openid-003','NIU-003','https://picsum.photos/seed/sicau-niu-activation-003/1024/768'),
+    ('mock-openid-004','NIU-004','https://picsum.photos/seed/sicau-niu-activation-004/1024/768'),
+    ('mock-openid-005','NIU-006','https://picsum.photos/seed/sicau-niu-activation-005/1024/768'),
+    ('mock-openid-001','NIU-008','https://picsum.photos/seed/sicau-niu-activation-006/1024/768'),
+    ('mock-openid-006','NIU-010','https://picsum.photos/seed/sicau-niu-activation-007/1024/768'),
+    ('mock-openid-002','NIU-001','https://picsum.photos/seed/sicau-niu-activation-008/1024/768'),
+    ('mock-openid-003','NIU-002','https://picsum.photos/seed/sicau-niu-activation-009/1024/768'),
+    ('mock-openid-007','NIU-003','https://picsum.photos/seed/sicau-niu-activation-010/1024/768'),
+    ('mock-openid-008','NIU-006','https://picsum.photos/seed/sicau-niu-activation-011/1024/768'),
+    ('mock-openid-009','NIU-008','https://picsum.photos/seed/sicau-niu-activation-012/1024/768')
+) AS v("openid","code","photo_path")
+JOIN plugin_sicau_niu_user u ON u."openid" = v."openid" AND u."deleted_at" IS NULL
+JOIN plugin_sicau_niu_niu n ON n."code" = v."code" AND n."deleted_at" IS NULL
+WHERE a."user_id" = u."id"
+  AND a."niu_id" = n."id"
+  AND a."deleted_at" IS NULL
+  AND (a."photo_path" = '' OR a."photo_path" NOT LIKE 'http%');
 
 -- 10) 喂草 (feeding) — many records over the last 7 days so leaderboards, dashboard
 --     and the DAU/retention activity views have data. No unique key: guard on a

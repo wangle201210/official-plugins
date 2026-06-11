@@ -102,7 +102,7 @@ func (c *ControllerV1) Activations(ctx context.Context, req *v1.ActivationsReq) 
 			Id: row.Id, UserId: row.UserId, Nickname: row.Nickname,
 			NiuId: row.NiuId, NiuName: row.NiuName, NiuCode: row.NiuCode,
 			ActivityDate: row.ActivityDate, IsFirst: row.IsFirst, OrderNo: row.OrderNo,
-			ActivatedAt: row.ActivatedAt, CreatedAt: row.CreatedAt,
+			PhotoPath: row.PhotoPath, ActivatedAt: row.ActivatedAt, CreatedAt: row.CreatedAt,
 		})
 	}
 	return &v1.ActivationsRes{List: list, Total: out.Total}, nil

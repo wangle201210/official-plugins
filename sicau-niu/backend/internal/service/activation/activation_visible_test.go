@@ -134,7 +134,7 @@ func TestVisibleNiuActivatedByMeFlag(t *testing.T) {
 		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-vis-mine"})
-	if _, err := svc.Activate(ctx, me, &ActivateInput{NiuId: activatedID, Lat: 30.0, Lng: 103.0}); err != nil {
+	if _, err := svc.Activate(ctx, me, &ActivateInput{Lat: 30.0, Lng: 103.0}); err != nil {
 		t.Fatalf("activation failed: %v", err)
 	}
 

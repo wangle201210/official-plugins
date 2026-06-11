@@ -119,7 +119,7 @@ type CheckinItem struct {
 
 // ActivationsReq is the request for the activation-record query.
 type ActivationsReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/records/activations" method:"get" tags:"Sicau Niu Record" summary:"List activation records" dc:"Read-only paged activation records with optional player and cattle filtering; player and cattle names are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/records/activations" method:"get" tags:"Sicau Niu Record" summary:"List activation records" dc:"Read-only paged activation records with optional player and cattle filtering; player and cattle names are batch-assembled and the uploaded activation photo path is returned in the same page projection. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	UserId   int64 `json:"userId" dc:"Filter by player ID; lists all when 0" eg:"0"`
 	NiuId    int64 `json:"niuId" dc:"Filter by cattle ID; lists all when 0" eg:"0"`
 	PageNum  int   `json:"pageNum" eg:"1"`
@@ -143,6 +143,7 @@ type ActivationItem struct {
 	ActivityDate string `json:"activityDate" dc:"Activation day, yyyy-mm-dd" eg:"2026-06-01"`
 	IsFirst      int    `json:"isFirst" dc:"Whether first activator: 1=yes, 0=no" eg:"1"`
 	OrderNo      int    `json:"orderNo" dc:"Arrival order for the cattle" eg:"1"`
+	PhotoPath    string `json:"photoPath" dc:"Uploaded activation photo storage path; empty when the player did not upload one" eg:"/uploads/2026/06/activation-1.jpg"`
 	ActivatedAt  *int64 `json:"activatedAt" dc:"Activation time, Unix ms; null when unset" eg:"1717488000000"`
 	CreatedAt    *int64 `json:"createdAt" eg:"1717488000000"`
 }

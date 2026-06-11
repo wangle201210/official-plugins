@@ -29,22 +29,17 @@ var (
 		"Cattle is not currently visible",
 		gcode.CodeBusinessValidationFailed,
 	)
-	// CodeOutOfRange reports that the reported location is beyond the LBS threshold.
-	CodeOutOfRange = bizerr.MustDefine(
-		"PLUGIN_SICAU_NIU_ACTIVATION_OUT_OF_RANGE",
-		"Reported location is too far from the cattle anchor",
+	// CodeNoNearbyNiu reports that no visible inactive cattle can be matched near
+	// the reported check-in location.
+	CodeNoNearbyNiu = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_ACTIVATION_NO_NEARBY_NIU",
+		"No nearby inactive cattle found",
 		gcode.CodeBusinessValidationFailed,
 	)
 	// CodeDailyLimitReached reports that the player already activated a cattle today.
 	CodeDailyLimitReached = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_ACTIVATION_DAILY_LIMIT",
 		"Already activated a cattle today",
-		gcode.CodeBusinessValidationFailed,
-	)
-	// CodeAlreadyActivated reports that the player already activated this cattle.
-	CodeAlreadyActivated = bizerr.MustDefine(
-		"PLUGIN_SICAU_NIU_ACTIVATION_ALREADY_ACTIVATED",
-		"Cattle already activated by this player",
 		gcode.CodeBusinessValidationFailed,
 	)
 	// CodeActivationNotFound reports that the player has not activated the cattle, so

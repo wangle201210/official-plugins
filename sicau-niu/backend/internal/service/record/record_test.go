@@ -118,3 +118,31 @@ func TestListGrassTxnsPaged(t *testing.T) {
 		t.Fatalf("nickname not assembled, got %q", out.List[0].Nickname)
 	}
 }
+
+// TestListActivationsReturnsPhotoPath verifies activation records expose the
+// uploaded check-in photo path in the same paged list projection.
+func TestListActivationsReturnsPhotoPath(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLRecordDB(t, ctx)
+	svc := New()
+
+	user := insertUserRow(t, ctx, "拍照玩家")
+	niu := insertNiuRow(t, ctx, "照片牛")
+	const photoPath = "/uploads/sicau-niu/activation-photo.jpg"
+	insertActivationRow(t, ctx, user, niu, photoPath)
+
+	out, err := svc.ListActivations(ctx, &ListActivationsInput{UserId: user, PageNum: 1, PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListActivations error: %v", err)
+	}
+	if out.Total != 1 || len(out.List) != 1 {
+		t.Fatalf("expected one activation, got total=%d list=%d", out.Total, len(out.List))
+	}
+	row := out.List[0]
+	if row.PhotoPath != photoPath {
+		t.Fatalf("expected photo path %q, got %q", photoPath, row.PhotoPath)
+	}
+	if row.Nickname != "拍照玩家" || row.NiuName != "照片牛" || row.NiuCode == "" {
+		t.Fatalf("record relation fields not assembled: %+v", row)
+	}
+}

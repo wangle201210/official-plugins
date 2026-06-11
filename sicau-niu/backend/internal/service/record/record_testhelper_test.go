@@ -95,6 +95,25 @@ func insertFeedingRow(t *testing.T, ctx context.Context, userID, niuID int64, ba
 	}
 }
 
+// insertActivationRow inserts one activation record with optional uploaded photo
+// evidence path.
+func insertActivationRow(t *testing.T, ctx context.Context, userID, niuID int64, photoPath string) {
+	t.Helper()
+	now := time.Now().UTC()
+	_, err := dao.Activation.Ctx(ctx).Data(do.Activation{
+		UserId:       userID,
+		NiuId:        niuID,
+		ActivityDate: now.Format("2006-01-02"),
+		ActivatedAt:  &now,
+		IsFirst:      1,
+		OrderNo:      1,
+		PhotoPath:    photoPath,
+	}).Insert()
+	if err != nil {
+		t.Fatalf("insert activation failed: %v", err)
+	}
+}
+
 // insertStealRow inserts one steal record on a distinct day.
 func insertStealRow(t *testing.T, ctx context.Context, actorID, targetID int64, seq int) {
 	t.Helper()

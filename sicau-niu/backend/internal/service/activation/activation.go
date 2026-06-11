@@ -1,7 +1,7 @@
 // Package activation implements the sicau-niu C3 player gameplay capability:
-// the visible-cattle map list (filtered by online-time visibility), LBS activation with
-// shared-pool first-activator concurrency, the per-day activation limit and the
-// no-duplicate-per-cattle rule, on-activation card issuance, the player's personal
+// the visible-cattle map list (filtered by online-time visibility), GPS check-in
+// activation that matches a nearby unactivated cattle, the per-day activation
+// limit, on-activation card issuance, the player's personal
 // card collection (图鉴) and the activation poster composition data. Every
 // player-facing operation is constrained to the authenticated player's own data
 // by the caller passing the player ID resolved by the player auth middleware;
@@ -9,8 +9,9 @@
 // while the visible-cattle list and shared-pool status are a public activity view.
 // All store access uses the generated DAO/DO objects so GoFrame manages
 // soft-delete and timestamp columns automatically. List and assembly paths run
-// DB-side filtering plus bounded batch queries to avoid N+1; the first-activator
-// race is serialized with a per-cattle row lock inside a transaction.
+// DB-side filtering plus bounded batch queries to avoid N+1; the check-in match
+// path is bounded and the first-activator race is serialized with a per-cattle row
+// lock inside a transaction.
 package activation
 
 import (
@@ -34,8 +35,8 @@ type Config struct {
 	CampusBadge string
 }
 
-// Service defines the C3 player gameplay contract: visible-cattle map list, LBS
-// activation, personal card collection and activation poster data.
+// Service defines the C3 player gameplay contract: visible-cattle map list, GPS
+// check-in activation, personal card collection and activation poster data.
 type Service interface {
 	// VisibleNiu returns the cattle currently visible to playerID, filtered by
 	// online time plus optional weekday/time window. Each item carries its GPS
@@ -43,13 +44,13 @@ type Service interface {
 	// The set is bounded and the per-player activation flags are batch-assembled in
 	// one query to avoid N+1. It returns a query bizerr on store failure.
 	VisibleNiu(ctx context.Context, playerID int64) (out []*VisibleNiuItem, err error)
-	// Activate activates the target cattle for playerID after online visibility,
-	// LBS distance, daily limit and no-duplicate validation. The first-activator
-	// race is serialized by a per-cattle row lock inside a transaction; the first
-	// activator flips the cattle to active and arrival order starts at 1. The
-	// cattle main card is returned on success (nil when the cattle has no main
-	// card). It returns the relevant validation bizerr on rejection or a store
-	// bizerr on failure.
+	// Activate matches and activates the nearest currently visible inactive cattle
+	// within the LBS threshold for playerID's reported GPS check-in location. The
+	// request does not require a cattle ID. The per-day limit is checked before the
+	// transaction; the match path runs a bounded candidate query, then locks and
+	// rechecks the matched cattle inside the transaction before flipping it to
+	// active and issuing the main card. It returns the relevant validation bizerr
+	// on rejection or a store bizerr on failure.
 	Activate(ctx context.Context, playerID int64, in *ActivateInput) (out *ActivateOutput, err error)
 	// Collection returns playerID's personal card collection: the main cards of the
 	// cattle the player has activated, optionally filtered by category, ordered by

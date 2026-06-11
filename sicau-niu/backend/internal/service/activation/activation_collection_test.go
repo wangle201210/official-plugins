@@ -15,12 +15,12 @@ import (
 )
 
 // stageNiuWithCard inserts a cattle plus its main card and returns the cattle ID.
-func stageNiuWithCard(t *testing.T, ctx context.Context, code, category, title string) int64 {
+func stageNiuWithCard(t *testing.T, ctx context.Context, code, category, title string, lat float64) int64 {
 	t.Helper()
 	past := time.Now().Add(-time.Hour)
 	niuID := insertNiuRow(t, ctx, do.Niu{
 		Code: code, NiuType: cattlesvc.NiuTypeCommon.String(),
-		Lat: 30.0, Lng: 103.0,
+		Lat: lat, Lng: 103.0,
 		OnlineAt: &past,
 		Status:   cattlesvc.NiuStatusInactive.String(),
 	})
@@ -35,16 +35,24 @@ func TestCollectionSelfIsolation(t *testing.T) {
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
 
-	mineNiu := stageNiuWithCard(t, ctx, "NIU-COL-1", "spirit", "我的卡")
-	otherNiu := stageNiuWithCard(t, ctx, "NIU-COL-2", "event", "他的卡")
+	mineNiu := stageNiuWithCard(t, ctx, "NIU-COL-1", "spirit", "我的卡", 30.0)
+	otherNiu := stageNiuWithCard(t, ctx, "NIU-COL-2", "event", "他的卡", 30.0002)
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-me"})
 	other := insertUserRow(t, ctx, do.User{Openid: "openid-other"})
 
-	if _, err := svc.Activate(ctx, me, &ActivateInput{NiuId: mineNiu, Lat: 30.0, Lng: 103.0}); err != nil {
+	myActivation, err := svc.Activate(ctx, me, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	if err != nil {
 		t.Fatalf("my activation failed: %v", err)
 	}
-	if _, err := svc.Activate(ctx, other, &ActivateInput{NiuId: otherNiu, Lat: 30.0, Lng: 103.0}); err != nil {
+	if myActivation.NiuId != mineNiu {
+		t.Fatalf("expected my activation to match niu %d, got %d", mineNiu, myActivation.NiuId)
+	}
+	otherActivation, err := svc.Activate(ctx, other, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	if err != nil {
 		t.Fatalf("other activation failed: %v", err)
+	}
+	if otherActivation.NiuId != otherNiu {
+		t.Fatalf("expected other activation to match niu %d, got %d", otherNiu, otherActivation.NiuId)
 	}
 
 	items, err := svc.Collection(ctx, me, "")
@@ -63,14 +71,18 @@ func TestCollectionCategoryFilter(t *testing.T) {
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
 
-	spiritNiu := stageNiuWithCard(t, ctx, "NIU-COL-S", "spirit", "精神卡")
-	eventNiu := stageNiuWithCard(t, ctx, "NIU-COL-E", "event", "事件卡")
+	spiritNiu := stageNiuWithCard(t, ctx, "NIU-COL-S", "spirit", "精神卡", 30.0)
+	eventNiu := stageNiuWithCard(t, ctx, "NIU-COL-E", "event", "事件卡", 30.0002)
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-filter"})
 
 	// Activate both cattle on distinct days by pre-seeding the event activation so
 	// the daily limit does not block staging two collected cards.
-	if _, err := svc.Activate(ctx, me, &ActivateInput{NiuId: spiritNiu, Lat: 30.0, Lng: 103.0}); err != nil {
+	spiritActivation, err := svc.Activate(ctx, me, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	if err != nil {
 		t.Fatalf("spirit activation failed: %v", err)
+	}
+	if spiritActivation.NiuId != spiritNiu {
+		t.Fatalf("expected spirit activation to match niu %d, got %d", spiritNiu, spiritActivation.NiuId)
 	}
 	if _, err := daoInsertActivation(ctx, me, eventNiu, "2000-01-02", 0, 1); err != nil {
 		t.Fatalf("seed event activation failed: %v", err)

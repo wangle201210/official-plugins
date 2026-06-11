@@ -46,7 +46,7 @@ func TestPosterReturnsCompositionData(t *testing.T) {
 	insertQuoteRow(t, ctx, do.Quote{Content: "任重道远", Enabled: 1})
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-poster"})
 
-	if _, err := svc.Activate(ctx, me, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0}); err != nil {
+	if _, err := svc.Activate(ctx, me, &ActivateInput{Lat: 30.0, Lng: 103.0}); err != nil {
 		t.Fatalf("activation failed: %v", err)
 	}
 

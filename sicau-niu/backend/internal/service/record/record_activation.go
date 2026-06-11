@@ -1,5 +1,6 @@
 // record_activation.go implements the read-only paged activation-record query with
-// player nicknames and cattle names batch-assembled.
+// player nicknames, cattle names and activation photo evidence path batch-assembled
+// in the same bounded page projection.
 
 package record
 
@@ -38,6 +39,7 @@ type ActivationItem struct {
 	ActivityDate string
 	IsFirst      int
 	OrderNo      int
+	PhotoPath    string
 	ActivatedAt  *int64
 	CreatedAt    *int64
 }
@@ -60,6 +62,17 @@ func (s *serviceImpl) ListActivations(ctx context.Context, in *ListActivationsIn
 
 	rows := make([]*entitymodel.Activation, 0, pageSize)
 	err = model.
+		Fields(
+			dao.Activation.Columns().Id,
+			dao.Activation.Columns().UserId,
+			dao.Activation.Columns().NiuId,
+			dao.Activation.Columns().ActivityDate,
+			dao.Activation.Columns().IsFirst,
+			dao.Activation.Columns().OrderNo,
+			dao.Activation.Columns().PhotoPath,
+			dao.Activation.Columns().ActivatedAt,
+			dao.Activation.Columns().CreatedAt,
+		).
 		Page(pageNum, pageSize).
 		OrderDesc(dao.Activation.Columns().CreatedAt).
 		OrderDesc(dao.Activation.Columns().Id).
@@ -93,6 +106,7 @@ func (s *serviceImpl) ListActivations(ctx context.Context, in *ListActivationsIn
 			ActivityDate: row.ActivityDate,
 			IsFirst:      row.IsFirst,
 			OrderNo:      row.OrderNo,
+			PhotoPath:    row.PhotoPath,
 			ActivatedAt:  apitime.Milli(row.ActivatedAt),
 			CreatedAt:    apitime.Milli(row.CreatedAt),
 		}

@@ -30,4 +30,21 @@ export class SicauNiuRecordPage extends PluginPage {
   async expectGridRendered(uniqueHeader: string) {
     await expect(this.columnHeader(uniqueHeader)).toBeVisible();
   }
+
+  // activationPhotoButton returns the read-only photo preview trigger for an
+  // activation record row.
+  activationPhotoButton(id: string): Locator {
+    return this.page.getByTestId(`sicau-niu-activation-photo-${id}`).first();
+  }
+
+  // expectActivationPhotoPreview opens a record photo and asserts the global image
+  // preview layer renders the original image URL.
+  async expectActivationPhotoPreview(id: string, photoPath: string) {
+    const button = this.activationPhotoButton(id);
+    await expect(button).toBeVisible();
+    await button.click();
+    await expect(
+      this.page.locator(".ant-image-preview-img").last(),
+    ).toHaveAttribute("src", photoPath);
+  }
 }

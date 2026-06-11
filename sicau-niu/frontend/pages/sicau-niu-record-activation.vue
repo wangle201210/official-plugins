@@ -6,11 +6,22 @@ export const pluginPageMeta = {
 </script>
 
 <script setup lang="ts">
+import type { ActivationRecord } from "./record-client";
+
+import { ref } from "vue";
+
+import { IconifyIcon } from "@vben/icons";
+
+import { Image, ImagePreviewGroup, Space } from "ant-design-vue";
+
 import { useVbenVxeGrid } from "#/adapter/vxe-table";
 import { formatTimestamp } from "#/utils/time";
 import { Page } from "#/plugins/dynamic";
 
 import { listActivations } from "./record-client";
+
+const previewVisible = ref(false);
+const previewImage = ref("");
 
 const [Grid] = useVbenVxeGrid({
   formOptions: {
@@ -45,6 +56,12 @@ const [Grid] = useVbenVxeGrid({
       },
       { field: "orderNo", title: "到场顺序", width: 100 },
       {
+        field: "photoPath",
+        slots: { default: "photo" },
+        title: "照片",
+        width: 110,
+      },
+      {
         field: "activatedAt",
         title: "激活时间",
         width: 180,
@@ -72,10 +89,52 @@ const [Grid] = useVbenVxeGrid({
     id: "sicau-niu-record-activation-grid",
   },
 });
+
+function openPhotoPreview(row: ActivationRecord) {
+  const photoPath = row.photoPath?.trim();
+  if (!photoPath) {
+    return;
+  }
+  previewImage.value = photoPath;
+  previewVisible.value = true;
+}
+
+function handlePreviewVisibleChange(visible: boolean) {
+  previewVisible.value = visible;
+  if (!visible) {
+    previewImage.value = "";
+  }
+}
 </script>
 
 <template>
   <Page :auto-content-height="true">
-    <Grid table-title="激活记录" />
+    <Grid table-title="激活记录">
+      <template #photo="{ row }">
+        <Space>
+          <ghost-button
+            v-if="row.photoPath"
+            :data-testid="`sicau-niu-activation-photo-${row.id}`"
+            @click.stop="openPhotoPreview(row)"
+          >
+            <IconifyIcon icon="ant-design:eye-outlined" class="mr-1" />
+            查看
+          </ghost-button>
+          <span v-else>-</span>
+        </Space>
+      </template>
+    </Grid>
+    <ImagePreviewGroup
+      :preview="{
+        visible: previewVisible,
+        onVisibleChange: handlePreviewVisibleChange,
+      }"
+    >
+      <Image
+        class="hidden"
+        :src="previewImage"
+        data-testid="sicau-niu-activation-photo-preview"
+      />
+    </ImagePreviewGroup>
   </Page>
 </template>

@@ -1,8 +1,8 @@
-// activation_activate_test.go covers the DB-gated LBS activation flow: the
-// distance gate, shared-pool first-activator, concurrent first-activator
-// uniqueness, the per-day limit, the no-duplicate rule and on-activation card
-// issuance. Each test is self-contained: it truncates the plugin tables, stages
-// its own cattle/cards and asserts only on its own rows.
+// activation_activate_test.go covers the DB-gated LBS activation flow: GPS
+// check-in matching, visible/inactive candidate gating, concurrent
+// first-activator uniqueness, the per-day limit and on-activation card issuance.
+// Each test is self-contained: it truncates the plugin tables, stages its own
+// cattle/cards and asserts only on its own rows.
 
 package activation
 
@@ -45,9 +45,9 @@ func stageActivatableNiu(t *testing.T, ctx context.Context) int64 {
 	})
 }
 
-// TestActivateOutOfRangeRejected verifies a location beyond the LBS threshold is
-// rejected with CodeOutOfRange and no activation row is written.
-func TestActivateOutOfRangeRejected(t *testing.T) {
+// TestActivateNoNearbyNiuRejected verifies a location beyond the LBS threshold is
+// rejected with CodeNoNearbyNiu and no activation row is written.
+func TestActivateNoNearbyNiuRejected(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
@@ -55,8 +55,8 @@ func TestActivateOutOfRangeRejected(t *testing.T) {
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-far"})
 
 	// ~0.01 degree latitude offset is well over a kilometer, far outside 50m.
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.01, Lng: 103.0})
-	assertBizCode(t, err, CodeOutOfRange.RuntimeCode())
+	_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.01, Lng: 103.0})
+	assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
 
 	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
 	if countErr != nil {
@@ -136,8 +136,8 @@ func TestActivateInvisibleNiuRejected(t *testing.T) {
 			niuID := insertNiuRow(t, ctx, tc.row)
 			playerID := insertUserRow(t, ctx, do.User{Openid: "openid-invisible-" + strconv.Itoa(i)})
 
-			_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
-			assertBizCode(t, err, CodeNiuNotVisible.RuntimeCode())
+			_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+			assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
 
 			count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
 			if countErr != nil {
@@ -173,9 +173,12 @@ func TestActivateFirstActivatorFlipsStatus(t *testing.T) {
 	})
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-first"})
 
-	out, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("first activation failed: %v", err)
+	}
+	if out.NiuId != niuID {
+		t.Fatalf("expected matched niu %d, got %d", niuID, out.NiuId)
 	}
 	if !out.IsFirst || out.OrderNo != 1 {
 		t.Fatalf("expected first activator with order 1, got isFirst=%v order=%d", out.IsFirst, out.OrderNo)
@@ -197,25 +200,58 @@ func TestActivateFirstActivatorFlipsStatus(t *testing.T) {
 	}
 }
 
-// TestActivateLaterActivatorIncrementsOrder verifies a second player activating an
-// already-active cattle is recorded as a non-first activator with order 2.
-func TestActivateLaterActivatorIncrementsOrder(t *testing.T) {
+// TestActivateNearestNearbyInactiveNiuMatched verifies the server chooses the
+// nearest visible inactive cattle when multiple candidates are within threshold.
+func TestActivateNearestNearbyInactiveNiuMatched(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	past := time.Now().Add(-time.Hour)
+	fartherID := insertNiuRow(t, ctx, do.Niu{
+		Code: "NIU-ACT-FARTHER", NiuType: cattlesvc.NiuTypeCommon.String(),
+		Lat: 30.0003, Lng: 103.0,
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
+	})
+	nearerID := insertNiuRow(t, ctx, do.Niu{
+		Code: "NIU-ACT-NEARER", NiuType: cattlesvc.NiuTypeCommon.String(),
+		Lat: 30.0, Lng: 103.0,
+		OnlineAt: &past,
+		Status:   cattlesvc.NiuStatusInactive.String(),
+	})
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-nearest"})
+
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	if err != nil {
+		t.Fatalf("nearest activation failed: %v", err)
+	}
+	if out.NiuId != nearerID {
+		t.Fatalf("expected nearest niu %d, got %d (farther=%d)", nearerID, out.NiuId, fartherID)
+	}
+}
+
+// TestActivateActiveNiuNotMatched verifies an already-active cattle is no longer
+// matched by a GPS check-in that only targets unactivated cattle.
+func TestActivateActiveNiuNotMatched(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
 	niuID := stageActivatableNiu(t, ctx)
-	firstPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-a"})
-	secondPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-b"})
+	firstPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-active-a"})
+	secondPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-active-b"})
 
-	if _, err := svc.Activate(ctx, firstPlayer, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0}); err != nil {
+	if _, err := svc.Activate(ctx, firstPlayer, &ActivateInput{Lat: 30.0, Lng: 103.0}); err != nil {
 		t.Fatalf("first activation failed: %v", err)
 	}
-	out, err := svc.Activate(ctx, secondPlayer, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
-	if err != nil {
-		t.Fatalf("second activation failed: %v", err)
+	_, err := svc.Activate(ctx, secondPlayer, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
+
+	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
+	if countErr != nil {
+		t.Fatalf("count activations failed: %v", countErr)
 	}
-	if out.IsFirst || out.OrderNo != 2 {
-		t.Fatalf("expected later activator with order 2, got isFirst=%v order=%d", out.IsFirst, out.OrderNo)
+	if count != 1 {
+		t.Fatalf("expected only the first activation row, got %d", count)
 	}
 }
 
@@ -238,7 +274,7 @@ func TestActivateConcurrentFirstActivatorUnique(t *testing.T) {
 	)
 	activate := func(playerID int64) {
 		defer wg.Done()
-		out, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
+		out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
 		mu.Lock()
 		defer mu.Unlock()
 		results = append(results, out)
@@ -250,13 +286,19 @@ func TestActivateConcurrentFirstActivatorUnique(t *testing.T) {
 	wg.Wait()
 
 	firstCount := 0
+	successCount := 0
 	for i, err := range errs {
 		if err != nil {
-			t.Fatalf("concurrent activation %d failed: %v", i, err)
+			assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
+			continue
 		}
+		successCount++
 		if results[i].IsFirst {
 			firstCount++
 		}
+	}
+	if successCount != 1 {
+		t.Fatalf("expected exactly one successful activation, got %d", successCount)
 	}
 	if firstCount != 1 {
 		t.Fatalf("expected exactly one first-activator, got %d", firstCount)
@@ -290,48 +332,34 @@ func TestActivateDailyLimitRejected(t *testing.T) {
 	})
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-daily"})
 
-	if _, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: firstNiu, Lat: 30.0, Lng: 103.0}); err != nil {
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	if err != nil {
 		t.Fatalf("first activation failed: %v", err)
 	}
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: secondNiu, Lat: 30.0, Lng: 103.0})
+	if out.NiuId != firstNiu {
+		t.Fatalf("expected first staged niu %d activated, got %d", firstNiu, out.NiuId)
+	}
+	_ = secondNiu
+	_, err = svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
 	assertBizCode(t, err, CodeDailyLimitReached.RuntimeCode())
 }
 
-// TestActivateDuplicateNiuRejected verifies a repeat activation of the same cattle
-// by the same player is rejected with CodeAlreadyActivated. The repeat attempt is
-// staged on a different day by pre-seeding the prior activation directly so the
-// daily limit does not mask the duplicate rule.
-func TestActivateDuplicateNiuRejected(t *testing.T) {
+// TestActivateNilInputRejected verifies an empty activation payload is rejected
+// before any activation row is written.
+func TestActivateNilInputRejected(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
-	niuID := stageActivatableNiu(t, ctx)
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-dup"})
 
-	// Seed a prior activation of this cattle on an earlier day so today's attempt
-	// trips the no-duplicate rule rather than the daily limit.
-	if _, err := dao.Activation.Ctx(ctx).Data(do.Activation{
-		UserId:       playerID,
-		NiuId:        niuID,
-		ActivityDate: "2000-01-01",
-		IsFirst:      firstActivatorFlag,
-		OrderNo:      1,
-	}).Insert(); err != nil {
-		t.Fatalf("seed prior activation failed: %v", err)
+	_, err := svc.Activate(ctx, playerID, nil)
+	assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
+
+	count, countErr := dao.Activation.Ctx(ctx).Count()
+	if countErr != nil {
+		t.Fatalf("count activations failed: %v", countErr)
 	}
-
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: niuID, Lat: 30.0, Lng: 103.0})
-	assertBizCode(t, err, CodeAlreadyActivated.RuntimeCode())
-}
-
-// TestActivateMissingCattleRejected verifies activating a non-existent cattle is
-// rejected with CodeNiuNotFound.
-func TestActivateMissingCattleRejected(t *testing.T) {
-	ctx := context.Background()
-	setupPostgreSQLActivationDB(t, ctx)
-	svc := newActivationServiceForTest()
-	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-missing"})
-
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{NiuId: 999999, Lat: 30.0, Lng: 103.0})
-	assertBizCode(t, err, CodeNiuNotFound.RuntimeCode())
+	if count != 0 {
+		t.Fatalf("expected no activation rows, got %d", count)
+	}
 }
