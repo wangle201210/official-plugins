@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // GrassAccountReq is the request for the current player's grass account view.
 type GrassAccountReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/grass" method:"get" tags:"Sicau Niu Player" summary:"Get grass balance and recent ledger" dc:"Return the authenticated player's current grass balance and a bounded list of recent ledger transactions (most recent first). The account is isolated to the current player. The recent-transaction list size is capped server-side. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/grass" method:"get" tags:"寻牛小程序" summary:"获取草料余额和近期流水" dc:"Return the authenticated player's current grass balance and a bounded list of recent ledger transactions (most recent first). The account is isolated to the current player. The recent-transaction list size is capped server-side. Requires a valid player token."`
 }
 
 // GrassAccountRes is the response for the current player's grass account view.

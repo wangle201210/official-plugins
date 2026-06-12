@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListCollegesReq is the request for the operator college list query.
 type ListCollegesReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/colleges" method:"get" tags:"Sicau Niu Admin" summary:"List colleges" dc:"List the college dictionary with optional fuzzy name filtering, ordered by sort then ID, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:college:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/colleges" method:"get" tags:"Sicau Niu Admin" summary:"查询院系列表" dc:"List the college dictionary with optional fuzzy name filtering, ordered by sort then ID, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:college:list"`
 	Keyword  string `json:"keyword" dc:"Fuzzy filter by college name; lists all colleges when omitted" eg:"信息"`
 	PageNum  int    `json:"pageNum" dc:"Page number; defaults to 1 when omitted or non-positive" eg:"1"`
 	PageSize int    `json:"pageSize" dc:"Items per page; defaults to 10 and is capped at 100" eg:"10"`

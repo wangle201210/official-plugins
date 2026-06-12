@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // MessagesReq is the request for the current player's paged inbox.
 type MessagesReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/player/messages" method:"get" tags:"Sicau Niu Player" summary:"List in-app messages" dc:"Return the authenticated player's in-app messages, newest first, with pagination. The inbox is isolated to the current player. Requires a valid player token."`
+	g.Meta   `path:"/plugins/sicau-niu/player/messages" method:"get" tags:"寻牛小程序" summary:"查询站内消息" dc:"Return the authenticated player's in-app messages, newest first, with pagination. The inbox is isolated to the current player. Requires a valid player token."`
 	PageNum  int `json:"pageNum" dc:"Page number; defaults to 1 when omitted or non-positive" eg:"1"`
 	PageSize int `json:"pageSize" dc:"Page size; defaults to 10 and is capped at 100" eg:"10"`
 }
@@ -31,7 +31,7 @@ type MessageItem struct {
 
 // MarkMessageReadReq is the request for marking one of the player's messages read.
 type MarkMessageReadReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/messages/{id}/read" method:"put" tags:"Sicau Niu Player" summary:"Mark a message read" dc:"Mark one of the authenticated player's own in-app messages as read. Marking a message that does not belong to the current player is rejected. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/messages/{id}/read" method:"put" tags:"寻牛小程序" summary:"标记消息已读" dc:"Mark one of the authenticated player's own in-app messages as read. Marking a message that does not belong to the current player is rejected. Requires a valid player token."`
 	Id     int64 `json:"id" v:"required" dc:"Target message ID owned by the current player" eg:"1"`
 }
 

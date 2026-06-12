@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListIronReq is the request for the operator iron-cow list query.
 type ListIronReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/iron" method:"get" tags:"Sicau Niu Admin" summary:"List iron-cows" dc:"List registered iron-cow identifiers with optional code/name fuzzy filtering, ordered by ID descending, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:iron:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/iron" method:"get" tags:"Sicau Niu Admin" summary:"查询铁牛列表" dc:"List registered iron-cow identifiers with optional code/name fuzzy filtering, ordered by ID descending, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:iron:list"`
 	Keyword  string `json:"keyword" dc:"Fuzzy filter by iron-cow code or name; lists all when omitted" eg:"IRON-01"`
 	PageNum  int    `json:"pageNum" dc:"Page number; defaults to 1 when omitted or non-positive" eg:"1"`
 	PageSize int    `json:"pageSize" dc:"Items per page; defaults to 10 and is capped at 100" eg:"10"`

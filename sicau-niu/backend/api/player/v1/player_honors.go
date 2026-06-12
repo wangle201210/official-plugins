@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // PlayerHonorsReq is the request for the player honor list.
 type PlayerHonorsReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/honors" method:"get" tags:"Sicau Niu Player" summary:"List player honors with unlock status" dc:"Return every honor definition with the requesting player's read-only unlock status, computed from their feeding count, activation count and card-collection completion against each honor's unlock rule. The endpoint is read-only and does not persist any grant. Counts are batch-aggregated to avoid per-honor queries. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/honors" method:"get" tags:"寻牛小程序" summary:"查询玩家荣誉解锁状态" dc:"Return every honor definition with the requesting player's read-only unlock status, computed from their feeding count, activation count and card-collection completion against each honor's unlock rule. The endpoint is read-only and does not persist any grant. Counts are batch-aggregated to avoid per-honor queries. Requires a valid player token."`
 }
 
 // PlayerHonorsRes is the response for the player honor list.

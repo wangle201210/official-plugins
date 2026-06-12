@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // CollectionReq is the request for the current player's personal card collection.
 type CollectionReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/player/cards" method:"get" tags:"Sicau Niu Player" summary:"List the player personal card collection" dc:"Return the main cards of the cattle the authenticated player has activated, derived from the player's own activation records and isolated to the current player. The optional category filter narrows the result to one card category. Cards are batch-assembled from the activated cattle to avoid N+1. Requires a valid player token."`
+	g.Meta   `path:"/plugins/sicau-niu/player/cards" method:"get" tags:"寻牛小程序" summary:"查询玩家个人图鉴" dc:"Return the main cards of the cattle the authenticated player has activated, derived from the player's own activation records and isolated to the current player. The optional category filter narrows the result to one card category. Cards are batch-assembled from the activated cattle to avoid N+1. Requires a valid player token."`
 	Category string `json:"category" dc:"Optional card category filter: person=人物, event=事件, research=科研, college=院系, spirit=精神; empty returns all owned cards" eg:"spirit"`
 }
 

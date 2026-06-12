@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // CheckinReq is the request for the player's daily check-in.
 type CheckinReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/checkin" method:"post" tags:"Sicau Niu Player" summary:"Daily check-in to receive grass" dc:"Check in once for the current natural day to receive a random grass grant (default 20–50) credited to the authenticated player's ledger account. A second check-in on the same day is rejected. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/checkin" method:"post" tags:"寻牛小程序" summary:"每日签到领取草料" dc:"Check in once for the current natural day to receive a random grass grant (default 20–50) credited to the authenticated player's ledger account. A second check-in on the same day is rejected. Requires a valid player token."`
 }
 
 // CheckinRes is the response for a successful daily check-in.

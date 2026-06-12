@@ -11,7 +11,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // FirstActivatorsReq is the request for the public first-activator wall.
 type FirstActivatorsReq struct {
-	g.Meta `path:"/plugins/sicau-niu/wall/first-activators" method:"get" tags:"Sicau Niu Wall" summary:"Public first-activator wall" dc:"Return the first-activator memorial wall: the players who were the first to activate a cattle (is_first), ordered by activation time ascending and capped at 120. This endpoint is public and requires no authentication. The response exposes only nicknames and activity information; it never returns phone numbers, openids or device fingerprints."`
+	g.Meta `path:"/plugins/sicau-niu/wall/first-activators" method:"get" tags:"Sicau Niu Wall" summary:"公共首发激活墙" dc:"Return the first-activator memorial wall: the players who were the first to activate a cattle (is_first), ordered by activation time ascending and capped at 120. This endpoint is public and requires no authentication. The response exposes only nicknames and activity information; it never returns phone numbers, openids or device fingerprints."`
 }
 
 // FirstActivatorsRes is the response for the public first-activator wall.
@@ -35,7 +35,7 @@ type FirstActivatorItem struct {
 
 // HighlightsReq is the request for the public campus-history highlights.
 type HighlightsReq struct {
-	g.Meta `path:"/plugins/sicau-niu/wall/highlights" method:"get" tags:"Sicau Niu Wall" summary:"Public campus-history highlights" dc:"Return a bounded sample of campus-history highlights: cattle history cards and enabled campus-history quotes for the H5 memorial wall to render. This endpoint is public and requires no authentication."`
+	g.Meta `path:"/plugins/sicau-niu/wall/highlights" method:"get" tags:"Sicau Niu Wall" summary:"公共校史亮点" dc:"Return a bounded sample of campus-history highlights: cattle history cards and enabled campus-history quotes for the H5 memorial wall to render. This endpoint is public and requires no authentication."`
 }
 
 // HighlightsRes is the response for the public campus-history highlights.
@@ -63,7 +63,7 @@ type HighlightQuote struct {
 
 // ConfigReq is the request for the public memorial-wall configuration.
 type ConfigReq struct {
-	g.Meta `path:"/plugins/sicau-niu/wall/config" method:"get" tags:"Sicau Niu Wall" summary:"Public memorial-wall config" dc:"Return the public memorial-wall configuration: the return-to-mini-program URL the H5 wall links to. This endpoint is public and requires no authentication and exposes no privacy detail. The URL is empty when unconfigured, in which case the H5 hides the back-to-mini-program entry."`
+	g.Meta `path:"/plugins/sicau-niu/wall/config" method:"get" tags:"Sicau Niu Wall" summary:"公共纪念墙配置" dc:"Return the public memorial-wall configuration: the return-to-mini-program URL the H5 wall links to. This endpoint is public and requires no authentication and exposes no privacy detail. The URL is empty when unconfigured, in which case the H5 hides the back-to-mini-program entry."`
 }
 
 // ConfigRes is the response for the public memorial-wall configuration.
@@ -73,7 +73,7 @@ type ConfigRes struct {
 
 // StatsReq is the request for the public activity stats.
 type StatsReq struct {
-	g.Meta `path:"/plugins/sicau-niu/wall/stats" method:"get" tags:"Sicau Niu Wall" summary:"Public activity stats" dc:"Return public activity statistics aggregated on the database side: the number of activated cattle, the total cattle count, the first-activator count and the participating-player count. This endpoint is public and requires no authentication and exposes no privacy detail."`
+	g.Meta `path:"/plugins/sicau-niu/wall/stats" method:"get" tags:"Sicau Niu Wall" summary:"公共活动统计" dc:"Return public activity statistics aggregated on the database side: the number of activated cattle, the total cattle count, the first-activator count and the participating-player count. This endpoint is public and requires no authentication and exposes no privacy detail."`
 }
 
 // StatsRes is the response for the public activity stats.

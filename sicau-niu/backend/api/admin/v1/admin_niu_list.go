@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListNiuReq is the request for the operator cattle list query.
 type ListNiuReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/niu" method:"get" tags:"Sicau Niu Admin" summary:"List cattle" dc:"List cattle with optional code/name fuzzy filtering and type filtering, ordered by ID descending, with DB-side pagination. The college name and main-card binding flag are batch-assembled to avoid N+1 queries. Protected by host unified permission check." permission:"sicau-niu:niu:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/niu" method:"get" tags:"Sicau Niu Admin" summary:"查询牛只列表" dc:"List cattle with optional code/name fuzzy filtering and type filtering, ordered by ID descending, with DB-side pagination. The college name and main-card binding flag are batch-assembled to avoid N+1 queries. Protected by host unified permission check." permission:"sicau-niu:niu:list"`
 	Keyword  string `json:"keyword" dc:"Fuzzy filter by cattle code or name; lists all when omitted" eg:"N001"`
 	NiuType  string `json:"niuType" dc:"Filter by cattle type: common=普通牛, special=特殊牛; lists all when omitted" eg:"special"`
 	PageNum  int    `json:"pageNum" dc:"Page number; defaults to 1 when omitted or non-positive" eg:"1"`

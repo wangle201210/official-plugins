@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // PosterReq is the request for the activation poster composition data.
 type PosterReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/poster" method:"get" tags:"Sicau Niu Player" summary:"Get activation poster data" dc:"Return the activation poster composition data for a cattle the authenticated player has activated: nickname, raw identity type (frontend maps to a label), cattle code, arrival order, a random enabled school-history quote and the campus anniversary badge. The player must have already activated the cattle, otherwise a business error is returned. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/poster" method:"get" tags:"寻牛小程序" summary:"获取激活海报数据" dc:"Return the activation poster composition data for a cattle the authenticated player has activated: nickname, raw identity type (frontend maps to a label), cattle code, arrival order, a random enabled school-history quote and the campus anniversary badge. The player must have already activated the cattle, otherwise a business error is returned. Requires a valid player token."`
 	NiuId  int64 `json:"niuId" v:"required" dc:"Target cattle ID the player has activated" eg:"1"`
 }
 

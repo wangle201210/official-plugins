@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // DeleteHonorReq is the request for deleting one honor definition.
 type DeleteHonorReq struct {
-	g.Meta `path:"/plugins/sicau-niu/admin/honors/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"Delete honor definition" dc:"Soft-delete one honor definition; it is recoverable. Protected by host unified permission check." permission:"sicau-niu:honor:delete"`
+	g.Meta `path:"/plugins/sicau-niu/admin/honors/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"删除荣誉定义" dc:"Soft-delete one honor definition; it is recoverable. Protected by host unified permission check." permission:"sicau-niu:honor:delete"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"Honor definition ID from the path" eg:"1"`
 }
 

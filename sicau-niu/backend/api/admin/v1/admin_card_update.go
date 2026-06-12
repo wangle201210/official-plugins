@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UpdateCardReq is the request for updating one card.
 type UpdateCardReq struct {
-	g.Meta    `path:"/plugins/sicau-niu/admin/cards/{id}" method:"put" tags:"Sicau Niu Admin" summary:"Update card" dc:"Update a card's owning cattle, category, title, content and image path. Re-binding to another cattle keeps the one-card-per-cattle constraint and requires the target cattle to exist. Protected by host unified permission check." permission:"sicau-niu:card:update"`
+	g.Meta    `path:"/plugins/sicau-niu/admin/cards/{id}" method:"put" tags:"Sicau Niu Admin" summary:"修改卡片" dc:"Update a card's owning cattle, category, title, content and image path. Re-binding to another cattle keeps the one-card-per-cattle constraint and requires the target cattle to exist. Protected by host unified permission check." permission:"sicau-niu:card:update"`
 	Id        int64  `json:"id" v:"required|min:1" dc:"Card ID from the path" eg:"1"`
 	NiuId     int64  `json:"niuId" v:"required|min:1" dc:"Owning cattle ID; must exist and must not already have another card" eg:"1"`
 	Category  string `json:"category" v:"required" dc:"Card category: person=人物, event=事件, research=科研, college=院系, spirit=精神" eg:"person"`

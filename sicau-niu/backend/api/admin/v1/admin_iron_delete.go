@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // DeleteIronReq is the request for deleting one iron-cow registration.
 type DeleteIronReq struct {
-	g.Meta `path:"/plugins/sicau-niu/admin/iron/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"Delete iron-cow" dc:"Soft-delete an iron-cow registration. Recoverable. Protected by host unified permission check." permission:"sicau-niu:iron:delete"`
+	g.Meta `path:"/plugins/sicau-niu/admin/iron/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"删除铁牛" dc:"Soft-delete an iron-cow registration. Recoverable. Protected by host unified permission check." permission:"sicau-niu:iron:delete"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"Iron-cow ID from the path" eg:"1"`
 }
 

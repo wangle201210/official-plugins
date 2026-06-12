@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListCardReq is the request for the operator card list query.
 type ListCardReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/cards" method:"get" tags:"Sicau Niu Admin" summary:"List cards" dc:"List cards with optional title fuzzy filtering and category filtering, ordered by ID descending, with DB-side pagination. The owning-cattle code and name are batch-assembled to avoid N+1 queries. Protected by host unified permission check." permission:"sicau-niu:card:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/cards" method:"get" tags:"Sicau Niu Admin" summary:"查询卡片列表" dc:"List cards with optional title fuzzy filtering and category filtering, ordered by ID descending, with DB-side pagination. The owning-cattle code and name are batch-assembled to avoid N+1 queries. Protected by host unified permission check." permission:"sicau-niu:card:list"`
 	Keyword  string `json:"keyword" dc:"Fuzzy filter by card title; lists all when omitted" eg:"校训"`
 	Category string `json:"category" dc:"Filter by category: person=人物, event=事件, research=科研, college=院系, spirit=精神; lists all when omitted" eg:"person"`
 	PageNum  int    `json:"pageNum" dc:"Page number; defaults to 1 when omitted or non-positive" eg:"1"`

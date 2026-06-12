@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // UpdateHonorReq is the request for updating one honor definition.
 type UpdateHonorReq struct {
-	g.Meta     `path:"/plugins/sicau-niu/admin/honors/{id}" method:"put" tags:"Sicau Niu Admin" summary:"Update honor definition" dc:"Update a honor definition's attributes. The code must stay unique among active honor definitions; honor-type/unlock-type/threshold/category rules match creation. Protected by host unified permission check." permission:"sicau-niu:honor:update"`
+	g.Meta     `path:"/plugins/sicau-niu/admin/honors/{id}" method:"put" tags:"Sicau Niu Admin" summary:"修改荣誉定义" dc:"Update a honor definition's attributes. The code must stay unique among active honor definitions; honor-type/unlock-type/threshold/category rules match creation. Protected by host unified permission check." permission:"sicau-niu:honor:update"`
 	Id         int64  `json:"id" v:"required|min:1" dc:"Honor definition ID from the path" eg:"1"`
 	HonorType  string `json:"honorType" v:"required" dc:"Honor type: badge=徽章, avatar_frame=头像框, certificate=证书" eg:"badge"`
 	Code       string `json:"code" v:"required|length:1,64" dc:"Honor unique code among active honor definitions" eg:"feed_bronze"`

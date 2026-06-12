@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListPlayersReq is the request for the operator player list query.
 type ListPlayersReq struct {
-	g.Meta       `path:"/plugins/sicau-niu/admin/players" method:"get" tags:"Sicau Niu Admin" summary:"List players" dc:"Read-only paged query of player basic information with optional nickname and identity-type filtering, ordered by newest first, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:player:list"`
+	g.Meta       `path:"/plugins/sicau-niu/admin/players" method:"get" tags:"Sicau Niu Admin" summary:"查询玩家列表" dc:"Read-only paged query of player basic information with optional nickname and identity-type filtering, ordered by newest first, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:player:list"`
 	Keyword      string `json:"keyword" dc:"Fuzzy filter by player nickname; lists all players when omitted" eg:"川农"`
 	IdentityType string `json:"identityType" dc:"Filter by identity tag: student=在校生, alumni=校友, friend=川农好友; lists all when omitted" eg:"student"`
 	PageNum      int    `json:"pageNum" dc:"Page number; defaults to 1 when omitted or non-positive" eg:"1"`

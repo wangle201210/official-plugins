@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // CreateHonorReq is the request for creating one honor definition.
 type CreateHonorReq struct {
-	g.Meta     `path:"/plugins/sicau-niu/admin/honors" method:"post" tags:"Sicau Niu Admin" summary:"Create honor definition" dc:"Create a honor definition with a unique code. The honor type and unlock rule must be valid enum values; count-based unlock rules (feed_count/activation_count) use threshold; the category_complete rule uses category. Protected by host unified permission check." permission:"sicau-niu:honor:create"`
+	g.Meta     `path:"/plugins/sicau-niu/admin/honors" method:"post" tags:"Sicau Niu Admin" summary:"新增荣誉定义" dc:"Create a honor definition with a unique code. The honor type and unlock rule must be valid enum values; count-based unlock rules (feed_count/activation_count) use threshold; the category_complete rule uses category. Protected by host unified permission check." permission:"sicau-niu:honor:create"`
 	HonorType  string `json:"honorType" v:"required" dc:"Honor type: badge=徽章, avatar_frame=头像框, certificate=证书" eg:"badge"`
 	Code       string `json:"code" v:"required|length:1,64" dc:"Honor unique code among active honor definitions" eg:"feed_bronze"`
 	Name       string `json:"name" v:"required|length:1,64" dc:"Honor display name" eg:"青铜喂草师"`

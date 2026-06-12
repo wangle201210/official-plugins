@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListQuoteReq is the request for the operator quote list query.
 type ListQuoteReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/quotes" method:"get" tags:"Sicau Niu Admin" summary:"List quotes" dc:"List school-history quotes with optional content fuzzy filtering, ordered by ID descending, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:quote:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/quotes" method:"get" tags:"Sicau Niu Admin" summary:"查询金句列表" dc:"List school-history quotes with optional content fuzzy filtering, ordered by ID descending, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:quote:list"`
 	Keyword  string `json:"keyword" dc:"Fuzzy filter by quote content; lists all when omitted" eg:"自强不息"`
 	PageNum  int    `json:"pageNum" dc:"Page number; defaults to 1 when omitted or non-positive" eg:"1"`
 	PageSize int    `json:"pageSize" dc:"Items per page; defaults to 10 and is capped at 100" eg:"10"`

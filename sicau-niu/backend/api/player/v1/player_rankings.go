@@ -10,7 +10,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // FeedRankingReq is the request for the personal feeding leaderboard.
 type FeedRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/rankings/feed" method:"get" tags:"Sicau Niu Player" summary:"Personal feeding leaderboard" dc:"Return the personal feeding leaderboard: players ranked by their total feeding effect (SUM of effect_amount) descending, capped at the configured Top-N, plus the requesting player's own rank and total. Aggregation runs on the database side. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/rankings/feed" method:"get" tags:"寻牛小程序" summary:"查询个人喂草榜" dc:"Return the personal feeding leaderboard: players ranked by their total feeding effect (SUM of effect_amount) descending, capped at the configured Top-N, plus the requesting player's own rank and total. Aggregation runs on the database side. Requires a valid player token."`
 }
 
 // FeedRankingRes is the response for the personal feeding leaderboard.
@@ -29,7 +29,7 @@ type FeedRankItem struct {
 
 // CollegeRankingReq is the request for the college leaderboard.
 type CollegeRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/rankings/college" method:"get" tags:"Sicau Niu Player" summary:"College leaderboard" dc:"Return the college leaderboard: enrolled-student players are aggregated by their college and each college's total feeding effect (SUM of effect_amount) is ranked descending, capped at the configured Top-N. Aggregation runs on the database side. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/rankings/college" method:"get" tags:"寻牛小程序" summary:"查询院系排行榜" dc:"Return the college leaderboard: enrolled-student players are aggregated by their college and each college's total feeding effect (SUM of effect_amount) is ranked descending, capped at the configured Top-N. Aggregation runs on the database side. Requires a valid player token."`
 }
 
 // CollegeRankingRes is the response for the college leaderboard.
@@ -47,7 +47,7 @@ type CollegeRankItem struct {
 
 // FriendRankingReq is the request for the SICAU-friend leaderboard.
 type FriendRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/rankings/friend" method:"get" tags:"Sicau Niu Player" summary:"SICAU-friend leaderboard" dc:"Return the SICAU-friend leaderboard: players whose identity is SICAU-friend (社会好友) ranked by their personal total feeding effect (SUM of effect_amount) descending, capped at the configured Top-N, plus the requesting player's own rank and total when the player is a SICAU-friend. Aggregation runs on the database side. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/rankings/friend" method:"get" tags:"寻牛小程序" summary:"查询川农好友榜" dc:"Return the SICAU-friend leaderboard: players whose identity is SICAU-friend (社会好友) ranked by their personal total feeding effect (SUM of effect_amount) descending, capped at the configured Top-N, plus the requesting player's own rank and total when the player is a SICAU-friend. Aggregation runs on the database side. Requires a valid player token."`
 }
 
 // FriendRankingRes is the response for the SICAU-friend leaderboard.

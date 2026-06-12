@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // DeleteQuoteReq is the request for deleting one quote.
 type DeleteQuoteReq struct {
-	g.Meta `path:"/plugins/sicau-niu/admin/quotes/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"Delete quote" dc:"Soft-delete a quote. Recoverable. Protected by host unified permission check." permission:"sicau-niu:quote:delete"`
+	g.Meta `path:"/plugins/sicau-niu/admin/quotes/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"删除金句" dc:"Soft-delete a quote. Recoverable. Protected by host unified permission check." permission:"sicau-niu:quote:delete"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"Quote ID from the path" eg:"1"`
 }
 

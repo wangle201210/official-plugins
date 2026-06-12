@@ -12,7 +12,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // DashboardReq is the request for the operations dashboard.
 type DashboardReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/dashboard" method:"get" tags:"Sicau Niu Settlement" summary:"Operations dashboard" dc:"Return the activity operations dashboard: player count, activated/total cattle, first-activator count, feeding count and total effect, steal/gift/check-in counts and granted-certificate count. Every figure is aggregated on the database side. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/dashboard" method:"get" tags:"Sicau Niu Settlement" summary:"运营数据看板" dc:"Return the activity operations dashboard: player count, activated/total cattle, first-activator count, feeding count and total effect, steal/gift/check-in counts and granted-certificate count. Every figure is aggregated on the database side. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // DashboardRes is the response for the operations dashboard.
@@ -31,7 +31,7 @@ type DashboardRes struct {
 
 // ExportPlayersReq is the request for the player roster export.
 type ExportPlayersReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/export/players" method:"get" tags:"Sicau Niu Settlement" summary:"Export player roster" dc:"Return a bounded player roster projection (nickname/identity/college/grade/activation count/feeding total) for CSV export. The roster is hard-capped; when more players exist the response is truncated and the truncated flag is set. The per-player activation count and feeding total are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:export"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/export/players" method:"get" tags:"Sicau Niu Settlement" summary:"导出玩家名册" dc:"Return a bounded player roster projection (nickname/identity/college/grade/activation count/feeding total) for CSV export. The roster is hard-capped; when more players exist the response is truncated and the truncated flag is set. The per-player activation count and feeding total are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:export"`
 }
 
 // ExportPlayersRes is the response for the player roster export.
@@ -54,7 +54,7 @@ type PlayerExportRow struct {
 
 // CertificateOptionsReq is the request for batch-issuable certificate options.
 type CertificateOptionsReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/certificates/options" method:"get" tags:"Sicau Niu Settlement" summary:"List batch-issuable certificate options" dc:"Return certificate honors that can be issued by the operator batch certificate action. Only certificate honors using participation, feed_count or activation_count unlock rules are returned; collection-based certificate honors are omitted because they are unlocked by individual collection progress and are rejected by batch settlement. The response is a bounded selector projection and is protected by the same batch-issue permission." permission:"sicau-niu:settlement:issue"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/certificates/options" method:"get" tags:"Sicau Niu Settlement" summary:"查询批量发证候选" dc:"Return certificate honors that can be issued by the operator batch certificate action. Only certificate honors using participation, feed_count or activation_count unlock rules are returned; collection-based certificate honors are omitted because they are unlocked by individual collection progress and are rejected by batch settlement. The response is a bounded selector projection and is protected by the same batch-issue permission." permission:"sicau-niu:settlement:issue"`
 }
 
 // CertificateOptionsRes is the response for batch-issuable certificate options.
@@ -73,7 +73,7 @@ type CertificateOption struct {
 
 // IssueCertificatesReq is the request for batch certificate issuance.
 type IssueCertificatesReq struct {
-	g.Meta  `path:"/plugins/sicau-niu/settlement/certificates/issue" method:"post" tags:"Sicau Niu Settlement" summary:"Batch issue certificate" dc:"Batch issue one certificate honor to the players who satisfy its unlock rule. Only certificate honors are accepted; participation/feed_count/activation_count unlock rules are settled here while collection rules (category_complete/full_complete) are rejected. Grants are written idempotently in a transaction; already-granted players are skipped. Protected by host unified permission check." permission:"sicau-niu:settlement:issue"`
+	g.Meta  `path:"/plugins/sicau-niu/settlement/certificates/issue" method:"post" tags:"Sicau Niu Settlement" summary:"批量发放证书" dc:"Batch issue one certificate honor to the players who satisfy its unlock rule. Only certificate honors are accepted; participation/feed_count/activation_count unlock rules are settled here while collection rules (category_complete/full_complete) are rejected. Grants are written idempotently in a transaction; already-granted players are skipped. Protected by host unified permission check." permission:"sicau-niu:settlement:issue"`
 	HonorId int64 `json:"honorId" v:"required|min:1" dc:"Certificate honor definition ID to issue" eg:"7"`
 }
 
@@ -86,7 +86,7 @@ type IssueCertificatesRes struct {
 
 // RiskDeviceClustersReq is the request for the shared-device risk view.
 type RiskDeviceClustersReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/risk/device-clusters" method:"get" tags:"Sicau Niu Settlement" summary:"Shared-device risk view" dc:"Return the shared-device risk view: clusters of players sharing one non-empty device fingerprint (one device, many accounts), with member nicknames, for manual review. Read-only and aggregated on the database side; bounded cluster count. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/risk/device-clusters" method:"get" tags:"Sicau Niu Settlement" summary:"查询共用设备风险" dc:"Return the shared-device risk view: clusters of players sharing one non-empty device fingerprint (one device, many accounts), with member nicknames, for manual review. Read-only and aggregated on the database side; bounded cluster count. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // RiskDeviceClustersRes is the response for the shared-device risk view.
@@ -109,7 +109,7 @@ type DeviceClusterMember struct {
 
 // ActivityReq is the request for the dashboard activity metrics.
 type ActivityReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/activity" method:"get" tags:"Sicau Niu Settlement" summary:"Dashboard activity metrics" dc:"Return the M5 dashboard activity metrics: the daily active-user (DAU) series for the last N days (N capped at 60) and the next-day / 7-day retention over elapsed registration cohorts. Active on a day means the player took any action (activate/feed/check-in/steal/gift) that day. Every figure is aggregated on the database side. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/activity" method:"get" tags:"Sicau Niu Settlement" summary:"查询活跃与留存指标" dc:"Return the M5 dashboard activity metrics: the daily active-user (DAU) series for the last N days (N capped at 60) and the next-day / 7-day retention over elapsed registration cohorts. Active on a day means the player took any action (activate/feed/check-in/steal/gift) that day. Every figure is aggregated on the database side. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 	Days   int `json:"days" v:"min:0|max:60" dc:"DAU window size in days; defaults to 14 when 0, capped at 60" eg:"14"`
 }
 
@@ -135,7 +135,7 @@ type RetentionStat struct {
 
 // RiskAnomaliesReq is the request for the risk anomaly alert view.
 type RiskAnomaliesReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/risk/anomalies" method:"get" tags:"Sicau Niu Settlement" summary:"Risk anomaly alerts" dc:"Return the M13 risk anomaly alerts: players whose single-day feeding or steal count exceeds the configured threshold, with player, nickname, behaviour type, day, that day's count and the threshold, for manual review. Read-only, aggregated on the database side and bounded. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/risk/anomalies" method:"get" tags:"Sicau Niu Settlement" summary:"查询风控异常告警" dc:"Return the M13 risk anomaly alerts: players whose single-day feeding or steal count exceeds the configured threshold, with player, nickname, behaviour type, day, that day's count and the threshold, for manual review. Read-only, aggregated on the database side and bounded. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // RiskAnomaliesRes is the response for the risk anomaly alert view.
@@ -145,7 +145,7 @@ type RiskAnomaliesRes struct {
 
 // RulesReq is the request for operator runtime rules.
 type RulesReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/rules" method:"get" tags:"Sicau Niu Settlement" summary:"Get runtime rules" dc:"Return the operator-maintained runtime rules for activation, posters, check-in, steal, gift, iron bonus, ranking, anomaly alerting and H5 mini-program link. The values are read from the plugin-owned rule_config table and normalized with built-in defaults. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/rules" method:"get" tags:"Sicau Niu Settlement" summary:"获取运行规则" dc:"Return the operator-maintained runtime rules for activation, posters, check-in, steal, gift, iron bonus, ranking, anomaly alerting and H5 mini-program link. The values are read from the plugin-owned rule_config table and normalized with built-in defaults. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // RulesRes is the response for operator runtime rules.
@@ -153,7 +153,7 @@ type RulesRes RuleConfig
 
 // UpdateRulesReq is the request for updating operator runtime rules.
 type UpdateRulesReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/rules" method:"put" tags:"Sicau Niu Settlement" summary:"Update runtime rules" dc:"Replace the complete operator-maintained runtime rule set. All numeric fields must be positive, min values must not exceed max values, ranking/anomaly caps are bounded, and values apply to subsequent player and operator requests without process-local cache invalidation. Protected by host unified permission check." permission:"sicau-niu:settlement:rules"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/rules" method:"put" tags:"Sicau Niu Settlement" summary:"更新运行规则" dc:"Replace the complete operator-maintained runtime rule set. All numeric fields must be positive, min values must not exceed max values, ranking/anomaly caps are bounded, and values apply to subsequent player and operator requests without process-local cache invalidation. Protected by host unified permission check." permission:"sicau-niu:settlement:rules"`
 	RuleConfig
 }
 
@@ -184,7 +184,7 @@ type RuleConfig struct {
 
 // FeedRankingReq is the operator request for the feed leaderboard.
 type FeedRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/feed" method:"get" tags:"Sicau Niu Settlement" summary:"Operator feed leaderboard" dc:"Return the Top-N personal feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and nicknames are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/feed" method:"get" tags:"Sicau Niu Settlement" summary:"查询运营喂草榜" dc:"Return the Top-N personal feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and nicknames are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // FeedRankingRes is the operator feed leaderboard response.
@@ -194,7 +194,7 @@ type FeedRankingRes struct {
 
 // FriendRankingReq is the operator request for the SICAU-friend leaderboard.
 type FriendRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/friend" method:"get" tags:"Sicau Niu Settlement" summary:"Operator friend leaderboard" dc:"Return the Top-N SICAU-friend feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and nicknames are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/friend" method:"get" tags:"Sicau Niu Settlement" summary:"查询运营川农好友榜" dc:"Return the Top-N SICAU-friend feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and nicknames are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // FriendRankingRes is the operator SICAU-friend leaderboard response.
@@ -204,7 +204,7 @@ type FriendRankingRes struct {
 
 // CollegeRankingReq is the operator request for the college leaderboard.
 type CollegeRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/college" method:"get" tags:"Sicau Niu Settlement" summary:"Operator college leaderboard" dc:"Return the Top-N college feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and college names are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/rankings/college" method:"get" tags:"Sicau Niu Settlement" summary:"查询运营院系排行榜" dc:"Return the Top-N college feeding leaderboard for operators. Aggregation and Top-N limiting run on the database side and college names are batch-assembled to avoid N+1. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // CollegeRankingRes is the operator college leaderboard response.
@@ -240,7 +240,7 @@ type AnomalyAlert struct {
 
 // CreateArchiveReq is the request for creating a settlement archive.
 type CreateArchiveReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/archives" method:"post" tags:"Sicau Niu Settlement" summary:"Create settlement archive" dc:"Freeze the current dashboard metrics into a persisted settlement snapshot with the given title. Protected by host unified permission check." permission:"sicau-niu:settlement:archive"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/archives" method:"post" tags:"Sicau Niu Settlement" summary:"创建结算归档" dc:"Freeze the current dashboard metrics into a persisted settlement snapshot with the given title. Protected by host unified permission check." permission:"sicau-niu:settlement:archive"`
 	Title  string `json:"title" v:"required|length:1,128" dc:"Archive title" eg:"寻牛活动结算公示 2026"`
 }
 
@@ -251,7 +251,7 @@ type CreateArchiveRes struct {
 
 // ListArchivesReq is the request for the settlement archive list.
 type ListArchivesReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/archives" method:"get" tags:"Sicau Niu Settlement" summary:"List settlement archives" dc:"Return the settlement archives ordered by archive time descending, bounded. Each item carries the frozen dashboard snapshot JSON. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/archives" method:"get" tags:"Sicau Niu Settlement" summary:"查询结算归档列表" dc:"Return the settlement archives ordered by archive time descending, bounded. Each item carries the frozen dashboard snapshot JSON. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // ListArchivesRes is the response for the settlement archive list.

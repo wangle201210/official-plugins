@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // GetProfileReq is the request for reading the current player's profile.
 type GetProfileReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/profile" method:"get" tags:"Sicau Niu Player" summary:"Get current player profile" dc:"Return the current player's own identity profile. Requires a valid player token; only the authenticated player's data is returned."`
+	g.Meta `path:"/plugins/sicau-niu/player/profile" method:"get" tags:"寻牛小程序" summary:"获取当前玩家资料" dc:"Return the current player's own identity profile. Requires a valid player token; only the authenticated player's data is returned."`
 }
 
 // GetProfileRes is the response for reading the current player's profile.
@@ -26,7 +26,7 @@ type GetProfileRes struct {
 
 // UpdateProfileReq is the request for updating the current player's profile.
 type UpdateProfileReq struct {
-	g.Meta         `path:"/plugins/sicau-niu/player/profile" method:"put" tags:"Sicau Niu Player" summary:"Update current player profile" dc:"Update the current player's nickname, identity tag, college, grade and graduation year. Students must select an existing college and a positive grade; alumni and friends may omit college/grade. Requires a valid player token."`
+	g.Meta         `path:"/plugins/sicau-niu/player/profile" method:"put" tags:"寻牛小程序" summary:"更新当前玩家资料" dc:"Update the current player's nickname, identity tag, college, grade and graduation year. Students must select an existing college and a positive grade; alumni and friends may omit college/grade. Requires a valid player token."`
 	Nickname       string `json:"nickname" dc:"Player nickname" eg:"川农牛同学"`
 	Avatar         string `json:"avatar" dc:"Player avatar URL" eg:"https://example.com/a.png"`
 	IdentityType   string `json:"identityType" v:"required" dc:"Identity tag: student=在校生, alumni=校友, friend=川农好友" eg:"student"`

@@ -10,7 +10,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // FeedingsReq is the request for the feeding-record query.
 type FeedingsReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/records/feedings" method:"get" tags:"Sicau Niu Record" summary:"List feeding records" dc:"Read-only paged feeding records with optional cattle and player filtering, newest first, DB-side pagination; player and cattle names are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/records/feedings" method:"get" tags:"Sicau Niu Record" summary:"查询喂草记录" dc:"Read-only paged feeding records with optional cattle and player filtering, newest first, DB-side pagination; player and cattle names are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	NiuId    int64 `json:"niuId" dc:"Filter by cattle ID; lists all when 0" eg:"1"`
 	UserId   int64 `json:"userId" dc:"Filter by player ID; lists all when 0" eg:"0"`
 	PageNum  int   `json:"pageNum" dc:"Page number; defaults to 1" eg:"1"`
@@ -41,7 +41,7 @@ type FeedingItem struct {
 
 // StealsReq is the request for the steal-record query.
 type StealsReq struct {
-	g.Meta       `path:"/plugins/sicau-niu/admin/records/steals" method:"get" tags:"Sicau Niu Record" summary:"List steal records" dc:"Read-only paged steal records with optional actor and target filtering; actor and target nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta       `path:"/plugins/sicau-niu/admin/records/steals" method:"get" tags:"Sicau Niu Record" summary:"查询偷草记录" dc:"Read-only paged steal records with optional actor and target filtering; actor and target nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	ActorUserId  int64 `json:"actorUserId" dc:"Filter by steal actor player ID; lists all when 0" eg:"0"`
 	TargetUserId int64 `json:"targetUserId" dc:"Filter by stolen-from player ID; lists all when 0" eg:"0"`
 	PageNum      int   `json:"pageNum" eg:"1"`
@@ -68,7 +68,7 @@ type StealItem struct {
 
 // GiftsReq is the request for the gift-record query.
 type GiftsReq struct {
-	g.Meta     `path:"/plugins/sicau-niu/admin/records/gifts" method:"get" tags:"Sicau Niu Record" summary:"List gift records" dc:"Read-only paged gift records with optional sender and receiver filtering; sender and receiver nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta     `path:"/plugins/sicau-niu/admin/records/gifts" method:"get" tags:"Sicau Niu Record" summary:"查询赠草记录" dc:"Read-only paged gift records with optional sender and receiver filtering; sender and receiver nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	FromUserId int64 `json:"fromUserId" dc:"Filter by gift sender player ID; lists all when 0" eg:"0"`
 	ToUserId   int64 `json:"toUserId" dc:"Filter by gift receiver player ID; lists all when 0" eg:"0"`
 	PageNum    int   `json:"pageNum" eg:"1"`
@@ -95,7 +95,7 @@ type GiftItem struct {
 
 // CheckinsReq is the request for the check-in-record query.
 type CheckinsReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/records/checkins" method:"get" tags:"Sicau Niu Record" summary:"List check-in records" dc:"Read-only paged check-in records with optional player filtering; player nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/records/checkins" method:"get" tags:"Sicau Niu Record" summary:"查询签到记录" dc:"Read-only paged check-in records with optional player filtering; player nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	UserId   int64 `json:"userId" dc:"Filter by player ID; lists all when 0" eg:"0"`
 	PageNum  int   `json:"pageNum" eg:"1"`
 	PageSize int   `json:"pageSize" eg:"10"`
@@ -119,7 +119,7 @@ type CheckinItem struct {
 
 // ActivationsReq is the request for the activation-record query.
 type ActivationsReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/records/activations" method:"get" tags:"Sicau Niu Record" summary:"List activation records" dc:"Read-only paged activation records with optional player and cattle filtering; player and cattle names are batch-assembled and the uploaded activation photo path is returned in the same page projection. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/records/activations" method:"get" tags:"Sicau Niu Record" summary:"查询激活记录" dc:"Read-only paged activation records with optional player and cattle filtering; player and cattle names are batch-assembled and the uploaded activation photo path is returned in the same page projection. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	UserId   int64 `json:"userId" dc:"Filter by player ID; lists all when 0" eg:"0"`
 	NiuId    int64 `json:"niuId" dc:"Filter by cattle ID; lists all when 0" eg:"0"`
 	PageNum  int   `json:"pageNum" eg:"1"`
@@ -150,7 +150,7 @@ type ActivationItem struct {
 
 // ActivationAttemptsReq is the request for the activation-attempt audit query.
 type ActivationAttemptsReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/records/activation-attempts" method:"get" tags:"Sicau Niu Record" summary:"List activation attempt records" dc:"Read-only paged photo check-in activation attempt audit records; player and cattle names are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/records/activation-attempts" method:"get" tags:"Sicau Niu Record" summary:"查询激活尝试记录" dc:"Read-only paged photo check-in activation attempt audit records; player and cattle names are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	UserId   int64  `json:"userId" dc:"Filter by player ID; lists all when 0" eg:"0"`
 	NiuId    int64  `json:"niuId" dc:"Filter by activated or nearest cattle ID; lists all when 0" eg:"0"`
 	Result   string `json:"result" dc:"Filter by attempt result: success, no_nearby, out_of_range; lists all when empty" eg:"out_of_range"`
@@ -187,7 +187,7 @@ type ActivationAttemptItem struct {
 
 // GrassTxnsReq is the request for the grass-ledger query.
 type GrassTxnsReq struct {
-	g.Meta   `path:"/plugins/sicau-niu/admin/records/grass-txns" method:"get" tags:"Sicau Niu Record" summary:"List grass ledger" dc:"Read-only paged grass-account ledger entries with optional player filtering; player nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
+	g.Meta   `path:"/plugins/sicau-niu/admin/records/grass-txns" method:"get" tags:"Sicau Niu Record" summary:"查询草料流水" dc:"Read-only paged grass-account ledger entries with optional player filtering; player nicknames are batch-assembled. Protected by host unified permission check." permission:"sicau-niu:record:list"`
 	UserId   int64 `json:"userId" dc:"Filter by player ID; lists all when 0" eg:"0"`
 	PageNum  int   `json:"pageNum" eg:"1"`
 	PageSize int   `json:"pageSize" eg:"10"`

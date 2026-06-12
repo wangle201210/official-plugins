@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // VisibleNiuReq is the request for the current player's visible-cattle map list.
 type VisibleNiuReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/niu" method:"get" tags:"Sicau Niu Player" summary:"List visible cattle for the map" dc:"Return the cattle currently visible to the authenticated player, filtered by online time reached plus optional weekday/time window. Each item carries its GPS anchor, shared-pool activation status and whether the current player has already activated it. The visible set is bounded (≤120) and returned in one response; statuses are batch-assembled to avoid N+1. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/niu" method:"get" tags:"寻牛小程序" summary:"查询地图可见牛只" dc:"Return the cattle currently visible to the authenticated player, filtered by online time reached plus optional weekday/time window. Each item carries its GPS anchor, shared-pool activation status and whether the current player has already activated it. The visible set is bounded (≤120) and returned in one response; statuses are batch-assembled to avoid N+1. Requires a valid player token."`
 }
 
 // VisibleNiuRes is the response for the current player's visible-cattle map list.

@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ListHonorReq is the request for the operator honor-definition list query.
 type ListHonorReq struct {
-	g.Meta     `path:"/plugins/sicau-niu/admin/honors" method:"get" tags:"Sicau Niu Admin" summary:"List honor definitions" dc:"List honor definitions with optional code/name fuzzy filtering and honor-type/unlock-type filtering, ordered by sort then ID descending, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:honor:list"`
+	g.Meta     `path:"/plugins/sicau-niu/admin/honors" method:"get" tags:"Sicau Niu Admin" summary:"查询荣誉定义列表" dc:"List honor definitions with optional code/name fuzzy filtering and honor-type/unlock-type filtering, ordered by sort then ID descending, with DB-side pagination. Protected by host unified permission check." permission:"sicau-niu:honor:list"`
 	Keyword    string `json:"keyword" dc:"Fuzzy filter by honor code or name; lists all when omitted" eg:"feed_bronze"`
 	HonorType  string `json:"honorType" dc:"Filter by honor type: badge=徽章, avatar_frame=头像框, certificate=证书; lists all when omitted" eg:"badge"`
 	UnlockType string `json:"unlockType" dc:"Filter by unlock rule: participation=参与即得, feed_count=喂草次数, activation_count=激活数, category_complete=集齐分类, full_complete=集齐全套; lists all when omitted" eg:"feed_count"`

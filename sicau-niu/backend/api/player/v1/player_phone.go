@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 // BindPhoneReq is the request for binding a WeChat-authorized phone number to
 // the current player.
 type BindPhoneReq struct {
-	g.Meta            `path:"/plugins/sicau-niu/player/phone" method:"post" tags:"Sicau Niu Player" summary:"Bind player phone number" dc:"Bind a WeChat-authorized phone number to the current player under the one-phone-one-account constraint, recording a device fingerprint. Requires a valid player token."`
+	g.Meta            `path:"/plugins/sicau-niu/player/phone" method:"post" tags:"寻牛小程序" summary:"绑定玩家手机号" dc:"Bind a WeChat-authorized phone number to the current player under the one-phone-one-account constraint, recording a device fingerprint. Requires a valid player token."`
 	Code              string `json:"code" dc:"New-style getPhoneNumber authorization code; provide either code or encryptedData+iv. In mock mode the code or phone field carries the plain phone number." eg:"e2c1f3a..."`
 	EncryptedData     string `json:"encryptedData" dc:"Legacy encrypted phone payload from getPhoneNumber; optional when code is provided" eg:""`
 	Iv                string `json:"iv" dc:"Legacy decryption initialization vector paired with encryptedData; optional when code is provided" eg:""`

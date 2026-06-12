@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // DeleteCardReq is the request for deleting one card.
 type DeleteCardReq struct {
-	g.Meta `path:"/plugins/sicau-niu/admin/cards/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"Delete card" dc:"Soft-delete a card, freeing its owning cattle to be bound again. Recoverable. Protected by host unified permission check." permission:"sicau-niu:card:delete"`
+	g.Meta `path:"/plugins/sicau-niu/admin/cards/{id}" method:"delete" tags:"Sicau Niu Admin" summary:"删除卡片" dc:"Soft-delete a card, freeing its owning cattle to be bound again. Recoverable. Protected by host unified permission check." permission:"sicau-niu:card:delete"`
 	Id     int64 `json:"id" v:"required|min:1" dc:"Card ID from the path" eg:"1"`
 }
 

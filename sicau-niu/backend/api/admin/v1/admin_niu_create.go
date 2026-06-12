@@ -7,7 +7,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // CreateNiuReq is the request for creating one cattle.
 type CreateNiuReq struct {
-	g.Meta          `path:"/plugins/sicau-niu/admin/niu" method:"post" tags:"Sicau Niu Admin" summary:"Create cattle" dc:"Create a cattle with a unique code. Common cattle omit name/subtype/college; special cattle carry a name and subtype, and college subtype cattle must link an existing college. Status defaults to inactive. Protected by host unified permission check." permission:"sicau-niu:niu:create"`
+	g.Meta          `path:"/plugins/sicau-niu/admin/niu" method:"post" tags:"Sicau Niu Admin" summary:"新增牛只" dc:"Create a cattle with a unique code. Common cattle omit name/subtype/college; special cattle carry a name and subtype, and college subtype cattle must link an existing college. Status defaults to inactive. Protected by host unified permission check." permission:"sicau-niu:niu:create"`
 	Code            string  `json:"code" v:"required|length:1,64" dc:"Cattle serial code; must be unique among active cattle" eg:"N001"`
 	NiuType         string  `json:"niuType" v:"required" dc:"Cattle type: common=普通牛, special=特殊牛" eg:"special"`
 	SpecialSubtype  string  `json:"specialSubtype" dc:"Special subtype: college=学院, contribution=贡献, alumni=校友, spirit=精神; required for special cattle, must be empty for common" eg:"college"`

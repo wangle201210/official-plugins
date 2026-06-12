@@ -5,11 +5,16 @@ package backend
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"lina-core/pkg/plugin/capability/plugincap"
+	playerv1 "lina-plugin-sicau-niu/backend/api/player/v1"
 	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
 )
 
@@ -112,6 +117,73 @@ func TestRefreshIronLocationsUsesInjectedRefresherOnPrimaryNode(t *testing.T) {
 	}
 	if !refresher.called {
 		t.Fatalf("expected primary node to call refresher")
+	}
+}
+
+func TestPlayerRequestDTOsUseMiniProgramAPIDocTag(t *testing.T) {
+	requests := []interface{}{
+		playerv1.ActivateReq{},
+		playerv1.CollectionReq{},
+		playerv1.CertificateReq{},
+		playerv1.CheckinReq{},
+		playerv1.CollegeOptionsReq{},
+		playerv1.FeedReq{},
+		playerv1.FeedingTrailReq{},
+		playerv1.GiftReq{},
+		playerv1.GrassAccountReq{},
+		playerv1.PlayerHonorsReq{},
+		playerv1.LoginReq{},
+		playerv1.MessagesReq{},
+		playerv1.MarkMessageReadReq{},
+		playerv1.VisibleNiuReq{},
+		playerv1.BindPhoneReq{},
+		playerv1.PosterReq{},
+		playerv1.GetProfileReq{},
+		playerv1.UpdateProfileReq{},
+		playerv1.FeedRankingReq{},
+		playerv1.CollegeRankingReq{},
+		playerv1.FriendRankingReq{},
+		playerv1.StealTargetsReq{},
+		playerv1.StealReq{},
+	}
+	for _, request := range requests {
+		reqType := reflect.TypeOf(request)
+		metaField := reqType.Field(0)
+		metaTag := string(metaField.Tag)
+		if !strings.Contains(metaTag, `tags:"寻牛小程序"`) {
+			t.Fatalf("expected %s to use mini-program API doc tag, got tag=%s", reqType.Name(), metaTag)
+		}
+		if strings.Contains(metaTag, `tags:"Sicau Niu Player"`) {
+			t.Fatalf("expected %s to avoid legacy player API doc tag, got tag=%s", reqType.Name(), metaTag)
+		}
+	}
+}
+
+func TestAPIDocSummariesUseChinese(t *testing.T) {
+	summaryPattern := regexp.MustCompile(`summary:"([^"]*)"`)
+	chinesePattern := regexp.MustCompile(`[\p{Han}]`)
+	apiRoot := filepath.Join("api")
+	err := filepath.WalkDir(apiRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		matches := summaryPattern.FindAllStringSubmatch(string(content), -1)
+		for _, match := range matches {
+			if !chinesePattern.MatchString(match[1]) {
+				t.Fatalf("expected %s summary to use Chinese, got %q", path, match[1])
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk API files: %v", err)
 	}
 }
 

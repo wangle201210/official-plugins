@@ -8,7 +8,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // LoginReq is the request for WeChat mini-program player login.
 type LoginReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/login" method:"post" tags:"Sicau Niu Player" summary:"WeChat player login" dc:"Exchange a WeChat mini-program login code for a player session token. Provisions the player account on first login. This endpoint is public and requires no authentication."`
+	g.Meta `path:"/plugins/sicau-niu/player/login" method:"post" tags:"寻牛小程序" summary:"微信小程序玩家登录" dc:"Exchange a WeChat mini-program login code for a player session token. Provisions the player account on first login. This endpoint is public and requires no authentication."`
 	Code   string `json:"code" v:"required" dc:"WeChat mini-program login code returned by wx.login, exchanged server-side for the player's openid" eg:"081xACFa1bZ2..."`
 }
 

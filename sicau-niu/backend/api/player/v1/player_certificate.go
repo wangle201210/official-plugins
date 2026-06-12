@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // CertificateReq is the request for the player electronic certificate.
 type CertificateReq struct {
-	g.Meta  `path:"/plugins/sicau-niu/player/certificates" method:"get" tags:"Sicau Niu Player" summary:"Get player electronic certificate" dc:"Return the personalized electronic certificate for a certificate honor the authenticated player already holds: the base64-encoded PNG plus the holder nickname, honor name/code and grant time. The honor must be a certificate type and the player must already hold it, otherwise a business error is returned. Requires a valid player token."`
+	g.Meta  `path:"/plugins/sicau-niu/player/certificates" method:"get" tags:"寻牛小程序" summary:"获取玩家电子证书" dc:"Return the personalized electronic certificate for a certificate honor the authenticated player already holds: the base64-encoded PNG plus the holder nickname, honor name/code and grant time. The honor must be a certificate type and the player must already hold it, otherwise a business error is returned. Requires a valid player token."`
 	HonorId int64 `json:"honorId" v:"required|min:1" dc:"Certificate honor definition ID the player holds" eg:"7"`
 }
 
