@@ -60,9 +60,12 @@ func (m *PlayerAuth) Handle(r *ghttp.Request) {
 
 // abort records the authentication error and stops the request with a 401 so
 // the host unified response middleware renders the structured business error.
+// The status is assigned without writing a body: WriteStatus would buffer the
+// plain "Unauthorized" text and the host response middleware skips rendering
+// whenever the buffer is non-empty, which would drop the structured error.
 func (m *PlayerAuth) abort(r *ghttp.Request, err error) {
 	r.SetError(err)
-	r.Response.WriteStatus(http.StatusUnauthorized)
+	r.Response.Status = http.StatusUnauthorized
 }
 
 // extractBearerToken parses the bearer token from the Authorization header value.
