@@ -62,6 +62,42 @@ func (s mediaRoutePluginServices) Config() plugincap.ConfigService {
 	return s.config
 }
 
+// mediaRouteHTTPRegistrar lets tests observe media route registration side effects.
+type mediaRouteHTTPRegistrar struct {
+	routes            pluginhost.RouteRegistrar
+	globalMiddlewares pluginhost.GlobalMiddlewareRegistrar
+	services          pluginhost.Services
+}
+
+// Routes returns the test route registrar.
+func (r *mediaRouteHTTPRegistrar) Routes() pluginhost.RouteRegistrar {
+	return r.routes
+}
+
+// GlobalMiddlewares returns the observable global middleware registrar.
+func (r *mediaRouteHTTPRegistrar) GlobalMiddlewares() pluginhost.GlobalMiddlewareRegistrar {
+	return r.globalMiddlewares
+}
+
+// Services returns the test host services.
+func (r *mediaRouteHTTPRegistrar) Services() pluginhost.Services {
+	return r.services
+}
+
+// mediaRouteCountingGlobalMiddlewares counts global middleware registration calls.
+type mediaRouteCountingGlobalMiddlewares struct {
+	bindCalls atomic.Int32
+}
+
+// Bind records one global middleware registration attempt.
+func (r *mediaRouteCountingGlobalMiddlewares) Bind(
+	_ pluginhost.MiddlewareScope,
+	_ pluginhost.MiddlewareHandler,
+) error {
+	r.bindCalls.Add(1)
+	return nil
+}
+
 // mediaRouteCache stores route-memory values for route boundary tests.
 type mediaRouteCache struct {
 	values map[string]string
@@ -873,41 +909,54 @@ func TestMediaPluginAPIDocsPageLoadsMediaDocument(t *testing.T) {
 	}
 }
 
-// TestMediaPluginBlocksHostAPIDocsPage verifies the media plugin can disable
-// the host-wide Stoplight HTML page without touching lina-core code.
-func TestMediaPluginBlocksHostAPIDocsPage(t *testing.T) {
+// TestMediaPluginDoesNotRegisterGlobalAPIDocsBlock verifies media no longer
+// installs host-wide API-document interception middleware.
+func TestMediaPluginDoesNotRegisterGlobalAPIDocsBlock(t *testing.T) {
 	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
 
-	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
-		mediaRouteNoOpMiddleware,
-		mediaRouteTestResponse,
-		mediaRouteNoOpMiddleware,
-		mediaRouteNoOpMiddleware,
-		mediaRouteNoOpMiddleware,
-		mediaRouteNoOpMiddleware,
-		mediaRouteNoOpMiddleware,
-		mediaRouteNoOpMiddleware,
-	))
-	defer shutdown()
+	server := g.Server(fmt.Sprintf("media-route-registration-test-%d", time.Now().UnixNano()))
+	server.SetDumpRouterMap(false)
 
-	response := doMediaRouteRequest(
-		t,
-		http.MethodGet,
-		baseURL+mediaHostAPIDocsPagePath,
-		"",
-	)
-	if response.status != http.StatusNotFound {
-		t.Fatalf("expected host-wide apidocs page to return 404, got status=%d body=%s", response.status, response.body)
+	configFactory := plugincap.NewConfigFactory(t.TempDir(), t.TempDir())
+	if content, _ := mediaRouteConfigContent.Load().(string); strings.TrimSpace(content) != "" {
+		configFactory = configFactory.WithArtifactConfig(pluginID, []byte(content))
 	}
+	hostServices := &mediaRouteHostServices{
+		bizCtx: bizctxcap.New(nil),
+		cache:  newMediaRouteCache(),
+		plugins: mediaRoutePluginServices{
+			config: configFactory.ForPlugin(pluginID),
+		},
+	}
+	globalMiddlewares := &mediaRouteCountingGlobalMiddlewares{}
 
-	mediaResponse := doMediaRouteRequest(
-		t,
-		http.MethodGet,
-		baseURL+"/api/v1/media/apidocs.html",
-		"",
-	)
-	if mediaResponse.status != http.StatusOK {
-		t.Fatalf("expected media apidocs page to stay available, got status=%d body=%s", mediaResponse.status, mediaResponse.body)
+	server.Group("/", func(group *ghttp.RouterGroup) {
+		registrar := &mediaRouteHTTPRegistrar{
+			routes: pluginhost.NewRouteRegistrar(
+				group,
+				pluginID,
+				func(context.Context, string) bool { return true },
+				pluginhost.NewRouteMiddlewares(
+					mediaRouteNoOpMiddleware,
+					mediaRouteTestResponse,
+					mediaRouteNoOpMiddleware,
+					mediaRouteNoOpMiddleware,
+					mediaRouteNoOpMiddleware,
+					mediaRouteNoOpMiddleware,
+					mediaRouteNoOpMiddleware,
+					mediaRouteNoOpMiddleware,
+				),
+			),
+			globalMiddlewares: globalMiddlewares,
+			services:          hostServices,
+		}
+		if err := registerRoutes(context.Background(), registrar); err != nil {
+			t.Fatalf("register media routes: %v", err)
+		}
+	})
+
+	if globalMiddlewares.bindCalls.Load() != 0 {
+		t.Fatalf("expected media plugin to avoid global middleware registration, got %d calls", globalMiddlewares.bindCalls.Load())
 	}
 }
 
