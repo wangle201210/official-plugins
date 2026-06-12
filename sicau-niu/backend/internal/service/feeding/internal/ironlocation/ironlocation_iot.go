@@ -422,13 +422,14 @@ type locatorListResponse struct {
 	} `json:"data"`
 }
 
-// locatorItem is one IOT locator projection returned by getInfoList.
+// locatorItem is one IOT locator projection returned by getInfoList. The
+// platform also returns raw GPS lat/lon fields, but they are WGS-84 and are
+// deliberately not decoded: only the Gaode latitude/longitude (GCJ-02) fields
+// may enter the iron table, matching the plugin-wide GCJ-02 coordinate system.
 type locatorItem struct {
 	LocatorNo      string `json:"locatorNo"`
 	Latitude       string `json:"latitude"`
 	Longitude      string `json:"longitude"`
-	Lat            string `json:"lat"`
-	Lon            string `json:"lon"`
 	LastLocateTime string `json:"lastLocateTime"`
 }
 
@@ -439,8 +440,11 @@ type locatorLocation struct {
 	Lng  float64
 }
 
-// location normalizes a locator item into a usable coordinate. It prefers the
-// documented Gaode latitude/longitude fields and falls back to raw GPS lat/lon.
+// location normalizes a locator item into a usable coordinate. Only the
+// documented Gaode latitude/longitude fields (GCJ-02) are accepted; when they
+// are missing or invalid the item is skipped and the iron cow keeps its last
+// synced position, so a WGS-84 raw GPS value can never mix into the GCJ-02
+// iron table and silently break the ~12m proximity-bonus threshold.
 func (i locatorItem) location() (locatorLocation, bool) {
 	code := strings.TrimSpace(i.LocatorNo)
 	if code == "" {
@@ -449,10 +453,6 @@ func (i locatorItem) location() (locatorLocation, bool) {
 
 	lat, latOK := parseCoordinate(i.Latitude, -90, 90)
 	lng, lngOK := parseCoordinate(i.Longitude, -180, 180)
-	if !latOK || !lngOK {
-		lat, latOK = parseCoordinate(i.Lat, -90, 90)
-		lng, lngOK = parseCoordinate(i.Lon, -180, 180)
-	}
 	if !latOK || !lngOK {
 		return locatorLocation{}, false
 	}

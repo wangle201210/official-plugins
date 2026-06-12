@@ -7,6 +7,7 @@ package ironlocation
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -86,22 +87,18 @@ func TestIOTTokenAndLocatorListRequests(t *testing.T) {
 	}
 }
 
-func TestLocatorItemFallsBackToRawGPS(t *testing.T) {
-	item := locatorItem{
-		LocatorNo:      "IRON-RAW",
-		Latitude:       "",
-		Longitude:      "",
-		Lat:            "30.1",
-		Lon:            "103.2",
-		LastLocateTime: "bad-time",
+func TestLocatorItemWithoutGaodeCoordinatesSkipped(t *testing.T) {
+	// The raw payload carries only WGS-84 lat/lon; the Gaode (GCJ-02) fields are
+	// empty. The item must be skipped so a WGS-84 value never enters the GCJ-02
+	// iron table.
+	payload := `{"locatorNo":"IRON-RAW","latitude":"","longitude":"","lat":"30.1","lon":"103.2"}`
+	var item locatorItem
+	if err := json.Unmarshal([]byte(payload), &item); err != nil {
+		t.Fatalf("unmarshal locator payload failed: %v", err)
 	}
 
-	location, ok := item.location()
-	if !ok {
-		t.Fatalf("expected raw GPS fallback to produce a location")
-	}
-	if location.Code != "IRON-RAW" || location.Lat != 30.1 || location.Lng != 103.2 {
-		t.Fatalf("unexpected location: %+v", location)
+	if location, ok := item.location(); ok {
+		t.Fatalf("expected item without Gaode coordinates to be skipped, got %+v", location)
 	}
 }
 
