@@ -56,6 +56,7 @@ var feedingSchemaFiles = []string{
 	"001-sicau-niu-identity.sql",
 	"002-sicau-niu-catalog.sql",
 	"004-sicau-niu-grass.sql",
+	"008-sicau-niu-anticheat-idempotency.sql",
 }
 
 // feedingDBHarness holds the lazily-provisioned shared test database state.

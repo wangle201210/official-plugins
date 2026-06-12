@@ -28,17 +28,20 @@ const attemptResultOptions = [
   { label: "成功", value: "success" },
   { label: "附近无牛", value: "no_nearby" },
   { label: "超出判距", value: "out_of_range" },
+  { label: "速度异常", value: "speed_anomaly" },
 ];
 
 const attemptResultLabels: Record<string, string> = {
   no_nearby: "附近无牛",
   out_of_range: "超出判距",
+  speed_anomaly: "速度异常",
   success: "成功",
 };
 
 const attemptResultColors: Record<string, string> = {
   no_nearby: "default",
   out_of_range: "warning",
+  speed_anomaly: "error",
   success: "success",
 };
 

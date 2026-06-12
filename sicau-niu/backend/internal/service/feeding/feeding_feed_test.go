@@ -101,6 +101,46 @@ func TestFeedIronOutOfRangeNoBonus(t *testing.T) {
 	}
 }
 
+// TestFeedDuplicateRequestRejected verifies a retry carrying an already-recorded
+// request ID is rejected with CodeDuplicateRequest and deducts nothing further,
+// while a fresh request ID still feeds normally.
+func TestFeedDuplicateRequestRejected(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLFeedingDB(t, ctx)
+	svc := newFeedingServiceForTest(&fakeIronLocation{})
+
+	niuID := stageActiveNiu(t, ctx, "NIU-FEED-DUP", 30.0, 103.0)
+	user := insertUserRow(t, ctx, "openid-feed-dup")
+	creditGrass(t, ctx, user, 100)
+
+	out, err := svc.Feed(ctx, user, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-1"})
+	if err != nil {
+		t.Fatalf("first feed failed: %v", err)
+	}
+	if out.Balance != 90 {
+		t.Fatalf("expected balance 90 after first feed, got %d", out.Balance)
+	}
+
+	_, err = svc.Feed(ctx, user, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-1"})
+	assertBizCode(t, err, CodeDuplicateRequest.RuntimeCode())
+
+	feedCount, countErr := dao.Feeding.Ctx(ctx).Where(dao.Feeding.Columns().UserId, user).Count()
+	if countErr != nil {
+		t.Fatalf("count feedings failed: %v", countErr)
+	}
+	if feedCount != 1 {
+		t.Fatalf("expected exactly one feeding row, got %d", feedCount)
+	}
+
+	out, err = svc.Feed(ctx, user, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-2"})
+	if err != nil {
+		t.Fatalf("feed with fresh request ID failed: %v", err)
+	}
+	if out.Balance != 80 {
+		t.Fatalf("expected balance 80 after second distinct feed, got %d", out.Balance)
+	}
+}
+
 // TestFeedNotActiveRejected verifies feeding a not-yet-activated cattle is rejected
 // and does not deduct grass.
 func TestFeedNotActiveRejected(t *testing.T) {

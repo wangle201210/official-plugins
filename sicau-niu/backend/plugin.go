@@ -67,6 +67,18 @@ const (
 	// defaultLBSThresholdMeters is the fallback LBS activation distance threshold
 	// in meters when config is absent.
 	defaultLBSThresholdMeters = 50
+	// configKeyActivationDailyAttemptLimit is the plugin config key for the daily
+	// activation attempt cap, counting failed photo check-ins as well.
+	configKeyActivationDailyAttemptLimit = "activation.dailyAttemptLimit"
+	// defaultActivationDailyAttemptLimit is the fallback daily activation attempt
+	// cap when config is absent.
+	defaultActivationDailyAttemptLimit = 20
+	// configKeyActivationMaxSpeedMps is the plugin config key for the maximum
+	// plausible movement speed between successive check-ins, in meters per second.
+	configKeyActivationMaxSpeedMps = "activation.maxSpeedMps"
+	// defaultActivationMaxSpeedMps is the fallback movement speed ceiling in
+	// meters per second when config is absent.
+	defaultActivationMaxSpeedMps = 25
 	// configKeyPosterCampusBadge is the plugin config key for the poster campus
 	// anniversary badge text.
 	configKeyPosterCampusBadge = "poster.campusBadge"
@@ -224,8 +236,18 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if err != nil {
 		return err
 	}
+	dailyAttemptLimit, err := configSvc.Int(ctx, configKeyActivationDailyAttemptLimit, defaultActivationDailyAttemptLimit)
+	if err != nil {
+		return gerror.Wrap(err, "sicau-niu read activation daily attempt limit failed")
+	}
+	maxSpeedMps, err := configSvc.Int(ctx, configKeyActivationMaxSpeedMps, defaultActivationMaxSpeedMps)
+	if err != nil {
+		return gerror.Wrap(err, "sicau-niu read activation max speed failed")
+	}
 	rulesService := rulessvc.New(&rulessvc.RuleSet{
 		ActivationLBSThresholdMeters: int(activationConfig.LBSThresholdMeters),
+		ActivationDailyAttemptLimit:  dailyAttemptLimit,
+		ActivationMaxSpeedMps:        maxSpeedMps,
 		PosterCampusBadge:            activationConfig.CampusBadge,
 		CheckinMinAmount:             grassConfig.CheckinMinAmount,
 		CheckinMaxAmount:             grassConfig.CheckinMaxAmount,

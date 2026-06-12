@@ -17,7 +17,7 @@ type ActivationAttempt struct {
 	UserId       any        // Player ID that submitted the photo check-in
 	NiuId        any        // Activated cattle ID when result is success, otherwise 0
 	NearestNiuId any        // Nearest visible inactive cattle candidate ID when available
-	Result       any        // Attempt result: success, no_nearby, out_of_range
+	Result       any        // Attempt result: success, no_nearby, out_of_range, speed_anomaly
 	Lat          any        // Player reported GPS latitude
 	Lng          any        // Player reported GPS longitude
 	DistanceM    any        // Distance in meters to nearest candidate, 0 when unavailable

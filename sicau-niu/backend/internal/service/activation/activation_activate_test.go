@@ -381,6 +381,107 @@ func TestActivateDailyLimitRejected(t *testing.T) {
 	}
 }
 
+// insertAttemptRow inserts one activation-attempt audit row directly for test
+// setup, staging a player's prior check-in history.
+func insertAttemptRow(t *testing.T, ctx context.Context, playerID int64, lat, lng float64, attemptedAt time.Time) {
+	t.Helper()
+	_, err := dao.ActivationAttempt.Ctx(ctx).Data(do.ActivationAttempt{
+		UserId:      playerID,
+		Result:      string(activationAttemptNoNearby),
+		Lat:         lat,
+		Lng:         lng,
+		AttemptedAt: &attemptedAt,
+	}).Insert()
+	if err != nil {
+		t.Fatalf("insert attempt row failed: %v", err)
+	}
+}
+
+// TestActivateAttemptLimitRejected verifies a check-in beyond the daily attempt
+// quota (failures count) is rejected with CodeAttemptLimitReached and writes no
+// further attempt rows.
+func TestActivateAttemptLimitRejected(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	stageActivatableNiu(t, ctx)
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-attempt-limit"})
+
+	// Fill today's quota with prior attempts at the same spot so the speed guard
+	// stays quiet and only the quota triggers.
+	for i := 0; i < defaultDailyAttemptLimit; i++ {
+		insertAttemptRow(t, ctx, playerID, 30.0, 103.0, time.Now().Add(-time.Duration(i+1)*time.Minute))
+	}
+
+	_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	assertBizCode(t, err, CodeAttemptLimitReached.RuntimeCode())
+
+	attempts := activationAttemptsForPlayer(t, ctx, playerID)
+	if len(attempts) != defaultDailyAttemptLimit {
+		t.Fatalf("expected quota rejection not to add attempt rows, got %d", len(attempts))
+	}
+	count, countErr := dao.Activation.Ctx(ctx).Count()
+	if countErr != nil {
+		t.Fatalf("count activations failed: %v", countErr)
+	}
+	if count != 0 {
+		t.Fatalf("expected no activation rows, got %d", count)
+	}
+}
+
+// TestActivateSpeedAnomalyRejected verifies a check-in implying implausible
+// movement speed since the previous attempt is rejected with CodeSpeedAnomaly and
+// recorded as a speed_anomaly risk row.
+func TestActivateSpeedAnomalyRejected(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	niuID := stageActivatableNiu(t, ctx)
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-speed"})
+
+	// Previous check-in ~5.5km away just 5 seconds ago: >1000 m/s, far over 25 m/s.
+	insertAttemptRow(t, ctx, playerID, 30.05, 103.0, time.Now().Add(-5*time.Second))
+
+	_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	assertBizCode(t, err, CodeSpeedAnomaly.RuntimeCode())
+
+	attempts := activationAttemptsForPlayer(t, ctx, playerID)
+	if len(attempts) != 2 {
+		t.Fatalf("expected the staged attempt plus one speed_anomaly risk row, got %d", len(attempts))
+	}
+	if attempts[1].Result != string(activationAttemptSpeedAnomaly) {
+		t.Fatalf("expected speed_anomaly risk row, got %q", attempts[1].Result)
+	}
+	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
+	if countErr != nil {
+		t.Fatalf("count activations failed: %v", countErr)
+	}
+	if count != 0 {
+		t.Fatalf("expected no activation rows, got %d", count)
+	}
+}
+
+// TestActivateSlowMovementPasses verifies a plausible movement between attempts
+// passes the speed guard and the check-in proceeds to matching.
+func TestActivateSlowMovementPasses(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	niuID := stageActivatableNiu(t, ctx)
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-slow"})
+
+	// Previous check-in ~110m away one hour ago: ~0.03 m/s, far under 25 m/s.
+	insertAttemptRow(t, ctx, playerID, 30.001, 103.0, time.Now().Add(-time.Hour))
+
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	if err != nil {
+		t.Fatalf("expected slow movement to pass the speed guard, got %v", err)
+	}
+	if out.NiuId != niuID {
+		t.Fatalf("expected matched niu %d, got %d", niuID, out.NiuId)
+	}
+}
+
 // TestActivateNilInputRejected verifies an empty activation payload is rejected
 // before any activation row is written.
 func TestActivateNilInputRejected(t *testing.T) {

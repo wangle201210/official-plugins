@@ -19,6 +19,7 @@ func (c *ControllerV1) Feed(ctx context.Context, req *v1.FeedReq) (res *v1.FeedR
 	out, err := c.feedingSvc.Feed(ctx, playerID, &feedingsvc.FeedInput{
 		NiuId:      req.NiuId,
 		BaseAmount: req.BaseAmount,
+		RequestId:  req.RequestId,
 	})
 	if err != nil {
 		return nil, err

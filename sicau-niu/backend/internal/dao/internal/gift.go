@@ -29,6 +29,7 @@ type GiftColumns struct {
 	CreatedAt  string //
 	UpdatedAt  string //
 	DeletedAt  string //
+	RequestId  string // Client idempotency key deduplicating network retries; empty when not provided
 }
 
 // giftColumns holds the columns for the table plugin_sicau_niu_gift.
@@ -41,6 +42,7 @@ var giftColumns = GiftColumns{
 	CreatedAt:  "created_at",
 	UpdatedAt:  "updated_at",
 	DeletedAt:  "deleted_at",
+	RequestId:  "request_id",
 }
 
 // NewGiftDao creates and returns a new DAO object for table data access.

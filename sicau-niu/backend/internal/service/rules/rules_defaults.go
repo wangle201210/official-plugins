@@ -5,6 +5,8 @@ package rules
 
 const (
 	keyActivationLBSThresholdMeters = "activation.lbsThresholdMeters"
+	keyActivationDailyAttemptLimit  = "activation.dailyAttemptLimit"
+	keyActivationMaxSpeedMps        = "activation.maxSpeedMps"
 	keyPosterCampusBadge            = "poster.campusBadge"
 	keyCheckinMinAmount             = "checkin.minAmount"
 	keyCheckinMaxAmount             = "checkin.maxAmount"
@@ -38,6 +40,8 @@ type ruleDefinition struct {
 // so the admin page and writes stay deterministic.
 var ruleDefinitions = []ruleDefinition{
 	{key: keyActivationLBSThresholdMeters, remark: "LBS 激活判距阈值（米）"},
+	{key: keyActivationDailyAttemptLimit, remark: "每日激活尝试次数上限（含失败）"},
+	{key: keyActivationMaxSpeedMps, remark: "激活定位移动速度上限（米/秒）"},
 	{key: keyPosterCampusBadge, remark: "激活海报和电子证书上的校庆标识"},
 	{key: keyCheckinMinAmount, remark: "每日签到草量下限"},
 	{key: keyCheckinMaxAmount, remark: "每日签到草量上限"},
@@ -60,6 +64,8 @@ var ruleDefinitions = []ruleDefinition{
 func defaultRuleSet() RuleSet {
 	return RuleSet{
 		ActivationLBSThresholdMeters: 50,
+		ActivationDailyAttemptLimit:  20,
+		ActivationMaxSpeedMps:        25,
 		PosterCampusBadge:            "",
 		CheckinMinAmount:             20,
 		CheckinMaxAmount:             50,

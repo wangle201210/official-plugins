@@ -18,6 +18,8 @@ func TestUpdatePersistsAndReadsRules(t *testing.T) {
 	svc := New(nil)
 	input := defaultRuleSet()
 	input.ActivationLBSThresholdMeters = 88
+	input.ActivationDailyAttemptLimit = 9
+	input.ActivationMaxSpeedMps = 30
 	input.PosterCampusBadge = " 川农 120 "
 	input.CheckinMinAmount = 31
 	input.CheckinMaxAmount = 33
@@ -56,5 +58,13 @@ func TestUpdatePersistsAndReadsRules(t *testing.T) {
 	}
 	if anomaly.ListLimit != 11 {
 		t.Fatalf("expected anomaly list limit 11, got %+v", anomaly)
+	}
+
+	guards, err := svc.ActivationGuards(ctx)
+	if err != nil {
+		t.Fatalf("ActivationGuards failed: %v", err)
+	}
+	if guards.DailyAttemptLimit != 9 || guards.MaxSpeedMps != 30 {
+		t.Fatalf("expected guards 9/30, got %+v", guards)
 	}
 }

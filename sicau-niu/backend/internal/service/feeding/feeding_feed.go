@@ -1,9 +1,10 @@
 // feeding_feed.go implements the feed action: it validates the target cattle is
 // activated, computes the iron-cow proximity bonus from the cattle anchor and the
-// current iron positions, then inside one transaction debits the player's ledger
-// by the base amount and records the feeding with the original amount, the bonus
-// coefficient and the resulting effect. The response carries the cattle info, a
-// random enabled school-history quote and the bonus breakdown.
+// current iron positions, deduplicates client retries by the optional request ID,
+// then inside one transaction debits the player's ledger by the base amount and
+// records the feeding with the original amount, the bonus coefficient and the
+// resulting effect. The response carries the cattle info, a random enabled
+// school-history quote and the bonus breakdown.
 
 package feeding
 
@@ -32,6 +33,9 @@ type FeedInput struct {
 	NiuId int64
 	// BaseAmount is the grass amount to feed (deducted from the balance).
 	BaseAmount int
+	// RequestId is the optional client idempotency key; a retry carrying an
+	// already-recorded key is rejected as a duplicate instead of deducting twice.
+	RequestId string
 }
 
 // FeedOutput defines the result of a successful feeding.
@@ -91,6 +95,9 @@ func (s *serviceImpl) Feed(ctx context.Context, playerID int64, in *FeedInput) (
 
 	var newBalance int64
 	err = dao.Feeding.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if txErr := s.guardDuplicateFeed(ctx, playerID, in.RequestId); txErr != nil {
+			return txErr
+		}
 		feedingID, txErr := dao.Feeding.Ctx(ctx).Data(do.Feeding{
 			UserId:           playerID,
 			NiuId:            in.NiuId,
@@ -99,6 +106,7 @@ func (s *serviceImpl) Feed(ctx context.Context, playerID int64, in *FeedInput) (
 			EffectAmount:     effectAmount,
 			IsIronBonus:      isBonusFlag,
 			FedAt:            &fedAt,
+			RequestId:        in.RequestId,
 		}).InsertAndGetId()
 		if txErr != nil {
 			return bizerr.WrapCode(txErr, CodeWriteFailed)
@@ -131,6 +139,26 @@ func (s *serviceImpl) Feed(ctx context.Context, playerID int64, in *FeedInput) (
 		IsIronBonus:      isBonus,
 		Balance:          newBalance,
 	}, nil
+}
+
+// guardDuplicateFeed rejects a feed whose non-empty request ID was already
+// recorded for the player. It runs inside the feeding transaction; the partial
+// unique index on (user_id, request_id) back-stops the concurrent race.
+func (s *serviceImpl) guardDuplicateFeed(ctx context.Context, playerID int64, requestID string) error {
+	if requestID == "" {
+		return nil
+	}
+	count, err := dao.Feeding.Ctx(ctx).
+		Where(dao.Feeding.Columns().UserId, playerID).
+		Where(dao.Feeding.Columns().RequestId, requestID).
+		Count()
+	if err != nil {
+		return bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	if count > 0 {
+		return bizerr.NewCode(CodeDuplicateRequest)
+	}
+	return nil
 }
 
 // loadActiveNiu loads the target cattle and rejects it unless it is activated.

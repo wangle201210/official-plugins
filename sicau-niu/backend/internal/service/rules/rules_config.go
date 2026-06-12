@@ -98,6 +98,18 @@ func (s *serviceImpl) ActivationLBSThresholdMeters(ctx context.Context) (float64
 	return float64(rules.ActivationLBSThresholdMeters), nil
 }
 
+// ActivationGuards returns the activation anti-cheat guard subset.
+func (s *serviceImpl) ActivationGuards(ctx context.Context) (ActivationGuards, error) {
+	rules, err := s.Rules(ctx)
+	if err != nil {
+		return ActivationGuards{}, err
+	}
+	return ActivationGuards{
+		DailyAttemptLimit: rules.ActivationDailyAttemptLimit,
+		MaxSpeedMps:       rules.ActivationMaxSpeedMps,
+	}, nil
+}
+
 // PosterCampusBadge returns the poster/certificate campus badge text.
 func (s *serviceImpl) PosterCampusBadge(ctx context.Context) (string, error) {
 	rules, err := s.Rules(ctx)

@@ -1,7 +1,9 @@
 // feeding_geo.go implements the great-circle distance used to decide the
-// iron-cow proximity bonus. It computes the distance between two WGS-84
-// coordinates with the Haversine formula using only the standard library; the
-// feeding capability keeps its own copy so it does not reach across the
+// iron-cow proximity bonus. Plugin coordinates are GCJ-02 end to end, so the
+// Haversine formula is applied directly on GCJ-02 points (the shared local
+// datum offset cancels at activity scale); iron-cow positions synced from the
+// IOT platform must be converted to GCJ-02 before they reach the iron table.
+// The feeding capability keeps its own copy so it does not reach across the
 // activation package-internal boundary.
 
 package feeding

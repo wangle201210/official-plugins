@@ -1,9 +1,11 @@
 // activation_activate.go implements the LBS activation action for mini-program
-// photo check-ins. It validates the per-day limit, matches the nearest currently
+// photo check-ins. It validates the per-day success limit, the daily attempt
+// quota and the movement-speed anti-cheat guard, matches the nearest currently
 // visible inactive cattle within the configured distance threshold, then takes a
 // per-cattle row lock (SELECT ... FOR UPDATE) inside the activation transaction
 // before writing the first activation and flipping the cattle to active. The
-// cattle main card is issued on success.
+// cattle main card is issued on success. Daily boundaries use the Beijing-time
+// natural day from the activityday package.
 
 package activation
 
@@ -16,14 +18,12 @@ import (
 
 	"lina-core/pkg/apitime"
 	"lina-core/pkg/bizerr"
+	"lina-plugin-sicau-niu/backend/internal/activityday"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 )
-
-// activityDateLayout is the YYYY-MM-DD natural-day key used for the per-day limit.
-const activityDateLayout = "2006-01-02"
 
 // firstActivatorFlag and laterActivatorFlag are the persisted is_first values.
 const (
@@ -35,9 +35,10 @@ const (
 type activationAttemptResult string
 
 const (
-	activationAttemptSuccess    activationAttemptResult = "success"
-	activationAttemptNoNearby   activationAttemptResult = "no_nearby"
-	activationAttemptOutOfRange activationAttemptResult = "out_of_range"
+	activationAttemptSuccess      activationAttemptResult = "success"
+	activationAttemptNoNearby     activationAttemptResult = "no_nearby"
+	activationAttemptOutOfRange   activationAttemptResult = "out_of_range"
+	activationAttemptSpeedAnomaly activationAttemptResult = "speed_anomaly"
 )
 
 // activationCandidateCap bounds the server-side GPS matching query. The activity
@@ -102,11 +103,22 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 	}
 
 	activatedAt := time.Now()
-	activityDate := activatedAt.Format(activityDateLayout)
+	activityDate := activityday.Date(activatedAt)
+
+	guards, err := s.activationGuards(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.guardDailyAttemptLimit(ctx, playerID, activatedAt, guards.DailyAttemptLimit); err != nil {
+		return nil, err
+	}
+	if err = s.guardMovementSpeed(ctx, playerID, in, activatedAt, guards.MaxSpeedMps); err != nil {
+		return nil, err
+	}
 
 	var output *ActivateOutput
 	var activationErr error
-	err := dao.Niu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err = dao.Niu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		threshold, txErr := s.activationLBSThreshold(ctx)
 		if txErr != nil {
 			return txErr
@@ -194,11 +206,11 @@ func (s *serviceImpl) activationLBSThreshold(ctx context.Context) (float64, erro
 	return s.rulesSvc.ActivationLBSThresholdMeters(ctx)
 }
 
-// guardDailyLimit rejects a second activation on the same natural day before
-// entering the transaction. The active-set unique index back-stops this check
-// against the concurrent race.
+// guardDailyLimit rejects a second activation on the same Beijing-time natural
+// day before entering the transaction. The active-set unique index back-stops
+// this check against the concurrent race.
 func (s *serviceImpl) guardDailyLimit(ctx context.Context, playerID int64) error {
-	today := time.Now().Format(activityDateLayout)
+	today := activityday.Today()
 	dailyCount, err := dao.Activation.Ctx(ctx).
 		Where(dao.Activation.Columns().UserId, playerID).
 		Where(dao.Activation.Columns().ActivityDate, today).

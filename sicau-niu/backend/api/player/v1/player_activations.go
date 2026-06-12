@@ -10,9 +10,9 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // ActivateReq is the request for activating a nearby cattle by GPS check-in.
 type ActivateReq struct {
-	g.Meta    `path:"/plugins/sicau-niu/player/activations" method:"post" tags:"Sicau Niu Player" summary:"Activate a nearby cattle (LBS)" dc:"Activate a nearby unactivated cattle by the player's reported GPS check-in location. The mini program does not pass a cattle ID. The server finds the nearest currently visible inactive cattle within the configured Haversine threshold, locks and rechecks the matched cattle in a transaction, flips it to active and issues the cattle main card. The photo is evidence only; no image recognition is performed. Each player may activate at most one cattle per natural day. Requires a valid player token."`
-	Lat       float64 `json:"lat" v:"required" dc:"Player reported GPS latitude" eg:"30.123456"`
-	Lng       float64 `json:"lng" v:"required" dc:"Player reported GPS longitude" eg:"103.123456"`
+	g.Meta    `path:"/plugins/sicau-niu/player/activations" method:"post" tags:"Sicau Niu Player" summary:"Activate a nearby cattle (LBS)" dc:"Activate a nearby unactivated cattle by the player's reported GPS check-in location (GCJ-02). The mini program does not pass a cattle ID. The server finds the nearest currently visible inactive cattle within the configured Haversine threshold, locks and rechecks the matched cattle in a transaction, flips it to active and issues the cattle main card. The photo is evidence only; no image recognition is performed. Each player may activate at most one cattle per Beijing-time natural day, is bounded by a daily attempt quota that counts failed check-ins, and implausibly fast movement between successive check-ins is rejected as a speed anomaly; rejection responses never carry distance or bearing hints. Requires a valid player token."`
+	Lat       float64 `json:"lat" v:"required" dc:"Player reported GPS latitude in GCJ-02" eg:"30.123456"`
+	Lng       float64 `json:"lng" v:"required" dc:"Player reported GPS longitude in GCJ-02" eg:"103.123456"`
 	PhotoPath string  `json:"photoPath" dc:"Optional activation photo storage path (evidence only, no recognition); empty when omitted" eg:"sicau-niu/activation/1.jpg"`
 }
 

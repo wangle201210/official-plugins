@@ -21,10 +21,6 @@ func (t MsgType) String() string {
 	return string(t)
 }
 
-// socialDateLayout is the YYYY-MM-DD natural-day key used by the steal and gift
-// daily counters and by the deterministic daily stealable-list seed.
-const socialDateLayout = "2006-01-02"
-
 // Social limit fallbacks used when configuration is absent or non-positive.
 const (
 	// defaultStealDailyTargets is the fallback daily stealable list size.

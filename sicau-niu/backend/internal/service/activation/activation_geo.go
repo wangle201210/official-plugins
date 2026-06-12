@@ -1,7 +1,9 @@
-// activation_geo.go implements the LBS distance check used to gate activation. It
-// computes the great-circle distance between two WGS-84 coordinates with the
-// Haversine formula using only the standard library; there is no image
-// recognition, the photo is evidence only.
+// activation_geo.go implements the LBS distance check used to gate activation.
+// All coordinates in this plugin are GCJ-02 end to end (player check-ins,
+// operator-entered cattle anchors); applying the Haversine formula directly on
+// GCJ-02 points is accurate at activity scale because both points share the
+// same local datum offset. WGS-84 values must never be mixed in. There is no
+// image recognition, the photo is evidence only.
 
 package activation
 

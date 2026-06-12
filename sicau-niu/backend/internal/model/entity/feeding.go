@@ -21,4 +21,5 @@ type Feeding struct {
 	CreatedAt        *time.Time `json:"createdAt"        orm:"created_at"        description:""`
 	UpdatedAt        *time.Time `json:"updatedAt"        orm:"updated_at"        description:""`
 	DeletedAt        *time.Time `json:"deletedAt"        orm:"deleted_at"        description:""`
+	RequestId        string     `json:"requestId"        orm:"request_id"        description:"Client idempotency key deduplicating network retries; empty when not provided"`
 }

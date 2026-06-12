@@ -163,6 +163,8 @@ type UpdateRulesRes RuleConfig
 // RuleConfig is the complete operator-maintained runtime rule projection.
 type RuleConfig struct {
 	ActivationLBSThresholdMeters int    `json:"activationLbsThresholdMeters" dc:"LBS activation distance threshold in meters; must be positive" eg:"50"`
+	ActivationDailyAttemptLimit  int    `json:"activationDailyAttemptLimit" dc:"Daily activation attempt cap per player counting failed photo check-ins; must be positive" eg:"20"`
+	ActivationMaxSpeedMps        int    `json:"activationMaxSpeedMps" dc:"Maximum plausible movement speed between successive check-ins in meters per second; faster check-ins are rejected as speed anomalies; must be positive" eg:"25"`
 	PosterCampusBadge            string `json:"posterCampusBadge" dc:"Campus anniversary badge rendered on activation posters and certificates; max 255 characters" eg:"川农 120 周年"`
 	CheckinMinAmount             int    `json:"checkinMinAmount" dc:"Daily check-in grass grant lower bound; must be positive and not exceed checkinMaxAmount" eg:"20"`
 	CheckinMaxAmount             int    `json:"checkinMaxAmount" dc:"Daily check-in grass grant upper bound; must be positive and not below checkinMinAmount" eg:"50"`

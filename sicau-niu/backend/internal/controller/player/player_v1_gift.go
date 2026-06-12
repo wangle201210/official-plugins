@@ -17,8 +17,9 @@ func (c *ControllerV1) Gift(ctx context.Context, req *v1.GiftReq) (res *v1.GiftR
 		return nil, err
 	}
 	out, err := c.grassSocialSvc.Gift(ctx, playerID, &grasssocialsvc.GiftInput{
-		ToUserId: req.ToUserId,
-		Amount:   req.Amount,
+		ToUserId:  req.ToUserId,
+		Amount:    req.Amount,
+		RequestId: req.RequestId,
 	})
 	if err != nil {
 		return nil, err

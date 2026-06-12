@@ -18,6 +18,7 @@ func (c *ControllerV1) Steal(ctx context.Context, req *v1.StealReq) (res *v1.Ste
 	}
 	out, err := c.grassSocialSvc.Steal(ctx, playerID, &grasssocialsvc.StealInput{
 		TargetUserId: req.TargetUserId,
+		RequestId:    req.RequestId,
 	})
 	if err != nil {
 		return nil, err

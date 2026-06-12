@@ -14,6 +14,8 @@ func TestNormalizeRuleSetRejectsInvalidRanges(t *testing.T) {
 		mutate func(*RuleSet)
 	}{
 		{name: "checkin max below min", mutate: func(in *RuleSet) { in.CheckinMaxAmount = in.CheckinMinAmount - 1 }},
+		{name: "attempt limit not positive", mutate: func(in *RuleSet) { in.ActivationDailyAttemptLimit = 0 }},
+		{name: "max speed not positive", mutate: func(in *RuleSet) { in.ActivationMaxSpeedMps = 0 }},
 		{name: "steal max below min", mutate: func(in *RuleSet) { in.StealMaxAmount = in.StealMinAmount - 1 }},
 		{name: "ranking over cap", mutate: func(in *RuleSet) { in.RankingTopN = maxRankingTopN + 1 }},
 		{name: "anomaly list over cap", mutate: func(in *RuleSet) { in.AnomalyListLimit = maxAnomalyListLimit + 1 }},

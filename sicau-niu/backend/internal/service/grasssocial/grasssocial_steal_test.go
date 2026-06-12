@@ -41,6 +41,36 @@ func TestStealMovesGrassAndNotifies(t *testing.T) {
 	}
 }
 
+// TestStealDuplicateRequestRejected verifies a retry carrying an already-recorded
+// request ID is rejected with CodeDuplicateRequest and moves no further grass.
+func TestStealDuplicateRequestRejected(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLSocialDB(t, ctx)
+	svc := newSocialServiceForTest()
+
+	actor := insertUserRow(t, ctx, "openid-steal-dup-actor")
+	target := insertUserRow(t, ctx, "openid-steal-dup-target")
+	seedGrass(t, ctx, target, 100)
+
+	out, err := svc.Steal(ctx, actor, &StealInput{TargetUserId: target, RequestId: "req-steal-1"})
+	if err != nil {
+		t.Fatalf("first steal failed: %v", err)
+	}
+	if out.Amount <= 0 {
+		t.Fatalf("expected positive stolen amount, got %d", out.Amount)
+	}
+
+	_, err = svc.Steal(ctx, actor, &StealInput{TargetUserId: target, RequestId: "req-steal-1"})
+	assertBizCode(t, err, CodeDuplicateRequest.RuntimeCode())
+
+	if got := balanceOf(t, ctx, actor); got != int64(out.Amount) {
+		t.Fatalf("expected actor balance unchanged at %d after duplicate, got %d", out.Amount, got)
+	}
+	if got := balanceOf(t, ctx, target); got != 100-int64(out.Amount) {
+		t.Fatalf("expected target balance unchanged at %d after duplicate, got %d", 100-int64(out.Amount), got)
+	}
+}
+
 // TestStealTargetNotInListRejected verifies stealing from a player not in the
 // actor's daily list is rejected. With more candidates than the list size, at
 // least one other player is excluded.

@@ -35,6 +35,13 @@ var (
 		"Cattle is not activated yet",
 		gcode.CodeBusinessValidationFailed,
 	)
+	// CodeDuplicateRequest reports that a feeding request ID was already
+	// processed, so the retry must not deduct grass a second time.
+	CodeDuplicateRequest = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_FEEDING_DUPLICATE_REQUEST",
+		"Duplicate request already processed",
+		gcode.CodeBusinessValidationFailed,
+	)
 	// CodeQueryFailed reports that a feeding-related store query failed.
 	CodeQueryFailed = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_FEEDING_QUERY_FAILED",

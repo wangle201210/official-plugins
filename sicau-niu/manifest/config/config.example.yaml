@@ -45,6 +45,14 @@ activation:
   # to balance anti-spoofing against GPS drift.
   # 玩家上报位置与牛 GPS 锚点之间允许的最大激活判距（米）。运营据此在防作弊与 GPS 漂移之间权衡。
   lbsThresholdMeters: 50
+  # Daily photo check-in attempt cap per player; failed attempts count too. Blocks
+  # virtual-location grid scanning.
+  # 每人每日打卡尝试次数上限（含失败），用于拦截虚拟定位网格扫图。
+  dailyAttemptLimit: 20
+  # Maximum plausible movement speed between successive check-ins in meters per
+  # second; faster check-ins are rejected as speed anomalies.
+  # 相邻两次打卡上报位置之间允许的最大移动速度（米/秒），超过即按速度异常拒绝。
+  maxSpeedMps: 25
 
 # Activation poster settings (C3 niu-collection-poster).
 # 激活海报配置（C3 niu-collection-poster）。

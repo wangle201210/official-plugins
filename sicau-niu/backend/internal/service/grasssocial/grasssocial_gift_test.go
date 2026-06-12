@@ -38,6 +38,36 @@ func TestGiftMovesGrassAndNotifies(t *testing.T) {
 	}
 }
 
+// TestGiftDuplicateRequestRejected verifies a retry carrying an already-recorded
+// request ID is rejected with CodeDuplicateRequest and moves no further grass.
+func TestGiftDuplicateRequestRejected(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLSocialDB(t, ctx)
+	svc := newSocialServiceForTest()
+
+	giver := insertUserRow(t, ctx, "openid-gift-dup-giver")
+	recipient := insertUserRow(t, ctx, "openid-gift-dup-recipient")
+	seedGrass(t, ctx, giver, 100)
+
+	out, err := svc.Gift(ctx, giver, &GiftInput{ToUserId: recipient, Amount: 12, RequestId: "req-gift-1"})
+	if err != nil {
+		t.Fatalf("first gift failed: %v", err)
+	}
+	if out.Balance != 88 {
+		t.Fatalf("expected giver balance 88 after first gift, got %d", out.Balance)
+	}
+
+	_, err = svc.Gift(ctx, giver, &GiftInput{ToUserId: recipient, Amount: 12, RequestId: "req-gift-1"})
+	assertBizCode(t, err, CodeDuplicateRequest.RuntimeCode())
+
+	if got := balanceOf(t, ctx, giver); got != 88 {
+		t.Fatalf("expected giver balance unchanged at 88 after duplicate, got %d", got)
+	}
+	if got := balanceOf(t, ctx, recipient); got != 12 {
+		t.Fatalf("expected recipient balance unchanged at 12 after duplicate, got %d", got)
+	}
+}
+
 // TestGiftBelowMinimumRejected verifies an amount below the per-gift minimum is
 // rejected and moves no grass.
 func TestGiftBelowMinimumRejected(t *testing.T) {

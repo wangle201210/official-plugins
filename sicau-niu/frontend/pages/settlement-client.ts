@@ -87,6 +87,8 @@ export interface ActivityData {
 
 export interface RuleConfig {
   activationLbsThresholdMeters: number;
+  activationDailyAttemptLimit: number;
+  activationMaxSpeedMps: number;
   posterCampusBadge: string;
   checkinMinAmount: number;
   checkinMaxAmount: number;

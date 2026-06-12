@@ -37,6 +37,8 @@ func toRuleConfigDTO(rules *rulessvc.RuleSet) *v1.RuleConfig {
 	}
 	return &v1.RuleConfig{
 		ActivationLBSThresholdMeters: rules.ActivationLBSThresholdMeters,
+		ActivationDailyAttemptLimit:  rules.ActivationDailyAttemptLimit,
+		ActivationMaxSpeedMps:        rules.ActivationMaxSpeedMps,
 		PosterCampusBadge:            rules.PosterCampusBadge,
 		CheckinMinAmount:             rules.CheckinMinAmount,
 		CheckinMaxAmount:             rules.CheckinMaxAmount,
@@ -62,6 +64,8 @@ func fromRuleConfigDTO(config *v1.RuleConfig) *rulessvc.RuleSet {
 	}
 	return &rulessvc.RuleSet{
 		ActivationLBSThresholdMeters: config.ActivationLBSThresholdMeters,
+		ActivationDailyAttemptLimit:  config.ActivationDailyAttemptLimit,
+		ActivationMaxSpeedMps:        config.ActivationMaxSpeedMps,
 		PosterCampusBadge:            config.PosterCampusBadge,
 		CheckinMinAmount:             config.CheckinMinAmount,
 		CheckinMaxAmount:             config.CheckinMaxAmount,

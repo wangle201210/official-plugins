@@ -21,4 +21,5 @@ type Steal struct {
 	CreatedAt    *time.Time //
 	UpdatedAt    *time.Time //
 	DeletedAt    *time.Time //
+	RequestId    any        // Client idempotency key deduplicating network retries; empty when not provided
 }

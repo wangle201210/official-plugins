@@ -45,12 +45,14 @@ type Service interface {
 	// one query to avoid N+1. It returns a query bizerr on store failure.
 	VisibleNiu(ctx context.Context, playerID int64) (out []*VisibleNiuItem, err error)
 	// Activate matches and activates the nearest currently visible inactive cattle
-	// within the LBS threshold for playerID's reported GPS check-in location. The
-	// request does not require a cattle ID. The per-day limit is checked before the
-	// transaction; the match path runs a bounded candidate query, then locks and
-	// rechecks the matched cattle inside the transaction before flipping it to
-	// active and issuing the main card. It returns the relevant validation bizerr
-	// on rejection or a store bizerr on failure.
+	// within the LBS threshold for playerID's reported GPS check-in location
+	// (GCJ-02). The request does not require a cattle ID. The per-day success
+	// limit, the daily attempt quota (failures count) and the movement-speed
+	// anti-cheat guard are checked before the transaction; the match path runs a
+	// bounded candidate query, then locks and rechecks the matched cattle inside
+	// the transaction before flipping it to active and issuing the main card. It
+	// returns the relevant validation bizerr on rejection or a store bizerr on
+	// failure; rejection errors never carry distance or bearing hints.
 	Activate(ctx context.Context, playerID int64, in *ActivateInput) (out *ActivateOutput, err error)
 	// Collection returns playerID's personal card collection: the main cards of the
 	// cattle the player has activated, optionally filtered by category, ordered by

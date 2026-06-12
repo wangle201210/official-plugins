@@ -29,6 +29,13 @@ var (
 		"Target is not in today's stealable list",
 		gcode.CodeBusinessValidationFailed,
 	)
+	// CodeDuplicateRequest reports that a steal/gift request ID was already
+	// processed, so the retry must not execute the action a second time.
+	CodeDuplicateRequest = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_SOCIAL_DUPLICATE_REQUEST",
+		"Duplicate request already processed",
+		gcode.CodeBusinessValidationFailed,
+	)
 	// CodeStealLimitReached reports that the player reached the daily steal limit.
 	CodeStealLimitReached = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_SOCIAL_STEAL_LIMIT",

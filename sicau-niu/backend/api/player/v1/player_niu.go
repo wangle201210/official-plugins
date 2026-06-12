@@ -23,8 +23,8 @@ type VisibleNiuItem struct {
 	Code          string  `json:"code" dc:"Cattle serial code" eg:"NIU-001"`
 	NiuType       string  `json:"niuType" dc:"Cattle type: common=普通牛, special=特殊牛" eg:"special"`
 	Name          string  `json:"name" dc:"Cattle name; empty for common cattle" eg:"川农魂"`
-	Lat           float64 `json:"lat" dc:"GPS latitude anchor" eg:"30.123456"`
-	Lng           float64 `json:"lng" dc:"GPS longitude anchor" eg:"103.123456"`
+	Lat           float64 `json:"lat" dc:"GPS latitude anchor in GCJ-02" eg:"30.123456"`
+	Lng           float64 `json:"lng" dc:"GPS longitude anchor in GCJ-02" eg:"103.123456"`
 	Status        string  `json:"status" dc:"Shared-pool activation status: inactive=未激活, active=已激活(全员可见)" eg:"active"`
 	ActivatedByMe bool    `json:"activatedByMe" dc:"Whether the current player has already activated this cattle" eg:"false"`
 }

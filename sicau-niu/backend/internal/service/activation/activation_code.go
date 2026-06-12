@@ -36,6 +36,20 @@ var (
 		"No nearby inactive cattle found",
 		gcode.CodeBusinessValidationFailed,
 	)
+	// CodeAttemptLimitReached reports that the player used up today's activation
+	// attempt quota (failed photo check-ins count too).
+	CodeAttemptLimitReached = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_ACTIVATION_ATTEMPT_LIMIT",
+		"Too many activation attempts today",
+		gcode.CodeBusinessValidationFailed,
+	)
+	// CodeSpeedAnomaly reports that the reported movement speed since the player's
+	// previous check-in is implausible; the message carries no location hints.
+	CodeSpeedAnomaly = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_ACTIVATION_SPEED_ANOMALY",
+		"Movement speed is abnormal",
+		gcode.CodeBusinessValidationFailed,
+	)
 	// CodeDailyLimitReached reports that the player already activated a cattle today.
 	CodeDailyLimitReached = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_ACTIVATION_DAILY_LIMIT",

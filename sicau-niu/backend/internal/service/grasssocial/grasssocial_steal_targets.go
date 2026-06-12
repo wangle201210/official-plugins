@@ -10,9 +10,9 @@ package grasssocial
 import (
 	"context"
 	"math/rand"
-	"time"
 
 	"lina-core/pkg/bizerr"
+	"lina-plugin-sicau-niu/backend/internal/activityday"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
 )
@@ -35,8 +35,7 @@ func (s *serviceImpl) StealTargets(ctx context.Context, playerID int64) ([]*Stea
 	if playerID <= 0 {
 		return nil, bizerr.NewCode(CodeQueryFailed)
 	}
-	today := time.Now().Format(socialDateLayout)
-	return s.dailyStealTargets(ctx, playerID, today)
+	return s.dailyStealTargets(ctx, playerID, activityday.Today())
 }
 
 // dailyStealTargets computes the stealable list for a player on a specific day.

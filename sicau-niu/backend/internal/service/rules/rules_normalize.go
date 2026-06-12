@@ -23,6 +23,8 @@ func normalizeRuleSet(in *RuleSet) (*RuleSet, error) {
 		return nil, bizerr.NewCode(CodeRuleInvalid)
 	}
 	if out.ActivationLBSThresholdMeters <= 0 ||
+		out.ActivationDailyAttemptLimit <= 0 ||
+		out.ActivationMaxSpeedMps <= 0 ||
 		out.CheckinMinAmount <= 0 ||
 		out.CheckinMaxAmount < out.CheckinMinAmount ||
 		out.StealDailyTargets <= 0 ||
@@ -60,6 +62,10 @@ func applyRawValue(out *RuleSet, key string, value string) error {
 	switch key {
 	case keyActivationLBSThresholdMeters:
 		out.ActivationLBSThresholdMeters = parsed
+	case keyActivationDailyAttemptLimit:
+		out.ActivationDailyAttemptLimit = parsed
+	case keyActivationMaxSpeedMps:
+		out.ActivationMaxSpeedMps = parsed
 	case keyCheckinMinAmount:
 		out.CheckinMinAmount = parsed
 	case keyCheckinMaxAmount:
@@ -97,6 +103,8 @@ func applyRawValue(out *RuleSet, key string, value string) error {
 func stringValuesFromRuleSet(in *RuleSet) map[string]string {
 	return map[string]string{
 		keyActivationLBSThresholdMeters: strconv.Itoa(in.ActivationLBSThresholdMeters),
+		keyActivationDailyAttemptLimit:  strconv.Itoa(in.ActivationDailyAttemptLimit),
+		keyActivationMaxSpeedMps:        strconv.Itoa(in.ActivationMaxSpeedMps),
 		keyPosterCampusBadge:            in.PosterCampusBadge,
 		keyCheckinMinAmount:             strconv.Itoa(in.CheckinMinAmount),
 		keyCheckinMaxAmount:             strconv.Itoa(in.CheckinMaxAmount),

@@ -48,10 +48,11 @@ var socialTables = []string{
 }
 
 // socialSchemaFiles lists the plugin install DDL files applied to the shared test
-// database in order: 001 user/college then 004 grass.
+// database in order: 001 user/college, 004 grass, then 008 request-id columns.
 var socialSchemaFiles = []string{
 	"001-sicau-niu-identity.sql",
 	"004-sicau-niu-grass.sql",
+	"008-sicau-niu-anticheat-idempotency.sql",
 }
 
 // socialDBHarness holds the lazily-provisioned shared test database state.

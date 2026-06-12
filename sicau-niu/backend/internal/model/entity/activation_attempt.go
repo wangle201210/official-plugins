@@ -14,7 +14,7 @@ type ActivationAttempt struct {
 	UserId       int64      `json:"userId"       orm:"user_id"        description:"Player ID that submitted the photo check-in"`
 	NiuId        int64      `json:"niuId"        orm:"niu_id"         description:"Activated cattle ID when result is success, otherwise 0"`
 	NearestNiuId int64      `json:"nearestNiuId" orm:"nearest_niu_id" description:"Nearest visible inactive cattle candidate ID when available"`
-	Result       string     `json:"result"       orm:"result"         description:"Attempt result: success, no_nearby, out_of_range"`
+	Result       string     `json:"result"       orm:"result"         description:"Attempt result: success, no_nearby, out_of_range, speed_anomaly"`
 	Lat          float64    `json:"lat"          orm:"lat"            description:"Player reported GPS latitude"`
 	Lng          float64    `json:"lng"          orm:"lng"            description:"Player reported GPS longitude"`
 	DistanceM    float64    `json:"distanceM"    orm:"distance_m"     description:"Distance in meters to nearest candidate, 0 when unavailable"`

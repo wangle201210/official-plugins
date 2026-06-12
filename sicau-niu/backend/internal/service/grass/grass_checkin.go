@@ -1,25 +1,22 @@
 // grass_checkin.go implements the daily check-in grant. A check-in inserts a
-// uniquely-keyed (user_id, checkin_date) row, grants a random amount within the
-// configured range and credits it to the player's ledger account, all inside one
-// transaction so the check-in record, the credit and the balance stay consistent.
+// uniquely-keyed (user_id, checkin_date) row keyed by the Beijing-time natural
+// day, grants a random amount within the configured range and credits it to the
+// player's ledger account, all inside one transaction so the check-in record,
+// the credit and the balance stay consistent.
 
 package grass
 
 import (
 	"context"
-	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/util/grand"
 
 	"lina-core/pkg/bizerr"
+	"lina-plugin-sicau-niu/backend/internal/activityday"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 )
-
-// checkinDateLayout is the YYYY-MM-DD natural-day key used for the per-day
-// check-in uniqueness check.
-const checkinDateLayout = "2006-01-02"
 
 // CheckinResult is the outcome of a successful daily check-in.
 type CheckinResult struct {
@@ -35,7 +32,7 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64) (*CheckinResu
 		return nil, bizerr.NewCode(CodeQueryFailed)
 	}
 
-	today := time.Now().Format(checkinDateLayout)
+	today := activityday.Today()
 	checkinMin, checkinMax, err := s.checkinRange(ctx)
 	if err != nil {
 		return nil, err

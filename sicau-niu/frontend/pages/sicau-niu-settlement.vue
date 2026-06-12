@@ -67,6 +67,8 @@ const pluginAccessCodes = {
 function defaultRuleConfig(): RuleConfig {
   return {
     activationLbsThresholdMeters: 50,
+    activationDailyAttemptLimit: 20,
+    activationMaxSpeedMps: 25,
     posterCampusBadge: "",
     checkinMinAmount: 20,
     checkinMaxAmount: 50,
@@ -567,6 +569,22 @@ onMounted(() => {
                     <span class="field-label">铁牛加成阈值(米)</span>
                     <InputNumber
                       v-model:value="ruleForm.ironBonusThresholdMeters"
+                      :min="1"
+                      style="width: 100%"
+                    />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">每日尝试上限(含失败)</span>
+                    <InputNumber
+                      v-model:value="ruleForm.activationDailyAttemptLimit"
+                      :min="1"
+                      style="width: 100%"
+                    />
+                  </label>
+                  <label class="field">
+                    <span class="field-label">移动速度上限(米/秒)</span>
+                    <InputNumber
+                      v-model:value="ruleForm.activationMaxSpeedMps"
                       :min="1"
                       style="width: 100%"
                     />

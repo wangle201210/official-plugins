@@ -32,6 +32,7 @@ type FeedingColumns struct {
 	CreatedAt        string //
 	UpdatedAt        string //
 	DeletedAt        string //
+	RequestId        string // Client idempotency key deduplicating network retries; empty when not provided
 }
 
 // feedingColumns holds the columns for the table plugin_sicau_niu_feeding.
@@ -47,6 +48,7 @@ var feedingColumns = FeedingColumns{
 	CreatedAt:        "created_at",
 	UpdatedAt:        "updated_at",
 	DeletedAt:        "deleted_at",
+	RequestId:        "request_id",
 }
 
 // NewFeedingDao creates and returns a new DAO object for table data access.

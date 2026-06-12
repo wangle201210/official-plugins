@@ -14,6 +14,12 @@ import "context"
 type RuleSet struct {
 	// ActivationLBSThresholdMeters is the activation LBS distance threshold in meters.
 	ActivationLBSThresholdMeters int
+	// ActivationDailyAttemptLimit is the per-player daily activation attempt cap,
+	// counting failed photo check-ins as well as the successful one.
+	ActivationDailyAttemptLimit int
+	// ActivationMaxSpeedMps is the maximum plausible movement speed in meters per
+	// second between a player's successive reported check-in locations.
+	ActivationMaxSpeedMps int
 	// PosterCampusBadge is the badge rendered on activation posters and certificates.
 	PosterCampusBadge string
 	// CheckinMinAmount is the daily check-in grass grant lower bound.
@@ -62,6 +68,16 @@ type SocialRules struct {
 	GiftMinAmount int
 }
 
+// ActivationGuards is the subset consumed by the activation anti-cheat guards.
+type ActivationGuards struct {
+	// DailyAttemptLimit is the per-player daily activation attempt cap, counting
+	// failed photo check-ins as well as the successful one.
+	DailyAttemptLimit int
+	// MaxSpeedMps is the maximum plausible movement speed in meters per second
+	// between a player's successive reported check-in locations.
+	MaxSpeedMps int
+}
+
 // AnomalyRules is the subset consumed by the settlement risk-alert view.
 type AnomalyRules struct {
 	// FeedDailyThreshold is the single-day feeding-count alert threshold.
@@ -86,6 +102,9 @@ type Service interface {
 	Update(ctx context.Context, in *RuleSet) (out *RuleSet, err error)
 	// ActivationLBSThresholdMeters returns the activation LBS threshold in meters.
 	ActivationLBSThresholdMeters(ctx context.Context) (meters float64, err error)
+	// ActivationGuards returns the activation anti-cheat guard subset: the daily
+	// attempt cap (counting failures) and the movement speed ceiling.
+	ActivationGuards(ctx context.Context) (out ActivationGuards, err error)
 	// PosterCampusBadge returns the poster/certificate campus badge text.
 	PosterCampusBadge(ctx context.Context) (badge string, err error)
 	// CheckinRange returns the normalized daily check-in grant range.
