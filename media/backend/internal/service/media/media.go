@@ -118,6 +118,14 @@ type Service interface {
 	UpdateTenantStreamConfig(ctx context.Context, oldTenantID string, oldNodeNum int, in TenantStreamConfigMutationInput) (*TenantStreamConfigMutationOutput, error)
 	// DeleteTenantStreamConfig deletes one tenant stream config by tenant ID and node number.
 	DeleteTenantStreamConfig(ctx context.Context, tenantID string, nodeNum int) (*TenantStreamConfigMutationOutput, error)
+	// GetDashboardNodeOverview returns a bounded dashboard node tree built from latest report projections.
+	GetDashboardNodeOverview(ctx context.Context, in DashboardNodeOverviewInput) (*DashboardNodeOverviewOutput, error)
+	// ListDashboardInstances returns a bounded dashboard instance result set and its node summary.
+	ListDashboardInstances(ctx context.Context, in ListDashboardInstancesInput) (*ListDashboardInstancesOutput, error)
+	// ListDashboardStreams returns a bounded dashboard stream result set.
+	ListDashboardStreams(ctx context.Context, in ListDashboardStreamsInput) (*ListDashboardStreamsOutput, error)
+	// ListDashboardSessions returns a bounded dashboard session result set grouped by protocol.
+	ListDashboardSessions(ctx context.Context, in ListDashboardSessionsInput) (*ListDashboardSessionsOutput, error)
 }
 
 // Interface compliance assertion for the default media service implementation.

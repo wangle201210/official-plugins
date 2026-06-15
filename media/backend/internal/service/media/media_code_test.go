@@ -94,6 +94,18 @@ func TestMediaBusinessErrorMetadata(t *testing.T) {
 			runtimeCode: "MEDIA_TIETA_DEVICE_PERMISSION_DENIED",
 			messageKey:  "error.media.tieta.device.permission.denied",
 		},
+		{
+			name:        "dashboard stream required",
+			code:        CodeMediaDashboardStreamRequired,
+			runtimeCode: "MEDIA_DASHBOARD_STREAM_REQUIRED",
+			messageKey:  "error.media.dashboard.stream.required",
+		},
+		{
+			name:        "dashboard query failed",
+			code:        CodeMediaDashboardQueryFailed,
+			runtimeCode: "MEDIA_DASHBOARD_QUERY_FAILED",
+			messageKey:  "error.media.dashboard.query.failed",
+		},
 	}
 
 	for _, testCase := range testCases {

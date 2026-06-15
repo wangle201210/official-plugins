@@ -4,6 +4,8 @@ package media
 
 import (
 	"context"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +17,27 @@ import (
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )
+
+var (
+	mediaStrategySQLiteOnce           sync.Once
+	mediaStrategySQLiteOriginalConfig gdb.Config
+	mediaStrategySQLitePath           string
+	mediaStrategySQLiteConfigured     bool
+	mediaStrategySQLiteSetupErr       error
+)
+
+// TestMain restores package-global database state after service tests finish.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if mediaStrategySQLiteConfigured {
+		_ = dao.MediaStrategy.DB().Close(context.Background())
+		_ = gdb.SetConfig(mediaStrategySQLiteOriginalConfig)
+	}
+	if mediaStrategySQLitePath != "" {
+		_ = os.Remove(mediaStrategySQLitePath)
+	}
+	os.Exit(code)
+}
 
 // newTestMediaService creates a media service with an explicit test bizctx adapter.
 func newTestMediaService(t *testing.T) Service {
@@ -375,23 +398,38 @@ func TestResolveStrategyByTokenDeniesWithoutDevicePermission(t *testing.T) {
 func setupMediaStrategySQLite(t *testing.T, ctx context.Context) {
 	t.Helper()
 
-	originalConfig := gdb.GetAllConfig()
-	dbPath := t.TempDir() + "/media-tieta.db"
-	if err := gdb.SetConfig(gdb.Config{
-		"default": {
-			{Link: "sqlite::@file(" + dbPath + ")"},
-		},
-	}); err != nil {
-		t.Fatalf("set sqlite config: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := gdb.SetConfig(originalConfig); err != nil {
-			t.Fatalf("restore db config: %v", err)
+	mediaStrategySQLiteOnce.Do(func() {
+		mediaStrategySQLiteOriginalConfig = gdb.GetAllConfig()
+		tmpFile, err := os.CreateTemp("", "linapro-media-service-*.db")
+		if err != nil {
+			mediaStrategySQLiteSetupErr = err
+			return
 		}
+		mediaStrategySQLitePath = tmpFile.Name()
+		if err = tmpFile.Close(); err != nil {
+			mediaStrategySQLiteSetupErr = err
+			return
+		}
+		if err = os.Remove(mediaStrategySQLitePath); err != nil {
+			mediaStrategySQLiteSetupErr = err
+			return
+		}
+		if err = gdb.SetConfig(gdb.Config{
+			"default": {
+				{Link: "sqlite::@file(" + mediaStrategySQLitePath + ")"},
+			},
+		}); err != nil {
+			mediaStrategySQLiteSetupErr = err
+			return
+		}
+		mediaStrategySQLiteConfigured = true
 	})
+	if mediaStrategySQLiteSetupErr != nil {
+		t.Fatalf("setup sqlite config: %v", mediaStrategySQLiteSetupErr)
+	}
 
 	statements := []string{
-		`CREATE TABLE media_strategy (
+		`CREATE TABLE IF NOT EXISTS media_strategy (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
 			strategy TEXT NOT NULL,
@@ -402,29 +440,46 @@ func setupMediaStrategySQLite(t *testing.T, ctx context.Context) {
 			create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			update_time TEXT
 		)`,
-		`CREATE TABLE media_strategy_device (
+		`CREATE TABLE IF NOT EXISTS media_strategy_device (
 			device_id TEXT PRIMARY KEY,
 			strategy_id INTEGER NOT NULL
 		)`,
-		`CREATE TABLE media_strategy_tenant (
+		`CREATE TABLE IF NOT EXISTS media_strategy_tenant (
 			tenant_id TEXT PRIMARY KEY,
 			strategy_id INTEGER NOT NULL
 		)`,
-		`CREATE TABLE media_strategy_device_tenant (
+		`CREATE TABLE IF NOT EXISTS media_strategy_device_tenant (
 			tenant_id TEXT NOT NULL,
 			device_id TEXT NOT NULL,
 			strategy_id INTEGER NOT NULL,
 			PRIMARY KEY (tenant_id, device_id)
 		)`,
-		`CREATE TABLE media_device_node (device_id TEXT NOT NULL, channel_id TEXT NOT NULL, node_num INTEGER NOT NULL)`,
-		`CREATE TABLE media_node (id INTEGER PRIMARY KEY AUTOINCREMENT, node_num INTEGER NOT NULL, name TEXT NOT NULL, qn_url TEXT NOT NULL, basic_url TEXT NOT NULL, dn_url TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-		`CREATE TABLE media_tenant_stream_config (tenant_id TEXT NOT NULL, max_concurrent INTEGER NOT NULL, node_num INTEGER NOT NULL, enable INTEGER NOT NULL, creator_id INTEGER, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updater_id INTEGER, update_time TEXT, PRIMARY KEY (tenant_id, node_num))`,
-		`CREATE TABLE media_tenant_white (tenant_id TEXT NOT NULL, ip TEXT NOT NULL, enable INTEGER NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (tenant_id, ip))`,
-		`CREATE TABLE media_stream_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, alias TEXT NOT NULL, auto_remove INTEGER NOT NULL, stream_path TEXT NOT NULL, device_id TEXT NOT NULL, channel_id TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+		`CREATE TABLE IF NOT EXISTS media_device_node (device_id TEXT NOT NULL, channel_id TEXT NOT NULL, node_num INTEGER NOT NULL)`,
+		`CREATE TABLE IF NOT EXISTS media_node (id INTEGER PRIMARY KEY AUTOINCREMENT, node_num INTEGER NOT NULL, name TEXT NOT NULL, qn_url TEXT NOT NULL, basic_url TEXT NOT NULL, dn_url TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+		`CREATE TABLE IF NOT EXISTS media_tenant_stream_config (tenant_id TEXT NOT NULL, max_concurrent INTEGER NOT NULL, node_num INTEGER NOT NULL, enable INTEGER NOT NULL, creator_id INTEGER, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updater_id INTEGER, update_time TEXT, PRIMARY KEY (tenant_id, node_num))`,
+		`CREATE TABLE IF NOT EXISTS media_tenant_white (tenant_id TEXT NOT NULL, ip TEXT NOT NULL, enable INTEGER NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (tenant_id, ip))`,
+		`CREATE TABLE IF NOT EXISTS media_stream_alias (id INTEGER PRIMARY KEY AUTOINCREMENT, alias TEXT NOT NULL, auto_remove INTEGER NOT NULL, stream_path TEXT NOT NULL, device_id TEXT NOT NULL, channel_id TEXT NOT NULL, create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 	}
 	for _, statement := range statements {
 		if _, err := dao.MediaStrategy.DB().Exec(ctx, statement); err != nil {
 			t.Fatalf("exec sqlite schema: %v", err)
+		}
+	}
+
+	cleanupStatements := []string{
+		`DELETE FROM media_stream_alias`,
+		`DELETE FROM media_tenant_white`,
+		`DELETE FROM media_tenant_stream_config`,
+		`DELETE FROM media_device_node`,
+		`DELETE FROM media_node`,
+		`DELETE FROM media_strategy_device_tenant`,
+		`DELETE FROM media_strategy_device`,
+		`DELETE FROM media_strategy_tenant`,
+		`DELETE FROM media_strategy`,
+	}
+	for _, statement := range cleanupStatements {
+		if _, err := dao.MediaStrategy.DB().Exec(ctx, statement); err != nil {
+			t.Fatalf("cleanup sqlite data: %v", err)
 		}
 	}
 }
