@@ -10,6 +10,7 @@ import (
 	mediaplugin "lina-plugin-media"
 	mediacontroller "lina-plugin-media/backend/internal/controller/media"
 	mediaopencontroller "lina-plugin-media/backend/internal/controller/mediaopen"
+	collectionsvc "lina-plugin-media/backend/internal/service/collection"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
@@ -18,6 +19,9 @@ const (
 	// pluginID is the immutable identifier published by the embedded source plugin.
 	pluginID = "media"
 )
+
+// sharedCollectionSvc owns the media data collection TCP server lifecycle.
+var sharedCollectionSvc = collectionsvc.New()
 
 // init registers the media source plugin and its host callbacks.
 func init() {
@@ -30,9 +34,36 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
+	if err := plugin.Hooks().RegisterHook(
+		pluginhost.ExtensionPointSystemStarted,
+		pluginhost.CallbackExecutionModeBlocking,
+		startCollectionServer,
+	); err != nil {
+		panic(err)
+	}
 	if err := pluginhost.RegisterSourcePlugin(plugin); err != nil {
 		panic(err)
 	}
+}
+
+// startCollectionServer starts the plugin-owned net-flux compatible TCP server after host startup.
+func startCollectionServer(ctx context.Context, payload pluginhost.HookPayload) error {
+	if payload == nil || payload.Services() == nil {
+		return gerror.New("media collection server requires host services")
+	}
+	plugins := payload.Services().Plugins()
+	if plugins == nil {
+		return gerror.New("media collection server requires host plugin config service")
+	}
+	configSvc := plugins.Config()
+	if configSvc == nil {
+		return gerror.New("media collection server requires host plugin config service")
+	}
+	cacheSvc := payload.Services().Cache()
+	if cacheSvc == nil {
+		return gerror.New("media collection server requires host cache service")
+	}
+	return sharedCollectionSvc.Start(ctx, configSvc, cacheSvc)
 }
 
 // registerRoutes binds mediaopen routes through InnerApiAuth and management

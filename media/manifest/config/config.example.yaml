@@ -1,0 +1,31 @@
+# Runtime configuration template for the media source plugin.
+collectionServer:
+  # Enables the net-flux compatible TCP data collection server.
+  enabled: false
+  # TCP listen address used by client-side reporters.
+  addr: ":1911"
+  discovery:
+    # Enables Nacos-backed net-flux discovery commands.
+    enabled: false
+    # Nacos server host.
+    host: "127.0.0.1"
+    # Nacos server port.
+    port: 8848
+    # Nacos namespace.
+    namespace: "public"
+    # Nacos SDK log directory.
+    logDir: "./logs"
+    # Nacos SDK local cache directory.
+    cacheDir: "./cache"
+    # Whether the Nacos SDK preloads local cache.
+    preloadCache: true
+    # Nacos SDK request timeout in milliseconds.
+    timeout: 5000
+    # Default Nacos group.
+    groupName: "DEFAULT_GROUP"
+    # Nacos username.
+    username: "nacos"
+    # Nacos password.
+    password: "nacos"
+    # Default node ID used when discovery packets omit node.
+    node: 1
