@@ -1,0 +1,35 @@
+{include file=comm/head.html}
+<link rel="stylesheet" href="{site:assets}/css/yx-page.css">
+<div class="container" data-testid="cms-public-site" data-template="album-detail">
+  <div class="breadcrumb">
+    {page:breadcrumb separator='<span class="sep">&gt;</span>'}
+  </div>
+  <div class="page-content">
+    {include file=comm/categorynav.html}
+    <div class="content-area">
+      <div class="article-detail" data-testid="cms-public-album-detail">
+        <div class="article-detail-header">
+          <h1>{album:name}</h1>
+          <div class="article-meta">
+            <span>{album:description}</span>
+            <span>共 {album:count} 张图片</span>
+          </div>
+        </div>
+        <div class="article-card-grid" data-testid="cms-public-album-photos">
+          {cms:photo}
+          <span class="article-card-tile" data-testid="cms-public-album-photo">
+            <span class="article-card-cover">
+              <img src="[photo:url]" alt="[photo:title]">
+            </span>
+            <span class="article-card-body">
+              <strong>[photo:title]</strong>
+            </span>
+          </span>
+          {/cms:photo}
+        </div>
+      </div>
+      <a href="{category:link}" class="back-to-list">返回列表</a>
+    </div>
+  </div>
+</div>
+{include file=comm/foot.html}

@@ -229,3 +229,95 @@ func toAPISlides(list []*cmssvc.SlideItem) []*v1.SlideItem {
 	}
 	return items
 }
+
+// toAPIProduct converts a service-layer product into the API response projection.
+func toAPIProduct(item *cmssvc.ProductItem) *v1.ProductItem {
+	if item == nil || item.CmsProduct == nil {
+		return nil
+	}
+	return &v1.ProductItem{
+		Id:           item.Id,
+		CategoryId:   item.CategoryId,
+		CategoryName: item.CategoryName,
+		Name:         item.Name,
+		Slug:         item.Slug,
+		Summary:      item.Summary,
+		Cover:        item.Cover,
+		Gallery:      item.Gallery,
+		Price:        item.Price,
+		Spec:         item.Spec,
+		Content:      item.Content,
+		Keywords:     item.Keywords,
+		Description:  item.Description,
+		Sort:         item.Sort,
+		Status:       item.Status,
+		IsTop:        item.IsTop,
+		IsRecommend:  item.IsRecommend,
+		Views:        item.Views,
+		PublishedAt:  toAPITimeMillis(item.PublishedAt),
+		CreatedBy:    item.CreatedBy,
+		UpdatedBy:    item.UpdatedBy,
+		CreatedAt:    toAPITimeMillis(item.CreatedAt),
+		UpdatedAt:    toAPITimeMillis(item.UpdatedAt),
+	}
+}
+
+// toAPIProducts converts service-layer products into API response projections.
+func toAPIProducts(list []*cmssvc.ProductItem) []*v1.ProductItem {
+	items := make([]*v1.ProductItem, 0, len(list))
+	for _, item := range list {
+		items = append(items, toAPIProduct(item))
+	}
+	return items
+}
+
+// toAPIAlbum converts a service-layer album into the API response projection.
+func toAPIAlbum(item *cmssvc.AlbumItem) *v1.AlbumItem {
+	if item == nil || item.CmsAlbum == nil {
+		return nil
+	}
+	images := make([]*v1.AlbumImageItem, 0, len(item.Images))
+	for _, image := range item.Images {
+		if image == nil {
+			continue
+		}
+		images = append(images, &v1.AlbumImageItem{Url: image.Url, Title: image.Title, Sort: image.Sort})
+	}
+	return &v1.AlbumItem{
+		Id:           item.Id,
+		CategoryId:   item.CategoryId,
+		CategoryName: item.CategoryName,
+		Name:         item.Name,
+		Cover:        item.Cover,
+		Description:  item.Description,
+		Sort:         item.Sort,
+		Status:       item.Status,
+		ImageCount:   item.ImageCount,
+		Images:       images,
+		CreatedBy:    item.CreatedBy,
+		UpdatedBy:    item.UpdatedBy,
+		CreatedAt:    toAPITimeMillis(item.CreatedAt),
+		UpdatedAt:    toAPITimeMillis(item.UpdatedAt),
+	}
+}
+
+// toAPIAlbums converts service-layer albums into API response projections.
+func toAPIAlbums(list []*cmssvc.AlbumItem) []*v1.AlbumItem {
+	items := make([]*v1.AlbumItem, 0, len(list))
+	for _, item := range list {
+		items = append(items, toAPIAlbum(item))
+	}
+	return items
+}
+
+// toAlbumImageInputs converts API album image rows into service inputs.
+func toAlbumImageInputs(images []*v1.AlbumImageItem) []cmssvc.AlbumImageInput {
+	inputs := make([]cmssvc.AlbumImageInput, 0, len(images))
+	for _, image := range images {
+		if image == nil {
+			continue
+		}
+		inputs = append(inputs, cmssvc.AlbumImageInput{Url: image.Url, Title: image.Title, Sort: image.Sort})
+	}
+	return inputs
+}

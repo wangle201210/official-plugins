@@ -29,6 +29,10 @@ const (
 	publicFrontendSingleName   = "single.html"
 	publicFrontendDetailName   = "detail.html"
 	publicFrontendMessageName  = "message.html"
+	publicFrontendProductList  = "product-list.html"
+	publicFrontendProductName  = "product-detail.html"
+	publicFrontendAlbumList    = "album-list.html"
+	publicFrontendAlbumName    = "album-detail.html"
 	publicFrontendPageSize     = 12
 	publicFrontendMaxLoopSize  = 100
 	publicFrontendPreviewRunes = 96
@@ -39,7 +43,7 @@ const (
 // publicFrontendIncludePattern groups compiled patterns used by the CMS template compiler.
 var (
 	publicFrontendIncludePattern    = regexp.MustCompile(`\{include\s+file=([^}]+)\}`)
-	publicFrontendLoopStartPattern  = regexp.MustCompile(`\{cms:(nav|children|grandchildren|list|search|slide|link|category|message)((?:[^{}]|\{(?:category|article|nav|child|grandchild|list|search|message):[^}]+\})*)\}`)
+	publicFrontendLoopStartPattern  = regexp.MustCompile(`\{cms:(nav|children|grandchildren|list|search|slide|link|category|message|product|album|photo)((?:[^{}]|\{(?:category|article|nav|child|grandchild|list|search|message|product|album|photo):[^}]+\})*)\}`)
 	publicFrontendIfStartPattern    = regexp.MustCompile(`\{cms:if\(([^)]*)\)\}`)
 	publicFrontendScriptPattern     = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
 	publicFrontendStylePattern      = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
@@ -48,7 +52,7 @@ var (
 )
 
 // publicFrontendPageTemplates lists template names that may be selected from public request paths.
-var publicFrontendPageTemplates = map[string]struct{}{publicFrontendIndexName: {}, publicFrontendListName: {}, "list-card.html": {}, publicFrontendSearchName: {}, publicFrontendSingleName: {}, publicFrontendDetailName: {}, publicFrontendMessageName: {}}
+var publicFrontendPageTemplates = map[string]struct{}{publicFrontendIndexName: {}, publicFrontendListName: {}, "list-card.html": {}, publicFrontendSearchName: {}, publicFrontendSingleName: {}, publicFrontendDetailName: {}, publicFrontendMessageName: {}, publicFrontendProductList: {}, publicFrontendProductName: {}, publicFrontendAlbumList: {}, publicFrontendAlbumName: {}}
 
 // publicFrontendTemplateCache stores the compiled embedded public-site template set.
 var publicFrontendTemplateCache = struct {
@@ -72,6 +76,9 @@ const (
 	publicFrontendLinkScope       publicFrontendTemplateScope = "link"
 	publicFrontendCategoryScope   publicFrontendTemplateScope = "category"
 	publicFrontendMessageScope    publicFrontendTemplateScope = "message"
+	publicFrontendProductScope    publicFrontendTemplateScope = "product"
+	publicFrontendAlbumScope      publicFrontendTemplateScope = "album"
+	publicFrontendPhotoScope      publicFrontendTemplateScope = "photo"
 )
 
 // publicFrontendLoopAttrs records parsed attributes for CMS public template loops.
@@ -96,8 +103,12 @@ type publicFrontendView struct {
 	Categories        []*publicFrontendCategory
 	NavCategories     []*publicFrontendCategory
 	Articles          []*publicFrontendArticle
+	Products          []*publicFrontendProduct
+	Albums            []*publicFrontendAlbum
 	CurrentCategory   *publicFrontendCategory
 	CurrentArticle    *publicFrontendArticle
+	CurrentProduct    *publicFrontendProduct
+	CurrentAlbum      *publicFrontendAlbum
 	PrimarySlide      *publicFrontendSlide
 	Slides            []*publicFrontendSlide
 	Links             []*publicFrontendLink
@@ -160,6 +171,49 @@ type publicFrontendArticle struct {
 	IsRecommend     int
 	SearchPreview   template.HTML
 	ContentHTML     template.HTML
+}
+
+// publicFrontendProduct is the public-template projection of a CMS product.
+type publicFrontendProduct struct {
+	Id           int64
+	CategoryId   int64
+	Index        int
+	Name         string
+	Summary      string
+	Cover        string
+	Gallery      []string
+	Price        string
+	Spec         string
+	Keywords     string
+	Description  string
+	CategoryName string
+	PublishedAt  string
+	Href         string
+	Views        int64
+	IsTop        int
+	IsRecommend  int
+	ContentHTML  template.HTML
+}
+
+// publicFrontendAlbum is the public-template projection of a CMS album.
+type publicFrontendAlbum struct {
+	Id           int64
+	CategoryId   int64
+	Index        int
+	Name         string
+	Cover        string
+	Description  string
+	CategoryName string
+	Count        int
+	Href         string
+	Photos       []*publicFrontendPhoto
+}
+
+// publicFrontendPhoto is the public-template projection of one album image.
+type publicFrontendPhoto struct {
+	Index int
+	Url   string
+	Title string
 }
 
 // publicFrontendPagination contains page counts and navigation links for list templates.

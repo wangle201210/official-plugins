@@ -13,6 +13,7 @@ import (
 	"lina-plugin-cms/backend/internal/model/do"
 	entitymodel "lina-plugin-cms/backend/internal/model/entity"
 	"strings"
+	"time"
 )
 
 // ListArticles returns paged management articles with filters and category names.
@@ -45,7 +46,7 @@ func (s *serviceImpl) CreateArticle(ctx context.Context, in ArticleSaveInput) (i
 		return 0, err
 	}
 	userID := s.currentUserID(ctx)
-	data := do.CmsArticle{CategoryId: in.CategoryId, Title: in.Title, Subtitle: in.Subtitle, Slug: in.Slug, Summary: in.Summary, Cover: in.Cover, Author: in.Author, Source: in.Source, Content: in.Content, Tags: in.Tags, Keywords: in.Keywords, Description: in.Description, Sort: in.Sort, Status: in.Status, IsTop: in.IsTop, IsRecommend: in.IsRecommend, PublishedAt: publishedAtForStatus(in.Status, nil), CreatedBy: userID, UpdatedBy: userID}
+	data := do.CmsArticle{CategoryId: in.CategoryId, Title: in.Title, Subtitle: in.Subtitle, Slug: in.Slug, Summary: in.Summary, Cover: in.Cover, Author: in.Author, Source: in.Source, Content: in.Content, Tags: in.Tags, Keywords: in.Keywords, Description: in.Description, Sort: in.Sort, Status: in.Status, IsTop: in.IsTop, IsRecommend: in.IsRecommend, PublishedAt: publishedAtForStatus(in.Status, in.PublishedAt, nil), CreatedBy: userID, UpdatedBy: userID}
 	return dao.CmsArticle.Ctx(ctx).Data(data).InsertAndGetId()
 }
 
@@ -65,7 +66,7 @@ func (s *serviceImpl) UpdateArticle(ctx context.Context, in ArticleSaveInput) er
 	if err := s.ensureArticleSlugAvailable(ctx, in.Slug, in.Id); err != nil {
 		return err
 	}
-	_, err := dao.CmsArticle.Ctx(ctx).Where(columns.Id, in.Id).Data(do.CmsArticle{CategoryId: in.CategoryId, Title: in.Title, Subtitle: in.Subtitle, Slug: in.Slug, Summary: in.Summary, Cover: in.Cover, Author: in.Author, Source: in.Source, Content: in.Content, Tags: in.Tags, Keywords: in.Keywords, Description: in.Description, Sort: in.Sort, Status: in.Status, IsTop: in.IsTop, IsRecommend: in.IsRecommend, PublishedAt: publishedAtForStatus(in.Status, oldArticle.PublishedAt), UpdatedBy: s.currentUserID(ctx)}).Update()
+	_, err := dao.CmsArticle.Ctx(ctx).Where(columns.Id, in.Id).Data(do.CmsArticle{CategoryId: in.CategoryId, Title: in.Title, Subtitle: in.Subtitle, Slug: in.Slug, Summary: in.Summary, Cover: in.Cover, Author: in.Author, Source: in.Source, Content: in.Content, Tags: in.Tags, Keywords: in.Keywords, Description: in.Description, Sort: in.Sort, Status: in.Status, IsTop: in.IsTop, IsRecommend: in.IsRecommend, PublishedAt: publishedAtForStatus(in.Status, in.PublishedAt, oldArticle.PublishedAt), UpdatedBy: s.currentUserID(ctx)}).Update()
 	return err
 }
 
@@ -77,6 +78,86 @@ func (s *serviceImpl) DeleteArticle(ctx context.Context, id int64) error {
 	}
 	_, err := dao.CmsArticle.Ctx(ctx).Where(columns.Id, id).Delete()
 	return err
+}
+
+// ArticleBatchMax caps the number of article IDs one batch operation accepts.
+const ArticleBatchMax = 100
+
+// BatchUpdateArticleStatus publishes or unpublishes multiple CMS articles in one
+// transaction with collection statements, rejecting the whole batch when any
+// target article does not exist or the batch exceeds ArticleBatchMax.
+func (s *serviceImpl) BatchUpdateArticleStatus(ctx context.Context, in ArticleBatchStatusInput) error {
+	ids := normalizeArticleBatchIDs(in.Ids)
+	if len(ids) > ArticleBatchMax {
+		return bizerr.NewCode(CodeArticleBatchLimitExceeded)
+	}
+	columns := dao.CmsArticle.Columns()
+	userID := s.currentUserID(ctx)
+	return dao.CmsArticle.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+		if err := s.ensureArticlesExist(ctx, ids); err != nil {
+			return err
+		}
+		if _, err := dao.CmsArticle.Ctx(ctx).WhereIn(columns.Id, ids).Data(do.CmsArticle{Status: in.Status, UpdatedBy: userID}).Update(); err != nil {
+			return err
+		}
+		if in.Status != ArticleStatusPublished {
+			return nil
+		}
+		_, err := dao.CmsArticle.Ctx(ctx).WhereIn(columns.Id, ids).WhereNull(columns.PublishedAt).Data(do.CmsArticle{PublishedAt: gtime.Now(), UpdatedBy: userID}).Update()
+		return err
+	})
+}
+
+// BatchDeleteArticles soft deletes multiple CMS articles with one collection
+// statement, rejecting the whole batch when any target article does not exist
+// or the batch exceeds ArticleBatchMax.
+func (s *serviceImpl) BatchDeleteArticles(ctx context.Context, ids []int64) error {
+	ids = normalizeArticleBatchIDs(ids)
+	if len(ids) > ArticleBatchMax {
+		return bizerr.NewCode(CodeArticleBatchLimitExceeded)
+	}
+	columns := dao.CmsArticle.Columns()
+	return dao.CmsArticle.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+		if err := s.ensureArticlesExist(ctx, ids); err != nil {
+			return err
+		}
+		_, err := dao.CmsArticle.Ctx(ctx).WhereIn(columns.Id, ids).Delete()
+		return err
+	})
+}
+
+// normalizeArticleBatchIDs drops non-positive IDs and duplicates so existence
+// counting stays exact.
+func normalizeArticleBatchIDs(ids []int64) []int64 {
+	result := make([]int64, 0, len(ids))
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result
+}
+
+// ensureArticlesExist rejects a batch when any target article is missing,
+// using one counting query for the whole ID set.
+func (s *serviceImpl) ensureArticlesExist(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return bizerr.NewCode(CodeArticleNotFound)
+	}
+	count, err := dao.CmsArticle.Ctx(ctx).WhereIn(dao.CmsArticle.Columns().Id, ids).Count()
+	if err != nil {
+		return err
+	}
+	if count != len(ids) {
+		return bizerr.NewCode(CodeArticleNotFound)
+	}
+	return nil
 }
 
 // ListPublicArticles returns visible public articles with template ordering rules applied.
@@ -171,9 +252,11 @@ func (s *serviceImpl) categoryIDsForArticleFilter(ctx context.Context, categoryI
 }
 
 // applyPublicArticleVisibility adds public article status and category visibility filters.
+// Scheduled articles stay hidden: only rows whose published_at is set and not in
+// the future pass (SQL comparison is false for NULL published_at).
 func (s *serviceImpl) applyPublicArticleVisibility(ctx context.Context, model *gdb.Model, includeHiddenCategories bool) *gdb.Model {
 	articleColumns := dao.CmsArticle.Columns()
-	model = model.Where(articleColumns.Status, ArticleStatusPublished)
+	model = model.Where(articleColumns.Status, ArticleStatusPublished).WhereLTE(articleColumns.PublishedAt, gtime.Now())
 	if includeHiddenCategories {
 		return model
 	}
@@ -253,6 +336,12 @@ func (s *serviceImpl) categoryNameMap(ctx context.Context, list []*entitymodel.C
 		ids = append(ids, article.CategoryId)
 		seen[article.CategoryId] = true
 	}
+	return s.categoryNameMapByIDs(ctx, ids)
+}
+
+// categoryNameMapByIDs loads category names for a distinct category ID set
+// with one batched query.
+func (s *serviceImpl) categoryNameMapByIDs(ctx context.Context, ids []int64) (map[int64]string, error) {
 	result := make(map[int64]string)
 	if len(ids) == 0 {
 		return result, nil
@@ -290,10 +379,17 @@ func (s *serviceImpl) ensureArticleSlugAvailable(ctx context.Context, slug strin
 	return nil
 }
 
-// publishedAtForStatus chooses a publication time for published articles.
-func publishedAtForStatus(status int, oldPublishedAt *gtime.Time) *gtime.Time {
+// publishedAtForStatus chooses a publication time for published articles. An
+// explicit Unix millisecond timestamp wins and may schedule a future
+// publication; otherwise the previous time is kept and first publishes fall
+// back to the current time. Draft saves return nil so the stored value stays
+// untouched.
+func publishedAtForStatus(status int, explicitMillis *int64, oldPublishedAt *gtime.Time) *gtime.Time {
 	if status != ArticleStatusPublished {
 		return nil
+	}
+	if explicitMillis != nil {
+		return gtime.New(time.UnixMilli(*explicitMillis))
 	}
 	if oldPublishedAt != nil {
 		return oldPublishedAt

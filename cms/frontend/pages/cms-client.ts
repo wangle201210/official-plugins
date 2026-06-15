@@ -49,7 +49,7 @@ export interface Article {
   isRecommend: number;
   isTop: number;
   keywords: string;
-  publishedAt?: string;
+  publishedAt?: number;
   slug: string;
   sort: number;
   source: string;
@@ -188,6 +188,14 @@ export function cmsArticleDelete(id: number) {
   return requestClient.delete(`/cms/articles/${id}`);
 }
 
+export function cmsArticleBatchUpdateStatus(ids: number[], status: number) {
+  return requestClient.put("/cms/articles", { ids, status });
+}
+
+export function cmsArticleBatchDelete(ids: number[]) {
+  return requestClient.delete("/cms/articles", { data: { ids } });
+}
+
 export async function cmsMessageList(params?: MessageListParams) {
   const res = await requestClient.get<{ list: Message[]; total: number }>(
     "/cms/messages",
@@ -242,4 +250,109 @@ export function cmsSlideUpdate(id: number, data: Partial<Slide>) {
 
 export function cmsSlideDelete(id: number) {
   return requestClient.delete(`/cms/slides/${id}`);
+}
+
+export interface Product {
+  categoryId: number;
+  categoryName?: string;
+  content: string;
+  cover: string;
+  description: string;
+  gallery: string[];
+  id: number;
+  isRecommend: number;
+  isTop: number;
+  keywords: string;
+  name: string;
+  price: string;
+  publishedAt?: number;
+  slug: string;
+  sort: number;
+  spec: string;
+  status: number;
+  summary: string;
+  views: number;
+}
+
+export interface AlbumImage {
+  sort: number;
+  title: string;
+  url: string;
+}
+
+export interface Album {
+  categoryId: number;
+  categoryName?: string;
+  cover: string;
+  description: string;
+  id: number;
+  imageCount?: number;
+  images: AlbumImage[];
+  name: string;
+  sort: number;
+  status: number;
+}
+
+export interface ProductListParams {
+  categoryId?: number;
+  name?: string;
+  pageNum?: number;
+  pageSize?: number;
+  status?: number;
+}
+
+export interface AlbumListParams {
+  categoryId?: number;
+  name?: string;
+  pageNum?: number;
+  pageSize?: number;
+  status?: number;
+}
+
+export async function cmsProductList(params?: ProductListParams) {
+  const res = await requestClient.get<{ list: Product[]; total: number }>(
+    "/cms/products",
+    { params },
+  );
+  return { items: res.list, total: res.total };
+}
+
+export function cmsProductInfo(id: number) {
+  return requestClient.get<Product>(`/cms/products/${id}`);
+}
+
+export function cmsProductCreate(data: Partial<Product>) {
+  return requestClient.post("/cms/products", data);
+}
+
+export function cmsProductUpdate(id: number, data: Partial<Product>) {
+  return requestClient.put(`/cms/products/${id}`, data);
+}
+
+export function cmsProductDelete(id: number) {
+  return requestClient.delete(`/cms/products/${id}`);
+}
+
+export async function cmsAlbumList(params?: AlbumListParams) {
+  const res = await requestClient.get<{ list: Album[]; total: number }>(
+    "/cms/albums",
+    { params },
+  );
+  return { items: res.list, total: res.total };
+}
+
+export function cmsAlbumInfo(id: number) {
+  return requestClient.get<Album>(`/cms/albums/${id}`);
+}
+
+export function cmsAlbumCreate(data: Partial<Album>) {
+  return requestClient.post("/cms/albums", data);
+}
+
+export function cmsAlbumUpdate(id: number, data: Partial<Album>) {
+  return requestClient.put(`/cms/albums/${id}`, data);
+}
+
+export function cmsAlbumDelete(id: number) {
+  return requestClient.delete(`/cms/albums/${id}`);
 }

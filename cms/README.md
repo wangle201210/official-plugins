@@ -30,6 +30,76 @@ business content and reload the packaged starter site from
 `manifest/sql/mock-data/002-cms-starter-content.sql`. This is intended for
 returning a reviewed or emptied demo site to the delivered sample state.
 
+## Product Center and Photo Albums
+
+The plugin ships the product showcase and photo album capabilities common to
+corporate sites:
+
+- Category types gain `4=product` and `5=album`. Products and albums belong to
+  categories of the matching type; the public site renders their list pages by
+  category path and reuses navigation, breadcrumbs, and pagination.
+- A product carries a name, slug, cover, gallery (up to 9 images), display
+  price text, specification summary, rich-text detail, top/recommend flags,
+  draft/published status, and a view counter; scheduled publishing follows the
+  article rules. Product detail pages live at `/cms-site?product=<slug>`.
+- An album carries a name, cover, description, and an image list (up to 100
+  per album) replaced as a whole on save. Album detail pages live at
+  `/cms-site?album=<id>`.
+- The management page gains `Products` and `Albums` tabs; public JSON APIs are
+  `/api/v1/cms/public/products` and `/api/v1/cms/public/albums`.
+- The sitemap automatically includes product/album category pages and
+  published product detail pages.
+- The starter site ships a product center and a campus album with sample
+  content so users can learn the template usage.
+
+Product and album template tags:
+
+| Tag | Output |
+| --- | --- |
+| `{cms:product limit=12}...{/cms:product}` | Product loop with `[product:link/name/image/price/spec/summary/date/views/index]` |
+| `{product:name/price/spec/summary/content/date/views}` | Product detail tags |
+| `{product:gallery}` | Product gallery HTML block |
+| `{cms:album limit=12}...{/cms:album}` | Album loop with `[album:link/name/cover/count/description/index]` |
+| `{album:name/description/count}` | Album detail tags |
+| `{cms:photo}...{/cms:photo}` | Photo loop inside album details with `[photo:url/title/index]` |
+
+The matching template files are `product-list.html`, `product-detail.html`,
+`album-list.html`, and `album-detail.html`, selectable from the category form
+template dropdowns.
+
+## Public SEO Endpoints
+
+The public site exposes three anonymous SEO endpoints:
+
+| Endpoint | Output |
+| --- | --- |
+| `/cms-site/sitemap.xml` | Sitemap with the home page, enabled list/single categories, and up to `5000` newest published articles |
+| `/cms-site/rss.xml` | RSS 2.0 feed of the `50` newest published articles with plain-text summaries |
+| `/cms-site/robots.txt` | Crawler hints with a `Sitemap:` pointer |
+
+Draft articles, scheduled articles whose publication time has not arrived,
+disabled categories, and external-link categories never appear in these
+documents. When the site setting `domain` is configured, sitemap and RSS links
+become absolute URLs (a bare host defaults to `https://`); otherwise relative
+`/cms-site` paths are emitted, which some feed readers may not resolve.
+
+## Scheduled Publishing
+
+Article create and update accept an optional publish time. Articles saved as
+published with a future publish time stay hidden from all public reads (public
+JSON APIs, HTML pages, search, sitemap, and RSS) until the time arrives — no
+scheduler is involved, visibility is filtered by query time. The management
+list marks such articles with a `Scheduled` tag. Saving as published without a
+publish time keeps the previous behavior: the first publish stamps the current
+time and later saves keep it.
+
+## Batch Article Operations
+
+The article list supports multi-select with batch publish, batch unpublish,
+and batch delete (with confirmation). A single batch accepts at most `100`
+IDs, is rejected as a whole when any target does not exist, and reuses the
+`cms:article:edit` and `cms:article:remove` permissions.
+
 ## Root Domain OpenResty Proxy
 
 The public CMS site is served by LinaPro under `/cms-site`. To publish it at a

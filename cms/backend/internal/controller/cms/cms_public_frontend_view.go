@@ -16,6 +16,8 @@ func (c *ControllerV1) buildPublicFrontendView(ctx context.Context, r *ghttp.Req
 	categoryID := queryInt64(r, "categoryId")
 	categoryCode := strings.TrimSpace(r.GetQuery("category").String())
 	slug := strings.TrimSpace(r.GetQuery("article").String())
+	productSlug := strings.TrimSpace(r.GetQuery("product").String())
+	albumID := queryInt64(r, "album")
 	routePath := publicFrontendRequestPath(r)
 	pageNum := queryInt(r, "page")
 	if pageNum <= 0 {
@@ -27,6 +29,8 @@ func (c *ControllerV1) buildPublicFrontendView(ctx context.Context, r *ghttp.Req
 	templateName := publicFrontendIndexName
 	activeCategoryID := categoryID
 	var currentArticle *cmssvc.ArticleItem
+	var currentProduct *cmssvc.ProductItem
+	var currentAlbum *cmssvc.AlbumItem
 	if categoryID > 0 {
 		templateName = publicFrontendListName
 	}
@@ -42,6 +46,24 @@ func (c *ControllerV1) buildPublicFrontendView(ctx context.Context, r *ghttp.Req
 		}
 		currentArticle = article
 		activeCategoryID = article.CategoryId
+	}
+	if productSlug != "" {
+		templateName = publicFrontendProductName
+		product, err := c.cmsSvc.GetPublicProductBySlug(ctx, productSlug)
+		if err != nil {
+			return nil, err
+		}
+		currentProduct = product
+		activeCategoryID = product.CategoryId
+	}
+	if albumID > 0 {
+		templateName = publicFrontendAlbumName
+		album, err := c.cmsSvc.GetPublicAlbum(ctx, albumID)
+		if err != nil {
+			return nil, err
+		}
+		currentAlbum = album
+		activeCategoryID = album.CategoryId
 	}
 	view, err := c.buildPublicFrontendBaseView(ctx, r, templateName, activeCategoryID)
 	if err != nil {
@@ -74,7 +96,7 @@ func (c *ControllerV1) buildPublicFrontendView(ctx context.Context, r *ghttp.Req
 			markPublicFrontendActiveCategory(view.Categories, activeCategoryID)
 		}
 	}
-	if view.CurrentCategory != nil && slug == "" {
+	if view.CurrentCategory != nil && slug == "" && productSlug == "" && albumID <= 0 {
 		templateName = publicFrontendCategoryListTemplate(view.CurrentCategory)
 	}
 	listScope := publicFrontendListScope
@@ -128,6 +150,50 @@ func (c *ControllerV1) buildPublicFrontendView(ctx context.Context, r *ghttp.Req
 	}
 	view.PrimarySlide = firstPublicFrontendSlide(slides)
 	view.Slides = mapPublicFrontendSlides(slides)
+	if currentProduct != nil {
+		view.CurrentProduct = mapPublicFrontendProduct(currentProduct, true)
+		view.PageTitle = currentProduct.Name
+		view.CurrentCategory = findPublicFrontendCategory(view.Categories, currentProduct.CategoryId)
+		view.TemplateName = strings.TrimSuffix(publicFrontendCategoryContentTemplate(view.CurrentCategory, publicFrontendProductName), ".html")
+		markPublicFrontendActiveCategory(view.NavCategories, currentProduct.CategoryId)
+		markPublicFrontendActiveCategory(view.Categories, currentProduct.CategoryId)
+		return view, nil
+	}
+	if currentAlbum != nil {
+		view.CurrentAlbum = mapPublicFrontendAlbum(currentAlbum)
+		view.PageTitle = currentAlbum.Name
+		view.CurrentCategory = findPublicFrontendCategory(view.Categories, currentAlbum.CategoryId)
+		view.TemplateName = strings.TrimSuffix(publicFrontendCategoryContentTemplate(view.CurrentCategory, publicFrontendAlbumName), ".html")
+		markPublicFrontendActiveCategory(view.NavCategories, currentAlbum.CategoryId)
+		markPublicFrontendActiveCategory(view.Categories, currentAlbum.CategoryId)
+		return view, nil
+	}
+	if slug == "" && view.CurrentCategory != nil && view.CurrentCategory.Type == cmssvc.CategoryTypeProduct {
+		productAttrs := publicFrontendTemplateArticleAttrs(templateName, publicFrontendProductScope)
+		productPageSize := publicFrontendLoopLimit(publicFrontendListScope, productAttrs)
+		productPage, err := c.cmsSvc.ListPublicProducts(ctx, cmssvc.PublicProductListInput{PageNum: pageNum, PageSize: productPageSize, CategoryId: view.CurrentCategory.Id})
+		if err != nil {
+			return nil, err
+		}
+		view.Products = mapPublicFrontendProducts(productPage.List, false)
+		view.Pagination = buildPublicFrontendPagination(r, productPage.Total, productPageSize, pageNum)
+		view.TemplateName = strings.TrimSuffix(templateName, ".html")
+		view.PageTitle = view.CurrentCategory.Name
+		return view, nil
+	}
+	if slug == "" && view.CurrentCategory != nil && view.CurrentCategory.Type == cmssvc.CategoryTypeAlbum {
+		albumAttrs := publicFrontendTemplateArticleAttrs(templateName, publicFrontendAlbumScope)
+		albumPageSize := publicFrontendLoopLimit(publicFrontendListScope, albumAttrs)
+		albumPage, err := c.cmsSvc.ListPublicAlbums(ctx, cmssvc.PublicAlbumListInput{PageNum: pageNum, PageSize: albumPageSize, CategoryId: view.CurrentCategory.Id})
+		if err != nil {
+			return nil, err
+		}
+		view.Albums = mapPublicFrontendAlbums(albumPage.List)
+		view.Pagination = buildPublicFrontendPagination(r, albumPage.Total, albumPageSize, pageNum)
+		view.TemplateName = strings.TrimSuffix(templateName, ".html")
+		view.PageTitle = view.CurrentCategory.Name
+		return view, nil
+	}
 	if slug == "" {
 		if isSearchPage {
 			view.TemplateName = strings.TrimSuffix(publicFrontendSearchName, ".html")

@@ -1,0 +1,29 @@
+{include file=comm/head.html}
+<link rel="stylesheet" href="{site:assets}/css/yx-page.css">
+<div class="container" data-testid="cms-public-site" data-template="product-detail">
+  <div class="breadcrumb">
+    {page:breadcrumb separator='<span class="sep">&gt;</span>'}
+  </div>
+  <div class="page-content">
+    {include file=comm/categorynav.html}
+    <div class="content-area">
+      <div class="article-detail" data-testid="cms-public-product-detail">
+        <div class="article-detail-header">
+          <h1>{product:name}</h1>
+          <div class="article-meta">
+            <span>发布时间：{product:date}</span>
+            <span class="product-price" data-testid="cms-public-product-price">价格：{product:price}</span>
+            <span>浏览：{product:views}次</span>
+          </div>
+        </div>
+        {product:gallery}
+        <div class="article-meta" data-testid="cms-public-product-spec">规格：{product:spec}</div>
+        <div class="article-body">
+          {product:content}
+        </div>
+      </div>
+      <a href="{category:link}" class="back-to-list">返回列表</a>
+    </div>
+  </div>
+</div>
+{include file=comm/foot.html}

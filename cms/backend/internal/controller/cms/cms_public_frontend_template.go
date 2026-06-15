@@ -148,6 +148,12 @@ func publicFrontendLoopScope(name string) publicFrontendTemplateScope {
 		return publicFrontendCategoryScope
 	case "message":
 		return publicFrontendMessageScope
+	case "product":
+		return publicFrontendProductScope
+	case "album":
+		return publicFrontendAlbumScope
+	case "photo":
+		return publicFrontendPhotoScope
 	default:
 		return publicFrontendRootScope
 	}
@@ -288,6 +294,12 @@ func publicFrontendLoopTemplate(scope publicFrontendTemplateScope, attrs publicF
 		return "{{range cmsLimit .Links " + limit + "}}" + body + "{{end}}"
 	case publicFrontendMessageScope:
 		return "{{range cmsLimit .ApprovedMessages " + limit + "}}" + body + "{{end}}"
+	case publicFrontendProductScope:
+		return "{{range cmsLimit .Products " + limit + "}}" + body + "{{end}}"
+	case publicFrontendAlbumScope:
+		return "{{range cmsLimit .Albums " + limit + "}}" + body + "{{end}}"
+	case publicFrontendPhotoScope:
+		return "{{if $.CurrentAlbum}}{{range cmsLimit $.CurrentAlbum.Photos " + limit + "}}" + body + "{{end}}{{end}}"
 	case publicFrontendCategoryScope:
 		if attrs.Code != "" {
 			if attrs.Code == "{category:topcode}" {
@@ -391,6 +403,8 @@ func publicFrontendIfCondition(expression string, scope publicFrontendTemplateSc
 func replacePublicFrontendRootTags(content string) string {
 	replacements := []string{"{site:path}", "/cms-site", "{site:assets}", "/cms-site/assets", "{search:action}", "/cms-site/search", "{message:action}", "/cms-site/messages", "{message:page}", "/cms-site/message", "{site:title}", "{{.Site.Name}}", "{site:name}", "{{.Site.Name}}", "{site:subtitle}", "{{.Site.Slogan}}", "{site:slogan}", "{{.Site.Slogan}}", "{site:logo}", "{{.Site.Logo}}", "{site:keywords}", "{{.Site.Keywords}}", "{site:description}", "{{.Site.Description}}", "{site:address}", "{{.Site.Address}}", "{site:phone}", "{{.Site.Phone}}", "{site:email}", "{{.Site.Email}}", "{site:contact}", "{{.Site.Contact}}", "{site:icp}", "{{.Site.Icp}}", "{site:wechat}", "{{.CompanyWeixin}}", "{search:keyword}", "{{.Keyword}}", "{site:year}", "{{.Year}}", "{category:firstlink}", "{{.FirstCategoryHref}}", "{slide:firstimage}", "{{.PrimarySlide.Image}}", "{slide:firsttitle}", "{{.PrimarySlide.Title}}", "{page:title}", "{{if .PageTitle}}{{.PageTitle}}-{{end}}{{.Site.Name}}", "{page:keywords}", "{{if .CurrentArticle}}{{.CurrentArticle.Keywords}}{{else if .CurrentCategory}}{{.CurrentCategory.Keywords}}{{else}}{{.Site.Keywords}}{{end}}", "{page:description}", "{{if .CurrentArticle}}{{.CurrentArticle.Description}}{{else if .CurrentCategory}}{{.CurrentCategory.Description}}{{else}}{{.Site.Description}}{{end}}", "{category:name}", "{{if .CurrentCategory}}{{.CurrentCategory.Name}}{{end}}", "{category:link}", "{{if .CurrentCategory}}{{.CurrentCategory.Href}}{{end}}", "{category:code}", "{{if .CurrentCategory}}{{.CurrentCategory.Code}}{{end}}", "{category:topcode}", "{{with cmsRootCategory .CurrentCategory}}{{.Code}}{{end}}", "{category:description}", "{{if .CurrentCategory}}{{.CurrentCategory.Description}}{{end}}", "{article:title}", "{{if .CurrentArticle}}{{.CurrentArticle.Title}}{{end}}", "{article:subtitle}", "{{if .CurrentArticle}}{{.CurrentArticle.Subtitle}}{{end}}", "{article:summary}", "{{if .CurrentArticle}}{{.CurrentArticle.Summary}}{{end}}", "{article:image}", "{{if .CurrentArticle}}{{.CurrentArticle.Cover}}{{end}}", "{article:author}", "{{if .CurrentArticle}}{{.CurrentArticle.Author}}{{end}}", "{article:source}", "{{if .CurrentArticle}}{{.CurrentArticle.Source}}{{end}}", "{article:date}", "{{if .CurrentArticle}}{{.CurrentArticle.PublishedAt}}{{end}}", "{article:views}", "{{if .CurrentArticle}}{{.CurrentArticle.Views}}{{end}}", "{article:content}", "{{if .CurrentArticle}}{{.CurrentArticle.ContentHTML}}{{end}}", "{article:previous}", "{{if .PreviousArticle}}<a href=\"{{.PreviousArticle.Href}}\">{{.PreviousArticle.Title}}</a>{{else}}无{{end}}", "{article:next}", "{{if .NextArticle}}<a href=\"{{.NextArticle.Href}}\">{{.NextArticle.Title}}</a>{{else}}无{{end}}", "{page:total}", "{{if .Pagination}}{{.Pagination.Rows}}{{else}}0{{end}}", "{page:first}", "{{if .Pagination}}{{.Pagination.IndexHref}}{{end}}", "{page:previous}", "{{if .Pagination}}{{.Pagination.PreHref}}{{end}}", "{page:next}", "{{if .Pagination}}{{.Pagination.NextHref}}{{end}}", "{page:last}", "{{if .Pagination}}{{.Pagination.LastHref}}{{end}}", "{page:numbers}", "{{if .Pagination}}{{.Pagination.NumBar}}{{end}}"}
 	replaced := strings.NewReplacer(replacements...).Replace(content)
+	productReplacements := []string{"{product:name}", "{{if .CurrentProduct}}{{.CurrentProduct.Name}}{{end}}", "{product:summary}", "{{if .CurrentProduct}}{{.CurrentProduct.Summary}}{{end}}", "{product:image}", "{{if .CurrentProduct}}{{.CurrentProduct.Cover}}{{end}}", "{product:price}", "{{if .CurrentProduct}}{{.CurrentProduct.Price}}{{end}}", "{product:spec}", "{{if .CurrentProduct}}{{.CurrentProduct.Spec}}{{end}}", "{product:date}", "{{if .CurrentProduct}}{{.CurrentProduct.PublishedAt}}{{end}}", "{product:views}", "{{if .CurrentProduct}}{{.CurrentProduct.Views}}{{end}}", "{product:content}", "{{if .CurrentProduct}}{{.CurrentProduct.ContentHTML}}{{end}}", "{product:gallery}", `{{if .CurrentProduct}}<div class="cms-product-gallery">{{range .CurrentProduct.Gallery}}<img src="{{.}}" alt="">{{end}}</div>{{end}}`, "{album:name}", "{{if .CurrentAlbum}}{{.CurrentAlbum.Name}}{{end}}", "{album:description}", "{{if .CurrentAlbum}}{{.CurrentAlbum.Description}}{{end}}", "{album:count}", "{{if .CurrentAlbum}}{{.CurrentAlbum.Count}}{{end}}"}
+	replaced = strings.NewReplacer(productReplacements...).Replace(replaced)
 	replaced = regexp.MustCompile(`\{article:date\s+style=[^}]+\}`).ReplaceAllString(replaced, "{{if .CurrentArticle}}{{.CurrentArticle.PublishedAt}}{{end}}")
 	replaced = regexp.MustCompile(`\{page:breadcrumb[^}]*\}`).ReplaceAllString(replaced, `<a href="/cms-site">首页</a>{{if .CurrentCategory}}<span class="sep">&gt;</span>{{with cmsRootCategory .CurrentCategory}}<a href="{{.Href}}">{{.Name}}</a>{{end}}{{if ne .CurrentCategory.Id (cmsRootCategory .CurrentCategory).Id}}<span class="sep">&gt;</span><span>{{.CurrentCategory.Name}}</span>{{end}}{{end}}`)
 	return replaced
@@ -417,6 +431,12 @@ func replacePublicFrontendScopedTags(content string, scope publicFrontendTemplat
 		return replacePublicFrontendCategoryTags(content, "category")
 	case publicFrontendMessageScope:
 		return replacePublicFrontendMessageTags(content)
+	case publicFrontendProductScope:
+		return replacePublicFrontendProductTags(content)
+	case publicFrontendAlbumScope:
+		return replacePublicFrontendAlbumTags(content)
+	case publicFrontendPhotoScope:
+		return replacePublicFrontendPhotoTags(content)
 	default:
 		return content
 	}
@@ -466,6 +486,29 @@ func replacePublicFrontendMessageTags(content string) string {
 	replaced = replacePublicFrontendTextParamTags(replaced, "message", "name", ".Name")
 	replaced = replacePublicFrontendTextParamTags(replaced, "message", "content", ".Content")
 	replaced = replacePublicFrontendTextParamTags(replaced, "message", "reply", ".Reply")
+	return replaced
+}
+
+// replacePublicFrontendProductTags replaces product loop field tags.
+func replacePublicFrontendProductTags(content string) string {
+	replaced := strings.NewReplacer("[product:id]", "{{.Id}}", "[product:index]", "{{.Index}}", "[product:link]", "{{.Href}}", "[product:name]", "{{.Name}}", "[product:summary]", "{{.Summary}}", "[product:image]", "{{.Cover}}", "[product:price]", "{{.Price}}", "[product:spec]", "{{.Spec}}", "[product:date]", "{{.PublishedAt}}", "[product:views]", "{{.Views}}", "[product:category]", "{{.CategoryName}}").Replace(content)
+	replaced = replacePublicFrontendTextParamTags(replaced, "product", "name", ".Name")
+	replaced = replacePublicFrontendTextParamTags(replaced, "product", "summary", ".Summary")
+	return replaced
+}
+
+// replacePublicFrontendAlbumTags replaces album loop field tags.
+func replacePublicFrontendAlbumTags(content string) string {
+	replaced := strings.NewReplacer("[album:id]", "{{.Id}}", "[album:index]", "{{.Index}}", "[album:link]", "{{.Href}}", "[album:name]", "{{.Name}}", "[album:cover]", "{{.Cover}}", "[album:count]", "{{.Count}}", "[album:description]", "{{.Description}}", "[album:category]", "{{.CategoryName}}").Replace(content)
+	replaced = replacePublicFrontendTextParamTags(replaced, "album", "name", ".Name")
+	replaced = replacePublicFrontendTextParamTags(replaced, "album", "description", ".Description")
+	return replaced
+}
+
+// replacePublicFrontendPhotoTags replaces album-photo loop field tags.
+func replacePublicFrontendPhotoTags(content string) string {
+	replaced := strings.NewReplacer("[photo:index]", "{{.Index}}", "[photo:url]", "{{.Url}}", "[photo:title]", "{{.Title}}").Replace(content)
+	replaced = replacePublicFrontendTextParamTags(replaced, "photo", "title", ".Title")
 	return replaced
 }
 

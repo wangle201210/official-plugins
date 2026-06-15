@@ -87,4 +87,34 @@ var (
 		"CMS sample data could not be loaded",
 		gcode.CodeInternalError,
 	)
+	// CodeProductNotFound reports that a CMS product does not exist.
+	CodeProductNotFound = bizerr.MustDefine(
+		"CMS_PRODUCT_NOT_FOUND",
+		"CMS product does not exist",
+		gcode.CodeNotFound,
+	)
+	// CodeProductSlugExists reports that a CMS product slug is already used.
+	CodeProductSlugExists = bizerr.MustDefine(
+		"CMS_PRODUCT_SLUG_EXISTS",
+		"CMS product slug already exists",
+		gcode.CodeInvalidParameter,
+	)
+	// CodeAlbumNotFound reports that a CMS album does not exist.
+	CodeAlbumNotFound = bizerr.MustDefine(
+		"CMS_ALBUM_NOT_FOUND",
+		"CMS album does not exist",
+		gcode.CodeNotFound,
+	)
+	// CodeAlbumImageLimitExceeded reports that an album save carries more images than allowed.
+	CodeAlbumImageLimitExceeded = bizerr.MustDefine(
+		"CMS_ALBUM_IMAGE_LIMIT_EXCEEDED",
+		"CMS album image count exceeds the limit",
+		gcode.CodeInvalidParameter,
+	)
+	// CodeArticleBatchLimitExceeded reports that a batch operation carries more article IDs than allowed.
+	CodeArticleBatchLimitExceeded = bizerr.MustDefine(
+		"CMS_ARTICLE_BATCH_LIMIT_EXCEEDED",
+		"CMS article batch size exceeds the limit",
+		gcode.CodeInvalidParameter,
+	)
 )

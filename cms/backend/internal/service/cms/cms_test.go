@@ -781,7 +781,7 @@ func setupSQLiteCMSDB(t *testing.T, ctx context.Context) {
 	})
 
 	createCMSHostDictTables(t, ctx, db)
-	for _, sqlName := range []string{"001-cms-schema.sql", "002-cms-message-visibility.sql"} {
+	for _, sqlName := range []string{"001-cms-schema.sql", "002-cms-message-visibility.sql", "003-cms-products-and-albums.sql"} {
 		executeCMSManifestSQLFile(t, ctx, "sql", sqlName)
 	}
 }
@@ -987,7 +987,7 @@ func insertCMSArticleWithOptions(
 		Content:     content,
 		Sort:        opts.sort,
 		Status:      opts.status,
-		PublishedAt: publishedAtForStatus(opts.status, opts.publishedAt),
+		PublishedAt: publishedAtForStatus(opts.status, nil, opts.publishedAt),
 	}).InsertAndGetId()
 	if err != nil {
 		t.Fatalf("insert CMS article %s: %v", opts.slug, err)

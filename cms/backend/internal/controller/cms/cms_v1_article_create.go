@@ -28,6 +28,7 @@ func (c *ControllerV1) ArticleCreate(ctx context.Context, req *v1.ArticleCreateR
 		Status:      req.Status,
 		IsTop:       req.IsTop,
 		IsRecommend: req.IsRecommend,
+		PublishedAt: req.PublishedAt,
 	})
 	if err != nil {
 		return nil, err

@@ -148,6 +148,17 @@ type ArticleSaveInput struct {
 	Status      int
 	IsTop       int
 	IsRecommend int
+	// PublishedAt optionally pins the publication time as a Unix millisecond
+	// timestamp; it is only honored when Status is published and may point to
+	// the future to schedule the article.
+	PublishedAt *int64
+}
+
+// ArticleBatchStatusInput carries the targets and the target status for a
+// batch publish or unpublish operation.
+type ArticleBatchStatusInput struct {
+	Ids    []int64
+	Status int
 }
 
 // MessageListInput carries visitor message list filters and pagination.
@@ -238,4 +249,107 @@ type PublicMessageCreateInput struct {
 	Content   string
 	UserIp    string
 	UserAgent string
+}
+
+// ProductItem wraps a CMS product with its category name and decoded gallery URLs.
+type ProductItem struct {
+	*entitymodel.CmsProduct
+	CategoryName string
+	Gallery      []string
+}
+
+// ProductListInput carries management product list filters and pagination.
+type ProductListInput struct {
+	PageNum    int
+	PageSize   int
+	CategoryId int64
+	Status     *int
+	Name       string
+}
+
+// PublicProductListInput carries public product list filters and pagination.
+type PublicProductListInput struct {
+	PageNum    int
+	PageSize   int
+	CategoryId int64
+}
+
+// ProductListOutput returns a paged product result set.
+type ProductListOutput struct {
+	List  []*ProductItem
+	Total int
+}
+
+// ProductSaveInput carries product create and update fields.
+type ProductSaveInput struct {
+	Id          int64
+	CategoryId  int64
+	Name        string
+	Slug        string
+	Summary     string
+	Cover       string
+	Gallery     []string
+	Price       string
+	Spec        string
+	Content     string
+	Keywords    string
+	Description string
+	Sort        int
+	Status      int
+	IsTop       int
+	IsRecommend int
+	// PublishedAt optionally pins the publication time as a Unix millisecond
+	// timestamp; it is only honored when Status is published and may point to
+	// the future to schedule the product.
+	PublishedAt *int64
+}
+
+// AlbumItem wraps a CMS album with its category name, image count, and
+// optionally its ordered images (detail reads only).
+type AlbumItem struct {
+	*entitymodel.CmsAlbum
+	CategoryName string
+	ImageCount   int
+	Images       []*entitymodel.CmsAlbumImage
+}
+
+// AlbumListInput carries management album list filters and pagination.
+type AlbumListInput struct {
+	PageNum    int
+	PageSize   int
+	CategoryId int64
+	Status     *int
+	Name       string
+}
+
+// PublicAlbumListInput carries public album list filters and pagination.
+type PublicAlbumListInput struct {
+	PageNum    int
+	PageSize   int
+	CategoryId int64
+}
+
+// AlbumListOutput returns a paged album result set.
+type AlbumListOutput struct {
+	List  []*AlbumItem
+	Total int
+}
+
+// AlbumImageInput carries one ordered album image in whole-album saves.
+type AlbumImageInput struct {
+	Url   string
+	Title string
+	Sort  int
+}
+
+// AlbumSaveInput carries album create and update fields with the full image list.
+type AlbumSaveInput struct {
+	Id          int64
+	CategoryId  int64
+	Name        string
+	Cover       string
+	Description string
+	Sort        int
+	Status      int
+	Images      []AlbumImageInput
 }

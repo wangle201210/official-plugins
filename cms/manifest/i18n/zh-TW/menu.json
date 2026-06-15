@@ -1,5 +1,17 @@
 {
   "menu": {
+    "plugin:cms:album:add": {
+      "title": "相冊新增"
+    },
+    "plugin:cms:album:edit": {
+      "title": "相冊修改"
+    },
+    "plugin:cms:album:query": {
+      "title": "相冊查詢"
+    },
+    "plugin:cms:album:remove": {
+      "title": "相冊刪除"
+    },
     "plugin:cms:article:add": {
       "title": "内容新增"
     },
@@ -42,11 +54,26 @@
     "plugin:cms:message:query": {
       "title": "留言查询"
     },
+    "plugin:cms:product:add": {
+      "title": "產品新增"
+    },
+    "plugin:cms:product:edit": {
+      "title": "產品修改"
+    },
+    "plugin:cms:product:query": {
+      "title": "產品查詢"
+    },
+    "plugin:cms:product:remove": {
+      "title": "產品刪除"
+    },
     "plugin:cms:site:edit": {
       "title": "站点配置维护"
     },
     "plugin:cms:site:purge": {
       "title": "站點資料清空"
+    },
+    "plugin:cms:site:sample": {
+      "title": "載入示例資料"
     },
     "plugin:cms:slide:add": {
       "title": "輪播圖新增"
@@ -62,9 +89,6 @@
     },
     "plugin:cms:workspace": {
       "title": "CMS 内容站点"
-    },
-    "plugin:cms:site:sample": {
-      "title": "載入示例資料"
     }
   }
 }

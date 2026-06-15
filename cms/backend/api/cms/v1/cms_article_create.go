@@ -23,6 +23,7 @@ type ArticleCreateReq struct {
 	Status      int    `json:"status" v:"in:0,1#gf.gvalid.rule.in" dc:"Status: 0=draft, 1=published" eg:"1"`
 	IsTop       int    `json:"isTop" v:"in:0,1#gf.gvalid.rule.in" dc:"Top flag: 0=no, 1=yes" eg:"0"`
 	IsRecommend int    `json:"isRecommend" v:"in:0,1#gf.gvalid.rule.in" dc:"Recommend flag: 0=no, 1=yes" eg:"1"`
+	PublishedAt *int64 `json:"publishedAt" v:"min:1" dc:"Publication time as Unix timestamp in milliseconds. Only effective when status is 1=published; a future value schedules the article and hides it from the public site until that time. Omitted: the current time is used on first publish." eg:"1715740800000"`
 }
 
 // ArticleCreateRes defines the response for creating a CMS article.

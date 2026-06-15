@@ -1,5 +1,17 @@
 {
   "menu": {
+    "plugin:cms:album:add": {
+      "title": "相册新增"
+    },
+    "plugin:cms:album:edit": {
+      "title": "相册修改"
+    },
+    "plugin:cms:album:query": {
+      "title": "相册查询"
+    },
+    "plugin:cms:album:remove": {
+      "title": "相册删除"
+    },
     "plugin:cms:article:add": {
       "title": "内容新增"
     },
@@ -42,11 +54,26 @@
     "plugin:cms:message:query": {
       "title": "留言查询"
     },
+    "plugin:cms:product:add": {
+      "title": "产品新增"
+    },
+    "plugin:cms:product:edit": {
+      "title": "产品修改"
+    },
+    "plugin:cms:product:query": {
+      "title": "产品查询"
+    },
+    "plugin:cms:product:remove": {
+      "title": "产品删除"
+    },
     "plugin:cms:site:edit": {
       "title": "站点配置维护"
     },
     "plugin:cms:site:purge": {
       "title": "站点数据清空"
+    },
+    "plugin:cms:site:sample": {
+      "title": "加载示例数据"
     },
     "plugin:cms:slide:add": {
       "title": "轮播图新增"
@@ -62,9 +89,6 @@
     },
     "plugin:cms:workspace": {
       "title": "CMS 内容站点"
-    },
-    "plugin:cms:site:sample": {
-      "title": "加载示例数据"
     }
   }
 }

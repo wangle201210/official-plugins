@@ -5,7 +5,7 @@ gfcli:
     dao:
       - link: "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/linapro?sslmode=disable"
         path: "internal"
-        tables: "plugin_cms_site,plugin_cms_category,plugin_cms_article,plugin_cms_article_tag,plugin_cms_link,plugin_cms_slide,plugin_cms_message"
+        tables: "plugin_cms_site,plugin_cms_category,plugin_cms_article,plugin_cms_article_tag,plugin_cms_link,plugin_cms_slide,plugin_cms_message,plugin_cms_product,plugin_cms_album,plugin_cms_album_image"
         removePrefix: "plugin_"
         importPrefix: "lina-plugin-cms/backend/internal"
         descriptionTag: true

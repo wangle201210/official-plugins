@@ -29,6 +29,7 @@ func (c *ControllerV1) ArticleUpdate(ctx context.Context, req *v1.ArticleUpdateR
 		Status:      req.Status,
 		IsTop:       req.IsTop,
 		IsRecommend: req.IsRecommend,
+		PublishedAt: req.PublishedAt,
 	})
 	if err != nil {
 		return nil, err

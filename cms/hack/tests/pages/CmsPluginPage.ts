@@ -4,6 +4,8 @@ import type { Locator, Page } from "../../../../../../hack/tests/support/playwri
 
 import { expect } from "../../../../../../hack/tests/support/playwright";
 
+import { workspacePath } from "../../../../../../hack/tests/fixtures/config";
+
 import {
   waitForBusyIndicatorsToClear,
   waitForConfirmOverlay,
@@ -39,7 +41,9 @@ export class CmsPluginPage {
   }
 
   async goto() {
-    await this.page.goto("/cms", { waitUntil: "domcontentloaded" });
+    await this.page.goto(workspacePath("/cms"), {
+      waitUntil: "domcontentloaded",
+    });
     await this.expectReady();
   }
 
@@ -232,6 +236,81 @@ export class CmsPluginPage {
     await waitForBusyIndicatorsToClear(this.page);
   }
 
+  private get productModal(): Locator {
+    return this.page
+      .locator(".ant-modal:visible", { hasText: /产品|Product/i })
+      .last();
+  }
+
+  async openProductsTab(expectedTabText: string) {
+    const tabButton = this.page.getByTestId("cms-section-products");
+    await expect(tabButton).toHaveText(expectedTabText);
+    await tabButton.click();
+    await this.page.getByTestId("cms-product-table").waitFor({
+      state: "visible",
+      timeout: 10_000,
+    });
+    await waitForBusyIndicatorsToClear(this.page);
+  }
+
+  async openAlbumsTab() {
+    await this.page.getByTestId("cms-section-albums").click();
+    await this.page.getByTestId("cms-album-table").waitFor({
+      state: "visible",
+      timeout: 10_000,
+    });
+    await waitForBusyIndicatorsToClear(this.page);
+  }
+
+  async createProduct(input: {
+    categoryName: string;
+    name: string;
+    price: string;
+    slug: string;
+    spec: string;
+    summary: string;
+  }) {
+    await this.page.getByTestId("cms-product-add").click();
+    const modal = await waitForDialogReady(this.productModal);
+    await modal.getByTestId("cms-product-name-input").fill(input.name);
+    await modal.getByTestId("cms-product-slug-input").fill(input.slug);
+    await modal.getByTestId("cms-product-price-input").fill(input.price);
+    await modal.getByTestId("cms-product-spec-input").fill(input.spec);
+    await modal.getByTestId("cms-product-summary-input").fill(input.summary);
+    await this.selectOptionByText(
+      modal.getByTestId("cms-product-category-input"),
+      new RegExp(input.categoryName, "i"),
+    );
+    await this.selectOptionByText(
+      modal.getByTestId("cms-product-status-input"),
+      /已发布|Published/i,
+    );
+    const editor = modal
+      .getByTestId("cms-product-content-editor")
+      .locator('[contenteditable="true"]')
+      .first();
+    await editor.waitFor({ state: "visible", timeout: 5000 });
+    await editor.fill(input.summary);
+    await this.confirmDialog(modal);
+    await this.expectTableText("cms-product-table", input.name);
+  }
+
+  async deleteProduct(name: string) {
+    await this.openProductsTab("产品");
+    const row = this.tableRowByText("cms-product-table", name);
+    await row.waitFor({ state: "visible", timeout: 10_000 });
+    await row.getByRole("button", { name: /删除|Delete/i }).click();
+    await this.confirmPopconfirm();
+    await waitForRouteReady(this.page);
+  }
+
+  async expectAlbumRow(name: string, expectedImageCount: string) {
+    await this.openAlbumsTab();
+    const row = this.tableRowByText("cms-album-table", name);
+    await row.waitFor({ state: "visible", timeout: 10_000 });
+    await expect(row).toContainText(expectedImageCount);
+  }
+
   async expectSlideAndLinkManagersVisible(input: {
     linkName: string;
     slideTitle: string;
@@ -313,6 +392,97 @@ export class CmsPluginPage {
     await this.searchArticle(input.title);
   }
 
+  async createScheduledArticle(input: {
+    categoryName: string;
+    content: string;
+    publishedAtLocal: string;
+    slug: string;
+    title: string;
+  }) {
+    await this.openArticlesTab();
+    await this.page.getByTestId("cms-article-add").click();
+    const modal = await waitForDialogReady(this.articleModal);
+    await modal.getByTestId("cms-article-title-input").fill(input.title);
+    await modal.getByTestId("cms-article-slug-input").fill(input.slug);
+    await this.fillArticleContent(modal, input.content);
+    await this.selectOptionByText(
+      modal.getByTestId("cms-article-category-input"),
+      new RegExp(input.categoryName, "i"),
+    );
+    const publishedAtInput = modal.getByTestId("cms-article-published-at-input");
+    await expect(publishedAtInput).toBeDisabled();
+    await this.selectOptionByText(
+      modal.getByTestId("cms-article-status-input"),
+      /已发布|Published/i,
+    );
+    await expect(publishedAtInput).toBeEnabled();
+    await publishedAtInput.fill(input.publishedAtLocal);
+    await this.confirmDialog(modal);
+    await this.searchArticle(input.title);
+  }
+
+  async expectArticleScheduledTag(title: string, expectedText: string) {
+    await this.openArticlesTab();
+    await this.filterArticleTitle(title);
+    const row = this.tableRowByText("cms-article-table", title);
+    await row.waitFor({ state: "visible", timeout: 10_000 });
+    await expect(
+      row.locator('[data-testid^="cms-article-scheduled-"]'),
+    ).toHaveText(expectedText);
+  }
+
+  async expectBatchButtonsDisabledWithoutSelection(expectedLabels: {
+    batchDelete: string;
+    batchPublish: string;
+    batchUnpublish: string;
+  }) {
+    await this.openArticlesTab();
+    const publishButton = this.page.getByTestId("cms-article-batch-publish");
+    const unpublishButton = this.page.getByTestId("cms-article-batch-unpublish");
+    const deleteButton = this.page.getByTestId("cms-article-batch-delete");
+    await expect(publishButton).toBeDisabled();
+    await expect(unpublishButton).toBeDisabled();
+    await expect(deleteButton).toBeDisabled();
+    await expect(publishButton).toHaveText(expectedLabels.batchPublish);
+    await expect(unpublishButton).toHaveText(expectedLabels.batchUnpublish);
+    await expect(deleteButton).toHaveText(expectedLabels.batchDelete);
+  }
+
+  async selectArticleRow(title: string) {
+    const row = this.tableRowByText("cms-article-table", title);
+    await row.waitFor({ state: "visible", timeout: 10_000 });
+    const checkbox = row.locator('input[type="checkbox"]').first();
+    await checkbox.check();
+    await expect(checkbox).toBeChecked();
+  }
+
+  async expectSelectedArticlesCount(expectedText: string) {
+    await expect(this.page.getByTestId("cms-article-batch-count")).toHaveText(
+      expectedText,
+    );
+  }
+
+  async batchPublishSelectedArticles() {
+    await this.page.getByTestId("cms-article-batch-publish").click();
+    await waitForBusyIndicatorsToClear(this.page);
+  }
+
+  async batchUnpublishSelectedArticles() {
+    await this.page.getByTestId("cms-article-batch-unpublish").click();
+    await waitForBusyIndicatorsToClear(this.page);
+  }
+
+  async batchDeleteSelectedArticles() {
+    await this.page.getByTestId("cms-article-batch-delete").click();
+    await this.confirmPopconfirm();
+    await waitForRouteReady(this.page);
+  }
+
+  async filterArticlesByTitle(title: string) {
+    await this.openArticlesTab();
+    await this.filterArticleTitle(title);
+  }
+
   async expectArticleEditorVisible() {
     await this.openArticlesTab();
     await this.page.getByTestId("cms-article-add").click();
@@ -349,9 +519,9 @@ export class CmsPluginPage {
           const panel = document.querySelector(
             ".cms-content-layout > .cms-panel:last-child",
           ) as HTMLElement | null;
-          const titleCell = table?.querySelector(
-            "tbody tr td:first-child",
-          ) as HTMLElement | null;
+          const titleCell = (table
+            ?.querySelector("tbody tr .cms-article-title-cell")
+            ?.closest("td") ?? null) as HTMLElement | null;
           const actionCell = table?.querySelector(
             "tbody tr td:last-child",
           ) as HTMLElement | null;
@@ -382,9 +552,13 @@ export class CmsPluginPage {
       });
     const titleWidth = await this.page
       .getByTestId("cms-article-table")
-      .locator("tbody tr td:first-child")
+      .locator("tbody tr .cms-article-title-cell")
       .first()
-      .evaluate((node) => Math.round(node.getBoundingClientRect().width));
+      .evaluate((node) =>
+        Math.round(
+          (node.closest("td") ?? node).getBoundingClientRect().width,
+        ),
+      );
     expect(titleWidth).toBeLessThanOrEqual(420);
   }
 
@@ -585,7 +759,13 @@ export class CmsPluginPage {
 
   private async filterArticleTitle(title: string) {
     await this.page.getByTestId("cms-article-title-filter").fill(title);
+    const listLoaded = this.page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/v1/cms/articles") &&
+        response.request().method() === "GET",
+    );
     await this.page.getByTestId("cms-article-query").click();
+    await listLoaded;
     await waitForBusyIndicatorsToClear(this.page);
   }
 

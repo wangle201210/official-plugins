@@ -16,7 +16,12 @@
         "newLink": "新建友情連結",
         "newSlide": "新建輪播圖",
         "loadSampleData": "載入示例資料",
-        "loadSampleDataConfirm": "確認載入示例"
+        "loadSampleDataConfirm": "確認載入示例",
+        "batchPublish": "批次發布",
+        "batchUnpublish": "批次下線",
+        "batchDelete": "批次刪除",
+        "newProduct": "新建產品",
+        "newAlbum": "新建相冊"
       },
       "description": "提供站點配置、欄目、內容、留言和公開內容介面的官方源碼 CMS 插件",
       "dialogs": {
@@ -28,14 +33,20 @@
         "createLink": "新增友情連結",
         "createSlide": "新增輪播圖",
         "editLink": "編輯友情連結",
-        "editSlide": "編輯輪播圖"
+        "editSlide": "編輯輪播圖",
+        "createProduct": "新建產品",
+        "editProduct": "編輯產品",
+        "createAlbum": "新建相冊",
+        "editAlbum": "編輯相冊"
       },
       "empty": {
         "articles": "暫無內容",
         "categories": "暫無欄目",
         "messages": "暫無留言",
         "links": "暫無友情連結",
-        "slides": "暫無輪播圖"
+        "slides": "暫無輪播圖",
+        "products": "暫無產品",
+        "albums": "暫無相冊"
       },
       "editor": {
         "actions": {
@@ -99,7 +110,16 @@
         "slideImage": "輪播圖片",
         "slideLink": "跳轉連結",
         "slideTitle": "輪播標題",
-        "showMessages": "留言是否展示"
+        "showMessages": "留言是否展示",
+        "publishedAt": "發布時間",
+        "scheduled": "定時",
+        "productName": "產品名稱",
+        "productPrice": "價格",
+        "productSpec": "規格",
+        "gallery": "產品多圖",
+        "albumName": "相冊名稱",
+        "albumImages": "相冊圖片",
+        "imageCount": "圖片數"
       },
       "metrics": {
         "articleGlyph": "文",
@@ -121,7 +141,10 @@
         "clearDataSuccess": "CMS 資料已清空",
         "moderateConfirm": "確認更新該留言的審核狀態？",
         "loadSampleDataConfirm": "確認清空目前 CMS 資料並重新載入插件內建示例站點？該操作不可恢復。",
-        "loadSampleDataSuccess": "CMS 示例資料已載入"
+        "loadSampleDataSuccess": "CMS 示例資料已載入",
+        "batchDeleteConfirm": "確認刪除選取的全部文章？該操作不可恢復。",
+        "selectedArticles": "已選 {count} 項",
+        "publishedAtHint": "選填。填寫未來時間即定時發布，到點前公開站點不展示該文章。"
       },
       "name": "內容管理-CMS",
       "overview": {
@@ -135,7 +158,9 @@
         "status": "選擇狀態",
         "groupCode": "輸入分組編碼",
         "linkKeyword": "搜索連結名稱或地址",
-        "slideKeyword": "搜索輪播標題或副標題"
+        "slideKeyword": "搜索輪播標題或副標題",
+        "productName": "搜尋產品名稱",
+        "albumName": "搜尋相冊名稱"
       },
       "sections": {
         "categoryTree": "欄目結構",
@@ -150,7 +175,11 @@
         "linkManager": "友情連結管理",
         "linkManagerSubtitle": "維護頁腳分組連結和公開友情連結資料。",
         "slideManager": "輪播圖管理",
-        "slideManagerSubtitle": "維護首頁輪播圖片、文案、跳轉連結與顯示順序。"
+        "slideManagerSubtitle": "維護首頁輪播圖片、文案、跳轉連結與顯示順序。",
+        "productManager": "產品中心",
+        "productManagerSubtitle": "維護公開站點展示的產品",
+        "albumManager": "相冊管理",
+        "albumManagerSubtitle": "維護公開站點展示的相冊"
       },
       "tabs": {
         "articles": "內容",
@@ -158,13 +187,19 @@
         "messages": "留言",
         "site": "站點",
         "links": "友情連結",
-        "slides": "輪播圖"
+        "slides": "輪播圖",
+        "products": "產品",
+        "albums": "相冊"
       },
       "templates": {
         "detail": "文章詳情（detail.html）",
         "list": "標準列表（list.html）",
         "listCard": "卡片列表（list-card.html）",
-        "single": "單頁內容（single.html）"
+        "single": "單頁內容（single.html）",
+        "productList": "產品列表",
+        "productDetail": "產品詳情",
+        "albumList": "相冊列表",
+        "albumDetail": "相冊詳情"
       }
     }
   }

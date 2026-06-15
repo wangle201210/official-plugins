@@ -155,3 +155,51 @@ menus:
     perms: cms:message:edit
     type: B
     sort: 19
+  - key: plugin:cms:product:query
+    parent_key: plugin:cms:workspace
+    name: Query Products
+    perms: cms:product:query
+    type: B
+    sort: 22
+  - key: plugin:cms:product:add
+    parent_key: plugin:cms:workspace
+    name: Create Product
+    perms: cms:product:add
+    type: B
+    sort: 23
+  - key: plugin:cms:product:edit
+    parent_key: plugin:cms:workspace
+    name: Update Product
+    perms: cms:product:edit
+    type: B
+    sort: 24
+  - key: plugin:cms:product:remove
+    parent_key: plugin:cms:workspace
+    name: Delete Product
+    perms: cms:product:remove
+    type: B
+    sort: 25
+  - key: plugin:cms:album:query
+    parent_key: plugin:cms:workspace
+    name: Query Albums
+    perms: cms:album:query
+    type: B
+    sort: 26
+  - key: plugin:cms:album:add
+    parent_key: plugin:cms:workspace
+    name: Create Album
+    perms: cms:album:add
+    type: B
+    sort: 27
+  - key: plugin:cms:album:edit
+    parent_key: plugin:cms:workspace
+    name: Update Album
+    perms: cms:album:edit
+    type: B
+    sort: 28
+  - key: plugin:cms:album:remove
+    parent_key: plugin:cms:workspace
+    name: Delete Album
+    perms: cms:album:remove
+    type: B
+    sort: 29

@@ -385,3 +385,72 @@ WHERE NOT EXISTS (
       AND existing."content" = seed."content"
       AND existing."deleted_at" IS NULL
 );
+
+-- Starter product and album content for the demo site.
+-- 演示站点的产品中心与相册 starter 内容。
+
+INSERT INTO plugin_cms_category ("code", "parent_id", "name", "type", "path", "cover", "outlink", "title", "keywords", "description", "sort", "status", "created_at", "updated_at") VALUES
+('60', 0, '产品中心', 4, '/products_60/', '', '', '产品中心', '先进材料,产品', '研究院孵化的先进材料产品与中试成果展示。', 255, 1, '2026-05-10 10:00:00', '2026-05-10 10:00:00'),
+('61', 0, '院区相册', 5, '/albums_61/', '', '', '院区相册', '院区,相册', '院区环境、活动现场与平台设备照片墙。', 255, 1, '2026-05-10 10:00:00', '2026-05-10 10:00:00')
+ON CONFLICT ("code") DO NOTHING;
+
+INSERT INTO plugin_cms_product ("category_id", "name", "slug", "summary", "cover", "gallery", "price", "spec", "content", "keywords", "description", "sort", "status", "is_top", "is_recommend", "views", "published_at", "created_at", "updated_at")
+SELECT category."id", seed."name", seed."slug", seed."summary",
+       'https://picsum.photos/seed/' || seed."slug" || '/800/600',
+       '["https://picsum.photos/seed/' || seed."slug" || '-1/800/600","https://picsum.photos/seed/' || seed."slug" || '-2/800/600"]',
+       seed."price", seed."spec", seed."content", '', seed."summary", seed."sort", 1, seed."is_top", seed."is_recommend", seed."views", seed."published_at"::timestamp, seed."published_at"::timestamp, seed."published_at"::timestamp
+FROM (VALUES
+('高导热复合界面材料', 'starter-product-thermal', '面向功率器件散热场景的高导热界面材料，兼顾柔性贴合与长期可靠性。', '面议', '导热系数 8 W/(m·K)；厚度 0.2~2.0 mm', '<p>高导热复合界面材料采用陶瓷填料与弹性体复合工艺，适配功率模块、电池包和高密度计算设备的导热填隙需求，支持按客户结构定制厚度与硬度。</p>', 1, 1, 1, 128, '2026-05-10 10:30:00'),
+('耐高温特种涂层', 'starter-product-coating', '面向高温炉体与排气部件的防护涂层，提供抗氧化与耐腐蚀双重防护。', '¥980/㎡ 起', '耐温 1200℃；附着力 ≥ 5 MPa', '<p>耐高温特种涂层基于改性硅酸盐体系，可在恶劣工况下保持致密涂层结构，延长设备检修周期，支持现场喷涂施工与定期复涂服务。</p>', 2, 0, 1, 86, '2026-05-10 10:40:00'),
+('轻量化纤维增强板材', 'starter-product-panel', '面向轨道交通与新能源装备的轻量化结构板材，密度低、强度高。', '面议', '密度 1.6 g/cm³；拉伸强度 ≥ 480 MPa', '<p>轻量化纤维增强板材采用连续纤维铺层与热压成型工艺，可替代部分金属结构件，帮助整机减重并降低能耗，提供裁切与开孔深加工配套。</p>', 3, 0, 0, 52, '2026-05-10 10:50:00')
+) AS seed("name", "slug", "summary", "price", "spec", "content", "sort", "is_top", "is_recommend", "views", "published_at"),
+     plugin_cms_category AS category
+WHERE category."code" = '60'
+  AND NOT EXISTS (
+      SELECT 1 FROM plugin_cms_product AS existing
+      WHERE existing."slug" = seed."slug"
+  );
+
+INSERT INTO plugin_cms_album ("category_id", "name", "cover", "description", "sort", "status", "created_at", "updated_at")
+SELECT category."id", seed."name", 'https://picsum.photos/seed/album-cover-' || seed."sort" || '/800/600', seed."description", seed."sort", 1, seed."created_at"::timestamp, seed."created_at"::timestamp
+FROM (VALUES
+('院区环境掠影', '研究院主楼、实验楼与公共服务空间的环境照片。', 1, '2026-05-10 11:00:00'),
+('公共平台设备', '电子显微、热分析与力学测试等共享设备的现场照片。', 2, '2026-05-10 11:10:00')
+) AS seed("name", "description", "sort", "created_at"),
+     plugin_cms_category AS category
+WHERE category."code" = '61'
+  AND NOT EXISTS (
+      SELECT 1 FROM plugin_cms_album AS existing
+      WHERE existing."name" = seed."name"
+        AND existing."deleted_at" IS NULL
+  );
+
+INSERT INTO plugin_cms_album_image ("album_id", "url", "title", "sort", "created_at", "updated_at")
+SELECT album."id", seed."url", seed."title", seed."sort", NOW(), NOW()
+FROM (VALUES
+('院区环境掠影', 'https://picsum.photos/seed/album-campus-1/800/600', '研究院主楼', 1),
+('院区环境掠影', 'https://picsum.photos/seed/album-campus-2/800/600', '公共服务大厅', 2),
+('公共平台设备', 'https://picsum.photos/seed/album-device-1/800/600', '热分析实验室', 1)
+) AS seed("album_name", "url", "title", "sort"),
+     plugin_cms_album AS album
+WHERE album."name" = seed."album_name"
+  AND album."deleted_at" IS NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM plugin_cms_album_image AS existing
+      WHERE existing."album_id" = album."id"
+        AND existing."url" = seed."url"
+  );
+
+UPDATE plugin_cms_product
+SET "cover" = 'https://picsum.photos/seed/' || "slug" || '/800/600',
+    "gallery" = '["https://picsum.photos/seed/' || "slug" || '-1/800/600","https://picsum.photos/seed/' || "slug" || '-2/800/600"]'
+WHERE "slug" IN ('starter-product-thermal', 'starter-product-coating', 'starter-product-panel')
+  AND "updated_by" = 0
+  AND BTRIM("cover") = '';
+
+UPDATE plugin_cms_album
+SET "cover" = 'https://picsum.photos/seed/album-cover-' || "sort" || '/800/600'
+WHERE "name" IN ('院区环境掠影', '公共平台设备')
+  AND "updated_by" = 0
+  AND "deleted_at" IS NULL
+  AND BTRIM("cover") = '';

@@ -134,5 +134,5 @@ func markSampleDataMaintainer(ctx context.Context, tx gdb.TX, userID int64) erro
 
 // cmsContentTables returns CMS business tables in an order safe for full-content cleanup.
 func cmsContentTables() []string {
-	return []string{dao.CmsMessage.Table(), dao.CmsSlide.Table(), dao.CmsLink.Table(), dao.CmsArticleTag.Table(), dao.CmsArticle.Table(), dao.CmsCategory.Table()}
+	return []string{dao.CmsAlbumImage.Table(), dao.CmsAlbum.Table(), dao.CmsProduct.Table(), dao.CmsMessage.Table(), dao.CmsSlide.Table(), dao.CmsLink.Table(), dao.CmsArticleTag.Table(), dao.CmsArticle.Table(), dao.CmsCategory.Table()}
 }

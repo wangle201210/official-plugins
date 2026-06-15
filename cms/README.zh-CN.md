@@ -24,6 +24,58 @@ CMS 源码插件为 LinaPro 提供内容站点能力。它负责站点配置、�
 `manifest/sql/mock-data/002-cms-starter-content.sql`内置的 starter 示例站点。该能力适用于
 演示站点被清空或验证后需要恢复到交付示例状态的场景。
 
+## 产品中心与相册
+
+插件提供企业建站常用的产品展示与相册能力：
+
+- 栏目类型新增`4=产品栏目`和`5=相册栏目`，产品/相册归属于对应类型的栏目，公开站点按栏目路径渲染列表页并复用导航、面包屑与分页。
+- 产品包含名称、slug、封面、多图（最多 9 张）、价格展示文本、规格摘要、富文本详情、置顶/推荐、草稿/已发布状态和浏览量；定时发布规则与文章一致。产品详情页地址为`/cms-site?product=<slug>`。
+- 相册包含名称、封面、描述与图片列表（单册最多 100 张），图片随相册保存整册替换。相册详情页地址为`/cms-site?album=<id>`。
+- 管理端新增“产品”“相册”页签；公开 JSON 接口为`/api/v1/cms/public/products`与`/api/v1/cms/public/albums`。
+- sitemap 自动收录产品/相册栏目页与已发布产品详情页。
+- starter 示例站点内置“产品中心”“院区相册”栏目与示例产品、相册，便于学习模板用法。
+
+产品与相册模板标签：
+
+| 标签 | 说明 |
+| --- | --- |
+| `{cms:product limit=12}...{/cms:product}` | 循环输出产品，`[product:link/name/image/price/spec/summary/date/views/index]` |
+| `{product:name/price/spec/summary/content/date/views}` | 产品详情标签 |
+| `{product:gallery}` | 输出产品多图 HTML 块 |
+| `{cms:album limit=12}...{/cms:album}` | 循环输出相册，`[album:link/name/cover/count/description/index]` |
+| `{album:name/description/count}` | 相册详情标签 |
+| `{cms:photo}...{/cms:photo}` | 相册详情内循环图片，`[photo:url/title/index]` |
+
+对应模板文件为`product-list.html`、`product-detail.html`、`album-list.html`、`album-detail.html`，可在栏目表单的模板下拉中选择。
+
+## 公开 SEO 端点
+
+公开站点提供三个匿名 SEO 端点：
+
+| 端点 | 输出 |
+| --- | --- |
+| `/cms-site/sitemap.xml` | 站点地图，包含首页、启用的列表/单页栏目以及最新`5000`篇已发布文章 |
+| `/cms-site/rss.xml` | RSS 2.0 订阅源，包含最新`50`篇已发布文章及纯文本摘要 |
+| `/cms-site/robots.txt` | 爬虫提示文件，含指向 sitemap 的`Sitemap:`行 |
+
+草稿文章、未到发布时间的定时文章、停用栏目和外链栏目不会出现在这些文档中。
+站点配置中填写`domain`后，sitemap 和 RSS 链接输出绝对地址（裸域名默认按
+`https://`处理）；未填写时输出`/cms-site`相对路径，部分订阅器可能无法解析。
+
+## 定时发布
+
+文章创建和更新支持选填发布时间。以已发布状态保存且发布时间在未来的文章，在
+到点前对所有公开读取路径（公开 JSON 接口、HTML 页面、搜索、sitemap、RSS）不可
+见——该能力不依赖调度任务，可见性由查询时间过滤实现。管理列表会对此类文章展示
+`定时`标识。已发布状态下不填发布时间时保持原有行为：首次发布写入当前时间，后
+续保存保留原值。
+
+## 文章批量操作
+
+文章列表支持多选，并提供批量发布、批量下线和批量删除（带确认）。单次批量最多
+接受`100`个 ID，任一目标不存在时整体拒绝，权限复用`cms:article:edit`与
+`cms:article:remove`。
+
 ## 根域名 OpenResty 代理
 
 CMS 公开站点在 LinaPro 后端内固定挂载于`/cms-site`。如果希望使用独立域名根路径访问，例如`https://cms.example.com/`，需要让 OpenResty 将该域名根路径代理到后端`/cms-site`，并把页面中生成的`/cms-site`链接改写为`/`。

@@ -4,6 +4,241 @@
       "api": {
         "cms": {
           "v1": {
+            "AlbumCreateReq": {
+              "fields": {
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "name": {
+                  "dc": "相册名称"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "description": {
+                  "dc": "相册描述"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "images": {
+                  "dc": "整册图片列表，保存时整体替换，单册最多 100 张"
+                }
+              },
+              "meta": {
+                "dc": "创建 CMS 相册并在一个事务中保存整册图片，单册最多 100 张。",
+                "summary": "创建 CMS 相册",
+                "tags": "CMS 相册"
+              },
+              "schema": {
+                "dc": "创建 CMS 相册并在一个事务中保存整册图片，单册最多 100 张。"
+              }
+            },
+            "AlbumCreateRes": {
+              "fields": {
+                "id": {
+                  "dc": "相册 ID"
+                }
+              }
+            },
+            "AlbumDeleteReq": {
+              "fields": {
+                "id": {
+                  "dc": "相册 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 删除一条 CMS 相册及其全部图片行。",
+                "summary": "删除 CMS 相册",
+                "tags": "CMS 相册"
+              },
+              "schema": {
+                "dc": "根据 ID 删除一条 CMS 相册及其全部图片行。"
+              }
+            },
+            "AlbumGetReq": {
+              "fields": {
+                "id": {
+                  "dc": "相册 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 读取一条 CMS 相册及其有序图片。",
+                "summary": "获取 CMS 相册详情",
+                "tags": "CMS 相册"
+              },
+              "schema": {
+                "dc": "根据 ID 读取一条 CMS 相册及其有序图片。"
+              }
+            },
+            "AlbumImageItem": {
+              "fields": {
+                "url": {
+                  "dc": "图片 URL"
+                },
+                "title": {
+                  "dc": "图片标题"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                }
+              }
+            },
+            "AlbumItem": {
+              "fields": {
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "name": {
+                  "dc": "相册名称"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "description": {
+                  "dc": "相册描述"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "images": {
+                  "dc": "整册图片列表，保存时整体替换，单册最多 100 张"
+                },
+                "id": {
+                  "dc": "相册 ID"
+                },
+                "categoryName": {
+                  "dc": "栏目名称"
+                },
+                "imageCount": {
+                  "dc": "相册图片数量"
+                },
+                "createdBy": {
+                  "dc": "创建人用户 ID"
+                },
+                "updatedBy": {
+                  "dc": "更新人用户 ID"
+                },
+                "createdAt": {
+                  "dc": "创建时间（Unix 毫秒时间戳）"
+                },
+                "updatedAt": {
+                  "dc": "更新时间（Unix 毫秒时间戳）"
+                }
+              }
+            },
+            "AlbumListReq": {
+              "fields": {
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量，最多 100"
+                },
+                "categoryId": {
+                  "dc": "按栏目 ID 筛选"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "name": {
+                  "dc": "按相册名称筛选"
+                }
+              },
+              "meta": {
+                "dc": "按页查询 CMS 相册，支持按栏目、状态和名称筛选，每行携带图片数量。",
+                "summary": "获取 CMS 相册列表",
+                "tags": "CMS 相册"
+              },
+              "schema": {
+                "dc": "按页查询 CMS 相册，支持按栏目、状态和名称筛选，每行携带图片数量。"
+              }
+            },
+            "AlbumListRes": {
+              "fields": {
+                "list": {
+                  "dc": "相册列表"
+                },
+                "total": {
+                  "dc": "相册总数"
+                }
+              }
+            },
+            "AlbumUpdateReq": {
+              "fields": {
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "name": {
+                  "dc": "相册名称"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "description": {
+                  "dc": "相册描述"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=停用，1=启用"
+                },
+                "images": {
+                  "dc": "整册图片列表，保存时整体替换，单册最多 100 张"
+                },
+                "id": {
+                  "dc": "相册 ID"
+                }
+              },
+              "meta": {
+                "dc": "更新 CMS 相册并在一个事务中整册替换图片，单册最多 100 张。",
+                "summary": "更新 CMS 相册",
+                "tags": "CMS 相册"
+              },
+              "schema": {
+                "dc": "更新 CMS 相册并在一个事务中整册替换图片，单册最多 100 张。"
+              }
+            },
+            "ArticleBatchDeleteReq": {
+              "fields": {
+                "ids": {
+                  "dc": "JSON 请求体中的内容 ID 列表；单次最多 100 个，超限拒绝"
+                }
+              },
+              "meta": {
+                "dc": "以单条语句批量软删除多条 CMS 内容。任一目标内容不存在时整体拒绝。",
+                "summary": "批量删除 CMS 内容",
+                "tags": "CMS 内容"
+              },
+              "schema": {
+                "dc": "以单条语句批量软删除多条 CMS 内容。任一目标内容不存在时整体拒绝。"
+              }
+            },
+            "ArticleBatchUpdateReq": {
+              "fields": {
+                "ids": {
+                  "dc": "内容 ID 列表；单次最多 100 个，超限拒绝"
+                },
+                "status": {
+                  "dc": "目标状态：0=草稿（下线），1=已发布"
+                }
+              },
+              "meta": {
+                "dc": "在一个事务中批量发布或下线多条 CMS 内容。任一目标内容不存在时整体拒绝。发布时为空的发布时间写入当前时间并保留已有发布时间；下线时保留发布时间。",
+                "summary": "批量更新 CMS 内容状态",
+                "tags": "CMS 内容"
+              },
+              "schema": {
+                "dc": "在一个事务中批量发布或下线多条 CMS 内容。任一目标内容不存在时整体拒绝。发布时为空的发布时间写入当前时间并保留已有发布时间；下线时保留发布时间。"
+              }
+            },
             "ArticleCreateReq": {
               "fields": {
                 "author": {
@@ -53,6 +288,9 @@
                 },
                 "title": {
                   "dc": "内容标题"
+                },
+                "publishedAt": {
+                  "dc": "发布时间（Unix 毫秒时间戳）。仅状态为已发布时生效；填写未来时间即定时发布，到点前公开站点不展示。不传时首次发布写入当前时间。"
                 }
               },
               "meta": {
@@ -183,7 +421,7 @@
                   "dc": "按栏目 ID 过滤"
                 },
                 "categoryType": {
-                  "dc": "按栏目类型过滤：1=列表栏目，2=单页栏目，3=外链栏目"
+                  "dc": "按栏目类型筛选：1=列表栏目，2=单页栏目，3=外链栏目，4=产品栏目，5=相册栏目"
                 },
                 "includeChildren": {
                   "dc": "按栏目过滤时包含子栏目"
@@ -272,6 +510,9 @@
                 },
                 "title": {
                   "dc": "内容标题"
+                },
+                "publishedAt": {
+                  "dc": "发布时间（Unix 毫秒时间戳）。仅状态为已发布时生效；填写未来时间即定时发布，到点前公开站点不展示。不传时保留已有发布时间，首次发布写入当前时间。"
                 }
               },
               "meta": {
@@ -325,7 +566,7 @@
                   "dc": "搜索优化标题"
                 },
                 "type": {
-                  "dc": "栏目类型：1=列表，2=单页，3=外链"
+                  "dc": "栏目类型：1=列表栏目，2=单页栏目，3=外链栏目，4=产品栏目，5=相册栏目"
                 }
               },
               "meta": {
@@ -413,7 +654,7 @@
                   "dc": "搜索优化标题"
                 },
                 "type": {
-                  "dc": "栏目类型：1=列表，2=单页，3=外链"
+                  "dc": "栏目类型：1=列表栏目，2=单页栏目，3=外链栏目，4=产品栏目，5=相册栏目"
                 },
                 "updatedAt": {
                   "dc": "更新时间，Unix 毫秒时间戳"
@@ -490,7 +731,7 @@
                   "dc": "搜索优化标题"
                 },
                 "type": {
-                  "dc": "栏目类型：1=列表，2=单页，3=外链"
+                  "dc": "栏目类型：1=列表栏目，2=单页栏目，3=外链栏目，4=产品栏目，5=相册栏目"
                 }
               },
               "meta": {
@@ -774,6 +1015,322 @@
                 "dc": "更新访客留言状态和回复。"
               }
             },
+            "ProductCreateReq": {
+              "fields": {
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "name": {
+                  "dc": "产品名称"
+                },
+                "slug": {
+                  "dc": "公开访问别名"
+                },
+                "summary": {
+                  "dc": "产品摘要"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "gallery": {
+                  "dc": "产品多图 URL 列表，最多 9 张"
+                },
+                "price": {
+                  "dc": "展示价格文本"
+                },
+                "spec": {
+                  "dc": "规格摘要"
+                },
+                "content": {
+                  "dc": "产品详情 HTML"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=草稿，1=已发布"
+                },
+                "isTop": {
+                  "dc": "置顶标识：0=否，1=是"
+                },
+                "isRecommend": {
+                  "dc": "推荐标识：0=否，1=是"
+                },
+                "publishedAt": {
+                  "dc": "发布时间（Unix 毫秒时间戳）。仅状态为已发布时生效；填写未来时间即定时发布，到点前公开站点不展示。"
+                }
+              },
+              "meta": {
+                "dc": "以草稿或已发布状态创建 CMS 产品，支持产品多图。",
+                "summary": "创建 CMS 产品",
+                "tags": "CMS 产品"
+              },
+              "schema": {
+                "dc": "以草稿或已发布状态创建 CMS 产品，支持产品多图。"
+              }
+            },
+            "ProductCreateRes": {
+              "fields": {
+                "id": {
+                  "dc": "产品 ID"
+                }
+              }
+            },
+            "ProductDeleteReq": {
+              "fields": {
+                "id": {
+                  "dc": "产品 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 删除一条 CMS 产品。",
+                "summary": "删除 CMS 产品",
+                "tags": "CMS 产品"
+              },
+              "schema": {
+                "dc": "根据 ID 删除一条 CMS 产品。"
+              }
+            },
+            "ProductGetReq": {
+              "fields": {
+                "id": {
+                  "dc": "产品 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 读取一条 CMS 产品，含多图。",
+                "summary": "获取 CMS 产品详情",
+                "tags": "CMS 产品"
+              },
+              "schema": {
+                "dc": "根据 ID 读取一条 CMS 产品，含多图。"
+              }
+            },
+            "ProductItem": {
+              "fields": {
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "name": {
+                  "dc": "产品名称"
+                },
+                "slug": {
+                  "dc": "公开访问别名"
+                },
+                "summary": {
+                  "dc": "产品摘要"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "gallery": {
+                  "dc": "产品多图 URL 列表，最多 9 张"
+                },
+                "price": {
+                  "dc": "展示价格文本"
+                },
+                "spec": {
+                  "dc": "规格摘要"
+                },
+                "content": {
+                  "dc": "产品详情 HTML"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=草稿，1=已发布"
+                },
+                "isTop": {
+                  "dc": "置顶标识：0=否，1=是"
+                },
+                "isRecommend": {
+                  "dc": "推荐标识：0=否，1=是"
+                },
+                "publishedAt": {
+                  "dc": "发布时间（Unix 毫秒时间戳）。仅状态为已发布时生效；填写未来时间即定时发布，到点前公开站点不展示。"
+                },
+                "id": {
+                  "dc": "产品 ID"
+                },
+                "categoryName": {
+                  "dc": "栏目名称"
+                },
+                "views": {
+                  "dc": "浏览量"
+                },
+                "createdBy": {
+                  "dc": "创建人用户 ID"
+                },
+                "updatedBy": {
+                  "dc": "更新人用户 ID"
+                },
+                "createdAt": {
+                  "dc": "创建时间（Unix 毫秒时间戳）"
+                },
+                "updatedAt": {
+                  "dc": "更新时间（Unix 毫秒时间戳）"
+                }
+              }
+            },
+            "ProductListReq": {
+              "fields": {
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量，最多 100"
+                },
+                "categoryId": {
+                  "dc": "按栏目 ID 筛选"
+                },
+                "status": {
+                  "dc": "状态：0=草稿，1=已发布"
+                },
+                "name": {
+                  "dc": "按产品名称筛选"
+                }
+              },
+              "meta": {
+                "dc": "按页查询 CMS 产品，支持按栏目、状态和名称筛选。",
+                "summary": "获取 CMS 产品列表",
+                "tags": "CMS 产品"
+              },
+              "schema": {
+                "dc": "按页查询 CMS 产品，支持按栏目、状态和名称筛选。"
+              }
+            },
+            "ProductListRes": {
+              "fields": {
+                "list": {
+                  "dc": "产品列表"
+                },
+                "total": {
+                  "dc": "产品总数"
+                }
+              }
+            },
+            "ProductUpdateReq": {
+              "fields": {
+                "categoryId": {
+                  "dc": "栏目 ID"
+                },
+                "name": {
+                  "dc": "产品名称"
+                },
+                "slug": {
+                  "dc": "公开访问别名"
+                },
+                "summary": {
+                  "dc": "产品摘要"
+                },
+                "cover": {
+                  "dc": "封面图片 URL"
+                },
+                "gallery": {
+                  "dc": "产品多图 URL 列表，最多 9 张"
+                },
+                "price": {
+                  "dc": "展示价格文本"
+                },
+                "spec": {
+                  "dc": "规格摘要"
+                },
+                "content": {
+                  "dc": "产品详情 HTML"
+                },
+                "keywords": {
+                  "dc": "搜索优化关键词"
+                },
+                "description": {
+                  "dc": "搜索优化描述"
+                },
+                "sort": {
+                  "dc": "显示顺序"
+                },
+                "status": {
+                  "dc": "状态：0=草稿，1=已发布"
+                },
+                "isTop": {
+                  "dc": "置顶标识：0=否，1=是"
+                },
+                "isRecommend": {
+                  "dc": "推荐标识：0=否，1=是"
+                },
+                "publishedAt": {
+                  "dc": "发布时间（Unix 毫秒时间戳）。仅状态为已发布时生效；填写未来时间即定时发布，到点前公开站点不展示。"
+                },
+                "id": {
+                  "dc": "产品 ID"
+                }
+              },
+              "meta": {
+                "dc": "更新一条 CMS 产品，含多图整体替换。",
+                "summary": "更新 CMS 产品",
+                "tags": "CMS 产品"
+              },
+              "schema": {
+                "dc": "更新一条 CMS 产品，含多图整体替换。"
+              }
+            },
+            "PublicAlbumGetReq": {
+              "fields": {
+                "id": {
+                  "dc": "相册 ID"
+                }
+              },
+              "meta": {
+                "dc": "根据 ID 读取一条启用相册及其有序图片，停用相册或停用栏目下的相册视为不存在。",
+                "summary": "获取公开 CMS 相册详情",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "根据 ID 读取一条启用相册及其有序图片，停用相册或停用栏目下的相册视为不存在。"
+              }
+            },
+            "PublicAlbumListReq": {
+              "fields": {
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量，最多 100"
+                },
+                "categoryId": {
+                  "dc": "按栏目 ID 筛选"
+                }
+              },
+              "meta": {
+                "dc": "按页查询启用栏目下的启用相册，每行携带封面与图片数量。",
+                "summary": "获取公开 CMS 相册",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "按页查询启用栏目下的启用相册，每行携带封面与图片数量。"
+              }
+            },
+            "PublicAlbumListRes": {
+              "fields": {
+                "list": {
+                  "dc": "相册列表"
+                },
+                "total": {
+                  "dc": "相册总数"
+                }
+              }
+            },
             "PublicArticleGetReq": {
               "fields": {
                 "slug": {
@@ -938,6 +1495,52 @@
                 }
               }
             },
+            "PublicProductGetReq": {
+              "fields": {
+                "slug": {
+                  "dc": "公开访问别名"
+                }
+              },
+              "meta": {
+                "dc": "按别名读取一条已发布产品并自增浏览量，未到发布时间视为不存在。",
+                "summary": "获取公开 CMS 产品详情",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "按别名读取一条已发布产品并自增浏览量，未到发布时间视为不存在。"
+              }
+            },
+            "PublicProductListReq": {
+              "fields": {
+                "pageNum": {
+                  "dc": "页码"
+                },
+                "pageSize": {
+                  "dc": "每页数量，最多 100"
+                },
+                "categoryId": {
+                  "dc": "按栏目 ID 筛选"
+                }
+              },
+              "meta": {
+                "dc": "按页查询启用栏目下的已发布产品，未到发布时间的定时产品不返回。",
+                "summary": "获取公开 CMS 产品",
+                "tags": "CMS 公开接口"
+              },
+              "schema": {
+                "dc": "按页查询启用栏目下的已发布产品，未到发布时间的定时产品不返回。"
+              }
+            },
+            "PublicProductListRes": {
+              "fields": {
+                "list": {
+                  "dc": "产品列表"
+                },
+                "total": {
+                  "dc": "产品总数"
+                }
+              }
+            },
             "PublicSiteReq": {
               "meta": {
                 "dc": "无需后台认证获取公开 CMS 站点配置。",
@@ -965,16 +1568,6 @@
                 }
               }
             },
-            "SiteGetReq": {
-              "meta": {
-                "dc": "获取可编辑的 CMS 站点配置。",
-                "summary": "获取 CMS 站点配置",
-                "tags": "CMS 站点"
-              },
-              "schema": {
-                "dc": "获取可编辑的 CMS 站点配置。"
-              }
-            },
             "SiteClearDataReq": {
               "meta": {
                 "dc": "清空 CMS 栏目、文章、标签、轮播图、友情链接和留言，并重置默认站点配置。",
@@ -983,6 +1576,16 @@
               },
               "schema": {
                 "dc": "清空 CMS 栏目、文章、标签、轮播图、友情链接和留言，并重置默认站点配置。"
+              }
+            },
+            "SiteGetReq": {
+              "meta": {
+                "dc": "获取可编辑的 CMS 站点配置。",
+                "summary": "获取 CMS 站点配置",
+                "tags": "CMS 站点"
+              },
+              "schema": {
+                "dc": "获取可编辑的 CMS 站点配置。"
               }
             },
             "SiteItem": {
@@ -1047,6 +1650,16 @@
                 "updatedBy": {
                   "dc": "更新者用户 ID"
                 }
+              }
+            },
+            "SiteLoadSampleDataReq": {
+              "meta": {
+                "dc": "清空当前 CMS 栏目、文章、标签、轮播图、友情链接、留言和站点配置后，重新加载插件内置 starter 示例站点数据。",
+                "summary": "加载 CMS 示例数据",
+                "tags": "CMS 站点"
+              },
+              "schema": {
+                "dc": "清空当前 CMS 栏目、文章、标签、轮播图、友情链接、留言和站点配置后，重新加载插件内置 starter 示例站点数据。"
               }
             },
             "SiteUpdateReq": {
@@ -1269,16 +1882,6 @@
               },
               "schema": {
                 "dc": "更新一张 CMS 轮播图。"
-              }
-            },
-            "SiteLoadSampleDataReq": {
-              "meta": {
-                "dc": "清空当前 CMS 栏目、文章、标签、轮播图、友情链接、留言和站点配置后，重新加载插件内置 starter 示例站点数据。",
-                "summary": "加载 CMS 示例数据",
-                "tags": "CMS 站点"
-              },
-              "schema": {
-                "dc": "清空当前 CMS 栏目、文章、标签、轮播图、友情链接、留言和站点配置后，重新加载插件内置 starter 示例站点数据。"
               }
             }
           }

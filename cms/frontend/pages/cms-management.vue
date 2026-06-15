@@ -6,10 +6,11 @@ export const pluginPageMeta = {
 </script>
 
 <script setup lang="ts">
-import type { Article, Category, Link, Message, Site, Slide } from "./cms-client";
+import type { Album, AlbumImage, Article, Category, Link, Message, Product, Site, Slide } from "./cms-client";
 
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import { useAccess } from "@vben/access";
 import { Page } from "@vben/common-ui";
 import { $te } from "@vben/locales";
 import { preferences } from "@vben/preferences";
@@ -39,9 +40,17 @@ import { $t } from "#/locales";
 import { useDictStore } from "#/store/dict";
 
 import CmsImageUpload from "../components/CmsImageUpload.vue";
+import CmsImageListUpload from "../components/CmsImageListUpload.vue";
 import CmsRichTextEditor from "../components/CmsRichTextEditor.vue";
 
 import {
+  cmsAlbumCreate,
+  cmsAlbumDelete,
+  cmsAlbumInfo,
+  cmsAlbumList,
+  cmsAlbumUpdate,
+  cmsArticleBatchDelete,
+  cmsArticleBatchUpdateStatus,
   cmsArticleCreate,
   cmsArticleDelete,
   cmsArticleInfo,
@@ -58,6 +67,11 @@ import {
   cmsMessageDelete,
   cmsMessageList,
   cmsMessageUpdate,
+  cmsProductCreate,
+  cmsProductDelete,
+  cmsProductInfo,
+  cmsProductList,
+  cmsProductUpdate,
   cmsSite,
   cmsSiteClearData,
   cmsSiteLoadSampleData,
@@ -75,6 +89,17 @@ type SelectNumberOption = {
 };
 
 const dictStore = useDictStore();
+const { hasAccessByCodes } = useAccess();
+const canEditArticles = computed(() => hasAccessByCodes(["cms:article:edit"]));
+const canRemoveArticles = computed(() =>
+  hasAccessByCodes(["cms:article:remove"]),
+);
+const canAddProducts = computed(() => hasAccessByCodes(["cms:product:add"]));
+const canRemoveProducts = computed(() =>
+  hasAccessByCodes(["cms:product:remove"]),
+);
+const canAddAlbums = computed(() => hasAccessByCodes(["cms:album:add"]));
+const canRemoveAlbums = computed(() => hasAccessByCodes(["cms:album:remove"]));
 const activeTab = ref("site");
 const dashboardLoading = ref(false);
 const siteClearing = ref(false);
@@ -185,6 +210,7 @@ const selectedArticleSection = ref("model:list");
 const expandedArticleCategoryIds = ref<Set<number>>(new Set());
 const articleModalOpen = ref(false);
 const articleModalMode = ref<"create" | "update">("create");
+const selectedArticleIds = ref<number[]>([]);
 const articleForm = reactive<Partial<Article>>({
   author: "",
   categoryId: undefined,
@@ -194,6 +220,7 @@ const articleForm = reactive<Partial<Article>>({
   isRecommend: 0,
   isTop: 0,
   keywords: "",
+  publishedAt: undefined,
   slug: "",
   sort: 0,
   source: "",
@@ -205,6 +232,59 @@ const articleForm = reactive<Partial<Article>>({
 });
 const publishedArticleTotal = ref(0);
 const draftArticleTotal = ref(0);
+
+const productRows = ref<Product[]>([]);
+const productTotal = ref(0);
+const productLoading = ref(false);
+const productQuery = reactive({
+  categoryId: undefined as number | undefined,
+  name: "",
+  pageNum: 1,
+  pageSize: 10,
+  status: undefined as number | undefined,
+});
+const productModalOpen = ref(false);
+const productModalMode = ref<"create" | "update">("create");
+const productForm = reactive<Partial<Product>>({
+  categoryId: undefined,
+  content: "",
+  cover: "",
+  description: "",
+  gallery: [],
+  isRecommend: 0,
+  isTop: 0,
+  keywords: "",
+  name: "",
+  price: "",
+  publishedAt: undefined,
+  slug: "",
+  sort: 0,
+  spec: "",
+  status: 0,
+  summary: "",
+});
+
+const albumRows = ref<Album[]>([]);
+const albumTotal = ref(0);
+const albumLoading = ref(false);
+const albumQuery = reactive({
+  categoryId: undefined as number | undefined,
+  name: "",
+  pageNum: 1,
+  pageSize: 10,
+  status: undefined as number | undefined,
+});
+const albumModalOpen = ref(false);
+const albumModalMode = ref<"create" | "update">("create");
+const albumForm = reactive<Partial<Album>>({
+  categoryId: undefined,
+  cover: "",
+  description: "",
+  images: [],
+  name: "",
+  sort: 0,
+  status: 1,
+});
 
 const messageRows = ref<Message[]>([]);
 const messageTotal = ref(0);
@@ -269,12 +349,15 @@ const linkForm = reactive<Partial<Link>>({
 const statusDicts = ref<any[]>([]);
 const categoryTypeDicts = ref<any[]>([]);
 const articleStatusDicts = ref<any[]>([]);
+const productStatusDicts = ref<any[]>([]);
 const messageStatusDicts = ref<any[]>([]);
 const yesNoDicts = ref<any[]>([]);
 
 const CategoryTypeList = 1;
 const CategoryTypeSingle = 2;
 const CategoryTypeExternal = 3;
+const CategoryTypeProduct = 4;
+const CategoryTypeAlbum = 5;
 
 const categoryOptions = computed(() =>
   flattenCategories(
@@ -298,6 +381,21 @@ const categoryTypeOptions = computed(() =>
 const articleStatusOptions = computed(() =>
   toNumberOptions(articleStatusDicts.value),
 );
+const productStatusOptions = computed(() =>
+  toNumberOptions(productStatusDicts.value),
+);
+const productCategoryOptions = computed(() =>
+  flattenCategories(
+    categoryRows.value.filter(
+      (category) => category.type === CategoryTypeProduct,
+    ),
+  ).filter((item) => item.value > 0),
+);
+const albumCategoryOptions = computed(() =>
+  flattenCategories(
+    categoryRows.value.filter((category) => category.type === CategoryTypeAlbum),
+  ).filter((item) => item.value > 0),
+);
 const messageStatusOptions = computed(() =>
   toNumberOptions(messageStatusDicts.value),
 );
@@ -311,6 +409,14 @@ const categoryListTemplateOptions = computed(() => [
     label: $t("plugin.cms.templates.listCard"),
     value: "list-card.html",
   },
+  {
+    label: $t("plugin.cms.templates.productList"),
+    value: "product-list.html",
+  },
+  {
+    label: $t("plugin.cms.templates.albumList"),
+    value: "album-list.html",
+  },
 ]);
 const categoryContentTemplateOptions = computed(() => [
   {
@@ -320,6 +426,14 @@ const categoryContentTemplateOptions = computed(() => [
   {
     label: $t("plugin.cms.templates.single"),
     value: "single.html",
+  },
+  {
+    label: $t("plugin.cms.templates.productDetail"),
+    value: "product-detail.html",
+  },
+  {
+    label: $t("plugin.cms.templates.albumDetail"),
+    value: "album-detail.html",
   },
 ]);
 
@@ -467,6 +581,72 @@ const articleColumns = computed(() => [
   },
 ]);
 
+const productColumns = computed(() => [
+  {
+    dataIndex: "name",
+    title: $t("plugin.cms.fields.productName"),
+    width: 300,
+  },
+  {
+    dataIndex: "categoryName",
+    title: $t("plugin.cms.fields.categoryName"),
+    width: 128,
+  },
+  {
+    dataIndex: "price",
+    title: $t("plugin.cms.fields.productPrice"),
+    width: 120,
+  },
+  {
+    dataIndex: "status",
+    title: $t("pages.common.status"),
+    width: 92,
+  },
+  {
+    dataIndex: "views",
+    title: $t("plugin.cms.fields.views"),
+    width: 70,
+  },
+  {
+    key: "action",
+    title: $t("pages.common.actions"),
+    width: 136,
+  },
+]);
+
+const albumColumns = computed(() => [
+  {
+    dataIndex: "name",
+    title: $t("plugin.cms.fields.albumName"),
+    width: 300,
+  },
+  {
+    dataIndex: "categoryName",
+    title: $t("plugin.cms.fields.categoryName"),
+    width: 128,
+  },
+  {
+    dataIndex: "imageCount",
+    title: $t("plugin.cms.fields.imageCount"),
+    width: 100,
+  },
+  {
+    dataIndex: "status",
+    title: $t("pages.common.status"),
+    width: 92,
+  },
+  {
+    dataIndex: "sort",
+    title: $t("pages.fields.sort"),
+    width: 80,
+  },
+  {
+    key: "action",
+    title: $t("pages.common.actions"),
+    width: 136,
+  },
+]);
+
 const messageColumns = computed(() => [
   {
     dataIndex: "name",
@@ -564,12 +744,14 @@ onMounted(async () => {
     statusDicts.value,
     categoryTypeDicts.value,
     articleStatusDicts.value,
+    productStatusDicts.value,
     messageStatusDicts.value,
     yesNoDicts.value,
   ] = await Promise.all([
     dictStore.getDictOptionsAsync("cms_status"),
     dictStore.getDictOptionsAsync("cms_category_type"),
     dictStore.getDictOptionsAsync("cms_article_status"),
+    dictStore.getDictOptionsAsync("cms_product_status"),
     dictStore.getDictOptionsAsync("cms_message_status"),
     dictStore.getDictOptionsAsync("cms_yes_no"),
   ]);
@@ -587,6 +769,14 @@ watch(activeTab, async (tab) => {
   }
   if (tab === "articles") {
     await Promise.all([loadCategories(), loadArticles()]);
+    return;
+  }
+  if (tab === "products") {
+    await Promise.all([loadCategories(), loadProducts()]);
+    return;
+  }
+  if (tab === "albums") {
+    await Promise.all([loadCategories(), loadAlbums()]);
     return;
   }
   if (tab === "slides") {
@@ -613,6 +803,14 @@ watch(
     }
     if (type === CategoryTypeList && categoryForm.contentTemplate === "single.html") {
       categoryForm.contentTemplate = "detail.html";
+    }
+    if (type === CategoryTypeProduct) {
+      categoryForm.listTemplate = "product-list.html";
+      categoryForm.contentTemplate = "product-detail.html";
+    }
+    if (type === CategoryTypeAlbum) {
+      categoryForm.listTemplate = "album-list.html";
+      categoryForm.contentTemplate = "album-detail.html";
     }
   },
 );
@@ -1015,10 +1213,244 @@ async function loadArticles() {
     const resp = await cmsArticleList(params);
     articleRows.value = resp.items;
     articleTotal.value = resp.total;
+    selectedArticleIds.value = [];
   } finally {
     articleLoading.value = false;
   }
 }
+
+function isScheduledArticle(record: Article) {
+  return (
+    record.status === 1 &&
+    typeof record.publishedAt === "number" &&
+    record.publishedAt > Date.now()
+  );
+}
+
+const articleRowSelection = computed(() => {
+  if (!canEditArticles.value && !canRemoveArticles.value) {
+    return undefined;
+  }
+  return {
+    selectedRowKeys: selectedArticleIds.value,
+    onChange: (keys: (number | string)[]) => {
+      selectedArticleIds.value = keys.map((key) => Number(key));
+    },
+  };
+});
+
+async function batchUpdateArticleStatus(status: number) {
+  if (selectedArticleIds.value.length === 0) {
+    return;
+  }
+  await cmsArticleBatchUpdateStatus(selectedArticleIds.value, status);
+  message.success($t("pages.common.updateSuccess"));
+  await Promise.all([loadArticles(), loadDashboardMetrics()]);
+}
+
+async function batchDeleteArticles() {
+  if (selectedArticleIds.value.length === 0) {
+    return;
+  }
+  await cmsArticleBatchDelete(selectedArticleIds.value);
+  message.success($t("pages.common.deleteSuccess"));
+  await Promise.all([loadArticles(), loadDashboardMetrics()]);
+}
+
+const articlePublishedAtLocal = computed({
+  get: () => millisToDateTimeInput(articleForm.publishedAt),
+  set: (value: string) => {
+    articleForm.publishedAt = dateTimeInputToMillis(value);
+  },
+});
+
+function millisToDateTimeInput(millis?: number) {
+  if (typeof millis !== "number" || millis <= 0) {
+    return "";
+  }
+  const date = new Date(millis);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function dateTimeInputToMillis(value: string) {
+  if (!value) {
+    return undefined;
+  }
+  const millis = new Date(value).getTime();
+  return Number.isNaN(millis) ? undefined : millis;
+}
+
+const productPublishedAtLocal = computed({
+  get: () => millisToDateTimeInput(productForm.publishedAt),
+  set: (value: string) => {
+    productForm.publishedAt = dateTimeInputToMillis(value);
+  },
+});
+
+async function loadProducts() {
+  productLoading.value = true;
+  try {
+    const resp = await cmsProductList(productQuery);
+    productRows.value = resp.items;
+    productTotal.value = resp.total;
+  } finally {
+    productLoading.value = false;
+  }
+}
+
+function resetProductForm() {
+  Object.assign(productForm, {
+    categoryId: productQuery.categoryId || productCategoryOptions.value[0]?.value,
+    content: "",
+    cover: "",
+    description: "",
+    gallery: [],
+    id: undefined,
+    isRecommend: 0,
+    isTop: 0,
+    keywords: "",
+    name: "",
+    price: "",
+    publishedAt: undefined,
+    slug: "",
+    sort: 0,
+    spec: "",
+    status: 0,
+    summary: "",
+  });
+}
+
+function openCreateProduct() {
+  productModalMode.value = "create";
+  resetProductForm();
+  productModalOpen.value = true;
+}
+
+async function openEditProduct(row: Product) {
+  productModalMode.value = "update";
+  resetProductForm();
+  const detail = await cmsProductInfo(row.id);
+  Object.assign(productForm, detail);
+  productModalOpen.value = true;
+}
+
+async function submitProduct() {
+  if (productModalMode.value === "update" && productForm.id) {
+    await cmsProductUpdate(productForm.id, productForm);
+    message.success($t("pages.common.updateSuccess"));
+  } else {
+    await cmsProductCreate(productForm);
+    message.success($t("pages.common.createSuccess"));
+  }
+  productModalOpen.value = false;
+  await loadProducts();
+}
+
+async function deleteProduct(row: Product) {
+  await cmsProductDelete(row.id);
+  message.success($t("pages.common.deleteSuccess"));
+  await loadProducts();
+}
+
+function resetProductQuery() {
+  Object.assign(productQuery, {
+    categoryId: undefined,
+    name: "",
+    pageNum: 1,
+    pageSize: 10,
+    status: undefined,
+  });
+  loadProducts();
+}
+
+async function loadAlbums() {
+  albumLoading.value = true;
+  try {
+    const resp = await cmsAlbumList(albumQuery);
+    albumRows.value = resp.items;
+    albumTotal.value = resp.total;
+  } finally {
+    albumLoading.value = false;
+  }
+}
+
+function resetAlbumForm() {
+  Object.assign(albumForm, {
+    categoryId: albumQuery.categoryId || albumCategoryOptions.value[0]?.value,
+    cover: "",
+    description: "",
+    id: undefined,
+    images: [],
+    name: "",
+    sort: 0,
+    status: 1,
+  });
+}
+
+function openCreateAlbum() {
+  albumModalMode.value = "create";
+  resetAlbumForm();
+  albumModalOpen.value = true;
+}
+
+async function openEditAlbum(row: Album) {
+  albumModalMode.value = "update";
+  resetAlbumForm();
+  const detail = await cmsAlbumInfo(row.id);
+  Object.assign(albumForm, detail, { images: detail.images ?? [] });
+  albumModalOpen.value = true;
+}
+
+async function submitAlbum() {
+  const payload = {
+    ...albumForm,
+    images: (albumForm.images ?? []).map((image, index) => ({
+      sort: index + 1,
+      title: image.title ?? "",
+      url: image.url,
+    })),
+  };
+  if (albumModalMode.value === "update" && albumForm.id) {
+    await cmsAlbumUpdate(albumForm.id, payload);
+    message.success($t("pages.common.updateSuccess"));
+  } else {
+    await cmsAlbumCreate(payload);
+    message.success($t("pages.common.createSuccess"));
+  }
+  albumModalOpen.value = false;
+  await loadAlbums();
+}
+
+async function deleteAlbum(row: Album) {
+  await cmsAlbumDelete(row.id);
+  message.success($t("pages.common.deleteSuccess"));
+  await loadAlbums();
+}
+
+function resetAlbumQuery() {
+  Object.assign(albumQuery, {
+    categoryId: undefined,
+    name: "",
+    pageNum: 1,
+    pageSize: 10,
+    status: undefined,
+  });
+  loadAlbums();
+}
+
+const albumImageUrls = computed({
+  get: () => (albumForm.images ?? []).map((image) => image.url),
+  set: (urls: string[]) => {
+    const previous = new Map(
+      (albumForm.images ?? []).map((image) => [image.url, image]),
+    );
+    albumForm.images = urls.map(
+      (url, index) =>
+        previous.get(url) ?? ({ sort: index + 1, title: "", url } as AlbumImage),
+    );
+  },
+});
 
 function resetArticleForm() {
   Object.assign(articleForm, {
@@ -1033,6 +1465,7 @@ function resetArticleForm() {
     isRecommend: 0,
     isTop: 0,
     keywords: "",
+    publishedAt: undefined,
     slug: "",
     sort: 0,
     source: "",
@@ -1355,6 +1788,22 @@ async function deleteLink(row: Link) {
             {{ $t("plugin.cms.tabs.articles") }}
           </button>
           <button
+            :class="{ 'is-active': activeTab === 'products' }"
+            data-testid="cms-section-products"
+            type="button"
+            @click="activeTab = 'products'"
+          >
+            {{ $t("plugin.cms.tabs.products") }}
+          </button>
+          <button
+            :class="{ 'is-active': activeTab === 'albums' }"
+            data-testid="cms-section-albums"
+            type="button"
+            @click="activeTab = 'albums'"
+          >
+            {{ $t("plugin.cms.tabs.albums") }}
+          </button>
+          <button
             :class="{ 'is-active': activeTab === 'slides' }"
             data-testid="cms-section-slides"
             type="button"
@@ -1398,6 +1847,22 @@ async function deleteLink(row: Link) {
             @click="openCreateArticle"
           >
             {{ $t("plugin.cms.actions.newArticle") }}
+          </a-button>
+          <a-button
+            v-if="activeTab === 'products' && canAddProducts"
+            data-testid="cms-product-add"
+            type="primary"
+            @click="openCreateProduct"
+          >
+            {{ $t("plugin.cms.actions.newProduct") }}
+          </a-button>
+          <a-button
+            v-if="activeTab === 'albums' && canAddAlbums"
+            data-testid="cms-album-add"
+            type="primary"
+            @click="openCreateAlbum"
+          >
+            {{ $t("plugin.cms.actions.newAlbum") }}
           </a-button>
           <a-button
             v-if="activeTab === 'slides'"
@@ -1754,10 +2219,59 @@ async function deleteLink(row: Link) {
                   </a-button>
                 </Space>
               </div>
+              <div
+                v-if="canEditArticles || canRemoveArticles"
+                class="cms-batch-bar"
+                data-testid="cms-article-batch-bar"
+              >
+                <Space>
+                  <a-button
+                    v-if="canEditArticles"
+                    :disabled="selectedArticleIds.length === 0"
+                    data-testid="cms-article-batch-publish"
+                    @click="batchUpdateArticleStatus(1)"
+                  >
+                    {{ $t("plugin.cms.actions.batchPublish") }}
+                  </a-button>
+                  <a-button
+                    v-if="canEditArticles"
+                    :disabled="selectedArticleIds.length === 0"
+                    data-testid="cms-article-batch-unpublish"
+                    @click="batchUpdateArticleStatus(0)"
+                  >
+                    {{ $t("plugin.cms.actions.batchUnpublish") }}
+                  </a-button>
+                  <Popconfirm
+                    v-if="canRemoveArticles"
+                    :title="$t('plugin.cms.messages.batchDeleteConfirm')"
+                    @confirm="batchDeleteArticles"
+                  >
+                    <a-button
+                      :disabled="selectedArticleIds.length === 0"
+                      danger
+                      data-testid="cms-article-batch-delete"
+                    >
+                      {{ $t("plugin.cms.actions.batchDelete") }}
+                    </a-button>
+                  </Popconfirm>
+                  <span
+                    v-if="selectedArticleIds.length > 0"
+                    class="cms-batch-count"
+                    data-testid="cms-article-batch-count"
+                  >
+                    {{
+                      $t("plugin.cms.messages.selectedArticles", {
+                        count: selectedArticleIds.length,
+                      })
+                    }}
+                  </span>
+                </Space>
+              </div>
               <a-table
                 :columns="articleColumns"
                 :data-source="articleRows"
                 :loading="articleLoading"
+                :row-selection="articleRowSelection"
                 class="cms-article-table"
                 data-testid="cms-article-table"
                 :pagination="{
@@ -1798,10 +2312,19 @@ async function deleteLink(row: Link) {
                     </span>
                   </template>
                   <template v-else-if="column.dataIndex === 'status'">
-                    <DictTag
-                      :dicts="articleStatusDicts"
-                      :value="String(record.status)"
-                    />
+                    <Space :size="4">
+                      <DictTag
+                        :dicts="articleStatusDicts"
+                        :value="String(record.status)"
+                      />
+                      <a-tag
+                        v-if="isScheduledArticle(record)"
+                        :data-testid="`cms-article-scheduled-${record.id}`"
+                        color="processing"
+                      >
+                        {{ $t("plugin.cms.fields.scheduled") }}
+                      </a-tag>
+                    </Space>
                   </template>
                   <template v-else-if="column.dataIndex === 'isRecommend'">
                     <DictTag
@@ -1836,6 +2359,245 @@ async function deleteLink(row: Link) {
               </a-table>
             </section>
           </div>
+        </a-tab-pane>
+
+        <a-tab-pane key="products" :tab="$t('plugin.cms.tabs.products')">
+          <section class="cms-panel">
+            <div class="cms-panel-head">
+              <div>
+                <h2>{{ $t("plugin.cms.sections.productManager") }}</h2>
+                <p>{{ $t("plugin.cms.sections.productManagerSubtitle") }}</p>
+              </div>
+              <a-button
+                v-if="canAddProducts"
+                data-testid="cms-product-add-secondary"
+                type="primary"
+                @click="openCreateProduct"
+              >
+                {{ $t("plugin.cms.actions.newProduct") }}
+              </a-button>
+            </div>
+            <div class="cms-filterbar">
+              <a-input
+                v-model:value="productQuery.name"
+                :placeholder="$t('plugin.cms.placeholders.productName')"
+                class="cms-filter-input"
+                data-testid="cms-product-name-filter"
+                allow-clear
+              />
+              <a-select
+                v-model:value="productQuery.categoryId"
+                :options="productCategoryOptions"
+                :placeholder="$t('plugin.cms.placeholders.category')"
+                class="cms-filter-select"
+                allow-clear
+              />
+              <a-select
+                v-model:value="productQuery.status"
+                :options="productStatusOptions"
+                :placeholder="$t('plugin.cms.placeholders.status')"
+                class="cms-filter-select"
+                allow-clear
+              />
+              <Space>
+                <a-button data-testid="cms-product-query" @click="loadProducts">
+                  {{ $t("plugin.cms.actions.query") }}
+                </a-button>
+                <a-button @click="resetProductQuery">
+                  {{ $t("plugin.cms.actions.reset") }}
+                </a-button>
+              </Space>
+            </div>
+            <a-table
+              :columns="productColumns"
+              :data-source="productRows"
+              :loading="productLoading"
+              data-testid="cms-product-table"
+              :pagination="{
+                current: productQuery.pageNum,
+                pageSize: productQuery.pageSize,
+                total: productTotal,
+                showSizeChanger: true,
+                onChange: (page: number, pageSize: number) => {
+                  productQuery.pageNum = page;
+                  productQuery.pageSize = pageSize;
+                  loadProducts();
+                },
+              }"
+              row-key="id"
+              size="middle"
+              table-layout="fixed"
+            >
+              <template #emptyText>
+                <a-empty :description="$t('plugin.cms.empty.products')" />
+              </template>
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.dataIndex === 'name'">
+                  <div class="cms-primary-cell">
+                    <strong :title="record.name">
+                      {{ truncateText(record.name, 32) }}
+                    </strong>
+                    <span :title="record.summary || record.slug">
+                      {{ truncateText(record.summary || record.slug, 38) }}
+                    </span>
+                  </div>
+                </template>
+                <template v-else-if="column.dataIndex === 'categoryName'">
+                  <span class="cms-table-ellipsis" :title="record.categoryName">
+                    {{ record.categoryName || "--" }}
+                  </span>
+                </template>
+                <template v-else-if="column.dataIndex === 'status'">
+                  <DictTag
+                    :dicts="productStatusDicts"
+                    :value="String(record.status)"
+                  />
+                </template>
+                <template v-else-if="column.key === 'action'">
+                  <Space>
+                    <a-button
+                      :data-testid="`cms-product-edit-${record.id}`"
+                      type="link"
+                      @click="openEditProduct(record)"
+                    >
+                      {{ $t("pages.common.edit") }}
+                    </a-button>
+                    <Popconfirm
+                      v-if="canRemoveProducts"
+                      :title="$t('pages.common.deleteConfirm')"
+                      @confirm="deleteProduct(record)"
+                    >
+                      <a-button
+                        :data-testid="`cms-product-delete-${record.id}`"
+                        danger
+                        type="link"
+                      >
+                        {{ $t("pages.common.delete") }}
+                      </a-button>
+                    </Popconfirm>
+                  </Space>
+                </template>
+              </template>
+            </a-table>
+          </section>
+        </a-tab-pane>
+
+        <a-tab-pane key="albums" :tab="$t('plugin.cms.tabs.albums')">
+          <section class="cms-panel">
+            <div class="cms-panel-head">
+              <div>
+                <h2>{{ $t("plugin.cms.sections.albumManager") }}</h2>
+                <p>{{ $t("plugin.cms.sections.albumManagerSubtitle") }}</p>
+              </div>
+              <a-button
+                v-if="canAddAlbums"
+                data-testid="cms-album-add-secondary"
+                type="primary"
+                @click="openCreateAlbum"
+              >
+                {{ $t("plugin.cms.actions.newAlbum") }}
+              </a-button>
+            </div>
+            <div class="cms-filterbar">
+              <a-input
+                v-model:value="albumQuery.name"
+                :placeholder="$t('plugin.cms.placeholders.albumName')"
+                class="cms-filter-input"
+                data-testid="cms-album-name-filter"
+                allow-clear
+              />
+              <a-select
+                v-model:value="albumQuery.categoryId"
+                :options="albumCategoryOptions"
+                :placeholder="$t('plugin.cms.placeholders.category')"
+                class="cms-filter-select"
+                allow-clear
+              />
+              <a-select
+                v-model:value="albumQuery.status"
+                :options="siteStatusOptions"
+                :placeholder="$t('plugin.cms.placeholders.status')"
+                class="cms-filter-select"
+                allow-clear
+              />
+              <Space>
+                <a-button data-testid="cms-album-query" @click="loadAlbums">
+                  {{ $t("plugin.cms.actions.query") }}
+                </a-button>
+                <a-button @click="resetAlbumQuery">
+                  {{ $t("plugin.cms.actions.reset") }}
+                </a-button>
+              </Space>
+            </div>
+            <a-table
+              :columns="albumColumns"
+              :data-source="albumRows"
+              :loading="albumLoading"
+              data-testid="cms-album-table"
+              :pagination="{
+                current: albumQuery.pageNum,
+                pageSize: albumQuery.pageSize,
+                total: albumTotal,
+                showSizeChanger: true,
+                onChange: (page: number, pageSize: number) => {
+                  albumQuery.pageNum = page;
+                  albumQuery.pageSize = pageSize;
+                  loadAlbums();
+                },
+              }"
+              row-key="id"
+              size="middle"
+              table-layout="fixed"
+            >
+              <template #emptyText>
+                <a-empty :description="$t('plugin.cms.empty.albums')" />
+              </template>
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.dataIndex === 'name'">
+                  <div class="cms-primary-cell">
+                    <strong :title="record.name">
+                      {{ truncateText(record.name, 32) }}
+                    </strong>
+                    <span :title="record.description">
+                      {{ truncateText(record.description, 38) }}
+                    </span>
+                  </div>
+                </template>
+                <template v-else-if="column.dataIndex === 'categoryName'">
+                  <span class="cms-table-ellipsis" :title="record.categoryName">
+                    {{ record.categoryName || "--" }}
+                  </span>
+                </template>
+                <template v-else-if="column.dataIndex === 'status'">
+                  <DictTag :dicts="statusDicts" :value="String(record.status)" />
+                </template>
+                <template v-else-if="column.key === 'action'">
+                  <Space>
+                    <a-button
+                      :data-testid="`cms-album-edit-${record.id}`"
+                      type="link"
+                      @click="openEditAlbum(record)"
+                    >
+                      {{ $t("pages.common.edit") }}
+                    </a-button>
+                    <Popconfirm
+                      v-if="canRemoveAlbums"
+                      :title="$t('pages.common.deleteConfirm')"
+                      @confirm="deleteAlbum(record)"
+                    >
+                      <a-button
+                        :data-testid="`cms-album-delete-${record.id}`"
+                        danger
+                        type="link"
+                      >
+                        {{ $t("pages.common.delete") }}
+                      </a-button>
+                    </Popconfirm>
+                  </Space>
+                </template>
+              </template>
+            </a-table>
+          </section>
         </a-tab-pane>
 
         <a-tab-pane key="slides" :tab="$t('plugin.cms.tabs.slides')">
@@ -2330,6 +3092,17 @@ async function deleteLink(row: Link) {
             data-testid="cms-article-status-input"
           />
         </a-form-item>
+        <a-form-item
+          :extra="$t('plugin.cms.messages.publishedAtHint')"
+          :label="$t('plugin.cms.fields.publishedAt')"
+        >
+          <a-input
+            v-model:value="articlePublishedAtLocal"
+            :disabled="articleForm.status !== 1"
+            data-testid="cms-article-published-at-input"
+            type="datetime-local"
+          />
+        </a-form-item>
         <a-form-item :label="$t('plugin.cms.fields.subtitle')">
           <a-input v-model:value="articleForm.subtitle" />
         </a-form-item>
@@ -2397,6 +3170,208 @@ async function deleteLink(row: Link) {
               v-model="articleForm.content"
               :height="300"
               scene="other"
+            />
+          </div>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="productModalOpen"
+      data-testid="cms-product-modal"
+      class="cms-article-modal"
+      :title="
+        productModalMode === 'update'
+          ? $t('plugin.cms.dialogs.editProduct')
+          : $t('plugin.cms.dialogs.createProduct')
+      "
+      :width="980"
+      wrap-class-name="cms-article-modal-wrap"
+      @ok="submitProduct"
+    >
+      <a-form
+        :model="productForm"
+        layout="vertical"
+        class="cms-form-grid cms-article-form"
+      >
+        <a-form-item :label="$t('plugin.cms.fields.productName')" required>
+          <a-input
+            v-model:value="productForm.name"
+            data-testid="cms-product-name-input"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.slug')" required>
+          <a-input
+            v-model:value="productForm.slug"
+            data-testid="cms-product-slug-input"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.categoryName')" required>
+          <a-select
+            v-model:value="productForm.categoryId"
+            :options="productCategoryOptions"
+            data-testid="cms-product-category-input"
+            show-search
+          />
+        </a-form-item>
+        <a-form-item :label="$t('pages.common.status')">
+          <a-select
+            v-model:value="productForm.status"
+            :options="productStatusOptions"
+            data-testid="cms-product-status-input"
+          />
+        </a-form-item>
+        <a-form-item
+          :extra="$t('plugin.cms.messages.publishedAtHint')"
+          :label="$t('plugin.cms.fields.publishedAt')"
+        >
+          <a-input
+            v-model:value="productPublishedAtLocal"
+            :disabled="productForm.status !== 1"
+            data-testid="cms-product-published-at-input"
+            type="datetime-local"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.productPrice')">
+          <a-input
+            v-model:value="productForm.price"
+            data-testid="cms-product-price-input"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.productSpec')">
+          <a-input
+            v-model:value="productForm.spec"
+            data-testid="cms-product-spec-input"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('pages.fields.sort')">
+          <a-input-number
+            v-model:value="productForm.sort"
+            class="w-full"
+            :min="0"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.recommend')">
+          <a-select
+            v-model:value="productForm.isRecommend"
+            :options="yesNoOptions"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.top')">
+          <a-select v-model:value="productForm.isTop" :options="yesNoOptions" />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.cover')">
+          <div data-testid="cms-product-cover-upload">
+            <CmsImageUpload
+              v-model:value="productForm.cover"
+              scene="other"
+              :max-count="1"
+            />
+          </div>
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.gallery')">
+          <div data-testid="cms-product-gallery-upload">
+            <CmsImageListUpload
+              v-model:value="productForm.gallery"
+              scene="other"
+              :max-count="9"
+            />
+          </div>
+        </a-form-item>
+        <a-form-item
+          :label="$t('plugin.cms.fields.summary')"
+          class="cms-span-all"
+        >
+          <a-textarea
+            v-model:value="productForm.summary"
+            :rows="2"
+            data-testid="cms-product-summary-input"
+          />
+        </a-form-item>
+        <a-form-item
+          :label="$t('plugin.cms.fields.content')"
+          class="cms-span-all"
+          required
+        >
+          <div data-testid="cms-product-content-editor">
+            <CmsRichTextEditor
+              v-model="productForm.content"
+              :height="280"
+              scene="other"
+            />
+          </div>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="albumModalOpen"
+      data-testid="cms-album-modal"
+      :title="
+        albumModalMode === 'update'
+          ? $t('plugin.cms.dialogs.editAlbum')
+          : $t('plugin.cms.dialogs.createAlbum')
+      "
+      :width="860"
+      @ok="submitAlbum"
+    >
+      <a-form :model="albumForm" layout="vertical" class="cms-form-grid">
+        <a-form-item :label="$t('plugin.cms.fields.albumName')" required>
+          <a-input
+            v-model:value="albumForm.name"
+            data-testid="cms-album-name-input"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.categoryName')" required>
+          <a-select
+            v-model:value="albumForm.categoryId"
+            :options="albumCategoryOptions"
+            data-testid="cms-album-category-input"
+            show-search
+          />
+        </a-form-item>
+        <a-form-item :label="$t('pages.common.status')">
+          <a-select
+            v-model:value="albumForm.status"
+            :options="siteStatusOptions"
+            data-testid="cms-album-status-input"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('pages.fields.sort')">
+          <a-input-number
+            v-model:value="albumForm.sort"
+            class="w-full"
+            :min="0"
+          />
+        </a-form-item>
+        <a-form-item :label="$t('plugin.cms.fields.cover')">
+          <div data-testid="cms-album-cover-upload">
+            <CmsImageUpload
+              v-model:value="albumForm.cover"
+              scene="other"
+              :max-count="1"
+            />
+          </div>
+        </a-form-item>
+        <a-form-item
+          :label="$t('plugin.cms.fields.description')"
+          class="cms-span-all"
+        >
+          <a-textarea
+            v-model:value="albumForm.description"
+            :rows="2"
+            data-testid="cms-album-description-input"
+          />
+        </a-form-item>
+        <a-form-item
+          :label="$t('plugin.cms.fields.albumImages')"
+          class="cms-span-all"
+        >
+          <div data-testid="cms-album-images-upload">
+            <CmsImageListUpload
+              v-model:value="albumImageUrls"
+              scene="other"
+              :max-count="100"
             />
           </div>
         </a-form-item>
@@ -2795,6 +3770,17 @@ async function deleteLink(row: Link) {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+}
+
+.cms-batch-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cms-batch-count {
+  font-size: 12px;
+  color: #64748b;
 }
 
 .cms-filter-input {

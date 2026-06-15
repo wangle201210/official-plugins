@@ -1,0 +1,41 @@
+{include file=comm/head.html}
+<link rel="stylesheet" href="{site:assets}/css/yx-page.css">
+<div class="container" data-testid="cms-public-site" data-template="product-list">
+  <div class="breadcrumb">
+    {page:breadcrumb separator='<span class="sep">&gt;</span>'}
+  </div>
+  <div class="page-content">
+    {include file=comm/categorynav.html}
+    <div class="content-area">
+      <div class="article-list">
+        <div class="article-list-header">{category:name}</div>
+        <div class="article-card-grid" data-testid="cms-public-product-list">
+          {cms:product limit=12}
+          <a href="[product:link]" class="article-card-tile" data-testid="cms-public-product-card">
+            <span class="article-card-cover">
+              <img src="[product:image]" alt="[product:name]">
+            </span>
+            <span class="article-card-body">
+              <strong>[product:name]</strong>
+              <em>[product:summary length=60]</em>
+              <small class="product-price">[product:price]</small>
+            </span>
+          </a>
+          {/cms:product}
+        </div>
+      </div>
+      {cms:if({page:total}>0)}
+      <div class="pagination" data-testid="cms-public-pagination">
+        <a href="{page:first}" class="page-item">首页</a>
+        <a href="{page:previous}" class="page-item">上一页</a>
+        {page:numbers}
+        <a href="{page:next}" class="page-item">下一页</a>
+        <a href="{page:last}" class="page-item">尾页</a>
+      </div>
+      {else}
+      <div class="empty-list">暂无产品</div>
+      {/cms:if}
+    </div>
+  </div>
+</div>
+{include file=comm/foot.html}

@@ -164,10 +164,16 @@ func publicFrontendCategoryListTemplate(category *publicFrontendCategory) string
 	if category == nil {
 		return publicFrontendListName
 	}
-	if category.Type == cmssvc.CategoryTypeSingle {
+	switch category.Type {
+	case cmssvc.CategoryTypeSingle:
 		return publicFrontendCategoryContentTemplate(category, publicFrontendSingleName)
+	case cmssvc.CategoryTypeProduct:
+		return publicFrontendTemplateFileName(category.ListTemplate, publicFrontendProductList)
+	case cmssvc.CategoryTypeAlbum:
+		return publicFrontendTemplateFileName(category.ListTemplate, publicFrontendAlbumList)
+	default:
+		return publicFrontendTemplateFileName(category.ListTemplate, publicFrontendListName)
 	}
-	return publicFrontendTemplateFileName(category.ListTemplate, publicFrontendListName)
 }
 
 // publicFrontendCategoryContentTemplate resolves the content template for a category.

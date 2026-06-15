@@ -16,7 +16,12 @@
         "newLink": "新建友情链接",
         "newSlide": "新建轮播图",
         "loadSampleData": "加载示例数据",
-        "loadSampleDataConfirm": "确认加载示例"
+        "loadSampleDataConfirm": "确认加载示例",
+        "batchPublish": "批量发布",
+        "batchUnpublish": "批量下线",
+        "batchDelete": "批量删除",
+        "newProduct": "新建产品",
+        "newAlbum": "新建相册"
       },
       "description": "提供站点配置、栏目、内容、留言和公开内容接口的官方源码 CMS 插件",
       "dialogs": {
@@ -28,14 +33,20 @@
         "createLink": "新增友情链接",
         "createSlide": "新增轮播图",
         "editLink": "编辑友情链接",
-        "editSlide": "编辑轮播图"
+        "editSlide": "编辑轮播图",
+        "createProduct": "新建产品",
+        "editProduct": "编辑产品",
+        "createAlbum": "新建相册",
+        "editAlbum": "编辑相册"
       },
       "empty": {
         "articles": "暂无内容",
         "categories": "暂无栏目",
         "messages": "暂无留言",
         "links": "暂无友情链接",
-        "slides": "暂无轮播图"
+        "slides": "暂无轮播图",
+        "products": "暂无产品",
+        "albums": "暂无相册"
       },
       "editor": {
         "actions": {
@@ -99,7 +110,16 @@
         "slideImage": "轮播图片",
         "slideLink": "跳转链接",
         "slideTitle": "轮播标题",
-        "showMessages": "留言是否展示"
+        "showMessages": "留言是否展示",
+        "publishedAt": "发布时间",
+        "scheduled": "定时",
+        "productName": "产品名称",
+        "productPrice": "价格",
+        "productSpec": "规格",
+        "gallery": "产品多图",
+        "albumName": "相册名称",
+        "albumImages": "相册图片",
+        "imageCount": "图片数"
       },
       "metrics": {
         "articleGlyph": "文",
@@ -121,7 +141,10 @@
         "clearDataSuccess": "CMS 数据已清空",
         "moderateConfirm": "确认更新该留言的审核状态？",
         "loadSampleDataConfirm": "确认清空当前 CMS 数据并重新加载插件内置示例站点？该操作不可恢复。",
-        "loadSampleDataSuccess": "CMS 示例数据已加载"
+        "loadSampleDataSuccess": "CMS 示例数据已加载",
+        "batchDeleteConfirm": "确认删除选中的全部文章？该操作不可恢复。",
+        "selectedArticles": "已选 {count} 项",
+        "publishedAtHint": "选填。填写未来时间即定时发布，到点前公开站点不展示该文章。"
       },
       "name": "内容管理-CMS",
       "overview": {
@@ -135,7 +158,9 @@
         "status": "选择状态",
         "groupCode": "输入分组编码",
         "linkKeyword": "搜索链接名称或地址",
-        "slideKeyword": "搜索轮播标题或副标题"
+        "slideKeyword": "搜索轮播标题或副标题",
+        "productName": "搜索产品名称",
+        "albumName": "搜索相册名称"
       },
       "sections": {
         "categoryTree": "栏目结构",
@@ -150,7 +175,11 @@
         "linkManager": "友情链接管理",
         "linkManagerSubtitle": "维护页脚分组链接和公开友情链接数据。",
         "slideManager": "轮播图管理",
-        "slideManagerSubtitle": "维护首页轮播图片、文案、跳转链接与显示顺序。"
+        "slideManagerSubtitle": "维护首页轮播图片、文案、跳转链接与显示顺序。",
+        "productManager": "产品中心",
+        "productManagerSubtitle": "维护公开站点展示的产品",
+        "albumManager": "相册管理",
+        "albumManagerSubtitle": "维护公开站点展示的相册"
       },
       "tabs": {
         "articles": "内容",
@@ -158,13 +187,19 @@
         "messages": "留言",
         "site": "站点",
         "links": "友情链接",
-        "slides": "轮播图"
+        "slides": "轮播图",
+        "products": "产品",
+        "albums": "相册"
       },
       "templates": {
         "detail": "文章详情（detail.html）",
         "list": "标准列表（list.html）",
         "listCard": "卡片列表（list-card.html）",
-        "single": "单页内容（single.html）"
+        "single": "单页内容（single.html）",
+        "productList": "产品列表",
+        "productDetail": "产品详情",
+        "albumList": "相册列表",
+        "albumDetail": "相册详情"
       }
     }
   }

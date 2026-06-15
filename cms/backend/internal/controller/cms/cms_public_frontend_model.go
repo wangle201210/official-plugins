@@ -574,3 +574,66 @@ func publicFrontendLinkGroup(groupCode string, index int) string {
 		return "4"
 	}
 }
+
+// mapPublicFrontendProducts converts service products into public template models.
+func mapPublicFrontendProducts(items []*cmssvc.ProductItem, includeContent bool) []*publicFrontendProduct {
+	products := make([]*publicFrontendProduct, 0, len(items))
+	for index, item := range items {
+		product := mapPublicFrontendProduct(item, includeContent)
+		if product == nil {
+			continue
+		}
+		product.Index = index + 1
+		products = append(products, product)
+	}
+	return products
+}
+
+// mapPublicFrontendProduct converts one service product into a public template model.
+func mapPublicFrontendProduct(item *cmssvc.ProductItem, includeContent bool) *publicFrontendProduct {
+	if item == nil || item.CmsProduct == nil {
+		return nil
+	}
+	values := url.Values{}
+	values.Set("product", item.Slug)
+	gallery := make([]string, 0, len(item.Gallery))
+	for _, image := range item.Gallery {
+		gallery = append(gallery, publicFrontendNormalizeAssetPath(image))
+	}
+	product := &publicFrontendProduct{Id: item.Id, CategoryId: item.CategoryId, Name: item.Name, Summary: item.Summary, Cover: publicFrontendNormalizeAssetPath(item.Cover), Gallery: gallery, Price: item.Price, Spec: item.Spec, Keywords: item.Keywords, Description: item.Description, CategoryName: item.CategoryName, PublishedAt: publicFrontendDate(item.PublishedAt), Href: "/cms-site?" + values.Encode(), Views: item.Views, IsTop: item.IsTop, IsRecommend: item.IsRecommend}
+	if includeContent {
+		product.ContentHTML = template.HTML(publicFrontendNormalizeContentHTML(item.Content))
+	}
+	return product
+}
+
+// mapPublicFrontendAlbums converts service albums into public template models.
+func mapPublicFrontendAlbums(items []*cmssvc.AlbumItem) []*publicFrontendAlbum {
+	albums := make([]*publicFrontendAlbum, 0, len(items))
+	for index, item := range items {
+		album := mapPublicFrontendAlbum(item)
+		if album == nil {
+			continue
+		}
+		album.Index = index + 1
+		albums = append(albums, album)
+	}
+	return albums
+}
+
+// mapPublicFrontendAlbum converts one service album with images into a public template model.
+func mapPublicFrontendAlbum(item *cmssvc.AlbumItem) *publicFrontendAlbum {
+	if item == nil || item.CmsAlbum == nil {
+		return nil
+	}
+	values := url.Values{}
+	values.Set("album", strconv.FormatInt(item.Id, 10))
+	photos := make([]*publicFrontendPhoto, 0, len(item.Images))
+	for index, image := range item.Images {
+		if image == nil {
+			continue
+		}
+		photos = append(photos, &publicFrontendPhoto{Index: index + 1, Url: publicFrontendNormalizeAssetPath(image.Url), Title: image.Title})
+	}
+	return &publicFrontendAlbum{Id: item.Id, CategoryId: item.CategoryId, Name: item.Name, Cover: publicFrontendNormalizeAssetPath(item.Cover), Description: item.Description, CategoryName: item.CategoryName, Count: item.ImageCount, Href: "/cms-site?" + values.Encode(), Photos: photos}
+}

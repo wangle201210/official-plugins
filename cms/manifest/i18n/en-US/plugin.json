@@ -16,7 +16,12 @@
         "newLink": "New Link",
         "newSlide": "New Slide",
         "loadSampleData": "Load Sample Data",
-        "loadSampleDataConfirm": "Confirm Load Sample Data"
+        "loadSampleDataConfirm": "Confirm Load Sample Data",
+        "batchPublish": "Batch Publish",
+        "batchUnpublish": "Batch Unpublish",
+        "batchDelete": "Batch Delete",
+        "newProduct": "New Product",
+        "newAlbum": "New Album"
       },
       "description": "Official source CMS plugin for site settings, categories, articles, messages, and public content APIs.",
       "dialogs": {
@@ -28,14 +33,20 @@
         "createLink": "Create Friendly Link",
         "createSlide": "Create Slide",
         "editLink": "Edit Friendly Link",
-        "editSlide": "Edit Slide"
+        "editSlide": "Edit Slide",
+        "createProduct": "Create Product",
+        "editProduct": "Edit Product",
+        "createAlbum": "Create Album",
+        "editAlbum": "Edit Album"
       },
       "empty": {
         "articles": "No articles",
         "categories": "No categories",
         "messages": "No messages",
         "links": "No friendly links",
-        "slides": "No slides"
+        "slides": "No slides",
+        "products": "No products yet",
+        "albums": "No albums yet"
       },
       "editor": {
         "actions": {
@@ -99,7 +110,16 @@
         "slideImage": "Slide Image",
         "slideLink": "Slide Link",
         "slideTitle": "Slide Title",
-        "showMessages": "Show Messages"
+        "showMessages": "Show Messages",
+        "publishedAt": "Publish Time",
+        "scheduled": "Scheduled",
+        "productName": "Product Name",
+        "productPrice": "Price",
+        "productSpec": "Specification",
+        "gallery": "Gallery Images",
+        "albumName": "Album Name",
+        "albumImages": "Album Images",
+        "imageCount": "Images"
       },
       "metrics": {
         "articleGlyph": "A",
@@ -121,7 +141,10 @@
         "clearDataSuccess": "CMS data has been cleared",
         "moderateConfirm": "Update the moderation status for this message?",
         "loadSampleDataConfirm": "Clear current CMS data and reload the packaged sample site? This cannot be undone.",
-        "loadSampleDataSuccess": "CMS sample data has been loaded"
+        "loadSampleDataSuccess": "CMS sample data has been loaded",
+        "batchDeleteConfirm": "Delete all selected articles? This cannot be undone.",
+        "selectedArticles": "{count} selected",
+        "publishedAtHint": "Optional. A future time schedules the article and hides it from the public site until then."
       },
       "name": "Content - CMS",
       "overview": {
@@ -135,7 +158,9 @@
         "status": "Select status",
         "groupCode": "Group code",
         "linkKeyword": "Search link name or URL",
-        "slideKeyword": "Search slide title or subtitle"
+        "slideKeyword": "Search slide title or subtitle",
+        "productName": "Search product name",
+        "albumName": "Search album name"
       },
       "sections": {
         "categoryTree": "Category Structure",
@@ -150,7 +175,11 @@
         "linkManager": "Friendly Link Management",
         "linkManagerSubtitle": "Maintain grouped footer and public link exchange data.",
         "slideManager": "Carousel Management",
-        "slideManagerSubtitle": "Maintain homepage carousel images, copy, target links, and display order."
+        "slideManagerSubtitle": "Maintain homepage carousel images, copy, target links, and display order.",
+        "productManager": "Product Center",
+        "productManagerSubtitle": "Maintain products shown on the public site",
+        "albumManager": "Photo Albums",
+        "albumManagerSubtitle": "Maintain photo albums shown on the public site"
       },
       "tabs": {
         "articles": "Articles",
@@ -158,13 +187,19 @@
         "messages": "Messages",
         "site": "Site",
         "links": "Links",
-        "slides": "Slides"
+        "slides": "Slides",
+        "products": "Products",
+        "albums": "Albums"
       },
       "templates": {
         "detail": "Article Detail (detail.html)",
         "list": "Standard List (list.html)",
         "listCard": "Card List (list-card.html)",
-        "single": "Single Page (single.html)"
+        "single": "Single Page (single.html)",
+        "productList": "Product List",
+        "productDetail": "Product Detail",
+        "albumList": "Album List",
+        "albumDetail": "Album Detail"
       }
     }
   }

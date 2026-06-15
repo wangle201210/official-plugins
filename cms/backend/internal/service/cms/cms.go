@@ -23,6 +23,8 @@ const (
 	CategoryTypeList     = 1
 	CategoryTypeSingle   = 2
 	CategoryTypeExternal = 3
+	CategoryTypeProduct  = 4
+	CategoryTypeAlbum    = 5
 )
 
 // StatusDisabled groups the common enabled and disabled status constants.
@@ -64,6 +66,15 @@ type Service interface {
 	CreateArticle(ctx context.Context, in ArticleSaveInput) (int64, error)
 	UpdateArticle(ctx context.Context, in ArticleSaveInput) error
 	DeleteArticle(ctx context.Context, id int64) error
+	// BatchUpdateArticleStatus publishes or unpublishes the given articles in one
+	// transaction. The whole batch is rejected with CodeArticleNotFound when any
+	// target is missing. Publishing fills empty publication times with now and
+	// keeps existing ones; unpublishing keeps publication times.
+	BatchUpdateArticleStatus(ctx context.Context, in ArticleBatchStatusInput) error
+	// BatchDeleteArticles soft deletes the given articles with one collection
+	// statement. The whole batch is rejected with CodeArticleNotFound when any
+	// target is missing.
+	BatchDeleteArticles(ctx context.Context, ids []int64) error
 	ListMessages(ctx context.Context, in MessageListInput) (*MessageListOutput, error)
 	ListPublicMessages(ctx context.Context, in PublicMessageListInput) (*MessageListOutput, error)
 	UpdateMessage(ctx context.Context, in MessageUpdateInput) error
@@ -76,8 +87,40 @@ type Service interface {
 	CreateSlide(ctx context.Context, in SlideSaveInput) (int64, error)
 	UpdateSlide(ctx context.Context, in SlideSaveInput) error
 	DeleteSlide(ctx context.Context, id int64) error
+	// GetPublicSeoContent returns the public site settings, enabled non-external
+	// categories, and the newest publicly visible articles as bounded
+	// projections for sitemap and RSS rendering; articleLimit is clamped to
+	// [1, SeoArticleLimitMax].
+	GetPublicSeoContent(ctx context.Context, articleLimit int) (*SeoContentOutput, error)
 	ListPublicArticles(ctx context.Context, in PublicArticleListInput) (*ArticleListOutput, error)
 	GetPublicArticleBySlug(ctx context.Context, slug string) (*ArticleItem, error)
+	ListProducts(ctx context.Context, in ProductListInput) (*ProductListOutput, error)
+	GetProduct(ctx context.Context, id int64) (*ProductItem, error)
+	CreateProduct(ctx context.Context, in ProductSaveInput) (int64, error)
+	UpdateProduct(ctx context.Context, in ProductSaveInput) error
+	DeleteProduct(ctx context.Context, id int64) error
+	// ListPublicProducts returns published, released products under enabled
+	// categories; scheduled products stay hidden until their publication time.
+	ListPublicProducts(ctx context.Context, in PublicProductListInput) (*ProductListOutput, error)
+	// GetPublicProductBySlug returns one publicly visible product by slug and
+	// increments its view count; hidden products map to CodePublicContentNotFound.
+	GetPublicProductBySlug(ctx context.Context, slug string) (*ProductItem, error)
+	ListAlbums(ctx context.Context, in AlbumListInput) (*AlbumListOutput, error)
+	GetAlbum(ctx context.Context, id int64) (*AlbumItem, error)
+	// CreateAlbum creates one album and saves its full image list in one
+	// transaction; image counts above AlbumImageMax are rejected.
+	CreateAlbum(ctx context.Context, in AlbumSaveInput) (int64, error)
+	// UpdateAlbum updates one album and replaces its full image list as a whole
+	// in one transaction.
+	UpdateAlbum(ctx context.Context, in AlbumSaveInput) error
+	// DeleteAlbum removes one album together with all of its image rows.
+	DeleteAlbum(ctx context.Context, id int64) error
+	// ListPublicAlbums returns enabled albums under enabled categories with
+	// covers and image counts assembled by one grouped aggregate per page.
+	ListPublicAlbums(ctx context.Context, in PublicAlbumListInput) (*AlbumListOutput, error)
+	// GetPublicAlbum returns one enabled album with its ordered images; hidden
+	// albums map to CodePublicContentNotFound.
+	GetPublicAlbum(ctx context.Context, id int64) (*AlbumItem, error)
 	ListPublicLinks(ctx context.Context) ([]*LinkItem, error)
 	ListPublicSlides(ctx context.Context) ([]*SlideItem, error)
 	CreatePublicMessage(ctx context.Context, in PublicMessageCreateInput) (int64, error)

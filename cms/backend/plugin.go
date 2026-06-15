@@ -62,6 +62,9 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 			middlewares.Ctx(),
 		)
 		group.GET("/cms-site", controller.PublicFrontendPage)
+		group.GET("/cms-site/sitemap.xml", controller.PublicFrontendSitemap)
+		group.GET("/cms-site/rss.xml", controller.PublicFrontendRss)
+		group.GET("/cms-site/robots.txt", controller.PublicFrontendRobots)
 		group.GET("/cms-site/assets/cms-site.css", controller.PublicFrontendStyle)
 		group.GET("/cms-site/assets/*file", controller.PublicFrontendAsset)
 		group.GET("/static/*file", controller.PublicFrontendStaticAsset)
@@ -84,6 +87,10 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 				controller.PublicCategoryList,
 				controller.PublicArticleList,
 				controller.PublicArticleGet,
+				controller.PublicProductList,
+				controller.PublicProductGet,
+				controller.PublicAlbumList,
+				controller.PublicAlbumGet,
 				controller.PublicLinkList,
 				controller.PublicSlideList,
 				controller.PublicMessageCreate,
@@ -110,6 +117,18 @@ func registerRoutes(_ context.Context, registrar pluginhost.HTTPRegistrar) error
 				controller.ArticleCreate,
 				controller.ArticleUpdate,
 				controller.ArticleDelete,
+				controller.ArticleBatchUpdate,
+				controller.ArticleBatchDelete,
+				controller.ProductList,
+				controller.ProductGet,
+				controller.ProductCreate,
+				controller.ProductUpdate,
+				controller.ProductDelete,
+				controller.AlbumList,
+				controller.AlbumGet,
+				controller.AlbumCreate,
+				controller.AlbumUpdate,
+				controller.AlbumDelete,
 				controller.MessageList,
 				controller.MessageUpdate,
 				controller.MessageDelete,

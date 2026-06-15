@@ -10,7 +10,7 @@ type CategoryCreateReq struct {
 	ParentId        int64  `json:"parentId" dc:"Parent category ID" eg:"0"`
 	Code            string `json:"code" v:"required#gf.gvalid.rule.required" dc:"Stable category code" eg:"news"`
 	Name            string `json:"name" v:"required#gf.gvalid.rule.required" dc:"Category name" eg:"News"`
-	Type            int    `json:"type" v:"required|in:1,2,3#gf.gvalid.rule.required|gf.gvalid.rule.in" dc:"Category type: 1=list, 2=single page, 3=external link" eg:"1"`
+	Type            int    `json:"type" v:"required|in:1,2,3,4,5#gf.gvalid.rule.required|gf.gvalid.rule.in" dc:"Category type: 1=list, 2=single page, 3=external link, 4=product, 5=album" eg:"1"`
 	Path            string `json:"path" dc:"Public category path" eg:"/news"`
 	ListTemplate    string `json:"listTemplate" dc:"Public list template file" eg:"list.html"`
 	ContentTemplate string `json:"contentTemplate" dc:"Public content/detail template file" eg:"detail.html"`

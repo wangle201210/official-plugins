@@ -292,3 +292,106 @@ func TestPublicFrontendStaticAssetPathNormalization(t *testing.T) {
 		t.Fatalf("expected normalized static content %q, got %q", want, got)
 	}
 }
+
+// TestPublicFrontendProductLoopCompiles verifies cms:product renders product
+// tags from the view's product page data.
+func TestPublicFrontendProductLoopCompiles(t *testing.T) {
+	const source = `{cms:product limit=2}<a href="[product:link]" data-testid="item">[product:name]<em>[product:price]</em></a>{/cms:product}`
+
+	compiled := compilePublicFrontendTemplate(source, publicFrontendRootScope)
+	tpl, err := template.New("case").Funcs(template.FuncMap{
+		"cmsLimit": publicFrontendLimit,
+	}).Parse(compiled)
+	if err != nil {
+		t.Fatalf("parse compiled public frontend product template: %v", err)
+	}
+
+	products := []*publicFrontendProduct{
+		{Name: "Pad", Price: "$9", Href: "/cms-site?product=pad"},
+		{Name: "Coating", Price: "$19", Href: "/cms-site?product=coating"},
+		{Name: "Hidden", Price: "$29", Href: "/cms-site?product=hidden"},
+	}
+	var buffer bytes.Buffer
+	if err = tpl.Execute(&buffer, &publicFrontendView{Products: products}); err != nil {
+		t.Fatalf("execute compiled public frontend product template: %v", err)
+	}
+	html := buffer.String()
+	if count := strings.Count(html, `data-testid="item"`); count != 2 {
+		t.Fatalf("expected 2 rendered products, got %d in %s", count, html)
+	}
+	if !strings.Contains(html, "/cms-site?product=pad") || !strings.Contains(html, "$19") {
+		t.Fatalf("expected product link and price tags rendered, got %s", html)
+	}
+}
+
+// TestPublicFrontendAlbumAndPhotoLoopsCompile verifies cms:album and cms:photo
+// render album cards and current-album photos.
+func TestPublicFrontendAlbumAndPhotoLoopsCompile(t *testing.T) {
+	const source = `{cms:album limit=2}<a href="[album:link]" data-testid="album">[album:name]<em>[album:count]</em></a>{/cms:album}{cms:photo}<img src="[photo:url]" alt="[photo:title]" data-testid="photo">{/cms:photo}`
+
+	compiled := compilePublicFrontendTemplate(source, publicFrontendRootScope)
+	tpl, err := template.New("case").Funcs(template.FuncMap{
+		"cmsLimit": publicFrontendLimit,
+	}).Parse(compiled)
+	if err != nil {
+		t.Fatalf("parse compiled public frontend album template: %v", err)
+	}
+
+	view := &publicFrontendView{
+		Albums: []*publicFrontendAlbum{
+			{Name: "Campus", Count: 3, Href: "/cms-site?album=1"},
+			{Name: "Devices", Count: 2, Href: "/cms-site?album=2"},
+		},
+		CurrentAlbum: &publicFrontendAlbum{
+			Name: "Campus",
+			Photos: []*publicFrontendPhoto{
+				{Index: 1, Url: "/uploads/a1.png", Title: "Hall"},
+				{Index: 2, Url: "/uploads/a2.png", Title: "Lab"},
+			},
+		},
+	}
+	var buffer bytes.Buffer
+	if err = tpl.Execute(&buffer, view); err != nil {
+		t.Fatalf("execute compiled public frontend album template: %v", err)
+	}
+	html := buffer.String()
+	if count := strings.Count(html, `data-testid="album"`); count != 2 {
+		t.Fatalf("expected 2 rendered albums, got %d in %s", count, html)
+	}
+	if count := strings.Count(html, `data-testid="photo"`); count != 2 {
+		t.Fatalf("expected 2 rendered photos, got %d in %s", count, html)
+	}
+	if !strings.Contains(html, "/uploads/a1.png") || !strings.Contains(html, "Hall") {
+		t.Fatalf("expected photo url and title rendered, got %s", html)
+	}
+}
+
+// TestPublicFrontendProductDetailRootTagsCompile verifies {product:*} detail
+// tags including the gallery block render from the current product.
+func TestPublicFrontendProductDetailRootTagsCompile(t *testing.T) {
+	const source = `<h1>{product:name}</h1><span>{product:price}</span><span>{product:spec}</span>{product:gallery}<div>{product:content}</div>`
+
+	compiled := compilePublicFrontendTemplate(source, publicFrontendRootScope)
+	tpl, err := template.New("case").Parse(compiled)
+	if err != nil {
+		t.Fatalf("parse compiled product detail template: %v", err)
+	}
+
+	view := &publicFrontendView{CurrentProduct: &publicFrontendProduct{
+		Name:        "Pad",
+		Price:       "$9",
+		Spec:        "8 W",
+		Gallery:     []string{"/uploads/g1.png", "/uploads/g2.png"},
+		ContentHTML: template.HTML("<p>Body</p>"),
+	}}
+	var buffer bytes.Buffer
+	if err = tpl.Execute(&buffer, view); err != nil {
+		t.Fatalf("execute compiled product detail template: %v", err)
+	}
+	html := buffer.String()
+	for _, expected := range []string{"<h1>Pad</h1>", "$9", "8 W", "/uploads/g1.png", "/uploads/g2.png", "<p>Body</p>"} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected %q in rendered product detail, got %s", expected, html)
+		}
+	}
+}

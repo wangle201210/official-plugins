@@ -32,7 +32,7 @@ type CategoryItem struct {
 	ParentId        int64           `json:"parentId" dc:"Parent category ID" eg:"0"`
 	Code            string          `json:"code" dc:"Stable category code" eg:"news"`
 	Name            string          `json:"name" dc:"Category name" eg:"News"`
-	Type            int             `json:"type" dc:"Category type: 1=list, 2=single page, 3=external link" eg:"1"`
+	Type            int             `json:"type" dc:"Category type: 1=list, 2=single page, 3=external link, 4=product, 5=album" eg:"1"`
 	Path            string          `json:"path" dc:"Public category path" eg:"/news"`
 	ListTemplate    string          `json:"listTemplate" dc:"Public list template file" eg:"list.html"`
 	ContentTemplate string          `json:"contentTemplate" dc:"Public content/detail template file" eg:"detail.html"`
@@ -134,4 +134,56 @@ type SlideItem struct {
 	UpdatedBy int64  `json:"updatedBy" dc:"Updater user ID" eg:"1"`
 	CreatedAt *int64 `json:"createdAt" dc:"Creation time as Unix timestamp in milliseconds" eg:"1715740800000"`
 	UpdatedAt *int64 `json:"updatedAt" dc:"Update time as Unix timestamp in milliseconds" eg:"1715740800000"`
+}
+
+// ProductItem defines a CMS product returned by management and public APIs.
+type ProductItem struct {
+	Id           int64    `json:"id" dc:"Product ID" eg:"1"`
+	CategoryId   int64    `json:"categoryId" dc:"Category ID" eg:"1"`
+	CategoryName string   `json:"categoryName" dc:"Category name" eg:"Products"`
+	Name         string   `json:"name" dc:"Product name" eg:"Thermal interface pad"`
+	Slug         string   `json:"slug" dc:"Public URL slug" eg:"thermal-interface-pad"`
+	Summary      string   `json:"summary" dc:"Product summary" eg:"High thermal conductivity pad"`
+	Cover        string   `json:"cover" dc:"Cover image URL" eg:"/uploads/product.png"`
+	Gallery      []string `json:"gallery" dc:"Gallery image URL list, at most 9 images" eg:"[\"/uploads/p1.png\"]"`
+	Price        string   `json:"price" dc:"Display price text" eg:"$99 / sqm"`
+	Spec         string   `json:"spec" dc:"Specification summary" eg:"8 W/(m·K), 0.2-2.0 mm"`
+	Content      string   `json:"content" dc:"Product detail HTML" eg:"<p>Detail</p>"`
+	Keywords     string   `json:"keywords" dc:"SEO keywords" eg:"thermal,pad"`
+	Description  string   `json:"description" dc:"SEO description" eg:"Thermal interface pad"`
+	Sort         int      `json:"sort" dc:"Display order" eg:"1"`
+	Status       int      `json:"status" dc:"Status: 0=draft, 1=published" eg:"1"`
+	IsTop        int      `json:"isTop" dc:"Top flag: 0=no, 1=yes" eg:"0"`
+	IsRecommend  int      `json:"isRecommend" dc:"Recommend flag: 0=no, 1=yes" eg:"1"`
+	Views        int64    `json:"views" dc:"View count" eg:"100"`
+	PublishedAt  *int64   `json:"publishedAt" dc:"Publication time as Unix timestamp in milliseconds" eg:"1715740800000"`
+	CreatedBy    int64    `json:"createdBy" dc:"Creator user ID" eg:"1"`
+	UpdatedBy    int64    `json:"updatedBy" dc:"Updater user ID" eg:"1"`
+	CreatedAt    *int64   `json:"createdAt" dc:"Creation time as Unix timestamp in milliseconds" eg:"1715740800000"`
+	UpdatedAt    *int64   `json:"updatedAt" dc:"Update time as Unix timestamp in milliseconds" eg:"1715740800000"`
+}
+
+// AlbumImageItem defines one ordered CMS album image.
+type AlbumImageItem struct {
+	Url   string `json:"url" v:"required#gf.gvalid.rule.required" dc:"Image URL" eg:"/uploads/photo.png"`
+	Title string `json:"title" dc:"Image title" eg:"Main hall"`
+	Sort  int    `json:"sort" dc:"Display order" eg:"1"`
+}
+
+// AlbumItem defines a CMS album returned by management and public APIs.
+type AlbumItem struct {
+	Id           int64             `json:"id" dc:"Album ID" eg:"1"`
+	CategoryId   int64             `json:"categoryId" dc:"Category ID" eg:"1"`
+	CategoryName string            `json:"categoryName" dc:"Category name" eg:"Albums"`
+	Name         string            `json:"name" dc:"Album name" eg:"Campus gallery"`
+	Cover        string            `json:"cover" dc:"Cover image URL" eg:"/uploads/cover.png"`
+	Description  string            `json:"description" dc:"Album description" eg:"Campus photos"`
+	Sort         int               `json:"sort" dc:"Display order" eg:"1"`
+	Status       int               `json:"status" dc:"Status: 0=disabled, 1=enabled" eg:"1"`
+	ImageCount   int               `json:"imageCount" dc:"Number of images in the album" eg:"6"`
+	Images       []*AlbumImageItem `json:"images" dc:"Ordered album images; populated on detail reads, empty in lists" eg:"[]"`
+	CreatedBy    int64             `json:"createdBy" dc:"Creator user ID" eg:"1"`
+	UpdatedBy    int64             `json:"updatedBy" dc:"Updater user ID" eg:"1"`
+	CreatedAt    *int64            `json:"createdAt" dc:"Creation time as Unix timestamp in milliseconds" eg:"1715740800000"`
+	UpdatedAt    *int64            `json:"updatedAt" dc:"Update time as Unix timestamp in milliseconds" eg:"1715740800000"`
 }

@@ -1,5 +1,17 @@
 {
   "menu": {
+    "plugin:cms:album:add": {
+      "title": "Create Album"
+    },
+    "plugin:cms:album:edit": {
+      "title": "Update Album"
+    },
+    "plugin:cms:album:query": {
+      "title": "Query Albums"
+    },
+    "plugin:cms:album:remove": {
+      "title": "Delete Album"
+    },
     "plugin:cms:article:add": {
       "title": "Create Article"
     },
@@ -42,11 +54,26 @@
     "plugin:cms:message:query": {
       "title": "Query Messages"
     },
+    "plugin:cms:product:add": {
+      "title": "Create Product"
+    },
+    "plugin:cms:product:edit": {
+      "title": "Update Product"
+    },
+    "plugin:cms:product:query": {
+      "title": "Query Products"
+    },
+    "plugin:cms:product:remove": {
+      "title": "Delete Product"
+    },
     "plugin:cms:site:edit": {
       "title": "Update Site"
     },
     "plugin:cms:site:purge": {
       "title": "Clear Site Data"
+    },
+    "plugin:cms:site:sample": {
+      "title": "Load Sample Data"
     },
     "plugin:cms:slide:add": {
       "title": "Create Slide"
@@ -62,9 +89,6 @@
     },
     "plugin:cms:workspace": {
       "title": "CMS"
-    },
-    "plugin:cms:site:sample": {
-      "title": "Load Sample Data"
     }
   }
 }
