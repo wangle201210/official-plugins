@@ -152,12 +152,9 @@ type protocolSummaryItem struct {
 
 // linkHopReportItem is serialized into media_report_session.link_hops.
 type linkHopReportItem struct {
-	HopID    string `json:"hop_id"`
-	HopName  string `json:"hop_name"`
-	HopType  string `json:"hop_type"`
-	NodeID   string `json:"node_id"`
-	NodeName string `json:"node_name"`
-	Latency  int32  `json:"latency"`
+	HopIndex  int    `json:"hop_index"`
+	NodeID    string `json:"node_id"`
+	LatencyMs int32  `json:"latency_ms"`
 }
 
 // normalizeMachineMetric converts one MachineMetric to an instance projection.
@@ -234,20 +231,29 @@ func normalizeLinkHops(hops []*gen.LinkHop) string {
 		return defaultReportJSONArray
 	}
 	items := make([]linkHopReportItem, 0, len(hops))
-	for _, hop := range hops {
+	for index, hop := range hops {
 		if hop == nil {
 			continue
 		}
 		items = append(items, linkHopReportItem{
-			HopID:    strings.TrimSpace(hop.GetHopId()),
-			HopName:  strings.TrimSpace(hop.GetHopName()),
-			HopType:  strings.TrimSpace(hop.GetHopType()),
-			NodeID:   strings.TrimSpace(hop.GetNodeId()),
-			NodeName: strings.TrimSpace(hop.GetNodeName()),
-			Latency:  hop.GetLatency(),
+			HopIndex:  index + 1,
+			NodeID:    strings.TrimSpace(hop.GetNodeId()),
+			LatencyMs: hop.GetLatency(),
 		})
 	}
 	return mustEncodeJSON(items, defaultReportJSONArray)
+}
+
+// sumLinkHopLatency returns the dashboard total latency derived from hop details.
+func sumLinkHopLatency(hops []*gen.LinkHop) int32 {
+	var total int32
+	for _, hop := range hops {
+		if hop == nil || hop.GetLatency() <= 0 {
+			continue
+		}
+		total += hop.GetLatency()
+	}
+	return total
 }
 
 // normalizeNetworkMetric converts one NetworkMetric to a node network projection.
@@ -319,6 +325,10 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 	if metric.GetStartTime() > 0 {
 		startTime = reportTimeToGTime(metric.GetStartTime())
 	}
+	duration := metric.GetDuration()
+	if duration <= 0 && metric.GetStartTime() > 0 {
+		duration = durationSecondsBetween(metric.GetStartTime(), reportTime)
+	}
 	return streamReport{
 		streamID:              streamID,
 		sourceType:            sourceType,
@@ -336,7 +346,7 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 		packetLoss:            metric.GetPacketLoss(),
 		status:                normalizeStreamStatus(metric.GetStatus()),
 		startTime:             startTime,
-		duration:              metric.GetDuration(),
+		duration:              duration,
 		avgDelay:              metric.GetAvgDelay(),
 		protocolCount:         protocolCount,
 		protocolSummary:       protocolSummary,
@@ -362,6 +372,14 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 	if streamName == "" {
 		streamName = strings.TrimSpace(metric.GetStreamId())
 	}
+	playDuration := metric.GetPlayDuration()
+	if playDuration <= 0 && metric.GetStartTime() > 0 {
+		playDuration = durationSecondsBetween(metric.GetStartTime(), reportTime)
+	}
+	totalLinkLatency := metric.GetTotalLinkLatency()
+	if totalLinkLatency <= 0 {
+		totalLinkLatency = sumLinkHopLatency(metric.GetLinkHops())
+	}
 	return sessionReport{
 		sessionID:         sessionID,
 		streamID:          strings.TrimSpace(metric.GetStreamId()),
@@ -373,7 +391,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		userName:          strings.TrimSpace(metric.GetUserName()),
 		protocolType:      string(normalizeStreamProtocol(metric.GetProtocol())),
 		startTime:         metricTimeOrReportTime(metric.GetStartTime(), reportTime),
-		playDuration:      metric.GetPlayDuration(),
+		playDuration:      playDuration,
 		currentFPS:        metric.GetCurrentFps(),
 		currentBitrate:    metric.GetCurrentBitrate(),
 		currentResolution: normalizeResolution(metric.GetCurrentWidth(), metric.GetCurrentHeight()),
@@ -382,7 +400,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		instanceID:        firstNonBlank(metric.GetInstanceId(), metric.GetMachineId()),
 		instanceName:      strings.TrimSpace(metric.GetInstanceName()),
 		linkHops:          normalizeLinkHops(metric.GetLinkHops()),
-		totalLinkLatency:  metric.GetTotalLinkLatency(),
+		totalLinkLatency:  totalLinkLatency,
 		reportTime:        reportTime,
 	}, true
 }
@@ -404,6 +422,31 @@ func reportTimeToGTime(timestamp int64) *gtime.Time {
 		return gtime.NewFromTime(time.UnixMilli(timestamp))
 	}
 	return gtime.NewFromTime(time.Unix(timestamp, 0))
+}
+
+// reportTimestampToMillis normalizes second or millisecond timestamps to milliseconds.
+func reportTimestampToMillis(timestamp int64) int64 {
+	if timestamp <= 0 {
+		return 0
+	}
+	if timestamp >= 1_000_000_000_000 {
+		return timestamp
+	}
+	return timestamp * 1000
+}
+
+// durationSecondsBetween calculates a non-negative elapsed duration from two report timestamps.
+func durationSecondsBetween(startTime int64, reportTime int64) int32 {
+	startMillis := reportTimestampToMillis(startTime)
+	reportMillis := reportTimestampToMillis(reportTime)
+	if startMillis <= 0 || reportMillis <= startMillis {
+		return 0
+	}
+	elapsedSeconds := (reportMillis - startMillis) / 1000
+	if elapsedSeconds > int64(^uint32(0)>>1) {
+		return int32(^uint32(0) >> 1)
+	}
+	return int32(elapsedSeconds)
 }
 
 // bytesToGigabytes converts byte counters into GiB-style memory report values.

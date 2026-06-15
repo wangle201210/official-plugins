@@ -217,6 +217,21 @@ func TestNormalizeStreamMetricBuildsStreamReport(t *testing.T) {
 	}
 }
 
+// TestNormalizeStreamMetricDerivesDuration verifies stream runtime can be derived server-side.
+func TestNormalizeStreamMetricDerivesDuration(t *testing.T) {
+	report, ok := normalizeStreamMetric(&gen.StreamMetric{
+		StreamId:  "stream-a",
+		StartTime: 1_780_000_000,
+		Timestamp: 1_780_000_185,
+	})
+	if !ok {
+		t.Fatal("expected stream metric to normalize")
+	}
+	if report.duration != 185 {
+		t.Fatalf("expected derived stream duration 185, got %#v", report)
+	}
+}
+
 // TestNormalizeSessionMetricBuildsSessionReport verifies session metrics become session projections.
 func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 	report, ok := normalizeSessionMetric(&gen.SessionMetric{
@@ -264,8 +279,35 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 	if err := json.Unmarshal([]byte(report.linkHops), &hops); err != nil {
 		t.Fatalf("decode link hops: %v", err)
 	}
-	if len(hops) != 1 || hops[0].HopID != "hop-a" || hops[0].Latency != 12 {
+	if len(hops) != 1 || hops[0].HopIndex != 1 || hops[0].NodeID != "node-a" || hops[0].LatencyMs != 12 {
 		t.Fatalf("unexpected link hops: %#v", hops)
+	}
+}
+
+// TestNormalizeSessionMetricDerivesDurationAndLatency verifies missing computed fields are derived.
+func TestNormalizeSessionMetricDerivesDurationAndLatency(t *testing.T) {
+	report, ok := normalizeSessionMetric(&gen.SessionMetric{
+		SessionId: "session-a",
+		StartTime: 1_780_000_000,
+		Timestamp: 1_780_000_042,
+		LinkHops: []*gen.LinkHop{
+			{NodeId: "origin-node", Latency: 10},
+			{NodeId: "edge-node", Latency: 18},
+		},
+	})
+	if !ok {
+		t.Fatal("expected session metric to normalize")
+	}
+	if report.playDuration != 42 || report.totalLinkLatency != 28 {
+		t.Fatalf("expected derived session fields, got %#v", report)
+	}
+	var hops []linkHopReportItem
+	if err := json.Unmarshal([]byte(report.linkHops), &hops); err != nil {
+		t.Fatalf("decode link hops: %v", err)
+	}
+	if len(hops) != 2 || hops[0].HopIndex != 1 || hops[1].HopIndex != 2 ||
+		hops[0].LatencyMs != 10 || hops[1].LatencyMs != 18 {
+		t.Fatalf("unexpected dashboard hop shape: %#v", hops)
 	}
 }
 

@@ -67,20 +67,29 @@ func (w *reportRuntime) HandleStreamMetric(ctx context.Context, subcmd uint8, me
 	if !ok {
 		return nil
 	}
-	if err := upsertReportStream(ctx, report); err != nil {
-		return err
-	}
+	isDelete := subcmd == uint8(gen.SCMDDataReport_STREAM_DELETE)
 	if subcmd != uint8(gen.SCMDDataReport_STREAM_ADD) && subcmd != uint8(gen.SCMDDataReport_STREAM_DELETE) {
-		return nil
+		return upsertReportStream(ctx, report)
+	}
+	if !isDelete {
+		if err := upsertReportStream(ctx, report); err != nil {
+			return err
+		}
 	}
 	_, err := w.applyCounterEvent(ctx, counterEvent{
 		kind:       counterEventKindStream,
-		add:        subcmd == uint8(gen.SCMDDataReport_STREAM_ADD),
+		add:        !isDelete,
 		resourceID: report.streamID,
 		instanceID: report.instanceID,
 		reportTime: report.reportTime,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if isDelete {
+		return deleteReportStream(ctx, report.streamID)
+	}
+	return nil
 }
 
 // HandleSessionMetric writes one latest session projection and applies session lifecycle counters.
@@ -89,20 +98,29 @@ func (w *reportRuntime) HandleSessionMetric(ctx context.Context, subcmd uint8, m
 	if !ok {
 		return nil
 	}
-	if err := upsertReportSession(ctx, report); err != nil {
-		return err
-	}
+	isDelete := subcmd == uint8(gen.SCMDDataReport_SESSION_DELETE)
 	if subcmd != uint8(gen.SCMDDataReport_SESSION_ADD) && subcmd != uint8(gen.SCMDDataReport_SESSION_DELETE) {
-		return nil
+		return upsertReportSession(ctx, report)
+	}
+	if !isDelete {
+		if err := upsertReportSession(ctx, report); err != nil {
+			return err
+		}
 	}
 	_, err := w.applyCounterEvent(ctx, counterEvent{
 		kind:       counterEventKindSession,
-		add:        subcmd == uint8(gen.SCMDDataReport_SESSION_ADD),
+		add:        !isDelete,
 		resourceID: report.sessionID,
 		instanceID: report.instanceID,
 		reportTime: report.reportTime,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if isDelete {
+		return deleteReportSession(ctx, report.sessionID)
+	}
+	return nil
 }
 
 // upsertReportInstance stores the latest instance projection by instance_id.
@@ -183,7 +201,7 @@ type instanceCounterSnapshot struct {
 func (w *reportRuntime) applyCounterEvent(ctx context.Context, event counterEvent) (counterEventResult, error) {
 	event.resourceID = firstNonBlank(event.resourceID)
 	event.instanceID = firstNonBlank(event.instanceID)
-	if event.resourceID == "" || event.instanceID == "" {
+	if event.resourceID == "" || (event.add && event.instanceID == "") {
 		return counterEventResult{}, nil
 	}
 	if w == nil || w.cache == nil {
@@ -264,7 +282,17 @@ func (w *reportRuntime) applySharedCounterEvent(ctx context.Context, event count
 		}
 		deltas = event.addDeltas(current, exists)
 	} else {
-		if !exists || current != event.instanceID {
+		if !exists {
+			if event.instanceID == "" {
+				return counterEventResult{}, nil
+			}
+			counters, err := w.readCounterSnapshots(ctx, []string{event.instanceID}, event.reportTime)
+			return counterEventResult{counters: counters}, err
+		}
+		if event.instanceID == "" {
+			event.instanceID = current
+		}
+		if current != event.instanceID {
 			counters, err := w.readCounterSnapshots(ctx, []string{event.instanceID}, event.reportTime)
 			return counterEventResult{counters: counters}, err
 		}
@@ -655,6 +683,28 @@ func upsertReportSession(ctx context.Context, report sessionReport) error {
 		OnConflict(cols.SessionId).
 		OnDuplicate(duplicateCols...).
 		Save()
+	return err
+}
+
+// deleteReportStream removes one stream projection after a lifecycle delete event.
+func deleteReportStream(ctx context.Context, streamID string) error {
+	if streamID == "" {
+		return nil
+	}
+	_, err := dao.MediaReportStream.Ctx(ctx).
+		Where(dao.MediaReportStream.Columns().StreamId, streamID).
+		Delete()
+	return err
+}
+
+// deleteReportSession removes one session projection after a lifecycle delete event.
+func deleteReportSession(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return nil
+	}
+	_, err := dao.MediaReportSession.Ctx(ctx).
+		Where(dao.MediaReportSession.Columns().SessionId, sessionID).
+		Delete()
 	return err
 }
 

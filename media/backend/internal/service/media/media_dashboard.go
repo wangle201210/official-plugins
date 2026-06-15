@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-core/pkg/bizerr"
 	"lina-plugin-media/backend/internal/dao"
@@ -16,10 +17,11 @@ import (
 )
 
 const (
-	dashboardRootNodeID       = "0"
-	dashboardProtocolActive   = "active"
-	dashboardProtocolInactive = "inactive"
-	dashboardReadLimit        = maxPageSize
+	dashboardRootNodeID        = "0"
+	dashboardProtocolActive    = "active"
+	dashboardProtocolInactive  = "inactive"
+	dashboardNodeStatusOffline = "offline"
+	dashboardReadLimit         = maxPageSize
 )
 
 // DashboardNodeOverviewInput defines dashboard node overview filters.
@@ -208,6 +210,22 @@ type (
 	dashboardSessionEntity  = entitymodel.MediaReportSession
 )
 
+type dashboardNodeRuntimeAggregate struct {
+	CpuAllocated    float64
+	CpuLoad         float64
+	MemoryAllocated float64
+	MemoryUsed      float64
+	DiskIoRead      float64
+	DiskIoWrite     float64
+	NetworkIn       float64
+	NetworkOut      float64
+	LiveStreams     int
+	Sessions        int
+	InstanceCount   int
+	DelaySum        int
+	DelayCount      int
+}
+
 // GetDashboardNodeOverview returns a bounded node tree from latest report projections.
 func (s *serviceImpl) GetDashboardNodeOverview(ctx context.Context, in DashboardNodeOverviewInput) (*DashboardNodeOverviewOutput, error) {
 	if err := validateMediaReportTablesReady(ctx); err != nil {
@@ -248,9 +266,15 @@ func (s *serviceImpl) GetDashboardNodeOverview(ctx context.Context, in Dashboard
 		roots = append(roots, node)
 	}
 
+	aggregates, err := dashboardNodeRuntimeAggregates(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	rootNodeID := strings.TrimSpace(in.RootNodeId)
 	if rootNodeID != "" && rootNodeID != dashboardRootNodeID {
 		if node, ok := nodesByID[rootNodeID]; ok {
+			applyDashboardNodeRuntimeAggregates(node, aggregates)
 			return &DashboardNodeOverviewOutput{Node: node}, nil
 		}
 		if in.IncludeEmpty {
@@ -264,11 +288,12 @@ func (s *serviceImpl) GetDashboardNodeOverview(ctx context.Context, in Dashboard
 		return &DashboardNodeOverviewOutput{Node: emptyDashboardNodeOverview(rootNodeID)}, nil
 	}
 	if len(roots) == 1 {
+		applyDashboardNodeRuntimeAggregates(roots[0], aggregates)
 		return &DashboardNodeOverviewOutput{Node: roots[0]}, nil
 	}
 	root := emptyDashboardNodeOverview(dashboardRootNodeID)
 	root.ChildNodes = roots
-	root.TotalNodes = len(nodesByID)
+	applyDashboardNodeRuntimeAggregates(root, aggregates)
 	return &DashboardNodeOverviewOutput{Node: root}, nil
 }
 
@@ -354,8 +379,12 @@ func (s *serviceImpl) ListDashboardStreams(ctx context.Context, in ListDashboard
 	}
 
 	list := make([]*DashboardStreamItem, 0, len(items))
+	sessionCounts, err := dashboardStreamSessionCounts(ctx, dashboardStreamEntityIDs(items))
+	if err != nil {
+		return nil, err
+	}
 	for _, item := range items {
-		list = append(list, buildDashboardStreamItem(item))
+		list = append(list, buildDashboardStreamItemWithCounts(item, sessionCounts[item.StreamId]))
 	}
 	return &ListDashboardStreamsOutput{
 		SourceType: strings.TrimSpace(in.SourceType),
@@ -608,6 +637,25 @@ func buildDashboardStreamItem(item *dashboardStreamEntity) *DashboardStreamItem 
 	if item == nil {
 		return &DashboardStreamItem{ProtocolSummary: []*DashboardProtocolItem{}}
 	}
+	return buildDashboardStreamItemWithCounts(item, nil)
+}
+
+// buildDashboardStreamItemWithCounts converts one stream entity and active session counts to dashboard output.
+func buildDashboardStreamItemWithCounts(
+	item *dashboardStreamEntity,
+	activeSessionCounts map[string]int,
+) *DashboardStreamItem {
+	if item == nil {
+		return &DashboardStreamItem{ProtocolSummary: []*DashboardProtocolItem{}}
+	}
+	protocolSummary := decodeDashboardProtocolSummary(item.ProtocolSummary)
+	protocolSummary = mergeDashboardProtocolSessionCounts(protocolSummary, activeSessionCounts)
+	protocolCount, totalSessionsLifetime, currentActiveSessions := summarizeDashboardProtocols(
+		protocolSummary,
+		item.ProtocolCount,
+		item.TotalSessionsLifetime,
+		item.CurrentActiveSessions,
+	)
 	return &DashboardStreamItem{
 		SourceUrl:             item.SourceUrl,
 		StreamId:              item.StreamId,
@@ -618,14 +666,115 @@ func buildDashboardStreamItem(item *dashboardStreamEntity) *DashboardStreamItem 
 		PacketLoss:            item.PacketLoss,
 		Status:                item.Status,
 		StartTime:             formatTime(item.StartTime),
-		Duration:              item.Duration,
+		Duration:              dashboardElapsedSeconds(item.StartTime, item.ReportTime, item.Duration),
 		AvgDelay:              item.AvgDelay,
-		ProtocolCount:         item.ProtocolCount,
-		TotalSessionsLifetime: item.TotalSessionsLifetime,
-		CurrentActiveSessions: item.CurrentActiveSessions,
+		ProtocolCount:         protocolCount,
+		TotalSessionsLifetime: totalSessionsLifetime,
+		CurrentActiveSessions: currentActiveSessions,
 		WatermarkEnabled:      item.WatermarkEnabled,
-		ProtocolSummary:       decodeDashboardProtocolSummary(item.ProtocolSummary),
+		ProtocolSummary:       protocolSummary,
 	}
+}
+
+// dashboardStreamEntityIDs returns non-empty stream IDs from a bounded stream result set.
+func dashboardStreamEntityIDs(items []*dashboardStreamEntity) []string {
+	streamIDs := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if item == nil || strings.TrimSpace(item.StreamId) == "" {
+			continue
+		}
+		if _, ok := seen[item.StreamId]; ok {
+			continue
+		}
+		seen[item.StreamId] = struct{}{}
+		streamIDs = append(streamIDs, item.StreamId)
+	}
+	return streamIDs
+}
+
+// dashboardStreamSessionCounts returns active session counts grouped by stream and protocol.
+func dashboardStreamSessionCounts(ctx context.Context, streamIDs []string) (map[string]map[string]int, error) {
+	result := make(map[string]map[string]int, len(streamIDs))
+	if len(streamIDs) == 0 {
+		return result, nil
+	}
+
+	columns := dao.MediaReportSession.Columns()
+	type row struct {
+		StreamId     string `orm:"stream_id"`
+		ProtocolType string `orm:"protocol_type"`
+		SessionCount int    `orm:"session_count"`
+	}
+
+	rows := make([]*row, 0)
+	err := dao.MediaReportSession.Ctx(ctx).
+		Fields(columns.StreamId, columns.ProtocolType, "COUNT(*) AS session_count").
+		WhereIn(columns.StreamId, streamIDs).
+		Group(columns.StreamId, columns.ProtocolType).
+		OrderAsc(columns.StreamId).
+		OrderAsc(columns.ProtocolType).
+		Scan(&rows)
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
+	}
+	for _, item := range rows {
+		if item == nil || strings.TrimSpace(item.StreamId) == "" {
+			continue
+		}
+		if _, ok := result[item.StreamId]; !ok {
+			result[item.StreamId] = map[string]int{}
+		}
+		result[item.StreamId][item.ProtocolType] = item.SessionCount
+	}
+	return result, nil
+}
+
+// mergeDashboardProtocolSessionCounts overlays active session rows onto protocol_summary current counts.
+func mergeDashboardProtocolSessionCounts(
+	summary []*DashboardProtocolItem,
+	activeSessionCounts map[string]int,
+) []*DashboardProtocolItem {
+	if len(activeSessionCounts) == 0 {
+		return summary
+	}
+	items := make([]*DashboardProtocolItem, 0, len(summary)+len(activeSessionCounts))
+	seen := make(map[string]struct{}, len(summary))
+	for _, item := range summary {
+		if item == nil {
+			continue
+		}
+		protocol := strings.TrimSpace(item.ProtocolType)
+		currentSessions := activeSessionCounts[protocol]
+		items = append(items, &DashboardProtocolItem{
+			ProtocolType:    item.ProtocolType,
+			TotalSessions:   item.TotalSessions,
+			CurrentSessions: currentSessions,
+		})
+		if protocol != "" {
+			seen[protocol] = struct{}{}
+		}
+	}
+
+	extraProtocols := make([]string, 0, len(activeSessionCounts))
+	for protocol := range activeSessionCounts {
+		if strings.TrimSpace(protocol) == "" {
+			continue
+		}
+		if _, ok := seen[protocol]; ok {
+			continue
+		}
+		extraProtocols = append(extraProtocols, protocol)
+	}
+	sort.Strings(extraProtocols)
+	for _, protocol := range extraProtocols {
+		items = append(items, &DashboardProtocolItem{
+			ProtocolType:    protocol,
+			TotalSessions:   0,
+			CurrentSessions: activeSessionCounts[protocol],
+		})
+	}
+	return items
 }
 
 // buildDashboardSessionStreamInfo returns stream summary using stream row or session fallback.
@@ -721,6 +870,7 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) *DashboardSessionIt
 	if item == nil {
 		return &DashboardSessionItem{LinkHops: []*DashboardLinkHopItem{}}
 	}
+	linkHops := decodeDashboardLinkHops(item.LinkHops)
 	return &DashboardSessionItem{
 		SessionId:         item.SessionId,
 		ClientId:          item.ClientId,
@@ -730,15 +880,283 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) *DashboardSessionIt
 		UserName:          item.UserName,
 		ProtocolType:      item.ProtocolType,
 		StartTime:         formatTime(item.StartTime),
-		PlayDuration:      item.PlayDuration,
+		PlayDuration:      dashboardElapsedSeconds(item.StartTime, item.ReportTime, item.PlayDuration),
 		CurrentFps:        item.CurrentFps,
 		CurrentBitrate:    item.CurrentBitrate,
 		CurrentResolution: item.CurrentResolution,
 		NodeId:            item.NodeId,
 		InstanceId:        item.InstanceId,
-		LinkHops:          decodeDashboardLinkHops(item.LinkHops),
-		TotalLinkLatency:  item.TotalLinkLatency,
+		LinkHops:          linkHops,
+		TotalLinkLatency:  dashboardTotalLinkLatency(linkHops, item.TotalLinkLatency),
 	}
+}
+
+// dashboardNodeRuntimeAggregates reads node runtime values derivable from instance and stream projections.
+func dashboardNodeRuntimeAggregates(ctx context.Context) (map[string]dashboardNodeRuntimeAggregate, error) {
+	aggregates := map[string]dashboardNodeRuntimeAggregate{}
+	if err := mergeDashboardInstanceAggregates(ctx, aggregates); err != nil {
+		return nil, err
+	}
+	if err := mergeDashboardStreamDelayAggregates(ctx, aggregates); err != nil {
+		return nil, err
+	}
+	return aggregates, nil
+}
+
+// mergeDashboardInstanceAggregates groups container resource metrics and realtime counters by node.
+func mergeDashboardInstanceAggregates(ctx context.Context, aggregates map[string]dashboardNodeRuntimeAggregate) error {
+	columns := dao.MediaReportInstance.Columns()
+	type row struct {
+		NodeId          string  `orm:"node_id"`
+		CpuAllocated    float64 `orm:"cpu_allocated"`
+		CpuLoad         float64 `orm:"cpu_load"`
+		MemoryAllocated float64 `orm:"memory_allocated"`
+		MemoryUsed      float64 `orm:"memory_used"`
+		DiskIoRead      float64 `orm:"disk_io_read"`
+		DiskIoWrite     float64 `orm:"disk_io_write"`
+		NetworkIn       float64 `orm:"network_in"`
+		NetworkOut      float64 `orm:"network_out"`
+		LiveStreams     int     `orm:"live_streams"`
+		Sessions        int     `orm:"sessions"`
+		InstanceCount   int     `orm:"instance_count"`
+	}
+
+	rows := make([]*row, 0)
+	err := dao.MediaReportInstance.Ctx(ctx).
+		Fields(
+			columns.NodeId,
+			"SUM("+columns.CpuAllocated+") AS cpu_allocated",
+			"SUM("+columns.CpuLoad+") AS cpu_load",
+			"SUM("+columns.MemoryAllocated+") AS memory_allocated",
+			"SUM("+columns.MemoryUsed+") AS memory_used",
+			"SUM("+columns.DiskIoRead+") AS disk_io_read",
+			"SUM("+columns.DiskIoWrite+") AS disk_io_write",
+			"SUM("+columns.NetworkIn+") AS network_in",
+			"SUM("+columns.NetworkOut+") AS network_out",
+			"SUM("+columns.LiveStreams+") AS live_streams",
+			"SUM("+columns.Sessions+") AS sessions",
+			"COUNT(*) AS instance_count",
+		).
+		Group(columns.NodeId).
+		Scan(&rows)
+	if err != nil {
+		return bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
+	}
+	for _, item := range rows {
+		if item == nil || strings.TrimSpace(item.NodeId) == "" {
+			continue
+		}
+		aggregate := aggregates[item.NodeId]
+		aggregate.CpuAllocated += item.CpuAllocated
+		aggregate.CpuLoad += item.CpuLoad
+		aggregate.MemoryAllocated += item.MemoryAllocated
+		aggregate.MemoryUsed += item.MemoryUsed
+		aggregate.DiskIoRead += item.DiskIoRead
+		aggregate.DiskIoWrite += item.DiskIoWrite
+		aggregate.NetworkIn += item.NetworkIn
+		aggregate.NetworkOut += item.NetworkOut
+		aggregate.LiveStreams += item.LiveStreams
+		aggregate.Sessions += item.Sessions
+		aggregate.InstanceCount += item.InstanceCount
+		aggregates[item.NodeId] = aggregate
+	}
+	return nil
+}
+
+// mergeDashboardStreamDelayAggregates groups stream delay values by node for node overview avg_delay.
+func mergeDashboardStreamDelayAggregates(ctx context.Context, aggregates map[string]dashboardNodeRuntimeAggregate) error {
+	columns := dao.MediaReportStream.Columns()
+	type row struct {
+		NodeId     string `orm:"node_id"`
+		DelaySum   int    `orm:"delay_sum"`
+		DelayCount int    `orm:"delay_count"`
+	}
+
+	rows := make([]*row, 0)
+	err := dao.MediaReportStream.Ctx(ctx).
+		Fields(
+			columns.NodeId,
+			"SUM("+columns.AvgDelay+") AS delay_sum",
+			"COUNT(*) AS delay_count",
+		).
+		Group(columns.NodeId).
+		Scan(&rows)
+	if err != nil {
+		return bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
+	}
+	for _, item := range rows {
+		if item == nil || strings.TrimSpace(item.NodeId) == "" {
+			continue
+		}
+		aggregate := aggregates[item.NodeId]
+		aggregate.DelaySum += item.DelaySum
+		aggregate.DelayCount += item.DelayCount
+		aggregates[item.NodeId] = aggregate
+	}
+	return nil
+}
+
+// applyDashboardNodeRuntimeAggregates recalculates tree totals and node runtime fields.
+func applyDashboardNodeRuntimeAggregates(
+	node *DashboardNodeOverviewItem,
+	aggregates map[string]dashboardNodeRuntimeAggregate,
+) dashboardNodeRuntimeAggregate {
+	if node == nil {
+		return dashboardNodeRuntimeAggregate{}
+	}
+
+	aggregate := aggregates[node.NodeId]
+	totalNodes := 0
+	aliveNodes := 0
+	if dashboardCountsAsReportedNode(node) {
+		totalNodes = 1
+		if dashboardNodeAlive(node) {
+			aliveNodes = 1
+		}
+	}
+	for _, child := range node.ChildNodes {
+		childAggregate := applyDashboardNodeRuntimeAggregates(child, aggregates)
+		aggregate = addDashboardNodeRuntimeAggregate(aggregate, childAggregate)
+		if child != nil {
+			totalNodes += child.TotalNodes
+			aliveNodes += child.AliveNodes
+		}
+	}
+	node.TotalNodes = totalNodes
+	node.AliveNodes = aliveNodes
+	if aggregate.InstanceCount > 0 {
+		node.CpuAllocated = aggregate.CpuAllocated
+		node.CpuLoad = aggregate.CpuLoad
+		node.MemoryAllocated = aggregate.MemoryAllocated
+		node.MemoryUsed = aggregate.MemoryUsed
+		node.DiskIoRead = aggregate.DiskIoRead
+		node.DiskIoWrite = aggregate.DiskIoWrite
+		node.NetworkIn = aggregate.NetworkIn
+		node.NetworkOut = aggregate.NetworkOut
+		node.LiveStreams = aggregate.LiveStreams
+		node.Sessions = aggregate.Sessions
+	}
+	if aggregate.DelayCount > 0 {
+		node.AvgDelay = aggregate.DelaySum / aggregate.DelayCount
+	}
+	return aggregate
+}
+
+// addDashboardNodeRuntimeAggregate merges child aggregate values into the parent subtree aggregate.
+func addDashboardNodeRuntimeAggregate(
+	left dashboardNodeRuntimeAggregate,
+	right dashboardNodeRuntimeAggregate,
+) dashboardNodeRuntimeAggregate {
+	left.CpuAllocated += right.CpuAllocated
+	left.CpuLoad += right.CpuLoad
+	left.MemoryAllocated += right.MemoryAllocated
+	left.MemoryUsed += right.MemoryUsed
+	left.DiskIoRead += right.DiskIoRead
+	left.DiskIoWrite += right.DiskIoWrite
+	left.NetworkIn += right.NetworkIn
+	left.NetworkOut += right.NetworkOut
+	left.LiveStreams += right.LiveStreams
+	left.Sessions += right.Sessions
+	left.InstanceCount += right.InstanceCount
+	left.DelaySum += right.DelaySum
+	left.DelayCount += right.DelayCount
+	return left
+}
+
+// dashboardCountsAsReportedNode distinguishes real report rows from the synthetic root.
+func dashboardCountsAsReportedNode(node *DashboardNodeOverviewItem) bool {
+	return node.NodeId != dashboardRootNodeID || node.NodeName != "" || node.ReportTime > 0
+}
+
+// dashboardNodeAlive derives alive node count from the current node status.
+func dashboardNodeAlive(node *DashboardNodeOverviewItem) bool {
+	status := strings.ToLower(strings.TrimSpace(node.Status))
+	return status != "" && status != dashboardNodeStatusOffline
+}
+
+// summarizeDashboardProtocols derives stream counters from protocol_summary when available.
+func summarizeDashboardProtocols(
+	items []*DashboardProtocolItem,
+	fallbackCount int,
+	fallbackTotal int64,
+	fallbackCurrent int,
+) (int, int64, int) {
+	if len(items) == 0 {
+		return fallbackCount, fallbackTotal, fallbackCurrent
+	}
+	seen := make(map[string]struct{}, len(items))
+	var (
+		totalSessions   int64
+		currentSessions int
+		hasTotal        bool
+	)
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		protocol := strings.TrimSpace(item.ProtocolType)
+		if protocol != "" {
+			seen[protocol] = struct{}{}
+		}
+		if item.TotalSessions > 0 {
+			hasTotal = true
+		}
+		totalSessions += int64(item.TotalSessions)
+		currentSessions += item.CurrentSessions
+	}
+	if !hasTotal {
+		totalSessions = fallbackTotal
+	}
+	if len(seen) == 0 {
+		return fallbackCount, totalSessions, currentSessions
+	}
+	return len(seen), totalSessions, currentSessions
+}
+
+// dashboardElapsedSeconds returns an explicit duration or derives it from start and report time.
+func dashboardElapsedSeconds(startTime *gtime.Time, reportTime int64, explicitDuration int) int {
+	if explicitDuration > 0 {
+		return explicitDuration
+	}
+	if startTime == nil {
+		return 0
+	}
+	reportMillis := dashboardReportTimeMillis(reportTime)
+	startMillis := startTime.TimestampMilli()
+	if reportMillis <= startMillis {
+		return 0
+	}
+	elapsedSeconds := (reportMillis - startMillis) / 1000
+	if elapsedSeconds > int64(^uint(0)>>1) {
+		return int(^uint(0) >> 1)
+	}
+	return int(elapsedSeconds)
+}
+
+// dashboardReportTimeMillis normalizes second or millisecond report timestamps into milliseconds.
+func dashboardReportTimeMillis(reportTime int64) int64 {
+	if reportTime <= 0 {
+		return 0
+	}
+	if reportTime >= 1_000_000_000_000 {
+		return reportTime
+	}
+	return reportTime * 1000
+}
+
+// dashboardTotalLinkLatency derives total latency from link hops when hop details are available.
+func dashboardTotalLinkLatency(linkHops []*DashboardLinkHopItem, fallback int) int {
+	if len(linkHops) == 0 {
+		return fallback
+	}
+	total := 0
+	for _, item := range linkHops {
+		if item == nil || item.LatencyMs <= 0 {
+			continue
+		}
+		total += item.LatencyMs
+	}
+	return total
 }
 
 // dashboardStreamProtocolSummary returns parsed protocol summary for one stream row.

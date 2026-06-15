@@ -39,6 +39,13 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if node.Node.NodeLatencyMap["node-b"] != 17 || node.Node.NodeLatencyMap["node-c"] != 29 {
 		t.Fatalf("expected decoded node latency, got %#v", node.Node.NodeLatencyMap)
 	}
+	if node.Node.TotalNodes != 4 || node.Node.AliveNodes != 4 {
+		t.Fatalf("expected node tree counts from children, got total=%d alive=%d", node.Node.TotalNodes, node.Node.AliveNodes)
+	}
+	if node.Node.CpuAllocated != 30 || node.Node.CpuLoad != 11.6 ||
+		node.Node.LiveStreams != 6 || node.Node.Sessions != 13 || node.Node.AvgDelay != 43 {
+		t.Fatalf("expected node runtime fields aggregated from instances and streams, got %#v", node.Node)
+	}
 
 	instances, err := svc.ListDashboardInstances(ctx, ListDashboardInstancesInput{
 		NodeId: "node-a",
@@ -88,6 +95,13 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	assertDashboardStreamIDs(t, streams.List, "stream-a", "stream-b")
 	if len(streams.List[0].ProtocolSummary) != 2 || streams.List[0].ProtocolSummary[0].ProtocolType != "HLS" {
 		t.Fatalf("expected decoded protocol summary, got %#v", streams.List[0].ProtocolSummary)
+	}
+	if streams.List[0].Duration != 1200 || streams.List[0].ProtocolCount != 2 ||
+		streams.List[0].CurrentActiveSessions != 3 || streams.List[0].TotalSessionsLifetime != 30 {
+		t.Fatalf("expected stream computed fields from start time, sessions and protocol summary, got %#v", streams.List[0])
+	}
+	if streams.List[0].ProtocolSummary[0].CurrentSessions != 2 || streams.List[0].ProtocolSummary[1].CurrentSessions != 1 {
+		t.Fatalf("expected protocol current sessions from active session rows, got %#v", streams.List[0].ProtocolSummary)
 	}
 	instanceStreams, err := svc.ListDashboardStreams(ctx, ListDashboardStreamsInput{
 		SourceType: "instance",
@@ -154,6 +168,10 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if len(sessions.Protocols[0].Sessions[0].LinkHops) != 1 || sessions.Protocols[0].Sessions[0].LinkHops[0].HopIndex != 1 {
 		t.Fatalf("expected decoded link hops, got %#v", sessions.Protocols[0].Sessions[0].LinkHops)
 	}
+	if sessions.Protocols[0].Sessions[0].PlayDuration != 1200 ||
+		sessions.Protocols[0].Sessions[0].TotalLinkLatency != 12 {
+		t.Fatalf("expected session computed duration and link latency, got %#v", sessions.Protocols[0].Sessions[0])
+	}
 }
 
 // TestDashboardListQueriesUseFixedUpperBound verifies unpaged dashboard lists are still bounded.
@@ -177,6 +195,43 @@ func TestDashboardListQueriesUseFixedUpperBound(t *testing.T) {
 	}
 	if instances.List[0].InstanceId != "bulk-00000" || instances.List[len(instances.List)-1].InstanceId != "bulk-09999" {
 		t.Fatalf("unexpected bounded ordering, first=%q last=%q", instances.List[0].InstanceId, instances.List[len(instances.List)-1].InstanceId)
+	}
+}
+
+// TestBuildDashboardStreamItemUsesActiveSessionCounts verifies stream counters are recalculated.
+func TestBuildDashboardStreamItemUsesActiveSessionCounts(t *testing.T) {
+	item := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+		StreamId:              "stream-a",
+		ProtocolCount:         2,
+		TotalSessionsLifetime: 30,
+		CurrentActiveSessions: 999,
+		ProtocolSummary:       `[{"protocol_type":"HLS","total_sessions":20,"current_sessions":999},{"protocol_type":"RTMP","total_sessions":10,"current_sessions":999}]`,
+	}, map[string]int{
+		"HLS":  2,
+		"RTMP": 1,
+	})
+	if item.ProtocolCount != 2 || item.TotalSessionsLifetime != 30 || item.CurrentActiveSessions != 3 {
+		t.Fatalf("expected stream counters from protocol summary and active sessions, got %#v", item)
+	}
+	if item.ProtocolSummary[0].CurrentSessions != 2 || item.ProtocolSummary[1].CurrentSessions != 1 {
+		t.Fatalf("expected active session counts merged into protocol summary, got %#v", item.ProtocolSummary)
+	}
+}
+
+// TestBuildDashboardStreamItemKeepsFallbackLifetime verifies current counts do not become lifetime totals.
+func TestBuildDashboardStreamItemKeepsFallbackLifetime(t *testing.T) {
+	item := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+		StreamId:              "stream-a",
+		ProtocolCount:         1,
+		TotalSessionsLifetime: 42,
+		CurrentActiveSessions: 999,
+		ProtocolSummary:       `[]`,
+	}, map[string]int{"HLS": 3})
+	if item.ProtocolCount != 1 || item.TotalSessionsLifetime != 42 || item.CurrentActiveSessions != 3 {
+		t.Fatalf("expected fallback lifetime and active session count, got %#v", item)
+	}
+	if len(item.ProtocolSummary) != 1 || item.ProtocolSummary[0].TotalSessions != 0 || item.ProtocolSummary[0].CurrentSessions != 3 {
+		t.Fatalf("expected extra protocol to carry current count only, got %#v", item.ProtocolSummary)
 	}
 }
 
@@ -305,8 +360,8 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 	t.Helper()
 
-	baseTime := gtime.NewFromTime(time.Date(2026, 6, 15, 8, 0, 0, 0, time.UTC))
 	reportTime := int64(1780000000000)
+	baseTime := gtime.NewFromTime(time.UnixMilli(reportTime - 1_200_000))
 	insertDashboardReportNodes(t, ctx)
 	insertDashboardReports(t, ctx, []any{
 		do.MediaReportInstance{
@@ -400,11 +455,11 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 			PacketLoss:            0.12,
 			Status:                "playing",
 			StartTime:             baseTime,
-			Duration:              300,
+			Duration:              0,
 			AvgDelay:              40,
 			ProtocolCount:         2,
 			TotalSessionsLifetime: 30,
-			CurrentActiveSessions: 3,
+			CurrentActiveSessions: 999,
 			WatermarkEnabled:      true,
 			ProtocolSummary:       `[{"protocol_type":"HLS","total_sessions":20,"current_sessions":2},{"protocol_type":"RTMP","total_sessions":10,"current_sessions":1}]`,
 			ReportTime:            reportTime,
@@ -463,7 +518,7 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 		},
 	})
 	insertDashboardReports(t, ctx, []any{
-		dashboardSessionDO("session-a", "stream-a", "Camera A", "tenant-a", "client-a", "viewer-a", "HLS", "inst-a", 120, reportTime, baseTime),
+		dashboardSessionDO("session-a", "stream-a", "Camera A", "tenant-a", "client-a", "viewer-a", "HLS", "inst-a", 0, reportTime, baseTime),
 		dashboardSessionDO("session-b", "stream-a", "Camera A", "tenant-a", "client-b", "viewer-b", "HLS", "inst-a", 100, reportTime-1, baseTime),
 		dashboardSessionDO("session-c", "stream-a", "Camera A", "tenant-a", "client-c", "viewer-c", "RTMP", "inst-a", 80, reportTime-2, baseTime),
 		dashboardSessionDO("session-d", "stream-c", "Camera C", "tenant-b", "client-d", "viewer-d", "FLV", "inst-c", 60, reportTime, baseTime),
@@ -622,7 +677,7 @@ func dashboardSessionDO(
 		InstanceId:        instanceID,
 		InstanceName:      "Transcoder A",
 		LinkHops:          `[{"hop_index":1,"node_id":"node-a","latency_ms":12}]`,
-		TotalLinkLatency:  12,
+		TotalLinkLatency:  999,
 		ReportTime:        reportTime,
 	}
 }

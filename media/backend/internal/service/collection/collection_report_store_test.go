@@ -218,12 +218,9 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		t.Fatalf("handle duplicate stream add: %v", err)
 	}
 	if err := writer.HandleSessionMetric(ctx, uint8(gen.SCMDDataReport_SESSION_DELETE), &gen.SessionMetric{
-		SessionId:  sessionID,
-		StreamId:   streamID,
-		MachineId:  instanceID,
-		NodeId:     nodeID,
-		InstanceId: instanceID,
-		Timestamp:  reportTime,
+		SessionId: sessionID,
+		StreamId:  streamID,
+		Timestamp: reportTime,
 	}); err != nil {
 		t.Fatalf("handle session delete: %v", err)
 	}
@@ -233,6 +230,30 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	}
 	if counted.LiveStreams != 1 || counted.Sessions != 0 {
 		t.Fatalf("expected idempotent counters live_streams=1 sessions=0, got %#v", counted)
+	}
+	if err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, sessionID).Scan(&session); err != nil {
+		t.Fatalf("query deleted session projection: %v", err)
+	}
+	if session != nil {
+		t.Fatalf("expected session delete event to remove session projection, got %#v", session)
+	}
+	if err := writer.HandleStreamMetric(ctx, uint8(gen.SCMDDataReport_STREAM_DELETE), &gen.StreamMetric{
+		StreamId:  streamID,
+		Timestamp: reportTime,
+	}); err != nil {
+		t.Fatalf("handle stream delete: %v", err)
+	}
+	if err := dao.MediaReportInstance.Ctx(ctx).Where(dao.MediaReportInstance.Columns().InstanceId, instanceID).Scan(&counted); err != nil {
+		t.Fatalf("query counted instance after stream delete: %v", err)
+	}
+	if counted.LiveStreams != 0 || counted.Sessions != 0 {
+		t.Fatalf("expected stream delete to use cached owner and clear counter, got %#v", counted)
+	}
+	if err := dao.MediaReportStream.Ctx(ctx).Where(dao.MediaReportStream.Columns().StreamId, streamID).Scan(&stream); err != nil {
+		t.Fatalf("query deleted stream projection: %v", err)
+	}
+	if stream != nil {
+		t.Fatalf("expected stream delete event to remove stream projection, got %#v", stream)
 	}
 	if err := writer.HandleMachineMetric(ctx, &gen.MachineMetric{
 		InstanceId:   instanceID,
@@ -249,7 +270,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if err := dao.MediaReportInstance.Ctx(ctx).Where(dao.MediaReportInstance.Columns().InstanceId, instanceID).Scan(&counted); err != nil {
 		t.Fatalf("query counted instance after machine metric: %v", err)
 	}
-	if counted.CpuLoad != 33.5 || counted.LiveStreams != 1 || counted.Sessions != 0 {
+	if counted.CpuLoad != 33.5 || counted.LiveStreams != 0 || counted.Sessions != 0 {
 		t.Fatalf("expected machine metric not to overwrite counters, got %#v", counted)
 	}
 }
