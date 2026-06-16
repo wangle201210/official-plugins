@@ -31,12 +31,12 @@ type MediaReportNodeSnapshotColumns struct {
 	AliveNodes      string // 快照时节点视角下的在线节点数
 	CpuAllocated    string // 快照时已分配CPU容量，单位由上报端统一
 	CpuLoad         string // 快照时CPU负载或利用率，单位由上报端统一
-	MemoryAllocated string // 快照时已分配内存容量，单位GB
-	MemoryUsed      string // 快照时已使用内存容量，单位GB
-	DiskIoRead      string // 快照时磁盘读取速率，单位MB/s
-	DiskIoWrite     string // 快照时磁盘写入速率，单位MB/s
-	NetworkIn       string // 快照时网络入站速率，单位Mbps
-	NetworkOut      string // 快照时网络出站速率，单位Mbps
+	MemoryAllocated string // 快照时已分配内存容量，单位MB
+	MemoryUsed      string // 快照时已使用内存容量，单位MB
+	DiskIoRead      string // 快照时磁盘读取速率，单位KB/S
+	DiskIoWrite     string // 快照时磁盘写入速率，单位KB/S
+	NetworkIn       string // 快照时网络入站速率，单位KB/S
+	NetworkOut      string // 快照时网络出站速率，单位KB/S
 	LiveStreams     string // 快照时直播流数量
 	Sessions        string // 快照时会话数量
 	AvgDelay        string // 快照时节点平均延迟，单位毫秒

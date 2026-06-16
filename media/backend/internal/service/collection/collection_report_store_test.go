@@ -4,6 +4,7 @@ package collection
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"sync"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/dellinger2023/net-flux/gen"
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 
 	_ "lina-core/pkg/dbdriver"
 	"lina-plugin-media/backend/internal/dao"
@@ -52,12 +54,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		Status:         "running",
 		CpuCount:       8,
 		CpuUsage:       31.5,
-		MemUsed:        3 * bytesPerGigabyte,
-		MemTotal:       12 * bytesPerGigabyte,
-		DiskReadBytes:  2 * bytesPerMegabyte,
-		DiskWriteBytes: 4 * bytesPerMegabyte,
-		NetworkIn:      2 * bitsPerMegabit,
-		NetworkOut:     6 * bitsPerMegabit,
+		MemUsed:        3 * bytesPerMegabyte,
+		MemTotal:       12 * bytesPerMegabyte,
+		DiskReadBytes:  2 * bytesPerKilobyte,
+		DiskWriteBytes: 4 * bytesPerKilobyte,
+		NetworkIn:      2 * bitsPerByte * bytesPerKilobyte,
+		NetworkOut:     6 * bitsPerByte * bytesPerKilobyte,
 		StartTime:      reportTime,
 		Version:        "v1.2.3",
 		Timestamp:      reportTime,
@@ -75,12 +77,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		Status:         "running",
 		CpuCount:       8,
 		CpuUsage:       32.5,
-		MemUsed:        3 * bytesPerGigabyte,
-		MemTotal:       12 * bytesPerGigabyte,
-		DiskReadBytes:  2 * bytesPerMegabyte,
-		DiskWriteBytes: 4 * bytesPerMegabyte,
-		NetworkIn:      2 * bitsPerMegabit,
-		NetworkOut:     6 * bitsPerMegabit,
+		MemUsed:        3 * bytesPerMegabyte,
+		MemTotal:       12 * bytesPerMegabyte,
+		DiskReadBytes:  2 * bytesPerKilobyte,
+		DiskWriteBytes: 4 * bytesPerKilobyte,
+		NetworkIn:      2 * bitsPerByte * bytesPerKilobyte,
+		NetworkOut:     6 * bitsPerByte * bytesPerKilobyte,
 		StartTime:      reportTime,
 		Version:        "v1.2.3",
 		Timestamp:      reportTime,
@@ -91,7 +93,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		MachineId:     nodeID,
 		DestinationIp: "10.0.0.2",
 		Rtt:           33,
-		Throughput:    3 * bitsPerMegabit,
+		Throughput:    3 * bitsPerByte * bytesPerKilobyte,
 		Timestamp:     reportTime,
 	}); err != nil {
 		t.Fatalf("handle network metric: %v", err)
@@ -231,11 +233,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if counted.LiveStreams != 1 || counted.Sessions != 0 {
 		t.Fatalf("expected idempotent counters live_streams=1 sessions=0, got %#v", counted)
 	}
-	if err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, sessionID).Scan(&session); err != nil {
+	var deletedSession *entity.MediaReportSession
+	if err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, sessionID).Scan(&deletedSession); err != nil && !gerror.Is(err, sql.ErrNoRows) {
 		t.Fatalf("query deleted session projection: %v", err)
 	}
-	if session != nil {
-		t.Fatalf("expected session delete event to remove session projection, got %#v", session)
+	if deletedSession != nil {
+		t.Fatalf("expected session delete event to remove session projection, got %#v", deletedSession)
 	}
 	if err := writer.HandleStreamMetric(ctx, uint8(gen.SCMDDataReport_STREAM_DELETE), &gen.StreamMetric{
 		StreamId:  streamID,
@@ -249,11 +252,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if counted.LiveStreams != 0 || counted.Sessions != 0 {
 		t.Fatalf("expected stream delete to use cached owner and clear counter, got %#v", counted)
 	}
-	if err := dao.MediaReportStream.Ctx(ctx).Where(dao.MediaReportStream.Columns().StreamId, streamID).Scan(&stream); err != nil {
+	var deletedStream *entity.MediaReportStream
+	if err := dao.MediaReportStream.Ctx(ctx).Where(dao.MediaReportStream.Columns().StreamId, streamID).Scan(&deletedStream); err != nil && !gerror.Is(err, sql.ErrNoRows) {
 		t.Fatalf("query deleted stream projection: %v", err)
 	}
-	if stream != nil {
-		t.Fatalf("expected stream delete event to remove stream projection, got %#v", stream)
+	if deletedStream != nil {
+		t.Fatalf("expected stream delete event to remove stream projection, got %#v", deletedStream)
 	}
 	if err := writer.HandleMachineMetric(ctx, &gen.MachineMetric{
 		InstanceId:   instanceID,
@@ -402,7 +406,7 @@ func TestReportRuntimeMergesNetworkLatencyConcurrently(t *testing.T) {
 				MachineId:     nodeID,
 				DestinationIp: destination,
 				Rtt:           rtt,
-				Throughput:    bitsPerMegabit,
+				Throughput:    bitsPerByte * bytesPerKilobyte,
 				Timestamp:     1_780_000_101,
 			})
 		}(destination, rtt)

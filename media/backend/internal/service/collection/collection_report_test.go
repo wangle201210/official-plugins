@@ -24,12 +24,12 @@ func TestNormalizeMachineMetricBuildsInstanceReport(t *testing.T) {
 		Status:         "running",
 		CpuUsage:       42.5,
 		CpuCount:       8,
-		MemUsed:        2 * bytesPerGigabyte,
-		MemTotal:       4 * bytesPerGigabyte,
-		DiskReadBytes:  3 * bytesPerMegabyte,
-		DiskWriteBytes: 5 * bytesPerMegabyte,
-		NetworkIn:      2 * bitsPerMegabit,
-		NetworkOut:     5 * bitsPerMegabit,
+		MemUsed:        2 * bytesPerMegabyte,
+		MemTotal:       4 * bytesPerMegabyte,
+		DiskReadBytes:  3 * bytesPerKilobyte,
+		DiskWriteBytes: 5 * bytesPerKilobyte,
+		NetworkIn:      2 * bitsPerByte * bytesPerKilobyte,
+		NetworkOut:     5 * bitsPerByte * bytesPerKilobyte,
 		StartTime:      1_780_000_001,
 		Version:        "v1.2.3",
 		Timestamp:      1_780_000_000,
@@ -127,7 +127,7 @@ func TestNormalizeNetworkMetricBuildsLatencyUpdate(t *testing.T) {
 		SourceIp:      "10.0.0.1",
 		DestinationIp: "10.0.0.2",
 		Rtt:           28,
-		Throughput:    5 * bitsPerMegabit,
+		Throughput:    5 * bitsPerByte * bytesPerKilobyte,
 		Timestamp:     1_780_000_000_123,
 	})
 	if !ok {
@@ -137,7 +137,7 @@ func TestNormalizeNetworkMetricBuildsLatencyUpdate(t *testing.T) {
 		t.Fatalf("unexpected network keys: %#v", report)
 	}
 	if report.networkOut != 5 {
-		t.Fatalf("expected throughput converted to 5 Mbps, got %f", report.networkOut)
+		t.Fatalf("expected throughput converted to 5 KB/S, got %f", report.networkOut)
 	}
 	if report.lastHeartbeat == nil {
 		t.Fatal("expected heartbeat time")

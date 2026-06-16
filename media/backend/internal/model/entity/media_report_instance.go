@@ -19,12 +19,12 @@ type MediaReportInstance struct {
 	Status          string      `json:"status"          orm:"status"           description:"实例运行状态，保存上报原始枚举值"`
 	CpuAllocated    float64     `json:"cpuAllocated"    orm:"cpu_allocated"    description:"实例已分配CPU容量，单位由上报端统一"`
 	CpuLoad         float64     `json:"cpuLoad"         orm:"cpu_load"         description:"实例CPU负载或利用率，单位由上报端统一"`
-	MemoryAllocated float64     `json:"memoryAllocated" orm:"memory_allocated" description:"实例已分配内存容量，单位GB"`
-	MemoryUsed      float64     `json:"memoryUsed"      orm:"memory_used"      description:"实例已使用内存容量，单位GB"`
-	DiskIoRead      float64     `json:"diskIoRead"      orm:"disk_io_read"     description:"实例磁盘读取速率，单位MB/s"`
-	DiskIoWrite     float64     `json:"diskIoWrite"     orm:"disk_io_write"    description:"实例磁盘写入速率，单位MB/s"`
-	NetworkIn       float64     `json:"networkIn"       orm:"network_in"       description:"实例网络入站速率，单位Mbps"`
-	NetworkOut      float64     `json:"networkOut"      orm:"network_out"      description:"实例网络出站速率，单位Mbps"`
+	MemoryAllocated float64     `json:"memoryAllocated" orm:"memory_allocated" description:"实例已分配内存容量，单位MB"`
+	MemoryUsed      float64     `json:"memoryUsed"      orm:"memory_used"      description:"实例已使用内存容量，单位MB"`
+	DiskIoRead      float64     `json:"diskIoRead"      orm:"disk_io_read"     description:"实例磁盘读取速率，单位KB/S"`
+	DiskIoWrite     float64     `json:"diskIoWrite"     orm:"disk_io_write"    description:"实例磁盘写入速率，单位KB/S"`
+	NetworkIn       float64     `json:"networkIn"       orm:"network_in"       description:"实例网络入站速率，单位KB/S"`
+	NetworkOut      float64     `json:"networkOut"      orm:"network_out"      description:"实例网络出站速率，单位KB/S"`
 	LiveStreams     int         `json:"liveStreams"     orm:"live_streams"     description:"实例当前承载直播流数量"`
 	Sessions        int         `json:"sessions"        orm:"sessions"         description:"实例当前会话数量"`
 	StartTime       *gtime.Time `json:"startTime"       orm:"start_time"       description:"实例启动时间"`

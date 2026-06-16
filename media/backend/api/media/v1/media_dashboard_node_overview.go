@@ -25,12 +25,12 @@ type DashboardNodeOverviewItem struct {
 	AliveNodes      int                          `json:"alive_nodes" dc:"存活节点数" eg:"7"`
 	CpuAllocated    float64                      `json:"cpu_allocated" dc:"当前节点CPU分配核数，单位核" eg:"64"`
 	CpuLoad         float64                      `json:"cpu_load" dc:"当前节点CPU负载，单位核" eg:"42.5"`
-	MemoryAllocated float64                      `json:"memory_allocated" dc:"当前节点内存分配量，单位GB" eg:"256"`
-	MemoryUsed      float64                      `json:"memory_used" dc:"当前节点内存使用量，单位GB" eg:"182.3"`
-	DiskIoRead      float64                      `json:"disk_io_read" dc:"当前节点磁盘读速率，单位MB/s" eg:"120"`
-	DiskIoWrite     float64                      `json:"disk_io_write" dc:"当前节点磁盘写速率，单位MB/s" eg:"80"`
-	NetworkIn       float64                      `json:"network_in" dc:"当前节点入流量，单位Mbps" eg:"1054.6"`
-	NetworkOut      float64                      `json:"network_out" dc:"当前节点出流量，单位Mbps" eg:"3025.5"`
+	MemoryAllocated float64                      `json:"memory_allocated" dc:"当前节点内存分配量，单位MB" eg:"262144"`
+	MemoryUsed      float64                      `json:"memory_used" dc:"当前节点内存使用量，单位MB" eg:"186675.2"`
+	DiskIoRead      float64                      `json:"disk_io_read" dc:"当前节点磁盘读速率，单位KB/S" eg:"120"`
+	DiskIoWrite     float64                      `json:"disk_io_write" dc:"当前节点磁盘写速率，单位KB/S" eg:"80"`
+	NetworkIn       float64                      `json:"network_in" dc:"当前节点入流量，单位KB/S" eg:"1054.6"`
+	NetworkOut      float64                      `json:"network_out" dc:"当前节点出流量，单位KB/S" eg:"3025.5"`
 	LiveStreams     int                          `json:"live_streams" dc:"当前节点全局存活直播流数" eg:"156"`
 	Sessions        int                          `json:"sessions" dc:"当前节点全局会话数" eg:"2340"`
 	AvgDelay        int                          `json:"avg_delay" dc:"当前节点全局平均流延迟，单位毫秒" eg:"280"`

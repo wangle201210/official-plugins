@@ -42,9 +42,9 @@ const (
 	defaultReportParentNodeID = "0"
 	defaultReportJSONMap      = "{}"
 	defaultReportJSONArray    = "[]"
+	bytesPerKilobyte          = 1024
 	bytesPerMegabyte          = 1024 * 1024
-	bytesPerGigabyte          = bytesPerMegabyte * 1024
-	bitsPerMegabit            = 1000 * 1000
+	bitsPerByte               = 8
 )
 
 type (
@@ -186,12 +186,12 @@ func normalizeMachineMetric(metric *gen.MachineMetric) (instanceReport, bool) {
 		status:          normalizeStatusText(metric.GetStatus(), string(reportStatusUnknown)),
 		cpuAllocated:    float64(metric.GetCpuCount()),
 		cpuLoad:         metric.GetCpuUsage(),
-		memoryAllocated: bytesToGigabytes(metric.GetMemTotal()),
-		memoryUsed:      bytesToGigabytes(metric.GetMemUsed()),
-		diskIoRead:      bytesToMegabytes(metric.GetDiskReadBytes()),
-		diskIoWrite:     bytesToMegabytes(metric.GetDiskWriteBytes()),
-		networkIn:       bitsToMegabits(metric.GetNetworkIn()),
-		networkOut:      bitsToMegabits(metric.GetNetworkOut()),
+		memoryAllocated: bytesToMegabytes(metric.GetMemTotal()),
+		memoryUsed:      bytesToMegabytes(metric.GetMemUsed()),
+		diskIoRead:      bytesToKilobytesPerSecond(metric.GetDiskReadBytes()),
+		diskIoWrite:     bytesToKilobytesPerSecond(metric.GetDiskWriteBytes()),
+		networkIn:       bitsToKilobytesPerSecond(metric.GetNetworkIn()),
+		networkOut:      bitsToKilobytesPerSecond(metric.GetNetworkOut()),
 		startTime:       metricTimeOrReportTime(metric.GetStartTime(), reportTime),
 		version:         strings.TrimSpace(metric.GetVersion()),
 		reportTime:      reportTime,
@@ -280,7 +280,7 @@ func normalizeNetworkMetric(metric *gen.NetworkMetric) (networkReport, bool) {
 		nodeID:          nodeID,
 		destinationID:   destinationID,
 		rtt:             metric.GetRtt(),
-		networkOut:      bitsToMegabits(metric.GetThroughput()),
+		networkOut:      bitsToKilobytesPerSecond(metric.GetThroughput()),
 		lastHeartbeat:   reportTimeToGTime(reportTime),
 		nodeLatencyMap:  latencyMap,
 		reportTime:      reportTime,
@@ -449,15 +449,7 @@ func durationSecondsBetween(startTime int64, reportTime int64) int32 {
 	return int32(elapsedSeconds)
 }
 
-// bytesToGigabytes converts byte counters into GiB-style memory report values.
-func bytesToGigabytes(value int64) float64 {
-	if value <= 0 {
-		return 0
-	}
-	return float64(value) / bytesPerGigabyte
-}
-
-// bytesToMegabytes converts byte counters into MiB-style disk report values.
+// bytesToMegabytes converts byte values into MB memory report values.
 func bytesToMegabytes(value int64) float64 {
 	if value <= 0 {
 		return 0
@@ -465,12 +457,20 @@ func bytesToMegabytes(value int64) float64 {
 	return float64(value) / bytesPerMegabyte
 }
 
-// bitsToMegabits converts bps counters into Mbps report values.
-func bitsToMegabits(value int32) float64 {
+// bytesToKilobytesPerSecond converts byte-per-second values into KB/S report values.
+func bytesToKilobytesPerSecond(value int64) float64 {
 	if value <= 0 {
 		return 0
 	}
-	return float64(value) / bitsPerMegabit
+	return float64(value) / bytesPerKilobyte
+}
+
+// bitsToKilobytesPerSecond converts bps values into KB/S report values.
+func bitsToKilobytesPerSecond(value int32) float64 {
+	if value <= 0 {
+		return 0
+	}
+	return float64(value) / bitsPerByte / bytesPerKilobyte
 }
 
 // normalizeStreamStatus maps net-flux stream statuses into stable report values.

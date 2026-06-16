@@ -30,12 +30,12 @@ type MediaReportNodeColumns struct {
 	AliveNodes      string // 当前节点视角下的在线节点数
 	CpuAllocated    string // 已分配CPU容量，单位由上报端统一
 	CpuLoad         string // CPU负载或利用率，单位由上报端统一
-	MemoryAllocated string // 已分配内存容量，单位GB
-	MemoryUsed      string // 已使用内存容量，单位GB
-	DiskIoRead      string // 磁盘读取速率，单位MB/s
-	DiskIoWrite     string // 磁盘写入速率，单位MB/s
-	NetworkIn       string // 网络入站速率，单位Mbps
-	NetworkOut      string // 网络出站速率，单位Mbps
+	MemoryAllocated string // 已分配内存容量，单位MB
+	MemoryUsed      string // 已使用内存容量，单位MB
+	DiskIoRead      string // 磁盘读取速率，单位KB/S
+	DiskIoWrite     string // 磁盘写入速率，单位KB/S
+	NetworkIn       string // 网络入站速率，单位KB/S
+	NetworkOut      string // 网络出站速率，单位KB/S
 	LiveStreams     string // 当前直播流数量
 	Sessions        string // 当前会话数量
 	AvgDelay        string // 节点平均延迟，单位毫秒

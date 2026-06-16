@@ -30,12 +30,12 @@ type MediaReportInstanceColumns struct {
 	Status          string // 实例运行状态，保存上报原始枚举值
 	CpuAllocated    string // 实例已分配CPU容量，单位由上报端统一
 	CpuLoad         string // 实例CPU负载或利用率，单位由上报端统一
-	MemoryAllocated string // 实例已分配内存容量，单位GB
-	MemoryUsed      string // 实例已使用内存容量，单位GB
-	DiskIoRead      string // 实例磁盘读取速率，单位MB/s
-	DiskIoWrite     string // 实例磁盘写入速率，单位MB/s
-	NetworkIn       string // 实例网络入站速率，单位Mbps
-	NetworkOut      string // 实例网络出站速率，单位Mbps
+	MemoryAllocated string // 实例已分配内存容量，单位MB
+	MemoryUsed      string // 实例已使用内存容量，单位MB
+	DiskIoRead      string // 实例磁盘读取速率，单位KB/S
+	DiskIoWrite     string // 实例磁盘写入速率，单位KB/S
+	NetworkIn       string // 实例网络入站速率，单位KB/S
+	NetworkOut      string // 实例网络出站速率，单位KB/S
 	LiveStreams     string // 实例当前承载直播流数量
 	Sessions        string // 实例当前会话数量
 	StartTime       string // 实例启动时间
