@@ -93,7 +93,7 @@ type TaskSnapshot struct {
 	StrategyName string         // StrategyName is the matched media strategy name.
 	Source       StrategySource // Source is the matched strategy source.
 	SourceLabel  string         // SourceLabel is the Chinese source label.
-	Image        string         // Image is the output PNG data URL.
+	Image        string         // Image stays empty for async status snapshots so cache values remain bounded.
 	CreatedAt    int64          // CreatedAt is the Unix timestamp in milliseconds.
 	UpdatedAt    int64          // UpdatedAt is the Unix timestamp in milliseconds.
 	DurationMs   int64          // DurationMs is the processing duration in milliseconds.

@@ -23,7 +23,7 @@ type GetTaskRes struct {
 	StrategyName string `json:"strategyName" dc:"策略名称" eg:"默认策略"`
 	Source       string `json:"source" dc:"策略来源" eg:"global"`
 	SourceLabel  string `json:"sourceLabel" dc:"策略来源说明" eg:"全局策略"`
-	Image        string `json:"image" dc:"输出图片data URL" eg:"data:image/png;base64,..."`
+	Image        string `json:"image" dc:"异步状态查询不返回输出图片，完整图片通过回调返回" eg:""`
 	CreatedAt    int64  `json:"createdAt" dc:"创建时间，Unix timestamp in milliseconds" eg:"1779000000000"`
 	UpdatedAt    int64  `json:"updatedAt" dc:"更新时间，Unix timestamp in milliseconds" eg:"1779000001000"`
 	DurationMs   int64  `json:"durationMs" dc:"处理耗时毫秒" eg:"12"`

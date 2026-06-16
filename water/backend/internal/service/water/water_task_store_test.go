@@ -4,6 +4,7 @@ package water
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ type taskStoreCache struct {
 	lastNamespace string
 	lastKey       string
 	lastTTL       time.Duration
+	maxValueBytes int
 }
 
 // newTaskStoreCache creates an empty task-store cache test double.
@@ -36,6 +38,9 @@ func (c *taskStoreCache) Get(_ context.Context, namespace string, key string) (*
 
 // Set records one cached value and TTL.
 func (c *taskStoreCache) Set(_ context.Context, namespace string, key string, value string, ttl time.Duration) (*cachecap.CacheItem, error) {
+	if c.maxValueBytes > 0 && len(value) > c.maxValueBytes {
+		return nil, fmt.Errorf("cache value exceeds %d bytes", c.maxValueBytes)
+	}
 	c.lastNamespace = namespace
 	c.lastKey = key
 	c.lastTTL = ttl

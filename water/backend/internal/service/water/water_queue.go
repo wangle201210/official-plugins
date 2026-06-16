@@ -124,7 +124,6 @@ func (q *taskQueue) processTask(consumerID int, task *watermarkTask) {
 		record.Success = output.Success
 		record.Message = output.Message
 		record.Error = output.Error
-		record.Image = output.Image
 		record.StrategyId = output.StrategyId
 		record.StrategyName = output.StrategyName
 		record.Source = output.Source
