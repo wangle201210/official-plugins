@@ -75,6 +75,9 @@ func (w *reportRuntime) HandleStreamMetric(ctx context.Context, subcmd uint8, me
 		if err := upsertReportStream(ctx, report); err != nil {
 			return err
 		}
+		if err := clearReportStreamCloseTime(ctx, report.streamID); err != nil {
+			return err
+		}
 	}
 	_, err := w.applyCounterEvent(ctx, counterEvent{
 		kind:       counterEventKindStream,
@@ -87,7 +90,7 @@ func (w *reportRuntime) HandleStreamMetric(ctx context.Context, subcmd uint8, me
 		return err
 	}
 	if isDelete {
-		return deleteReportStream(ctx, report.streamID)
+		return markReportStreamClosed(ctx, report.streamID, report.reportTime)
 	}
 	return nil
 }
@@ -106,6 +109,9 @@ func (w *reportRuntime) HandleSessionMetric(ctx context.Context, subcmd uint8, m
 		if err := upsertReportSession(ctx, report); err != nil {
 			return err
 		}
+		if err := clearReportSessionCloseTime(ctx, report.sessionID); err != nil {
+			return err
+		}
 	}
 	_, err := w.applyCounterEvent(ctx, counterEvent{
 		kind:       counterEventKindSession,
@@ -118,7 +124,7 @@ func (w *reportRuntime) HandleSessionMetric(ctx context.Context, subcmd uint8, m
 		return err
 	}
 	if isDelete {
-		return deleteReportSession(ctx, report.sessionID)
+		return markReportSessionClosed(ctx, report.sessionID, report.reportTime)
 	}
 	return nil
 }
@@ -575,13 +581,13 @@ func upsertReportStream(ctx context.Context, report streamReport) error {
 		Data(do.MediaReportStream{
 			StreamId:              report.streamID,
 			SourceType:            string(report.sourceType),
-			SourceId:              report.sourceID,
 			TenantId:              report.tenantID,
 			NodeId:                report.nodeID,
 			NodeName:              report.nodeName,
 			InstanceId:            report.instanceID,
 			InstanceName:          report.instanceName,
 			SourceUrl:             report.sourceURL,
+			ProtocolType:          string(report.protocolType),
 			StreamName:            report.streamName,
 			Resolution:            report.resolution,
 			Fps:                   report.fps,
@@ -601,13 +607,13 @@ func upsertReportStream(ctx context.Context, report streamReport) error {
 		OnConflict(cols.StreamId).
 		OnDuplicate(
 			cols.SourceType,
-			cols.SourceId,
 			cols.TenantId,
 			cols.NodeId,
 			cols.NodeName,
 			cols.InstanceId,
 			cols.InstanceName,
 			cols.SourceUrl,
+			cols.ProtocolType,
 			cols.StreamName,
 			cols.Resolution,
 			cols.Fps,
@@ -686,25 +692,59 @@ func upsertReportSession(ctx context.Context, report sessionReport) error {
 	return err
 }
 
-// deleteReportStream removes one stream projection after a lifecycle delete event.
-func deleteReportStream(ctx context.Context, streamID string) error {
+// clearReportStreamCloseTime reopens a stream projection after a lifecycle add event.
+func clearReportStreamCloseTime(ctx context.Context, streamID string) error {
+	if streamID == "" {
+		return nil
+	}
+	cols := dao.MediaReportStream.Columns()
+	_, err := dao.MediaReportStream.Ctx(ctx).
+		Where(cols.StreamId, streamID).
+		Data(cols.CloseTime, gdb.Raw("NULL")).
+		Update()
+	return err
+}
+
+// clearReportSessionCloseTime reopens a session projection after a lifecycle add event.
+func clearReportSessionCloseTime(ctx context.Context, sessionID string) error {
+	if sessionID == "" {
+		return nil
+	}
+	cols := dao.MediaReportSession.Columns()
+	_, err := dao.MediaReportSession.Ctx(ctx).
+		Where(cols.SessionId, sessionID).
+		Data(cols.CloseTime, gdb.Raw("NULL")).
+		Update()
+	return err
+}
+
+// markReportStreamClosed records one stream close time after a lifecycle delete event.
+func markReportStreamClosed(ctx context.Context, streamID string, reportTime int64) error {
 	if streamID == "" {
 		return nil
 	}
 	_, err := dao.MediaReportStream.Ctx(ctx).
+		Data(do.MediaReportStream{
+			CloseTime:  reportTimeToGTime(normalizeReportTime(reportTime)),
+			ReportTime: normalizeReportTime(reportTime),
+		}).
 		Where(dao.MediaReportStream.Columns().StreamId, streamID).
-		Delete()
+		Update()
 	return err
 }
 
-// deleteReportSession removes one session projection after a lifecycle delete event.
-func deleteReportSession(ctx context.Context, sessionID string) error {
+// markReportSessionClosed records one session close time after a lifecycle delete event.
+func markReportSessionClosed(ctx context.Context, sessionID string, reportTime int64) error {
 	if sessionID == "" {
 		return nil
 	}
 	_, err := dao.MediaReportSession.Ctx(ctx).
+		Data(do.MediaReportSession{
+			CloseTime:  reportTimeToGTime(normalizeReportTime(reportTime)),
+			ReportTime: normalizeReportTime(reportTime),
+		}).
 		Where(dao.MediaReportSession.Columns().SessionId, sessionID).
-		Delete()
+		Update()
 	return err
 }
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -17,11 +18,13 @@ import (
 )
 
 const (
-	dashboardRootNodeID        = "0"
-	dashboardProtocolActive    = "active"
-	dashboardProtocolInactive  = "inactive"
-	dashboardNodeStatusOffline = "offline"
-	dashboardReadLimit         = maxPageSize
+	dashboardRootNodeID         = "0"
+	dashboardProtocolActive     = "active"
+	dashboardProtocolInactive   = "inactive"
+	dashboardNodeStatusOffline  = "offline"
+	dashboardSourceTypeNode     = "node"
+	dashboardSourceTypeInstance = "instance"
+	dashboardReadLimit          = maxPageSize
 )
 
 // DashboardNodeOverviewInput defines dashboard node overview filters.
@@ -181,7 +184,7 @@ type DashboardSessionItem struct {
 	SessionId         string
 	ClientId          string
 	ClientIp          string
-	ClientType        string
+	ClientType        int
 	TenantId          string
 	UserName          string
 	ProtocolType      string
@@ -351,7 +354,7 @@ func (s *serviceImpl) ListDashboardStreams(ctx context.Context, in ListDashboard
 	columns := dao.MediaReportStream.Columns()
 	model := dao.MediaReportStream.Ctx(ctx)
 	model = dashboardWhereEq(model, columns.SourceType, in.SourceType)
-	model = dashboardWhereEq(model, columns.SourceId, in.SourceId)
+	model = dashboardWhereSourceID(model, in.SourceType, in.SourceId)
 	model = dashboardWhereEq(model, columns.TenantId, in.TenantId)
 	model = dashboardWhereEq(model, columns.NodeId, in.NodeId)
 	model = dashboardWhereEq(model, columns.InstanceId, in.InstanceId)
@@ -439,6 +442,7 @@ func dashboardSessionModel(ctx context.Context, in ListDashboardSessionsInput) *
 	model = dashboardWhereEq(model, columns.ProtocolType, in.ProtocolType)
 	model = dashboardWhereEq(model, columns.NodeId, in.NodeId)
 	model = dashboardWhereEq(model, columns.InstanceId, in.InstanceId)
+	model = model.WhereNull(columns.CloseTime)
 	if keyword := strings.TrimSpace(in.Keyword); keyword != "" {
 		likeKeyword := "%" + keyword + "%"
 		model = model.Where(
@@ -451,6 +455,23 @@ func dashboardSessionModel(ctx context.Context, in ListDashboardSessionsInput) *
 		)
 	}
 	return model
+}
+
+// dashboardWhereSourceID maps dashboard source filters to stored node or instance dimensions.
+func dashboardWhereSourceID(model *gdb.Model, sourceType string, sourceID string) *gdb.Model {
+	sourceID = strings.TrimSpace(sourceID)
+	if sourceID == "" {
+		return model
+	}
+	columns := dao.MediaReportStream.Columns()
+	switch strings.TrimSpace(sourceType) {
+	case dashboardSourceTypeNode, "":
+		return model.Where(columns.NodeId, sourceID)
+	case dashboardSourceTypeInstance:
+		return model.Where(columns.InstanceId, sourceID)
+	default:
+		return model
+	}
 }
 
 // dashboardSessionProtocolCounts returns per-protocol counts for the current query scope.
@@ -666,7 +687,7 @@ func buildDashboardStreamItemWithCounts(
 		PacketLoss:            item.PacketLoss,
 		Status:                item.Status,
 		StartTime:             formatTime(item.StartTime),
-		Duration:              dashboardElapsedSeconds(item.StartTime, item.ReportTime, item.Duration),
+		Duration:              dashboardElapsedSeconds(item.StartTime, item.CloseTime, item.Duration),
 		AvgDelay:              item.AvgDelay,
 		ProtocolCount:         protocolCount,
 		TotalSessionsLifetime: totalSessionsLifetime,
@@ -711,6 +732,7 @@ func dashboardStreamSessionCounts(ctx context.Context, streamIDs []string) (map[
 	err := dao.MediaReportSession.Ctx(ctx).
 		Fields(columns.StreamId, columns.ProtocolType, "COUNT(*) AS session_count").
 		WhereIn(columns.StreamId, streamIDs).
+		WhereNull(columns.CloseTime).
 		Group(columns.StreamId, columns.ProtocolType).
 		OrderAsc(columns.StreamId).
 		OrderAsc(columns.ProtocolType).
@@ -880,7 +902,7 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) *DashboardSessionIt
 		UserName:          item.UserName,
 		ProtocolType:      item.ProtocolType,
 		StartTime:         formatTime(item.StartTime),
-		PlayDuration:      dashboardElapsedSeconds(item.StartTime, item.ReportTime, item.PlayDuration),
+		PlayDuration:      dashboardElapsedSeconds(item.StartTime, item.CloseTime, item.PlayDuration),
 		CurrentFps:        item.CurrentFps,
 		CurrentBitrate:    item.CurrentBitrate,
 		CurrentResolution: item.CurrentResolution,
@@ -979,6 +1001,7 @@ func mergeDashboardStreamDelayAggregates(ctx context.Context, aggregates map[str
 			"SUM("+columns.AvgDelay+") AS delay_sum",
 			"COUNT(*) AS delay_count",
 		).
+		WhereNull(columns.CloseTime).
 		Group(columns.NodeId).
 		Scan(&rows)
 	if err != nil {
@@ -1113,35 +1136,27 @@ func summarizeDashboardProtocols(
 	return len(seen), totalSessions, currentSessions
 }
 
-// dashboardElapsedSeconds returns an explicit duration or derives it from start and report time.
-func dashboardElapsedSeconds(startTime *gtime.Time, reportTime int64, explicitDuration int) int {
-	if explicitDuration > 0 {
-		return explicitDuration
-	}
+// dashboardElapsedSeconds derives elapsed seconds from start time and close time or current time.
+func dashboardElapsedSeconds(startTime *gtime.Time, closeTime *gtime.Time, explicitDuration int) int {
 	if startTime == nil {
+		if explicitDuration > 0 {
+			return explicitDuration
+		}
 		return 0
 	}
-	reportMillis := dashboardReportTimeMillis(reportTime)
+	endMillis := time.Now().UnixMilli()
+	if closeTime != nil {
+		endMillis = closeTime.TimestampMilli()
+	}
 	startMillis := startTime.TimestampMilli()
-	if reportMillis <= startMillis {
+	if endMillis <= startMillis {
 		return 0
 	}
-	elapsedSeconds := (reportMillis - startMillis) / 1000
+	elapsedSeconds := (endMillis - startMillis) / 1000
 	if elapsedSeconds > int64(^uint(0)>>1) {
 		return int(^uint(0) >> 1)
 	}
 	return int(elapsedSeconds)
-}
-
-// dashboardReportTimeMillis normalizes second or millisecond report timestamps into milliseconds.
-func dashboardReportTimeMillis(reportTime int64) int64 {
-	if reportTime <= 0 {
-		return 0
-	}
-	if reportTime >= 1_000_000_000_000 {
-		return reportTime
-	}
-	return reportTime * 1000
 }
 
 // dashboardTotalLinkLatency derives total latency from link hops when hop details are available.

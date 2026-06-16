@@ -209,6 +209,8 @@ var (
 	CodeMediaTenantStreamUpdateFailed = bizerr.MustDefine("MEDIA_TENANT_STREAM_UPDATE_FAILED", "更新租户流配置失败", gcode.CodeInternalError)
 	// CodeMediaTenantStreamDeleteFailed reports that tenant stream config deletion failed.
 	CodeMediaTenantStreamDeleteFailed = bizerr.MustDefine("MEDIA_TENANT_STREAM_DELETE_FAILED", "删除租户流配置失败", gcode.CodeInternalError)
+	// CodeMediaTenantStreamLimitExceeded reports that active tenant sessions have reached the node limit.
+	CodeMediaTenantStreamLimitExceeded = bizerr.MustDefine("MEDIA_TENANT_STREAM_LIMIT_EXCEEDED", "租户在该节点的流数量已达到限制", gcode.CodeInvalidOperation)
 	// CodeMediaDashboardStreamRequired reports that dashboard session query is missing stream ID.
 	CodeMediaDashboardStreamRequired = bizerr.MustDefine("MEDIA_DASHBOARD_STREAM_REQUIRED", "流ID不能为空", gcode.CodeInvalidParameter)
 	// CodeMediaDashboardQueryFailed reports that dashboard projection query failed.

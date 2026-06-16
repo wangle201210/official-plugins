@@ -43,7 +43,7 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("expected node tree counts from children, got total=%d alive=%d", node.Node.TotalNodes, node.Node.AliveNodes)
 	}
 	if node.Node.CpuAllocated != 30 || node.Node.CpuLoad != 11.6 ||
-		node.Node.LiveStreams != 6 || node.Node.Sessions != 13 || node.Node.AvgDelay != 43 {
+		node.Node.LiveStreams != 6 || node.Node.Sessions != 13 || node.Node.AvgDelay != 37 {
 		t.Fatalf("expected node runtime fields aggregated from instances and streams, got %#v", node.Node)
 	}
 
@@ -96,7 +96,8 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if len(streams.List[0].ProtocolSummary) != 2 || streams.List[0].ProtocolSummary[0].ProtocolType != "HLS" {
 		t.Fatalf("expected decoded protocol summary, got %#v", streams.List[0].ProtocolSummary)
 	}
-	if streams.List[0].Duration != 1200 || streams.List[0].ProtocolCount != 2 ||
+	if streams.List[0].Duration < 1200 || streams.List[0].Duration > 1230 ||
+		streams.List[0].ProtocolCount != 2 ||
 		streams.List[0].CurrentActiveSessions != 3 || streams.List[0].TotalSessionsLifetime != 30 {
 		t.Fatalf("expected stream computed fields from start time, sessions and protocol summary, got %#v", streams.List[0])
 	}
@@ -121,6 +122,9 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("list paused streams: %v", err)
 	}
 	assertDashboardStreamIDs(t, pausedStreams.List, "stream-b")
+	if pausedStreams.List[0].Duration != 600 {
+		t.Fatalf("expected closed stream duration from close_time, got %#v", pausedStreams.List[0])
+	}
 
 	sessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{
 		StreamId: "stream-a",
@@ -168,7 +172,8 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if len(sessions.Protocols[0].Sessions[0].LinkHops) != 1 || sessions.Protocols[0].Sessions[0].LinkHops[0].HopIndex != 1 {
 		t.Fatalf("expected decoded link hops, got %#v", sessions.Protocols[0].Sessions[0].LinkHops)
 	}
-	if sessions.Protocols[0].Sessions[0].PlayDuration != 1200 ||
+	if sessions.Protocols[0].Sessions[0].PlayDuration < 1200 ||
+		sessions.Protocols[0].Sessions[0].PlayDuration > 1230 ||
 		sessions.Protocols[0].Sessions[0].TotalLinkLatency != 12 {
 		t.Fatalf("expected session computed duration and link latency, got %#v", sessions.Protocols[0].Sessions[0])
 	}
@@ -235,6 +240,73 @@ func TestBuildDashboardStreamItemKeepsFallbackLifetime(t *testing.T) {
 	}
 }
 
+// TestCleanupClosedReportsRemovesExpiredClosedRows verifies retention cleanup only deletes old closed reports.
+func TestCleanupClosedReportsRemovesExpiredClosedRows(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+
+	now := time.Date(2026, 6, 16, 8, 0, 0, 0, time.UTC)
+	expiredCloseTime := gtime.NewFromTime(now.Add(-(31 * 24 * time.Hour)))
+	recentCloseTime := gtime.NewFromTime(now.Add(-(29 * 24 * time.Hour)))
+	startTime := gtime.NewFromTime(now.Add(-time.Hour))
+	insertDashboardReports(t, ctx, []any{
+		do.MediaReportStream{
+			StreamId:     "stream-expired",
+			SourceType:   "node",
+			TenantId:     "tenant-a",
+			NodeId:       "node-a",
+			ProtocolType: "HLS",
+			StartTime:    startTime,
+			CloseTime:    expiredCloseTime,
+			ReportTime:   now.UnixMilli(),
+		},
+		do.MediaReportStream{
+			StreamId:     "stream-recent",
+			SourceType:   "node",
+			TenantId:     "tenant-a",
+			NodeId:       "node-a",
+			ProtocolType: "HLS",
+			StartTime:    startTime,
+			CloseTime:    recentCloseTime,
+			ReportTime:   now.UnixMilli(),
+		},
+		do.MediaReportSession{
+			SessionId:    "session-expired",
+			StreamId:     "stream-expired",
+			TenantId:     "tenant-a",
+			ClientType:   int(SessionClientTypePC),
+			ProtocolType: "HLS",
+			NodeId:       "node-a",
+			StartTime:    startTime,
+			CloseTime:    expiredCloseTime,
+			ReportTime:   now.UnixMilli(),
+		},
+		do.MediaReportSession{
+			SessionId:    "session-active",
+			StreamId:     "stream-recent",
+			TenantId:     "tenant-a",
+			ClientType:   int(SessionClientTypePC),
+			ProtocolType: "HLS",
+			NodeId:       "node-a",
+			StartTime:    startTime,
+			ReportTime:   now.UnixMilli(),
+		},
+	})
+
+	cleaned, err := newTestMediaService(t).CleanupClosedReports(ctx, now)
+	if err != nil {
+		t.Fatalf("cleanup closed reports: %v", err)
+	}
+	if cleaned != 2 {
+		t.Fatalf("expected two expired closed rows removed, got %d", cleaned)
+	}
+	assertDashboardReportExists(t, ctx, dao.MediaReportStream.Table(), "stream_id", "stream-recent", true)
+	assertDashboardReportExists(t, ctx, dao.MediaReportStream.Table(), "stream_id", "stream-expired", false)
+	assertDashboardReportExists(t, ctx, dao.MediaReportSession.Table(), "session_id", "session-active", true)
+	assertDashboardReportExists(t, ctx, dao.MediaReportSession.Table(), "session_id", "session-expired", false)
+}
+
 func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 	t.Helper()
 
@@ -289,13 +361,13 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 		`CREATE TABLE IF NOT EXISTS media_report_stream (
 			stream_id TEXT PRIMARY KEY,
 			source_type TEXT NOT NULL DEFAULT '',
-			source_id TEXT NOT NULL DEFAULT '',
 			tenant_id TEXT NOT NULL DEFAULT '',
 			node_id TEXT NOT NULL DEFAULT '',
 			node_name TEXT NOT NULL DEFAULT '',
 			instance_id TEXT NOT NULL DEFAULT '',
 			instance_name TEXT NOT NULL DEFAULT '',
 			source_url TEXT NOT NULL DEFAULT '',
+			protocol_type TEXT NOT NULL DEFAULT '',
 			stream_name TEXT NOT NULL DEFAULT '',
 			resolution TEXT NOT NULL DEFAULT '',
 			fps REAL NOT NULL DEFAULT 0,
@@ -304,6 +376,7 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			status TEXT NOT NULL DEFAULT '',
 			start_time TEXT,
 			duration INTEGER NOT NULL DEFAULT 0,
+			close_time TEXT,
 			avg_delay INTEGER NOT NULL DEFAULT 0,
 			protocol_count INTEGER NOT NULL DEFAULT 0,
 			total_sessions_lifetime INTEGER NOT NULL DEFAULT 0,
@@ -320,11 +393,12 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			tenant_id TEXT NOT NULL DEFAULT '',
 			client_id TEXT NOT NULL DEFAULT '',
 			client_ip TEXT,
-			client_type TEXT NOT NULL DEFAULT '',
+			client_type INTEGER NOT NULL DEFAULT 0,
 			user_name TEXT NOT NULL DEFAULT '',
 			protocol_type TEXT NOT NULL DEFAULT '',
 			start_time TEXT,
 			play_duration INTEGER NOT NULL DEFAULT 0,
+			close_time TEXT,
 			current_fps REAL NOT NULL DEFAULT 0,
 			current_bitrate INTEGER NOT NULL DEFAULT 0,
 			current_resolution TEXT NOT NULL DEFAULT '',
@@ -357,11 +431,25 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 	}
 }
 
+func assertDashboardReportExists(t *testing.T, ctx context.Context, table string, column string, value string, expected bool) {
+	t.Helper()
+
+	count, err := dao.MediaReportNode.DB().Model(table).Ctx(ctx).Where(column, value).Count()
+	if err != nil {
+		t.Fatalf("count %s.%s=%s: %v", table, column, value, err)
+	}
+	if (count > 0) != expected {
+		t.Fatalf("expected %s.%s=%s exists=%v, got count=%d", table, column, value, expected, count)
+	}
+}
+
 func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 	t.Helper()
 
 	reportTime := int64(1780000000000)
-	baseTime := gtime.NewFromTime(time.UnixMilli(reportTime - 1_200_000))
+	baseTimeValue := time.Now().Add(-20 * time.Minute)
+	baseTime := gtime.NewFromTime(baseTimeValue)
+	closeTime := gtime.NewFromTime(baseTimeValue.Add(10 * time.Minute))
 	insertDashboardReportNodes(t, ctx)
 	insertDashboardReports(t, ctx, []any{
 		do.MediaReportInstance{
@@ -441,13 +529,13 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 		do.MediaReportStream{
 			StreamId:              "stream-a",
 			SourceType:            "node",
-			SourceId:              "node-a",
 			TenantId:              "tenant-a",
 			NodeId:                "node-a",
 			NodeName:              "Node A",
 			InstanceId:            "inst-a",
 			InstanceName:          "Transcoder A",
 			SourceUrl:             "https://example.test/stream-a.flv",
+			ProtocolType:          "HLS",
 			StreamName:            "Camera A",
 			Resolution:            "1920x1080",
 			Fps:                   25,
@@ -467,13 +555,13 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 		do.MediaReportStream{
 			StreamId:              "stream-b",
 			SourceType:            "node",
-			SourceId:              "node-a",
 			TenantId:              "tenant-a",
 			NodeId:                "node-a",
 			NodeName:              "Node A",
 			InstanceId:            "inst-b",
 			InstanceName:          "Recorder B",
 			SourceUrl:             "https://example.test/stream-b.flv",
+			ProtocolType:          "HLS",
 			StreamName:            "Backup Camera B",
 			Resolution:            "1280x720",
 			Fps:                   20,
@@ -482,6 +570,7 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 			Status:                "paused",
 			StartTime:             baseTime,
 			Duration:              120,
+			CloseTime:             closeTime,
 			AvgDelay:              55,
 			ProtocolCount:         1,
 			TotalSessionsLifetime: 4,
@@ -493,13 +582,13 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 		do.MediaReportStream{
 			StreamId:              "stream-c",
 			SourceType:            "instance",
-			SourceId:              "inst-c",
 			TenantId:              "tenant-b",
 			NodeId:                "node-b",
 			NodeName:              "Node B",
 			InstanceId:            "inst-c",
 			InstanceName:          "Relay C",
 			SourceUrl:             "https://example.test/stream-c.flv",
+			ProtocolType:          "FLV",
 			StreamName:            "Camera C",
 			Resolution:            "1920x1080",
 			Fps:                   25,
@@ -522,6 +611,11 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 		dashboardSessionDO("session-b", "stream-a", "Camera A", "tenant-a", "client-b", "viewer-b", "HLS", "inst-a", 100, reportTime-1, baseTime),
 		dashboardSessionDO("session-c", "stream-a", "Camera A", "tenant-a", "client-c", "viewer-c", "RTMP", "inst-a", 80, reportTime-2, baseTime),
 		dashboardSessionDO("session-d", "stream-c", "Camera C", "tenant-b", "client-d", "viewer-d", "FLV", "inst-c", 60, reportTime, baseTime),
+		func() do.MediaReportSession {
+			row := dashboardSessionDO("session-closed", "stream-a", "Camera A", "tenant-a", "client-closed", "viewer-closed", "HLS", "inst-a", 100, reportTime, baseTime)
+			row.CloseTime = closeTime
+			return row
+		}(),
 	})
 }
 
@@ -664,7 +758,7 @@ func dashboardSessionDO(
 		TenantId:          tenantID,
 		ClientId:          clientID,
 		ClientIp:          "192.0.2.10",
-		ClientType:        "web",
+		ClientType:        int(SessionClientTypePC),
 		UserName:          userName,
 		ProtocolType:      protocolType,
 		StartTime:         startTime,

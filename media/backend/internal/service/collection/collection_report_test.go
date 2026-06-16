@@ -183,7 +183,7 @@ func TestNormalizeStreamMetricBuildsStreamReport(t *testing.T) {
 	if !ok {
 		t.Fatal("expected stream metric to normalize")
 	}
-	if report.streamID != "stream-a" || report.nodeID != "node-a" || report.sourceID != "instance-a" {
+	if report.streamID != "stream-a" || report.nodeID != "node-a" || report.instanceID != "instance-a" {
 		t.Fatalf("unexpected stream keys: %#v", report)
 	}
 	if report.sourceType != reportSourceTypeInstance || report.tenantID != "tenant-a" || report.instanceName != "media-server-a" {
@@ -191,6 +191,9 @@ func TestNormalizeStreamMetricBuildsStreamReport(t *testing.T) {
 	}
 	if report.status != reportStreamStatusRunning {
 		t.Fatalf("expected running status, got %q", report.status)
+	}
+	if report.protocolType != reportStreamProtocolRTMP {
+		t.Fatalf("expected stream protocol RTMP, got %q", report.protocolType)
 	}
 	if report.resolution != "1920x1080" {
 		t.Fatalf("expected resolution, got %q", report.resolution)
@@ -241,7 +244,7 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 		TenantId:       "tenant-a",
 		ClientId:       "client-a",
 		ClientIp:       "192.0.2.10",
-		ClientType:     "web",
+		ClientType:     "mobile",
 		UserName:       "alice",
 		Protocol:       gen.StreamProtocol_SP_HLS,
 		StartTime:      1_780_000_001,
@@ -271,6 +274,9 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 	}
 	if report.sessionID != "session-a" || report.tenantID != "tenant-a" || report.protocolType != "HLS" {
 		t.Fatalf("unexpected session fields: %#v", report)
+	}
+	if report.clientType != sessionClientTypeMobile {
+		t.Fatalf("expected mobile client type enum, got %#v", report.clientType)
 	}
 	if report.currentResolution != "1280x720" || report.totalLinkLatency != 12 {
 		t.Fatalf("unexpected session quality fields: %#v", report)

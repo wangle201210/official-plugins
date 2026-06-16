@@ -3,6 +3,7 @@ package backend
 
 import (
 	"context"
+	"sync"
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
@@ -11,6 +12,7 @@ import (
 	mediacontroller "lina-plugin-media/backend/internal/controller/media"
 	mediaopencontroller "lina-plugin-media/backend/internal/controller/mediaopen"
 	collectionsvc "lina-plugin-media/backend/internal/service/collection"
+	cronsvc "lina-plugin-media/backend/internal/service/cron"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
@@ -22,6 +24,12 @@ const (
 
 // sharedCollectionSvc owns the media data collection TCP server lifecycle.
 var sharedCollectionSvc = collectionsvc.New()
+
+// sharedCronMu protects sharedCronSvc initialization across startup hooks.
+var sharedCronMu sync.Mutex
+
+// sharedCronSvc owns media plugin maintenance jobs.
+var sharedCronSvc cronsvc.Service
 
 // init registers the media source plugin and its host callbacks.
 func init() {
@@ -63,7 +71,29 @@ func startCollectionServer(ctx context.Context, payload pluginhost.HookPayload) 
 	if cacheSvc == nil {
 		return gerror.New("media collection server requires host cache service")
 	}
-	return sharedCollectionSvc.Start(ctx, configSvc, cacheSvc)
+	if err := sharedCollectionSvc.Start(ctx, configSvc, cacheSvc); err != nil {
+		return err
+	}
+	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(payload.Services().BizCtx()), cacheSvc)
+	if err != nil {
+		return err
+	}
+	return startMediaCron(ctx, mediaSvc)
+}
+
+// startMediaCron starts plugin maintenance jobs once for the shared source plugin instance.
+func startMediaCron(ctx context.Context, mediaSvc mediasvc.Service) error {
+	sharedCronMu.Lock()
+	defer sharedCronMu.Unlock()
+	if sharedCronSvc == nil {
+		cronSvc, err := cronsvc.New(mediaSvc)
+		if err != nil {
+			return err
+		}
+		sharedCronSvc = cronSvc
+	}
+	sharedCronSvc.Start(ctx)
+	return nil
 }
 
 // registerRoutes binds mediaopen routes through InnerApiAuth and management

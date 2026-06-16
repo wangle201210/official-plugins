@@ -65,6 +65,12 @@ func TestMediaBusinessErrorMetadata(t *testing.T) {
 			messageKey:  "error.media.tenant.stream.duplicate",
 		},
 		{
+			name:        "tenant stream limit exceeded",
+			code:        CodeMediaTenantStreamLimitExceeded,
+			runtimeCode: "MEDIA_TENANT_STREAM_LIMIT_EXCEEDED",
+			messageKey:  "error.media.tenant.stream.limit.exceeded",
+		},
+		{
 			name:        "tieta tenant mismatch",
 			code:        CodeMediaTietaTenantMismatch,
 			runtimeCode: "MEDIA_TIETA_TENANT_MISMATCH",

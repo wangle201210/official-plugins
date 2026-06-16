@@ -18,11 +18,11 @@ type MediaReportSession struct {
 	TenantId          any         // 租户标识，用于数据权限过滤和租户统计
 	ClientId          any         // 客户端标识
 	ClientIp          any         // 客户端IP地址
-	ClientType        any         // 客户端类型
+	ClientType        any         // 客户端类型枚举：1-mobile，2-pc，0-未知
 	UserName          any         // 播放用户展示名称
 	ProtocolType      any         // 播放协议类型
 	StartTime         *gtime.Time // 会话开始时间
-	PlayDuration      any         // 播放持续时间，单位秒
+	PlayDuration      any         // 上报端播放持续时间，接口返回时优先通过start_time和close_time动态计算
 	CurrentFps        any         // 当前播放帧率
 	CurrentBitrate    any         // 当前播放码率，单位Kbps
 	CurrentResolution any         // 当前播放分辨率
@@ -34,4 +34,5 @@ type MediaReportSession struct {
 	TotalLinkLatency  any         // 会话链路总延迟，单位毫秒
 	ReportTime        any         // 上报端采样时间
 	UpdatedAt         *gtime.Time // 记录更新时间
+	CloseTime         *gtime.Time // 会话关闭时间，未关闭时为空
 }

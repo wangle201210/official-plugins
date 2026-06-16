@@ -4,7 +4,6 @@ package collection
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"os"
 	"sync"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/dellinger2023/net-flux/gen"
 	"github.com/gogf/gf/v2/database/gdb"
-	"github.com/gogf/gf/v2/errors/gerror"
 
 	_ "lina-core/pkg/dbdriver"
 	"lina-plugin-media/backend/internal/dao"
@@ -187,7 +185,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		t.Fatal("expected stream report row")
 	}
 	if stream.TenantId != tenantID || stream.NodeId != nodeID || stream.InstanceId != instanceID ||
-		stream.Resolution != "1280x720" || stream.Status != string(reportStreamStatusRunning) {
+		stream.ProtocolType != "HLS" || stream.Resolution != "1280x720" || stream.Status != string(reportStreamStatusRunning) {
 		t.Fatalf("unexpected stream projection: %#v", stream)
 	}
 	if stream.ProtocolCount != 1 || stream.CurrentActiveSessions != 5 || stream.TotalSessionsLifetime != 10 ||
@@ -203,7 +201,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		t.Fatal("expected session report row")
 	}
 	if session.StreamId != streamID || session.TenantId != tenantID || session.InstanceId != instanceID ||
-		session.ProtocolType != "HLS" || session.TotalLinkLatency != 12 {
+		session.ProtocolType != "HLS" || session.ClientType != int(sessionClientTypePC) || session.TotalLinkLatency != 12 {
 		t.Fatalf("unexpected session projection: %#v", session)
 	}
 	if session.LinkHops == "" {
@@ -233,12 +231,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if counted.LiveStreams != 1 || counted.Sessions != 0 {
 		t.Fatalf("expected idempotent counters live_streams=1 sessions=0, got %#v", counted)
 	}
-	var deletedSession *entity.MediaReportSession
-	if err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, sessionID).Scan(&deletedSession); err != nil && !gerror.Is(err, sql.ErrNoRows) {
-		t.Fatalf("query deleted session projection: %v", err)
+	var closedSession *entity.MediaReportSession
+	if err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, sessionID).Scan(&closedSession); err != nil {
+		t.Fatalf("query closed session projection: %v", err)
 	}
-	if deletedSession != nil {
-		t.Fatalf("expected session delete event to remove session projection, got %#v", deletedSession)
+	if closedSession == nil || closedSession.CloseTime == nil {
+		t.Fatalf("expected session delete event to mark close_time, got %#v", closedSession)
 	}
 	if err := writer.HandleStreamMetric(ctx, uint8(gen.SCMDDataReport_STREAM_DELETE), &gen.StreamMetric{
 		StreamId:  streamID,
@@ -252,12 +250,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if counted.LiveStreams != 0 || counted.Sessions != 0 {
 		t.Fatalf("expected stream delete to use cached owner and clear counter, got %#v", counted)
 	}
-	var deletedStream *entity.MediaReportStream
-	if err := dao.MediaReportStream.Ctx(ctx).Where(dao.MediaReportStream.Columns().StreamId, streamID).Scan(&deletedStream); err != nil && !gerror.Is(err, sql.ErrNoRows) {
-		t.Fatalf("query deleted stream projection: %v", err)
+	var closedStream *entity.MediaReportStream
+	if err := dao.MediaReportStream.Ctx(ctx).Where(dao.MediaReportStream.Columns().StreamId, streamID).Scan(&closedStream); err != nil {
+		t.Fatalf("query closed stream projection: %v", err)
 	}
-	if deletedStream != nil {
-		t.Fatalf("expected stream delete event to remove stream projection, got %#v", deletedStream)
+	if closedStream == nil || closedStream.CloseTime == nil {
+		t.Fatalf("expected stream delete event to mark close_time, got %#v", closedStream)
 	}
 	if err := writer.HandleMachineMetric(ctx, &gen.MachineMetric{
 		InstanceId:   instanceID,

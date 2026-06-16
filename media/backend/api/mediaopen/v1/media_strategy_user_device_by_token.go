@@ -10,6 +10,7 @@ type UserDeviceStrategyByTokenReq struct {
 	InnerApiKey string `json:"X-Inner-Api-Key" in:"header" dc:"内部接口API Key；默认值media；显式配置innerapi.apiKey为空时可不传" eg:"media"`
 	Token       string `json:"token" v:"required#Token不能为空" dc:"铁塔用户 token，直接传 token 原值" eg:"token-value"`
 	DeviceId    string `json:"deviceId" v:"required#设备ID不能为空" dc:"设备国标编号" eg:"34020000001320000001"`
+	NodeId      string `json:"nodeId" v:"required#节点ID不能为空" dc:"节点ID，用于按租户和节点检查流数量限制" eg:"1"`
 }
 
 // UserDeviceStrategyByTokenRes defines the HotGo-compatible response for resolving one device strategy by token.

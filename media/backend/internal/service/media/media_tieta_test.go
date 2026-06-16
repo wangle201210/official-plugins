@@ -11,6 +11,7 @@ import (
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/plugin/capability/bizctxcap"
@@ -192,6 +193,7 @@ func TestUserDeviceStrategyByTokenReturnsStrategyContent(t *testing.T) {
 	out, err := newTestMediaService(t).UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
 		Token:    "token-value",
 		DeviceId: "34020000001320000001",
+		NodeId:   "1",
 	})
 	if err != nil {
 		t.Fatalf("resolve HotGo-compatible strategy by token: %v", err)
@@ -221,6 +223,7 @@ func TestUserDeviceStrategyByTokenReturnsEmptyStrategyWithoutAccess(t *testing.T
 	out, err := newTestMediaService(t).UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
 		Token:    "token-value",
 		DeviceId: "34020000001320000001",
+		NodeId:   "1",
 	})
 	if err != nil {
 		t.Fatalf("resolve HotGo-compatible strategy by denied token: %v", err)
@@ -230,6 +233,101 @@ func TestUserDeviceStrategyByTokenReturnsEmptyStrategyWithoutAccess(t *testing.T
 	}
 	if out.Strategy != nil {
 		t.Fatalf("expected empty strategy without device access, got %+v", out.Strategy)
+	}
+}
+
+// TestUserDeviceStrategyByTokenRejectsWhenTenantNodeLimitReached verifies node-scoped stream limits use active sessions.
+func TestUserDeviceStrategyByTokenRejectsWhenTenantNodeLimitReached(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
+		user:      &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"},
+		hasAccess: true,
+	})
+	defer restoreTietaClient()
+
+	strategyID := insertTestStrategy(t, ctx, "节点限流策略", int(SwitchOff), int(SwitchOn))
+	if _, err := dao.MediaStrategyDeviceTenant.Ctx(ctx).Data(do.MediaStrategyDeviceTenant{
+		TenantId:   "tenant-a",
+		DeviceId:   "34020000001320000001",
+		StrategyId: strategyID,
+	}).Insert(); err != nil {
+		t.Fatalf("insert tenant-device binding: %v", err)
+	}
+	if _, err := dao.MediaTenantStreamConfig.Ctx(ctx).Data(do.MediaTenantStreamConfig{
+		TenantId:      "tenant-a",
+		MaxConcurrent: 2,
+		NodeNum:       1,
+		Enable:        int(TenantStreamEnabled),
+	}).Insert(); err != nil {
+		t.Fatalf("insert tenant node stream limit: %v", err)
+	}
+	now := time.Date(2026, 6, 16, 8, 0, 0, 0, time.UTC)
+	startTime := gtime.NewFromTime(now.Add(-time.Minute))
+	closeTime := gtime.NewFromTime(now)
+	insertDashboardReports(t, ctx, []any{
+		do.MediaReportSession{
+			SessionId:    "limit-active-a",
+			StreamId:     "stream-a",
+			TenantId:     "tenant-a",
+			ClientType:   int(SessionClientTypePC),
+			ProtocolType: "HLS",
+			NodeId:       "1",
+			StartTime:    startTime,
+			ReportTime:   now.UnixMilli(),
+		},
+		do.MediaReportSession{
+			SessionId:    "limit-closed",
+			StreamId:     "stream-a",
+			TenantId:     "tenant-a",
+			ClientType:   int(SessionClientTypePC),
+			ProtocolType: "HLS",
+			NodeId:       "1",
+			StartTime:    startTime,
+			CloseTime:    closeTime,
+			ReportTime:   now.UnixMilli(),
+		},
+	})
+
+	out, err := newTestMediaService(t).UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
+		Token:    "token-value",
+		DeviceId: "34020000001320000001",
+		NodeId:   "1",
+	})
+	if err != nil {
+		t.Fatalf("expected closed sessions not to count against limit: %v", err)
+	}
+	if out.Strategy == nil || out.Strategy.Id != uint64(strategyID) {
+		t.Fatalf("expected strategy while active count below limit, got %+v", out)
+	}
+
+	insertDashboardReports(t, ctx, []any{
+		do.MediaReportSession{
+			SessionId:    "limit-active-b",
+			StreamId:     "stream-b",
+			TenantId:     "tenant-a",
+			ClientType:   int(SessionClientTypePC),
+			ProtocolType: "HLS",
+			NodeId:       "1",
+			StartTime:    startTime,
+			ReportTime:   now.UnixMilli(),
+		},
+	})
+	_, err = newTestMediaService(t).UserDeviceStrategyByToken(ctx, UserDeviceStrategyByTokenInput{
+		Token:    "token-value",
+		DeviceId: "34020000001320000001",
+		NodeId:   "1",
+	})
+	if err == nil {
+		t.Fatal("expected node stream limit exceeded error")
+	}
+	structured, ok := bizerr.As(err)
+	if !ok {
+		t.Fatalf("expected bizerr, got %T", err)
+	}
+	if structured.RuntimeCode() != "MEDIA_TENANT_STREAM_LIMIT_EXCEEDED" {
+		t.Fatalf("expected tenant stream limit code, got %s", structured.RuntimeCode())
 	}
 }
 

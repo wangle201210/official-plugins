@@ -3,6 +3,7 @@ package media
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
@@ -126,6 +127,8 @@ type Service interface {
 	ListDashboardStreams(ctx context.Context, in ListDashboardStreamsInput) (*ListDashboardStreamsOutput, error)
 	// ListDashboardSessions returns a bounded dashboard session result set grouped by protocol.
 	ListDashboardSessions(ctx context.Context, in ListDashboardSessionsInput) (*ListDashboardSessionsOutput, error)
+	// CleanupClosedReports deletes stream and session report rows closed before the retention cutoff.
+	CleanupClosedReports(ctx context.Context, now time.Time) (int64, error)
 }
 
 // Interface compliance assertion for the default media service implementation.

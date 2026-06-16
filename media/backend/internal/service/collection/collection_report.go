@@ -45,6 +45,10 @@ const (
 	bytesPerKilobyte          = 1024
 	bytesPerMegabyte          = 1024 * 1024
 	bitsPerByte               = 8
+
+	sessionClientTypeUnknown sessionClientType = 0
+	sessionClientTypeMobile  sessionClientType = 1
+	sessionClientTypePC      sessionClientType = 2
 )
 
 type (
@@ -53,6 +57,7 @@ type (
 	reportSourceType     string
 	reportStreamStatus   string
 	reportStreamProtocol string
+	sessionClientType    int
 )
 
 // networkReport carries one normalized node network projection update.
@@ -71,13 +76,13 @@ type networkReport struct {
 type streamReport struct {
 	streamID              string
 	sourceType            reportSourceType
-	sourceID              string
 	tenantID              string
 	nodeID                string
 	nodeName              string
 	instanceID            string
 	instanceName          string
 	sourceURL             string
+	protocolType          reportStreamProtocol
 	streamName            string
 	resolution            string
 	fps                   float64
@@ -85,6 +90,7 @@ type streamReport struct {
 	packetLoss            float64
 	status                reportStreamStatus
 	startTime             *gtime.Time
+	closeTime             *gtime.Time
 	duration              int32
 	avgDelay              int32
 	protocolCount         int
@@ -126,10 +132,11 @@ type sessionReport struct {
 	tenantID          string
 	clientID          string
 	clientIP          string
-	clientType        string
+	clientType        sessionClientType
 	userName          string
 	protocolType      string
 	startTime         *gtime.Time
+	closeTime         *gtime.Time
 	playDuration      int32
 	currentFPS        float64
 	currentBitrate    int32
@@ -300,10 +307,8 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 	nodeID := firstNonBlank(metric.GetNodeId(), metric.GetExtra()["node_id"])
 	instanceID := firstNonBlank(metric.GetInstanceId(), metric.GetMachineId())
 	sourceType := reportSourceTypeNode
-	sourceID := nodeID
 	if instanceID != "" {
 		sourceType = reportSourceTypeInstance
-		sourceID = instanceID
 	}
 	protocol := normalizeStreamProtocol(metric.GetProtocol())
 	protocolCount := 0
@@ -332,13 +337,13 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 	return streamReport{
 		streamID:              streamID,
 		sourceType:            sourceType,
-		sourceID:              sourceID,
 		tenantID:              strings.TrimSpace(metric.GetTenantId()),
 		nodeID:                nodeID,
 		nodeName:              firstNonBlank(metric.GetNodeName(), metric.GetExtra()["node_name"]),
 		instanceID:            instanceID,
 		instanceName:          strings.TrimSpace(metric.GetInstanceName()),
 		sourceURL:             normalizeStreamSourceURL(metric),
+		protocolType:          protocol,
 		streamName:            normalizeStreamName(metric),
 		resolution:            normalizeResolution(metric.GetWidth(), metric.GetHeight()),
 		fps:                   metric.GetFps(),
@@ -387,7 +392,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		tenantID:          strings.TrimSpace(metric.GetTenantId()),
 		clientID:          strings.TrimSpace(metric.GetClientId()),
 		clientIP:          strings.TrimSpace(metric.GetClientIp()),
-		clientType:        strings.TrimSpace(metric.GetClientType()),
+		clientType:        normalizeSessionClientType(metric.GetClientType()),
 		userName:          strings.TrimSpace(metric.GetUserName()),
 		protocolType:      string(normalizeStreamProtocol(metric.GetProtocol())),
 		startTime:         metricTimeOrReportTime(metric.GetStartTime(), reportTime),
@@ -403,6 +408,18 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		totalLinkLatency:  totalLinkLatency,
 		reportTime:        reportTime,
 	}, true
+}
+
+// normalizeSessionClientType maps the protocol text field to the stored numeric enum.
+func normalizeSessionClientType(value string) sessionClientType {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "mobile":
+		return sessionClientTypeMobile
+	case "2", "pc", "web":
+		return sessionClientTypePC
+	default:
+		return sessionClientTypeUnknown
+	}
 }
 
 // normalizeReportTime returns a non-zero report timestamp for storage.

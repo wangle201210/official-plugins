@@ -40,7 +40,7 @@ type DashboardSessionItem struct {
 	SessionId         string                  `json:"session_id" dc:"全局唯一会话ID" eg:"sess-9f3a1c8e"`
 	ClientId          string                  `json:"client_id" dc:"客户端身份" eg:"user-88721"`
 	ClientIp          string                  `json:"client_ip" dc:"客户端IP" eg:"1.202.33.41"`
-	ClientType        string                  `json:"client_type" dc:"客户端类型，例如mobile、web、tv、sdk" eg:"mobile"`
+	ClientType        int                     `json:"client_type" dc:"客户端类型枚举：1-mobile，2-pc，0-未知" eg:"1"`
 	TenantId          string                  `json:"tenant_id" dc:"拉流租户ID" eg:"12145"`
 	UserName          string                  `json:"user_name" dc:"拉流用户" eg:"张三"`
 	ProtocolType      string                  `json:"protocol_type" dc:"播放协议类型" eg:"RTMP"`

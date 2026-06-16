@@ -106,6 +106,7 @@ type ResolveStrategyByTokenInput struct {
 type UserDeviceStrategyByTokenInput struct {
 	Token    string // Token is the Tieta token body field.
 	DeviceId string // DeviceId is the GB device ID.
+	NodeId   string // NodeId is the media node ID used for tenant stream limiting.
 }
 
 // ResolveStrategyOutput defines effective strategy resolution output.
@@ -454,6 +455,11 @@ func (s *serviceImpl) UserDeviceStrategyByToken(
 	if err != nil {
 		return nil, err
 	}
+	if resolved.HasAccess && resolved.StrategyId > 0 {
+		if err = s.ensureTenantNodeStreamLimit(ctx, resolved.TenantId, in.NodeId); err != nil {
+			return nil, err
+		}
+	}
 	out := &UserDeviceStrategyByTokenOutput{
 		UserInfo: resolved.UserInfo,
 	}
@@ -465,6 +471,73 @@ func (s *serviceImpl) UserDeviceStrategyByToken(
 		}
 	}
 	return out, nil
+}
+
+// ensureTenantNodeStreamLimit rejects strategy lookup when active sessions reached a configured node limit.
+func (s *serviceImpl) ensureTenantNodeStreamLimit(ctx context.Context, tenantID string, nodeID string) error {
+	tenantID = strings.TrimSpace(tenantID)
+	nodeID = strings.TrimSpace(nodeID)
+	if tenantID == "" || nodeID == "" {
+		return nil
+	}
+	nodeNum, err := normalizeNodeIDAsNodeNum(nodeID)
+	if err != nil {
+		return err
+	}
+	limit, ok, err := s.enabledTenantNodeStreamLimit(ctx, tenantID, nodeNum)
+	if err != nil || !ok || limit <= 0 {
+		return err
+	}
+	active, err := activeTenantNodeSessionCount(ctx, tenantID, nodeID)
+	if err != nil {
+		return err
+	}
+	if active >= limit {
+		return bizerr.NewCode(CodeMediaTenantStreamLimitExceeded)
+	}
+	return nil
+}
+
+// enabledTenantNodeStreamLimit returns the configured active stream limit for one tenant and node.
+func (s *serviceImpl) enabledTenantNodeStreamLimit(ctx context.Context, tenantID string, nodeNum int) (int, bool, error) {
+	if err := validateMediaTablesReady(ctx); err != nil {
+		return 0, false, err
+	}
+	columns := dao.MediaTenantStreamConfig.Columns()
+	var record *tenantStreamConfigEntity
+	err := dao.MediaTenantStreamConfig.Ctx(ctx).
+		Fields(columns.MaxConcurrent, columns.Enable).
+		Where(do.MediaTenantStreamConfig{
+			TenantId: tenantID,
+			NodeNum:  nodeNum,
+		}).
+		Scan(&record)
+	if err != nil {
+		return 0, false, bizerr.WrapCode(err, CodeMediaTenantStreamDetailQueryFailed)
+	}
+	if record == nil || record.Enable != int(TenantStreamEnabled) || record.MaxConcurrent <= 0 {
+		return 0, false, nil
+	}
+	return record.MaxConcurrent, true, nil
+}
+
+// activeTenantNodeSessionCount counts unclosed sessions for one tenant on one reported node.
+func activeTenantNodeSessionCount(ctx context.Context, tenantID string, nodeID string) (int, error) {
+	if err := validateMediaReportTablesReady(ctx); err != nil {
+		return 0, err
+	}
+	columns := dao.MediaReportSession.Columns()
+	count, err := dao.MediaReportSession.Ctx(ctx).
+		Where(do.MediaReportSession{
+			TenantId: tenantID,
+			NodeId:   nodeID,
+		}).
+		WhereNull(columns.CloseTime).
+		Count()
+	if err != nil {
+		return 0, bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
+	}
+	return count, nil
 }
 
 // listDeviceBindings returns paged device bindings.

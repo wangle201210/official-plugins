@@ -4,6 +4,7 @@ package media
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -838,6 +839,19 @@ func normalizeNodeNum(nodeNum int) (int, error) {
 		return 0, bizerr.NewCode(CodeMediaNodeNumInvalid)
 	}
 	return nodeNum, nil
+}
+
+// normalizeNodeIDAsNodeNum parses a public node ID into the configured node number.
+func normalizeNodeIDAsNodeNum(nodeID string) (int, error) {
+	normalized := strings.TrimSpace(nodeID)
+	if normalized == "" {
+		return 0, bizerr.NewCode(CodeMediaNodeNumInvalid)
+	}
+	nodeNum, err := strconv.Atoi(normalized)
+	if err != nil {
+		return 0, bizerr.NewCode(CodeMediaNodeNumInvalid)
+	}
+	return normalizeNodeNum(nodeNum)
 }
 
 // normalizeNodeURL validates and trims one node gateway URL field.

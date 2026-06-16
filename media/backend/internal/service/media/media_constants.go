@@ -46,6 +46,19 @@ const (
 	TenantStreamEnabled TenantStreamEnableValue = 1
 )
 
+// SessionClientType is the numeric client-type enum stored in report sessions.
+type SessionClientType int
+
+// Session client type values used by media report sessions.
+const (
+	// SessionClientTypeUnknown means the client type is unknown.
+	SessionClientTypeUnknown SessionClientType = 0
+	// SessionClientTypeMobile means a mobile client.
+	SessionClientTypeMobile SessionClientType = 1
+	// SessionClientTypePC means a PC client.
+	SessionClientTypePC SessionClientType = 2
+)
+
 // StrategySource is the string enum returned by effective strategy resolution.
 type StrategySource string
 

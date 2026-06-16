@@ -180,13 +180,13 @@ COMMENT ON COLUMN media_report_instance."updated_at" IS '记录更新时间';
 CREATE TABLE IF NOT EXISTS media_report_stream (
     "stream_id" VARCHAR(128) PRIMARY KEY,
     "source_type" VARCHAR(32) NOT NULL DEFAULT '',
-    "source_id" VARCHAR(128) NOT NULL DEFAULT '',
     "tenant_id" VARCHAR(64) NOT NULL DEFAULT '',
     "node_id" VARCHAR(64) NOT NULL DEFAULT '',
     "node_name" VARCHAR(128) NOT NULL DEFAULT '',
     "instance_id" VARCHAR(128) NOT NULL DEFAULT '',
     "instance_name" VARCHAR(128) NOT NULL DEFAULT '',
     "source_url" VARCHAR(1024) NOT NULL DEFAULT '',
+    "protocol_type" VARCHAR(32) NOT NULL DEFAULT '',
     "stream_name" VARCHAR(255) NOT NULL DEFAULT '',
     "resolution" VARCHAR(32) NOT NULL DEFAULT '',
     "fps" NUMERIC(8,2) NOT NULL DEFAULT 0,
@@ -195,6 +195,7 @@ CREATE TABLE IF NOT EXISTS media_report_stream (
     "status" VARCHAR(32) NOT NULL DEFAULT '',
     "start_time" TIMESTAMP,
     "duration" INTEGER NOT NULL DEFAULT 0,
+    "close_time" TIMESTAMP,
     "avg_delay" INTEGER NOT NULL DEFAULT 0,
     "protocol_count" INTEGER NOT NULL DEFAULT 0,
     "total_sessions_lifetime" BIGINT NOT NULL DEFAULT 0,
@@ -205,8 +206,19 @@ CREATE TABLE IF NOT EXISTS media_report_stream (
     "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE media_report_stream
+    DROP COLUMN IF EXISTS "source_id";
+
+ALTER TABLE media_report_stream
+    ADD COLUMN IF NOT EXISTS "protocol_type" VARCHAR(32) NOT NULL DEFAULT '';
+
+ALTER TABLE media_report_stream
+    ADD COLUMN IF NOT EXISTS "close_time" TIMESTAMP;
+
+DROP INDEX IF EXISTS idx_media_report_stream_source;
+
 CREATE INDEX IF NOT EXISTS idx_media_report_stream_source
-    ON media_report_stream ("source_type", "source_id", "status");
+    ON media_report_stream ("source_type", "node_id", "instance_id", "status");
 
 CREATE INDEX IF NOT EXISTS idx_media_report_stream_tenant
     ON media_report_stream ("tenant_id", "status");
@@ -214,16 +226,19 @@ CREATE INDEX IF NOT EXISTS idx_media_report_stream_tenant
 CREATE INDEX IF NOT EXISTS idx_media_report_stream_node_instance
     ON media_report_stream ("node_id", "instance_id");
 
+CREATE INDEX IF NOT EXISTS idx_media_report_stream_close_time
+    ON media_report_stream ("close_time");
+
 COMMENT ON TABLE media_report_stream IS '媒体看板流表，保存流列表和协议摘要的最新上报投影';
 COMMENT ON COLUMN media_report_stream."stream_id" IS '流业务标识，不依赖流配置外键';
 COMMENT ON COLUMN media_report_stream."source_type" IS '来源类型，例如节点或实例';
-COMMENT ON COLUMN media_report_stream."source_id" IS '来源业务标识，用于节点或实例下钻';
 COMMENT ON COLUMN media_report_stream."tenant_id" IS '租户标识，用于数据权限过滤和租户统计';
 COMMENT ON COLUMN media_report_stream."node_id" IS '流所属节点业务标识';
 COMMENT ON COLUMN media_report_stream."node_name" IS '流所属节点展示名称，按上报时间点冗余';
 COMMENT ON COLUMN media_report_stream."instance_id" IS '流所属实例业务标识';
 COMMENT ON COLUMN media_report_stream."instance_name" IS '流所属实例展示名称，按上报时间点冗余';
 COMMENT ON COLUMN media_report_stream."source_url" IS '流源地址';
+COMMENT ON COLUMN media_report_stream."protocol_type" IS '源流协议类型';
 COMMENT ON COLUMN media_report_stream."stream_name" IS '流展示名称';
 COMMENT ON COLUMN media_report_stream."resolution" IS '当前分辨率';
 COMMENT ON COLUMN media_report_stream."fps" IS '当前帧率';
@@ -231,7 +246,8 @@ COMMENT ON COLUMN media_report_stream."bitrate" IS '当前码率，单位Kbps';
 COMMENT ON COLUMN media_report_stream."packet_loss" IS '当前丢包率';
 COMMENT ON COLUMN media_report_stream."status" IS '流运行状态，保存上报原始枚举值';
 COMMENT ON COLUMN media_report_stream."start_time" IS '流开始时间';
-COMMENT ON COLUMN media_report_stream."duration" IS '流持续时间，单位秒';
+COMMENT ON COLUMN media_report_stream."duration" IS '上报端流持续时间，接口返回时优先通过start_time和close_time动态计算';
+COMMENT ON COLUMN media_report_stream."close_time" IS '流关闭时间，未关闭时为空';
 COMMENT ON COLUMN media_report_stream."avg_delay" IS '流平均延迟，单位毫秒';
 COMMENT ON COLUMN media_report_stream."protocol_count" IS '支持的协议数量';
 COMMENT ON COLUMN media_report_stream."total_sessions_lifetime" IS '流历史累计会话数量';
@@ -250,11 +266,12 @@ CREATE TABLE IF NOT EXISTS media_report_session (
     "tenant_id" VARCHAR(64) NOT NULL DEFAULT '',
     "client_id" VARCHAR(128) NOT NULL DEFAULT '',
     "client_ip" INET,
-    "client_type" VARCHAR(32) NOT NULL DEFAULT '',
+    "client_type" INTEGER NOT NULL DEFAULT 0,
     "user_name" VARCHAR(128) NOT NULL DEFAULT '',
     "protocol_type" VARCHAR(32) NOT NULL DEFAULT '',
     "start_time" TIMESTAMP,
     "play_duration" INTEGER NOT NULL DEFAULT 0,
+    "close_time" TIMESTAMP,
     "current_fps" NUMERIC(8,2) NOT NULL DEFAULT 0,
     "current_bitrate" INTEGER NOT NULL DEFAULT 0,
     "current_resolution" VARCHAR(32) NOT NULL DEFAULT '',
@@ -268,6 +285,25 @@ CREATE TABLE IF NOT EXISTS media_report_session (
     "updated_at" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE media_report_session
+    ADD COLUMN IF NOT EXISTS "close_time" TIMESTAMP;
+
+ALTER TABLE media_report_session
+    ALTER COLUMN "client_type" DROP DEFAULT;
+
+ALTER TABLE media_report_session
+    ALTER COLUMN "client_type" TYPE INTEGER USING CASE
+        WHEN "client_type"::TEXT IN ('1', 'mobile') THEN 1
+        WHEN "client_type"::TEXT IN ('2', 'pc', 'web') THEN 2
+        ELSE 0
+    END;
+
+ALTER TABLE media_report_session
+    ALTER COLUMN "client_type" SET DEFAULT 0;
+
+ALTER TABLE media_report_session
+    ALTER COLUMN "client_type" SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_media_report_session_stream
     ON media_report_session ("stream_id", "protocol_type");
 
@@ -277,6 +313,13 @@ CREATE INDEX IF NOT EXISTS idx_media_report_session_tenant
 CREATE INDEX IF NOT EXISTS idx_media_report_session_node_instance
     ON media_report_session ("node_id", "instance_id");
 
+CREATE INDEX IF NOT EXISTS idx_media_report_session_active_tenant_node
+    ON media_report_session ("tenant_id", "node_id")
+    WHERE "close_time" IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_media_report_session_close_time
+    ON media_report_session ("close_time");
+
 COMMENT ON TABLE media_report_session IS '媒体看板会话表，保存会话列表和链路跳点的最新上报投影';
 COMMENT ON COLUMN media_report_session."session_id" IS '会话业务标识';
 COMMENT ON COLUMN media_report_session."stream_id" IS '会话所属流业务标识';
@@ -284,11 +327,12 @@ COMMENT ON COLUMN media_report_session."stream_name" IS '会话所属流展示�
 COMMENT ON COLUMN media_report_session."tenant_id" IS '租户标识，用于数据权限过滤和租户统计';
 COMMENT ON COLUMN media_report_session."client_id" IS '客户端标识';
 COMMENT ON COLUMN media_report_session."client_ip" IS '客户端IP地址';
-COMMENT ON COLUMN media_report_session."client_type" IS '客户端类型';
+COMMENT ON COLUMN media_report_session."client_type" IS '客户端类型枚举：1-mobile，2-pc，0-未知';
 COMMENT ON COLUMN media_report_session."user_name" IS '播放用户展示名称';
 COMMENT ON COLUMN media_report_session."protocol_type" IS '播放协议类型';
 COMMENT ON COLUMN media_report_session."start_time" IS '会话开始时间';
-COMMENT ON COLUMN media_report_session."play_duration" IS '播放持续时间，单位秒';
+COMMENT ON COLUMN media_report_session."play_duration" IS '上报端播放持续时间，接口返回时优先通过start_time和close_time动态计算';
+COMMENT ON COLUMN media_report_session."close_time" IS '会话关闭时间，未关闭时为空';
 COMMENT ON COLUMN media_report_session."current_fps" IS '当前播放帧率';
 COMMENT ON COLUMN media_report_session."current_bitrate" IS '当前播放码率，单位Kbps';
 COMMENT ON COLUMN media_report_session."current_resolution" IS '当前播放分辨率';

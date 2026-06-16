@@ -14,6 +14,7 @@ func (c *ControllerV1) UserDeviceStrategyByToken(ctx context.Context, req *v1.Us
 	out, err := c.mediaSvc.UserDeviceStrategyByToken(ctx, mediasvc.UserDeviceStrategyByTokenInput{
 		Token:    req.Token,
 		DeviceId: req.DeviceId,
+		NodeId:   req.NodeId,
 	})
 	if err != nil {
 		return nil, err
