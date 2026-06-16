@@ -3,7 +3,7 @@ module lina-plugin-media
 go 1.25.0
 
 require (
-	github.com/dellinger2023/net-flux v0.0.6
+	github.com/dellinger2023/net-flux v0.0.7-0.20260615083613-618b22ad1cfd
 	github.com/gogf/gf/contrib/drivers/sqlite/v2 v2.10.0
 	github.com/gogf/gf/v2 v2.10.1
 	google.golang.org/protobuf v1.36.11
@@ -96,7 +96,5 @@ require (
 	modernc.org/memory v1.5.0 // indirect
 	modernc.org/sqlite v1.23.1 // indirect
 )
-
-replace github.com/dellinger2023/net-flux => /Users/wanna/mine/github/wangle201210/net-flux
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20260610212136-7ab31c22f7ad
