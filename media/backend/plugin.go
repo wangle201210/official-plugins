@@ -92,8 +92,7 @@ func startMediaCron(ctx context.Context, mediaSvc mediasvc.Service) error {
 		}
 		sharedCronSvc = cronSvc
 	}
-	sharedCronSvc.Start(ctx)
-	return nil
+	return sharedCronSvc.Start(ctx)
 }
 
 // registerRoutes binds mediaopen routes through InnerApiAuth and management

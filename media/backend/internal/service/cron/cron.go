@@ -15,16 +15,19 @@ import (
 
 const mediaReportCleanupPattern = "0 0 3 * * 0"
 
+var addSingletonCron = gcron.AddSingleton
+
 // Service defines the media plugin cron contract.
 type Service interface {
-	// Start registers media maintenance jobs and returns without blocking.
-	Start(ctx context.Context)
+	// Start registers media maintenance jobs and returns without blocking; registration errors are returned to startup.
+	Start(ctx context.Context) error
 }
 
 // serviceImpl implements Service.
 type serviceImpl struct {
 	mediaSvc mediasvc.Service // mediaSvc owns cleanup business logic.
-	once     sync.Once        // once prevents duplicate registrations across repeated startup hooks.
+	mu       sync.Mutex       // mu protects start state across repeated startup hooks.
+	started  bool             // started prevents duplicate registrations after a successful start.
 }
 
 // New creates a media cron service.
@@ -36,14 +39,19 @@ func New(mediaSvc mediasvc.Service) (Service, error) {
 }
 
 // Start registers media maintenance jobs and returns without blocking.
-func (s *serviceImpl) Start(ctx context.Context) {
-	s.once.Do(func() {
-		if _, err := gcron.AddSingleton(ctx, mediaReportCleanupPattern, func(ctx context.Context) {
-			s.cleanupClosedReports(ctx)
-		}, "media-report-cleanup"); err != nil {
-			logger.Warningf(ctx, "failed to start media report cleanup cron: %v", err)
-		}
-	})
+func (s *serviceImpl) Start(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.started {
+		return nil
+	}
+	if _, err := addSingletonCron(ctx, mediaReportCleanupPattern, func(ctx context.Context) {
+		s.cleanupClosedReports(ctx)
+	}, "media-report-cleanup"); err != nil {
+		return err
+	}
+	s.started = true
+	return nil
 }
 
 // cleanupClosedReports runs one retention cleanup pass.
