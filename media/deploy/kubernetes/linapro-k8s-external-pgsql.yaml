@@ -104,15 +104,6 @@ stringData:
         username: "nacos"
         password: "nacos"
         node: 1
-  sicau-niu-config.yaml: |
-    wechat:
-      appId: ""
-      secret: ""
-      mock: true
-      mockOpenid: ""
-    token:
-      secret: "linapro-sicau-niu-token-change-me"
-      ttl: 168h
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -388,8 +379,6 @@ spec:
             items:
               - key: media-config.yaml
                 path: plugins/media/config.yaml
-              - key: sicau-niu-config.yaml
-                path: plugins/sicau-niu/config.yaml
         - name: data
           persistentVolumeClaim:
             claimName: linapro-data

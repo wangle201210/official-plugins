@@ -48,7 +48,6 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `jwt.expire` | `24h` | JWT token validity duration. |
 | `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | Runtime config for the `media` source plugin. |
-| `linapro-source-plugin-configs/sicau-niu-config.yaml` | `token.secret: linapro-sicau-niu-token-change-me` | Minimal runtime config required by the bundled `sicau-niu` source plugin. Replace the token secret before production use. |
 | `resources.requests.storage` | `20Gi` | Storage size for PostgreSQL and LinaPro data. |
 | `plugin.autoEnable[0].withMockData` | `false` | Whether to load `media` mock demo data during startup auto-install. Keep `false` for production. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
@@ -70,7 +69,6 @@ When using `linapro-k8s-external-pgsql.yaml`, first update the external database
 | `jwt.expire` | `24h` | JWT token validity duration. |
 | `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | Runtime config for the `media` source plugin. |
-| `linapro-source-plugin-configs/sicau-niu-config.yaml` | `token.secret: linapro-sicau-niu-token-change-me` | Minimal runtime config required by the bundled `sicau-niu` source plugin. Replace the token secret before production use. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
 | `PersistentVolumeClaim/linapro-data.spec.storageClassName` | unset | Optional. Set this when the cluster default `StorageClass` does not support `ReadWriteMany`. |
 
@@ -85,15 +83,13 @@ plugin runtime configs as separate `Secret` resources:
 | -------- | ------------ | ------- |
 | `Secret/linapro-config` | `/app/config.yaml` | Host LinaPro runtime config. |
 | `Secret/linapro-source-plugin-configs` | `/app/config/plugins/media/config.yaml` | `media` source plugin runtime config. |
-| `Secret/linapro-source-plugin-configs` | `/app/config/plugins/sicau-niu/config.yaml` | Minimal config for the bundled `sicau-niu` source plugin. |
 
 Keep these constraints when editing the manifests:
 
 - Do not add `server.serverRoot: "resource/public"` for `nightly-20260616`. The image does not contain `/app/resource/public`, and LinaPro fails during startup if that path is configured.
 - Keep the `i18n` block in `config.yaml`. This image requires `i18n.default` at runtime.
 - Keep the plugin config mount at `/app/config`. The source plugin config loader resolves production plugin config files from `/app/config/plugins/<plugin-id>/config.yaml` in this image.
-- Replace `linapro-sicau-niu-token-change-me` with a strong random value before production use. The `sicau-niu` source plugin is compiled into the nightly image, and its route registration requires `token.secret` even when only `media` is listed in `plugin.autoEnable`.
-- Keep `wechat.mock: true` for `sicau-niu` unless real WeChat mini-program credentials are configured.
+- No `sicau-niu` runtime config is required when the image includes the missing `token.secret` warning-only fix. The bundled `sicau-niu` source plugin will log a warning when `token.secret` is absent, but it will not block `media` startup.
 
 ## Multi-Replica Runtime
 
@@ -163,14 +159,14 @@ kubectl -n linapro logs job/linapro-db-init
 
 ## Troubleshooting
 
-These issues were found during validation of the `nightly-20260616` image and
-are already reflected in the manifests:
+These issues were found during validation of earlier `nightly-20260616`
+deployments. The current manifests and the new image fix cover them:
 
 | Symptom | Cause | Fix |
 | ------- | ----- | --- |
 | `SetServerRoot failed: cannot find "resource/public"` | `server.serverRoot` pointed to a directory not present in the image. | Leave `server.serverRoot` unset. |
 | `runtime config i18n.default cannot be empty` | Host `i18n` runtime config was missing. | Keep the included `i18n.default` and `i18n.locales` block. |
-| `Player token secret is not configured` | The bundled `sicau-niu` source plugin registers routes during host startup and requires `token.secret`. | Keep `Secret/linapro-source-plugin-configs` and replace its `sicau-niu` token secret with a production value. |
+| `Player token secret is not configured` | Older images treated missing `sicau-niu` `token.secret` as a startup error. | Use an image that includes the warning-only fix. If an older image must be used, temporarily mount `/app/config/plugins/sicau-niu/config.yaml` with a production `token.secret`. |
 | `PersistentVolumeClaim/linapro-data` stays `Pending` | The default `StorageClass` does not support `ReadWriteMany` or no default storage class exists. | Set `PersistentVolumeClaim/linapro-data.spec.storageClassName` to an RWX-capable storage class. |
 | `kubectl` reports `Forbidden` for namespace resources | The active kubeconfig user does not have enough rights. | Use a kubeconfig with cluster-admin permissions, for example `/etc/kubernetes/admin.conf` on many self-managed nodes. |
 | Port `8082` is required | Kubernetes `NodePort` normally uses the `30000-32767` range, so the manifest keeps the service as `ClusterIP`. | Use `kubectl port-forward`, `Ingress`, or `LoadBalancer` to expose `8082`. |

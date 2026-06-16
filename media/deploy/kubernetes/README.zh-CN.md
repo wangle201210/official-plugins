@@ -45,7 +45,6 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | `jwt.expire` | `24h` | JWT Token 有效期。 |
 | `i18n.default` | `zh-CN` | 宿主运行时必需的默认语言配置，不要删除该配置块。 |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | `media`源码插件运行配置。 |
-| `linapro-source-plugin-configs/sicau-niu-config.yaml` | `token.secret: linapro-sicau-niu-token-change-me` | 镜像内置`sicau-niu`源码插件所需的最小运行配置。生产使用前必须替换 token 密钥。 |
 | `resources.requests.storage` | `20Gi` | PostgreSQL 和 LinaPro 数据卷容量。 |
 | `plugin.autoEnable[0].withMockData` | `false` | 启动自动安装`media`插件时是否加载演示数据。生产环境保持`false`。 |
 | `spec.replicas` | `3` | LinaPro 应用副本数。 |
@@ -67,7 +66,6 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | `jwt.expire` | `24h` | JWT Token 有效期。 |
 | `i18n.default` | `zh-CN` | 宿主运行时必需的默认语言配置，不要删除该配置块。 |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | `media`源码插件运行配置。 |
-| `linapro-source-plugin-configs/sicau-niu-config.yaml` | `token.secret: linapro-sicau-niu-token-change-me` | 镜像内置`sicau-niu`源码插件所需的最小运行配置。生产使用前必须替换 token 密钥。 |
 | `spec.replicas` | `3` | LinaPro 应用副本数。 |
 | `PersistentVolumeClaim/linapro-data.spec.storageClassName` | 未设置 | 可选。集群默认`StorageClass`不支持`ReadWriteMany`时需要设置。 |
 
@@ -81,15 +79,13 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | ---- | -------- | ---- |
 | `Secret/linapro-config` | `/app/config.yaml` | LinaPro 宿主运行配置。 |
 | `Secret/linapro-source-plugin-configs` | `/app/config/plugins/media/config.yaml` | `media`源码插件运行配置。 |
-| `Secret/linapro-source-plugin-configs` | `/app/config/plugins/sicau-niu/config.yaml` | 镜像内置`sicau-niu`源码插件的最小运行配置。 |
 
 修改清单时请保留以下约束：
 
 - 不要为`nightly-20260616`添加`server.serverRoot: "resource/public"`。该镜像内没有`/app/resource/public`，配置该路径会导致 LinaPro 启动失败。
 - 保留`config.yaml`中的`i18n`配置块。该镜像运行时要求`i18n.default`非空。
 - 保留插件配置挂载路径`/app/config`。该镜像的源码插件配置加载器会从`/app/config/plugins/<plugin-id>/config.yaml`读取生产运行配置。
-- 生产使用前必须把`linapro-sicau-niu-token-change-me`替换为强随机值。`sicau-niu`源码插件已编译进 nightly 镜像，即使`plugin.autoEnable`里只配置`media`，宿主启动注册路由时也会校验`sicau-niu`的`token.secret`。
-- 除非已配置真实微信小程序凭证，否则保持`sicau-niu`配置中的`wechat.mock: true`。
+- 使用包含缺失`token.secret`降级为 warning 修复的新镜像时，不需要配置`sicau-niu`运行配置。镜像内置的`sicau-niu`源码插件在缺少`token.secret`时只会记录 warning，不会阻塞`media`启动。
 
 ## 多副本运行配置
 
@@ -159,13 +155,13 @@ kubectl -n linapro logs job/linapro-db-init
 
 ## 问题记录与排障
 
-以下问题是在验证`nightly-20260616`镜像时实际遇到的，当前清单已经包含对应修正：
+以下问题是在验证早期`nightly-20260616`部署时实际遇到的，当前清单和新镜像修复已经覆盖：
 
 | 现象 | 原因 | 处理方式 |
 | ---- | ---- | -------- |
 | `SetServerRoot failed: cannot find "resource/public"` | `server.serverRoot`指向了镜像中不存在的目录。 | 保持`server.serverRoot`未配置。 |
 | `runtime config i18n.default cannot be empty` | 宿主缺少`i18n`运行配置。 | 保留清单内置的`i18n.default`和`i18n.locales`配置。 |
-| `Player token secret is not configured` | 镜像内置的`sicau-niu`源码插件会在宿主启动时注册路由，并要求`token.secret`非空。 | 保留`Secret/linapro-source-plugin-configs`，并把其中`sicau-niu`的 token 密钥替换为生产值。 |
+| `Player token secret is not configured` | 旧镜像会把缺少`sicau-niu`的`token.secret`当作启动错误。 | 使用包含只记录 warning 修复的新镜像。如果必须使用旧镜像，临时挂载带生产`token.secret`的`/app/config/plugins/sicau-niu/config.yaml`。 |
 | `PersistentVolumeClaim/linapro-data`一直处于`Pending` | 默认`StorageClass`不支持`ReadWriteMany`，或集群没有默认存储类。 | 设置`PersistentVolumeClaim/linapro-data.spec.storageClassName`为支持 RWX 的存储类。 |
 | `kubectl`访问命名空间资源时报`Forbidden` | 当前`kubeconfig`用户权限不足。 | 使用具备集群管理员权限的`kubeconfig`，很多自建节点可使用`/etc/kubernetes/admin.conf`。 |
 | 需要使用端口`8082` | Kubernetes `NodePort`通常使用`30000-32767`端口范围，因此清单默认保持`ClusterIP`。 | 使用`kubectl port-forward`、`Ingress`或`LoadBalancer`暴露`8082`。 |
