@@ -1,6 +1,6 @@
 # LinaPro Kubernetes Deployment
 
-This directory provides a single-file Kubernetes deployment manifest for the `nightly-20260616` LinaPro image with the `media` plugin included.
+This directory provides single-file Kubernetes deployment manifests for the `nightly-20260616` LinaPro image with the `media` plugin included. The LinaPro `Deployment` runs `3` replicas by default.
 
 ## Files
 
@@ -13,6 +13,7 @@ This directory provides a single-file Kubernetes deployment manifest for the `ni
 ## Prerequisites
 
 - A Kubernetes cluster with a default `StorageClass`.
+- A `StorageClass` that supports `ReadWriteMany` for the shared LinaPro data volume used by `3` replicas.
 - `kubectl` configured for the target cluster.
 - The node can pull `ghcr.io/wangle201210/linapro:nightly-20260616`.
 - Port `30080` is available when using the bundled `NodePort` service.
@@ -38,6 +39,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `spec.ports[0].nodePort` | `30080` | External access port for `NodePort`. |
 | `resources.requests.storage` | `20Gi` | Storage size for PostgreSQL and LinaPro data. |
 | `plugin.autoEnable[0].withMockData` | `false` | Whether to load `media` mock demo data during startup auto-install. Keep `false` for production. |
+| `spec.replicas` | `3` | LinaPro application replica count. |
 
 ## Configure External PostgreSQL
 
@@ -50,11 +52,24 @@ When using `linapro-k8s-external-pgsql.yaml`, first update the external database
 | `PGSQL_USER` | `postgres` | PostgreSQL user used by LinaPro. |
 | `PGSQL_PASSWORD` | `linapro-change-me` | PostgreSQL password. |
 | `PGSQL_DATABASE` | `linapro` | Database name used by LinaPro. |
-| `PGSQL_SSLMODE` | `disable` | SSL mode expected by the PostgreSQL endpoint. |
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(pgsql.example.internal:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with the external PostgreSQL values. |
 | `auth.jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
+| `spec.replicas` | `3` | LinaPro application replica count. |
 
-The `init-database` init container runs `./lina init --confirm=init`, so the configured PostgreSQL account must be able to create or update tables, indexes, comments, and seed data in the target database.
+The `linapro-db-init` `Job` runs `./lina init --confirm=init`. The configured PostgreSQL account must be able to connect to the PostgreSQL maintenance database `postgres`, check whether the target database exists, create the target database when it is missing, and create or update tables, indexes, comments, and seed data in the target database.
+
+## Multi-Replica Runtime
+
+Both manifests are configured for `3` LinaPro replicas:
+
+| Resource | Setting | Purpose |
+| -------- | ------- | ------- |
+| `Deployment/linapro` | `replicas: 3` | Runs three LinaPro application pods. |
+| `cluster.enabled` | `true` | Enables multi-node runtime coordination. |
+| `Deployment/linapro-redis` | `replicas: 1` | Provides Redis coordination for election, distributed locks, and cross-instance runtime consistency. |
+| `PersistentVolumeClaim/linapro-data` | `ReadWriteMany` | Shares upload and plugin runtime data across the three LinaPro pods. |
+
+If the target cluster does not provide a `ReadWriteMany` storage class, replace the PVC storage class with one that supports shared mounts before applying the manifest.
 
 ## Deploy
 
@@ -70,12 +85,13 @@ For an existing PostgreSQL deployment, use:
 kubectl apply -f linapro-k8s-external-pgsql.yaml
 ```
 
-The `linapro` pod runs two init containers before starting the server:
+The manifest creates one database initialization `Job`:
 
-| Init container | Purpose |
-| -------------- | ------- |
-| `wait-for-postgres` or `wait-for-pgsql` | Waits until PostgreSQL accepts connections. |
-| `init-database` | Runs `./lina init --confirm=init` with the mounted `/app/config.yaml`. This creates or upgrades the host schema and required seed data. |
+| Resource | Purpose |
+| -------- | ------- |
+| `Job/linapro-db-init` | Runs `./lina init --confirm=init` once with the mounted `/app/config.yaml`. This creates or upgrades the host schema and required seed data. |
+
+The `linapro` pods then wait for PostgreSQL, Redis, and the initialized host schema before starting the server.
 
 After the server starts, `plugin.autoEnable` automatically installs and enables the `media` source plugin. The plugin install phase executes the `media` install SQL. Mock data is not loaded unless `withMockData` is changed to `true`.
 
@@ -83,6 +99,7 @@ Check workload status:
 
 ```bash
 kubectl -n linapro get pods
+kubectl -n linapro get job linapro-db-init
 kubectl -n linapro get svc
 ```
 
@@ -92,16 +109,17 @@ Follow LinaPro logs:
 kubectl -n linapro logs deploy/linapro -f
 ```
 
-If database initialization fails, inspect the init container logs:
+If database initialization fails, inspect the initialization `Job` logs:
 
 ```bash
-kubectl -n linapro logs deploy/linapro -c init-database
+kubectl -n linapro logs job/linapro-db-init
 ```
 
-To manually rerun the host database initialization after changing `config.yaml`, restart the LinaPro pod so the init container runs again:
+To manually rerun the host database initialization after changing `config.yaml`, delete the completed `Job` and apply the manifest again:
 
 ```bash
-kubectl -n linapro rollout restart deploy/linapro
+kubectl -n linapro delete job linapro-db-init
+kubectl apply -f <selected-manifest>.yaml
 ```
 
 ## Access

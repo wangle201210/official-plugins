@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: linapro
+  name: linapro-water
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: linapro-postgres-secret
-  namespace: linapro
+  name: linapro-water-postgres-secret
+  namespace: linapro-water
 type: Opaque
 stringData:
   POSTGRES_USER: postgres
@@ -17,8 +17,8 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: linapro-config
-  namespace: linapro
+  name: linapro-water-config
+  namespace: linapro-water
 type: Opaque
 stringData:
   config.yaml: |
@@ -35,13 +35,13 @@ stringData:
 
     database:
       default:
-        link: "pgsql:postgres:linapro-change-me@tcp(linapro-postgres:5432)/linapro?sslmode=disable"
+        link: "pgsql:postgres:linapro-change-me@tcp(linapro-water-postgres:5432)/linapro?sslmode=disable"
         debug: false
         dryRun: false
 
-    auth:
-      jwt:
-        secret: "linapro-jwt-change-me"
+    jwt:
+      secret: "linapro-jwt-change-me"
+      expire: 24h
 
     cluster:
       enabled: true
@@ -50,7 +50,7 @@ stringData:
         lease: 30s
         renewInterval: 10s
       redis:
-        address: "linapro-redis:6379"
+        address: "linapro-water-redis:6379"
         db: 0
         password: ""
         connectTimeout: 3s
@@ -62,19 +62,35 @@ stringData:
 
     plugin:
       autoEnable:
-        - id: "media"
+        - id: "water"
           withMockData: false
       dynamic:
         storagePath: "/app/data/wasm"
 
     workspace:
       basePath: "/admin"
+
+    water:
+      consumerCount: 2
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: linapro-water-plugin-config
+  namespace: linapro-water
+type: Opaque
+stringData:
+  config.yaml: |
+    mediaStrategy:
+      baseUrl: "http://media-linapro.example.com"
+      apiKey: "media"
+      timeout: 10s
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: linapro-postgres-data
-  namespace: linapro
+  name: linapro-water-postgres-data
+  namespace: linapro-water
 spec:
   accessModes:
     - ReadWriteOnce
@@ -85,18 +101,18 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: linapro-postgres
-  namespace: linapro
+  name: linapro-water-postgres
+  namespace: linapro-water
 spec:
-  serviceName: linapro-postgres
+  serviceName: linapro-water-postgres
   replicas: 1
   selector:
     matchLabels:
-      app: linapro-postgres
+      app: linapro-water-postgres
   template:
     metadata:
       labels:
-        app: linapro-postgres
+        app: linapro-water-postgres
     spec:
       containers:
         - name: postgres
@@ -109,18 +125,20 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_DB
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
@@ -137,36 +155,50 @@ spec:
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
-            claimName: linapro-postgres-data
+            claimName: linapro-water-postgres-data
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: linapro-postgres
-  namespace: linapro
+  name: linapro-water-postgres
+  namespace: linapro-water
 spec:
   type: ClusterIP
   selector:
-    app: linapro-postgres
+    app: linapro-water-postgres
   ports:
     - name: postgres
       port: 5432
       targetPort: 5432
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linapro-water-redis
+  namespace: linapro-water
+spec:
+  type: ClusterIP
+  selector:
+    app: linapro-water-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: linapro-redis
-  namespace: linapro
+  name: linapro-water-redis
+  namespace: linapro-water
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: linapro-redis
+      app: linapro-water-redis
   template:
     metadata:
       labels:
-        app: linapro-redis
+        app: linapro-water-redis
     spec:
       containers:
         - name: redis
@@ -175,53 +207,42 @@ spec:
           ports:
             - name: redis
               containerPort: 6379
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
           readinessProbe:
             exec:
               command:
-                - redis-cli
-                - ping
+                - sh
+                - -c
+                - redis-cli ping | grep -q PONG
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 12
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: linapro-redis
-  namespace: linapro
-spec:
-  type: ClusterIP
-  selector:
-    app: linapro-redis
-  ports:
-    - name: redis
-      port: 6379
-      targetPort: 6379
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: linapro-data
-  namespace: linapro
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 20Gi
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli ping | grep -q PONG
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: linapro-db-init
-  namespace: linapro
+  name: linapro-water-init-database
+  namespace: linapro-water
 spec:
   backoffLimit: 6
   template:
-    metadata:
-      labels:
-        app: linapro-db-init
     spec:
       restartPolicy: OnFailure
       initContainers:
@@ -232,7 +253,7 @@ spec:
             - sh
             - -c
             - |
-              until pg_isready -h linapro-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
+              until pg_isready -h linapro-water-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
                 echo "waiting for postgres"
                 sleep 2
               done
@@ -240,17 +261,17 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_USER
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_DB
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_PASSWORD
       containers:
         - name: init-database
@@ -266,25 +287,31 @@ spec:
               mountPath: /app/config.yaml
               subPath: config.yaml
               readOnly: true
+            - name: water-plugin-config
+              mountPath: /app/config/plugins/water
+              readOnly: true
       volumes:
         - name: config
           secret:
-            secretName: linapro-config
+            secretName: linapro-water-config
+        - name: water-plugin-config
+          secret:
+            secretName: linapro-water-plugin-config
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: linapro
-  namespace: linapro
+  name: linapro-water
+  namespace: linapro-water
 spec:
-  replicas: 3
+  replicas: 10
   selector:
     matchLabels:
-      app: linapro
+      app: linapro-water
   template:
     metadata:
       labels:
-        app: linapro
+        app: linapro-water
     spec:
       initContainers:
         - name: wait-for-postgres
@@ -294,7 +321,7 @@ spec:
             - sh
             - -c
             - |
-              until pg_isready -h linapro-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
+              until pg_isready -h linapro-water-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
                 echo "waiting for postgres"
                 sleep 2
               done
@@ -302,17 +329,17 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_USER
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_DB
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_PASSWORD
         - name: wait-for-redis
           image: redis:7-alpine
@@ -321,7 +348,7 @@ spec:
             - sh
             - -c
             - |
-              until redis-cli -h linapro-redis ping | grep -q PONG; do
+              until redis-cli -h linapro-water-redis -p 6379 ping | grep -q PONG; do
                 echo "waiting for redis"
                 sleep 2
               done
@@ -332,7 +359,7 @@ spec:
             - sh
             - -c
             - |
-              until psql -h linapro-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT to_regclass('public.sys_user') IS NOT NULL" | grep -q t; do
+              until [ "$(psql -h linapro-water-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('sys_plugin', 'sys_kv_cache');")" = "2" ]; do
                 echo "waiting for database initialization"
                 sleep 2
               done
@@ -340,17 +367,17 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_USER
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_DB
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: linapro-postgres-secret
+                  name: linapro-water-postgres-secret
                   key: POSTGRES_PASSWORD
       containers:
         - name: linapro
@@ -359,10 +386,20 @@ spec:
           ports:
             - name: http
               containerPort: 9120
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
               subPath: config.yaml
+              readOnly: true
+            - name: water-plugin-config
+              mountPath: /app/config/plugins/water
               readOnly: true
             - name: data
               mountPath: /app/data
@@ -383,22 +420,24 @@ spec:
       volumes:
         - name: config
           secret:
-            secretName: linapro-config
+            secretName: linapro-water-config
+        - name: water-plugin-config
+          secret:
+            secretName: linapro-water-plugin-config
         - name: data
-          persistentVolumeClaim:
-            claimName: linapro-data
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: linapro
-  namespace: linapro
+  name: linapro-water
+  namespace: linapro-water
 spec:
   type: NodePort
   selector:
-    app: linapro
+    app: linapro-water
   ports:
     - name: http
       port: 9120
       targetPort: 9120
-      nodePort: 30080
+      nodePort: 30081

@@ -15,7 +15,6 @@ stringData:
   PGSQL_USER: "postgres"
   PGSQL_PASSWORD: "linapro-change-me"
   PGSQL_DATABASE: "linapro"
-  PGSQL_SSLMODE: "disable"
 ---
 apiVersion: v1
 kind: Secret
@@ -47,7 +46,18 @@ stringData:
         secret: "linapro-jwt-change-me"
 
     cluster:
-      enabled: false
+      enabled: true
+      coordination: redis
+      election:
+        lease: 30s
+        renewInterval: 10s
+      redis:
+        address: "linapro-redis:6379"
+        db: 0
+        password: ""
+        connectTimeout: 3s
+        readTimeout: 2s
+        writeTimeout: 2s
 
     upload:
       path: "/app/data/upload"
@@ -69,7 +79,7 @@ metadata:
   namespace: linapro
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
       storage: 20Gi
@@ -77,10 +87,126 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: linapro
+  name: linapro-redis
   namespace: linapro
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: linapro-redis
+  template:
+    metadata:
+      labels:
+        app: linapro-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linapro-redis
+  namespace: linapro
+spec:
+  type: ClusterIP
+  selector:
+    app: linapro-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: linapro-db-init
+  namespace: linapro
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app: linapro-db-init
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-pgsql
+          image: postgres:14-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h "$PGSQL_HOST" -p "$PGSQL_PORT" -U "$PGSQL_USER" -d "$PGSQL_DATABASE"; do
+                echo "waiting for external pgsql"
+                sleep 2
+              done
+          env:
+            - name: PGSQL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_HOST
+            - name: PGSQL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_PORT
+            - name: PGSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_USER
+            - name: PGSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_DATABASE
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_PASSWORD
+      containers:
+        - name: init-database
+          image: ghcr.io/wangle201210/linapro:nightly-20260616
+          imagePullPolicy: IfNotPresent
+          command:
+            - ./lina
+          args:
+            - init
+            - --confirm=init
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: linapro-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linapro
+  namespace: linapro
+spec:
+  replicas: 3
   selector:
     matchLabels:
       app: linapro
@@ -127,21 +253,54 @@ spec:
                 secretKeyRef:
                   name: linapro-external-pgsql-secret
                   key: PGSQL_PASSWORD
-        - name: init-database
-          image: ghcr.io/wangle201210/linapro:nightly-20260616
+        - name: wait-for-redis
+          image: redis:7-alpine
           imagePullPolicy: IfNotPresent
           command:
-            - ./lina
-          args:
-            - init
-            - --confirm=init
-          volumeMounts:
-            - name: config
-              mountPath: /app/config.yaml
-              subPath: config.yaml
-              readOnly: true
-            - name: data
-              mountPath: /app/data
+            - sh
+            - -c
+            - |
+              until redis-cli -h linapro-redis ping | grep -q PONG; do
+                echo "waiting for redis"
+                sleep 2
+              done
+        - name: wait-for-database-init
+          image: postgres:14-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until psql -h "$PGSQL_HOST" -p "$PGSQL_PORT" -U "$PGSQL_USER" -d "$PGSQL_DATABASE" -Atqc "SELECT to_regclass('public.sys_user') IS NOT NULL" | grep -q t; do
+                echo "waiting for database initialization"
+                sleep 2
+              done
+          env:
+            - name: PGSQL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_HOST
+            - name: PGSQL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_PORT
+            - name: PGSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_USER
+            - name: PGSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_DATABASE
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-external-pgsql-secret
+                  key: PGSQL_PASSWORD
       containers:
         - name: linapro
           image: ghcr.io/wangle201210/linapro:nightly-20260616

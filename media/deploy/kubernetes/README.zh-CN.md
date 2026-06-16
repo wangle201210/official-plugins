@@ -1,6 +1,6 @@
 # LinaPro Kubernetes 部署说明
 
-本目录提供一份单文件 Kubernetes 部署清单，用于部署已包含`media`插件的`nightly-20260616`版 LinaPro 镜像。
+本目录提供单文件 Kubernetes 部署清单，用于部署已包含`media`插件的`nightly-20260616`版 LinaPro 镜像。LinaPro `Deployment`默认运行`3`个副本。
 
 ## 文件说明
 
@@ -13,6 +13,7 @@
 ## 前置条件
 
 - Kubernetes 集群已配置默认`StorageClass`。
+- 集群存在支持`ReadWriteMany`的`StorageClass`，用于`3`个副本共享 LinaPro 数据卷。
 - `kubectl`已经连接到目标集群。
 - 节点可以拉取`ghcr.io/wangle201210/linapro:nightly-20260616`。
 - 使用内置`NodePort`服务时，端口`30080`未被占用。
@@ -38,6 +39,7 @@
 | `spec.ports[0].nodePort` | `30080` | `NodePort`对外访问端口。 |
 | `resources.requests.storage` | `20Gi` | PostgreSQL 和 LinaPro 数据卷容量。 |
 | `plugin.autoEnable[0].withMockData` | `false` | 启动自动安装`media`插件时是否加载演示数据。生产环境保持`false`。 |
+| `spec.replicas` | `3` | LinaPro 应用副本数。 |
 
 ## 配置外部 PostgreSQL 版本
 
@@ -50,11 +52,24 @@
 | `PGSQL_USER` | `postgres` | LinaPro 使用的 PostgreSQL 账号。 |
 | `PGSQL_PASSWORD` | `linapro-change-me` | PostgreSQL 密码。 |
 | `PGSQL_DATABASE` | `linapro` | LinaPro 使用的数据库名。 |
-| `PGSQL_SSLMODE` | `disable` | PostgreSQL 连接所需的 SSL 模式。 |
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(pgsql.example.internal:5432)/linapro?sslmode=disable` | LinaPro 数据库连接串，需要与外部 PostgreSQL 配置保持一致。 |
 | `auth.jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
+| `spec.replicas` | `3` | LinaPro 应用副本数。 |
 
-`init-database` init container 会执行`./lina init --confirm=init`，因此配置的 PostgreSQL 账号必须具备在目标数据库中创建或更新表、索引、注释和 Seed 数据的权限。
+`linapro-db-init` `Job`会执行`./lina init --confirm=init`。配置的 PostgreSQL 账号必须可以连接 PostgreSQL 维护库`postgres`，检查目标数据库是否存在，在目标数据库不存在时创建数据库，并在目标数据库中创建或更新表、索引、注释和 Seed 数据。
+
+## 多副本运行配置
+
+两份清单都按`3`个 LinaPro 副本配置：
+
+| 资源 | 配置 | 用途 |
+| ---- | ---- | ---- |
+| `Deployment/linapro` | `replicas: 3` | 运行 3 个 LinaPro 应用 Pod。 |
+| `cluster.enabled` | `true` | 启用多节点运行时协调。 |
+| `Deployment/linapro-redis` | `replicas: 1` | 提供 Redis 协调能力，用于选主、分布式锁和跨实例运行时一致性。 |
+| `PersistentVolumeClaim/linapro-data` | `ReadWriteMany` | 让 3 个 LinaPro Pod 共享上传文件和插件运行时数据。 |
+
+如果目标集群没有支持`ReadWriteMany`的存储类，需要先把 PVC 的存储类替换为支持共享挂载的存储类，再应用清单。
 
 ## 部署
 
@@ -70,12 +85,13 @@ kubectl apply -f linapro-k8s.yaml
 kubectl apply -f linapro-k8s-external-pgsql.yaml
 ```
 
-`linapro` Pod 在启动服务前会先执行两个 init container：
+清单会创建一个数据库初始化`Job`：
 
-| Init container | 用途 |
-| -------------- | ---- |
-| `wait-for-postgres`或`wait-for-pgsql` | 等待 PostgreSQL 可以连接。 |
-| `init-database` | 使用挂载的`/app/config.yaml`执行`./lina init --confirm=init`，创建或升级宿主表结构和必需 Seed 数据。 |
+| 资源 | 用途 |
+| ---- | ---- |
+| `Job/linapro-db-init` | 使用挂载的`/app/config.yaml`执行一次`./lina init --confirm=init`，创建或升级宿主表结构和必需 Seed 数据。 |
+
+随后`linapro` Pod 会等待 PostgreSQL、Redis 和已初始化的宿主表结构就绪，再启动服务。
 
 服务启动后，`plugin.autoEnable`会自动安装并启用`media`源码插件。插件安装阶段会执行`media`插件自己的安装 SQL。除非把`withMockData`改成`true`，否则不会加载演示数据。
 
@@ -83,6 +99,7 @@ kubectl apply -f linapro-k8s-external-pgsql.yaml
 
 ```bash
 kubectl -n linapro get pods
+kubectl -n linapro get job linapro-db-init
 kubectl -n linapro get svc
 ```
 
@@ -92,16 +109,17 @@ kubectl -n linapro get svc
 kubectl -n linapro logs deploy/linapro -f
 ```
 
-如果数据库初始化失败，可以查看 init container 日志：
+如果数据库初始化失败，可以查看初始化`Job`日志：
 
 ```bash
-kubectl -n linapro logs deploy/linapro -c init-database
+kubectl -n linapro logs job/linapro-db-init
 ```
 
-修改`config.yaml`后如需手工重跑宿主数据库初始化，重启 LinaPro Pod 即可重新执行 init container：
+修改`config.yaml`后如需手工重跑宿主数据库初始化，删除已完成的`Job`后重新应用清单：
 
 ```bash
-kubectl -n linapro rollout restart deploy/linapro
+kubectl -n linapro delete job linapro-db-init
+kubectl apply -f <selected-manifest>.yaml
 ```
 
 ## 访问
