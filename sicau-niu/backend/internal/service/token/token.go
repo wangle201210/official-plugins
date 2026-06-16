@@ -18,11 +18,13 @@ import (
 type Service interface {
 	// Sign issues a signed player session token for playerID. The token embeds
 	// the player ID and an expiry computed from the configured TTL. It returns a
-	// bizerr when playerID is non-positive or signing fails.
+	// bizerr when playerID is non-positive, signing fails, or token.secret is not
+	// configured.
 	Sign(ctx context.Context, playerID int64) (token string, err error)
 	// Verify validates token signature and expiry and returns the embedded
 	// player ID. It returns CodeTokenInvalid for malformed or tampered tokens and
-	// CodeTokenExpired for expired tokens; on any error playerID is 0.
+	// CodeTokenExpired for expired tokens; when token.secret is not configured it
+	// returns CodeTokenSecretMissing. On any error playerID is 0.
 	Verify(ctx context.Context, token string) (playerID int64, err error)
 }
 
@@ -47,8 +49,9 @@ type serviceImpl struct {
 }
 
 // New creates a player token service from pure-value configuration. It returns
-// a bizerr when the secret is empty or the TTL is non-positive so the failure
-// surfaces at startup route assembly rather than at request time.
+// a bizerr when the secret is empty or the TTL is non-positive. Callers that
+// need to defer a missing-secret failure to request time should use
+// NewUnconfigured.
 func New(cfg Config) (Service, error) {
 	if cfg.Secret == "" {
 		return nil, bizerr.NewCode(CodeTokenSecretMissing)
@@ -61,4 +64,11 @@ func New(cfg Config) (Service, error) {
 		ttl:    cfg.TTL,
 		now:    time.Now,
 	}, nil
+}
+
+// NewUnconfigured returns a token service used when token.secret is intentionally
+// absent. It lets the source plugin register routes while preserving the same
+// business error for player-token operations.
+func NewUnconfigured() Service {
+	return &unconfiguredService{}
 }

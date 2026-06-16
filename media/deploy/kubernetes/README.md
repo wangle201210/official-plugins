@@ -16,7 +16,16 @@ This directory provides single-file Kubernetes deployment manifests for the `nig
 - A `StorageClass` that supports `ReadWriteMany` for the shared LinaPro data volume used by `3` replicas.
 - `kubectl` configured for the target cluster.
 - The node can pull `ghcr.io/wangle201210/linapro:nightly-20260616`.
-- Port `30080` is available when using the bundled `NodePort` service.
+- Port `8082` is available on the node if using the documented `port-forward` access method.
+
+If `kubectl` is already configured but reports cluster internal errors or `Forbidden`
+responses for `Secret`, `PersistentVolumeClaim`, `Deployment`, or `StatefulSet`,
+switch to a kubeconfig with cluster-admin rights before applying the manifest. On
+self-managed control-plane nodes this is often:
+
+```bash
+export KUBECONFIG=/etc/kubernetes/admin.conf
+```
 
 ## Choose a Manifest
 
@@ -37,7 +46,9 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-postgres:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with `POSTGRES_PASSWORD`. |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
 | `jwt.expire` | `24h` | JWT token validity duration. |
-| `spec.ports[0].nodePort` | `30080` | External access port for `NodePort`. |
+| `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
+| `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | Runtime config for the `media` source plugin. |
+| `linapro-source-plugin-configs/sicau-niu-config.yaml` | `token.secret: linapro-sicau-niu-token-change-me` | Minimal runtime config required by the bundled `sicau-niu` source plugin. Replace the token secret before production use. |
 | `resources.requests.storage` | `20Gi` | Storage size for PostgreSQL and LinaPro data. |
 | `plugin.autoEnable[0].withMockData` | `false` | Whether to load `media` mock demo data during startup auto-install. Keep `false` for production. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
@@ -57,10 +68,32 @@ When using `linapro-k8s-external-pgsql.yaml`, first update the external database
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(pgsql.example.internal:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with the external PostgreSQL values. |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
 | `jwt.expire` | `24h` | JWT token validity duration. |
+| `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
+| `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | Runtime config for the `media` source plugin. |
+| `linapro-source-plugin-configs/sicau-niu-config.yaml` | `token.secret: linapro-sicau-niu-token-change-me` | Minimal runtime config required by the bundled `sicau-niu` source plugin. Replace the token secret before production use. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
 | `PersistentVolumeClaim/linapro-data.spec.storageClassName` | unset | Optional. Set this when the cluster default `StorageClass` does not support `ReadWriteMany`. |
 
 The `linapro-db-init` `Job` runs `./lina init --confirm=init`. The configured PostgreSQL account must be able to connect to the PostgreSQL maintenance database `postgres`, check whether the target database exists, create the target database when it is missing, and create or update tables, indexes, comments, and seed data in the target database.
+
+## Runtime Configuration Notes
+
+The manifests intentionally keep the host `/app/config.yaml` and the source
+plugin runtime configs as separate `Secret` resources:
+
+| Resource | Mounted path | Purpose |
+| -------- | ------------ | ------- |
+| `Secret/linapro-config` | `/app/config.yaml` | Host LinaPro runtime config. |
+| `Secret/linapro-source-plugin-configs` | `/app/config/plugins/media/config.yaml` | `media` source plugin runtime config. |
+| `Secret/linapro-source-plugin-configs` | `/app/config/plugins/sicau-niu/config.yaml` | Minimal config for the bundled `sicau-niu` source plugin. |
+
+Keep these constraints when editing the manifests:
+
+- Do not add `server.serverRoot: "resource/public"` for `nightly-20260616`. The image does not contain `/app/resource/public`, and LinaPro fails during startup if that path is configured.
+- Keep the `i18n` block in `config.yaml`. This image requires `i18n.default` at runtime.
+- Keep the plugin config mount at `/app/config`. The source plugin config loader resolves production plugin config files from `/app/config/plugins/<plugin-id>/config.yaml` in this image.
+- Replace `linapro-sicau-niu-token-change-me` with a strong random value before production use. The `sicau-niu` source plugin is compiled into the nightly image, and its route registration requires `token.secret` even when only `media` is listed in `plugin.autoEnable`.
+- Keep `wechat.mock: true` for `sicau-niu` unless real WeChat mini-program credentials are configured.
 
 ## Multi-Replica Runtime
 
@@ -128,6 +161,20 @@ If database initialization fails, inspect the initialization `Job` logs:
 kubectl -n linapro logs job/linapro-db-init
 ```
 
+## Troubleshooting
+
+These issues were found during validation of the `nightly-20260616` image and
+are already reflected in the manifests:
+
+| Symptom | Cause | Fix |
+| ------- | ----- | --- |
+| `SetServerRoot failed: cannot find "resource/public"` | `server.serverRoot` pointed to a directory not present in the image. | Leave `server.serverRoot` unset. |
+| `runtime config i18n.default cannot be empty` | Host `i18n` runtime config was missing. | Keep the included `i18n.default` and `i18n.locales` block. |
+| `Player token secret is not configured` | The bundled `sicau-niu` source plugin registers routes during host startup and requires `token.secret`. | Keep `Secret/linapro-source-plugin-configs` and replace its `sicau-niu` token secret with a production value. |
+| `PersistentVolumeClaim/linapro-data` stays `Pending` | The default `StorageClass` does not support `ReadWriteMany` or no default storage class exists. | Set `PersistentVolumeClaim/linapro-data.spec.storageClassName` to an RWX-capable storage class. |
+| `kubectl` reports `Forbidden` for namespace resources | The active kubeconfig user does not have enough rights. | Use a kubeconfig with cluster-admin permissions, for example `/etc/kubernetes/admin.conf` on many self-managed nodes. |
+| Port `8082` is required | Kubernetes `NodePort` normally uses the `30000-32767` range, so the manifest keeps the service as `ClusterIP`. | Use `kubectl port-forward`, `Ingress`, or `LoadBalancer` to expose `8082`. |
+
 To manually rerun the host database initialization after changing `config.yaml`, delete the completed `Job` and apply the manifest again:
 
 ```bash
@@ -137,13 +184,19 @@ kubectl apply -f <selected-manifest>.yaml
 
 ## Access
 
-When the `linapro` pod is ready, access LinaPro through any Kubernetes node:
+When the `linapro` pod is ready, forward the service to node port `8082`:
 
-```text
-http://<node-ip>:30080/admin
+```bash
+kubectl -n linapro port-forward --address 0.0.0.0 svc/linapro 8082:9120
 ```
 
-If the cluster does not expose node ports directly, forward the service locally:
+Then open:
+
+```text
+http://<node-ip>:8082/admin
+```
+
+For a local-only check from the machine running `kubectl`, use:
 
 ```bash
 kubectl -n linapro port-forward svc/linapro 9120:9120
@@ -153,6 +206,22 @@ Then open:
 
 ```text
 http://127.0.0.1:9120/admin
+```
+
+For production traffic, prefer `Ingress` or `LoadBalancer` instead of a manual
+`port-forward` process.
+
+To use `NodePort` instead, change `Service/linapro.spec.type` to `NodePort` and
+set a port in the cluster's node-port range, for example:
+
+```yaml
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 9120
+      targetPort: 9120
+      nodePort: 30080
 ```
 
 ## Update Image

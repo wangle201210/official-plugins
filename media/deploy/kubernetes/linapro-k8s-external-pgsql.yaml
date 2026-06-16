@@ -26,7 +26,6 @@ stringData:
   config.yaml: |
     server:
       address: ":9120"
-      serverRoot: "resource/public"
       dumpRouterMap: false
       routeOverWrite: true
 
@@ -44,6 +43,15 @@ stringData:
     jwt:
       secret: "linapro-jwt-change-me"
       expire: 24h
+
+    i18n:
+      default: zh-CN
+      enabled: true
+      locales:
+        - locale: en-US
+          nativeName: English
+        - locale: zh-CN
+          nativeName: 简体中文
 
     cluster:
       enabled: true
@@ -71,6 +79,40 @@ stringData:
 
     workspace:
       basePath: "/admin"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: linapro-source-plugin-configs
+  namespace: linapro
+type: Opaque
+stringData:
+  media-config.yaml: |
+    collectionServer:
+      enabled: false
+      addr: ":1911"
+      discovery:
+        enabled: false
+        host: "127.0.0.1"
+        port: 8848
+        namespace: "public"
+        logDir: "./logs"
+        cacheDir: "./cache"
+        preloadCache: true
+        timeout: 5000
+        groupName: "DEFAULT_GROUP"
+        username: "nacos"
+        password: "nacos"
+        node: 1
+  sicau-niu-config.yaml: |
+    wechat:
+      appId: ""
+      secret: ""
+      mock: true
+      mockOpenid: ""
+    token:
+      secret: "linapro-sicau-niu-token-change-me"
+      ttl: 168h
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -317,6 +359,9 @@ spec:
               mountPath: /app/config.yaml
               subPath: config.yaml
               readOnly: true
+            - name: plugin-configs
+              mountPath: /app/config
+              readOnly: true
             - name: data
               mountPath: /app/data
           readinessProbe:
@@ -337,6 +382,14 @@ spec:
         - name: config
           secret:
             secretName: linapro-config
+        - name: plugin-configs
+          secret:
+            secretName: linapro-source-plugin-configs
+            items:
+              - key: media-config.yaml
+                path: plugins/media/config.yaml
+              - key: sicau-niu-config.yaml
+                path: plugins/sicau-niu/config.yaml
         - name: data
           persistentVolumeClaim:
             claimName: linapro-data
@@ -347,11 +400,10 @@ metadata:
   name: linapro
   namespace: linapro
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: linapro
   ports:
     - name: http
       port: 9120
       targetPort: 9120
-      nodePort: 30080

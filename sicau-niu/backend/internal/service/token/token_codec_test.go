@@ -254,3 +254,35 @@ func TestNewRejectsInvalidConfig(t *testing.T) {
 		})
 	}
 }
+
+// TestNewUnconfiguredDefersMissingSecret verifies the fallback service preserves
+// the configured business error for all token operations.
+func TestNewUnconfiguredDefersMissingSecret(t *testing.T) {
+	ctx := context.Background()
+	svc := NewUnconfigured()
+
+	token, err := svc.Sign(ctx, 1)
+	if token != "" {
+		t.Fatalf("expected empty token, got %q", token)
+	}
+	assertTokenSecretMissing(t, err)
+	playerID, err := svc.Verify(ctx, "token")
+	if playerID != 0 {
+		t.Fatalf("expected player ID 0, got %d", playerID)
+	}
+	assertTokenSecretMissing(t, err)
+}
+
+func assertTokenSecretMissing(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected token secret missing error")
+	}
+	bizErr, ok := bizerr.As(err)
+	if !ok {
+		t.Fatalf("expected structured business error, got %T", err)
+	}
+	if bizErr.RuntimeCode() != CodeTokenSecretMissing.RuntimeCode() {
+		t.Fatalf("expected %s, got %s", CodeTokenSecretMissing.RuntimeCode(), bizErr.RuntimeCode())
+	}
+}

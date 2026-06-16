@@ -13,9 +13,11 @@ import (
 	"testing"
 	"time"
 
+	"lina-core/pkg/bizerr"
 	"lina-core/pkg/plugin/capability/plugincap"
 	playerv1 "lina-plugin-sicau-niu/backend/api/player/v1"
 	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
+	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 )
 
 type fakeIronLocationRefresher struct {
@@ -25,6 +27,63 @@ type fakeIronLocationRefresher struct {
 func (f *fakeIronLocationRefresher) Refresh(ctx context.Context) (*feedingsvc.IronLocationRefreshResult, error) {
 	f.called = true
 	return &feedingsvc.IronLocationRefreshResult{}, nil
+}
+
+func TestBuildAuthDependenciesAllowsMissingTokenSecret(t *testing.T) {
+	configSvc := newPluginTestConfigService(t, `
+wechat:
+  mock: true
+`)
+
+	tokenService, gateway, err := buildAuthDependencies(context.Background(), configSvc)
+	if err != nil {
+		t.Fatalf("buildAuthDependencies returned error: %v", err)
+	}
+	if tokenService == nil {
+		t.Fatal("expected fallback token service")
+	}
+	if gateway == nil {
+		t.Fatal("expected WeChat gateway")
+	}
+	token, err := tokenService.Sign(context.Background(), 1)
+	if token != "" {
+		t.Fatalf("expected empty token from unconfigured service, got %q", token)
+	}
+	assertTokenSecretMissing(t, err)
+	playerID, err := tokenService.Verify(context.Background(), "token")
+	if playerID != 0 {
+		t.Fatalf("expected player ID 0 from unconfigured service, got %d", playerID)
+	}
+	assertTokenSecretMissing(t, err)
+}
+
+func TestBuildAuthDependenciesConfiguredTokenSignsAndVerifies(t *testing.T) {
+	configSvc := newPluginTestConfigService(t, `
+token:
+  secret: "unit-test-secret"
+  ttl: 1h
+wechat:
+  mock: true
+`)
+
+	tokenService, gateway, err := buildAuthDependencies(context.Background(), configSvc)
+	if err != nil {
+		t.Fatalf("buildAuthDependencies returned error: %v", err)
+	}
+	if gateway == nil {
+		t.Fatal("expected WeChat gateway")
+	}
+	token, err := tokenService.Sign(context.Background(), 42)
+	if err != nil {
+		t.Fatalf("sign token failed: %v", err)
+	}
+	playerID, err := tokenService.Verify(context.Background(), token)
+	if err != nil {
+		t.Fatalf("verify token failed: %v", err)
+	}
+	if playerID != 42 {
+		t.Fatalf("expected player ID 42, got %d", playerID)
+	}
 }
 
 func TestBuildIronLocationRefreshDisabledWithoutCredentials(t *testing.T) {
@@ -192,4 +251,14 @@ func newPluginTestConfigService(t *testing.T, content string) plugincap.ConfigSe
 	return plugincap.NewConfigFactory(t.TempDir(), t.TempDir()).
 		WithArtifactConfig(pluginID, []byte(content)).
 		ForPlugin(pluginID)
+}
+
+func assertTokenSecretMissing(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected token secret missing error")
+	}
+	if !bizerr.Is(err, tokensvc.CodeTokenSecretMissing) {
+		t.Fatalf("expected %s, got %v", tokensvc.CodeTokenSecretMissing.RuntimeCode(), err)
+	}
 }

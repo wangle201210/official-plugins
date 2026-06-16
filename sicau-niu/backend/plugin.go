@@ -12,10 +12,12 @@ package backend
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
+	"lina-core/pkg/logger"
 	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-core/pkg/plugin/pluginhost"
 	pluginsicauniu "lina-plugin-sicau-niu"
@@ -539,8 +541,9 @@ func buildIronLocationRefresh(
 }
 
 // buildAuthDependencies constructs the player token service and WeChat gateway
-// from the plugin-scoped configuration. It returns an error when the token
-// secret is missing or the configuration cannot be read.
+// from the plugin-scoped configuration. Missing token.secret is allowed so
+// unrelated source-plugin deployments can still start; player-token operations
+// continue returning the token-secret business error until the secret is set.
 func buildAuthDependencies(
 	ctx context.Context,
 	config plugincap.ConfigService,
@@ -553,9 +556,15 @@ func buildAuthDependencies(
 	if err != nil {
 		return nil, nil, gerror.Wrap(err, "sicau-niu read token ttl failed")
 	}
-	tokenService, err := tokensvc.New(tokensvc.Config{Secret: tokenSecret, TTL: tokenTTL})
-	if err != nil {
-		return nil, nil, err
+	var tokenService tokensvc.Service
+	if strings.TrimSpace(tokenSecret) == "" {
+		logger.Warningf(ctx, "sicau-niu %s is not configured; player login and player-authenticated routes will return configuration errors until it is set", configKeyTokenSecret)
+		tokenService = tokensvc.NewUnconfigured()
+	} else {
+		tokenService, err = tokensvc.New(tokensvc.Config{Secret: tokenSecret, TTL: tokenTTL})
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	wechatAppID, err := config.String(ctx, configKeyWeChatAppID, "")
