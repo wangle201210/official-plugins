@@ -41,9 +41,9 @@ stringData:
         debug: false
         dryRun: false
 
-    auth:
-      jwt:
-        secret: "linapro-jwt-change-me"
+    jwt:
+      secret: "linapro-jwt-change-me"
+      expire: 24h
 
     cluster:
       enabled: true
@@ -78,6 +78,10 @@ metadata:
   name: linapro-data
   namespace: linapro
 spec:
+  # This PVC is mounted by three LinaPro pods and must use a StorageClass
+  # that supports ReadWriteMany. If the default StorageClass does not support
+  # RWX, set storageClassName to an RWX-capable class such as NFS, CephFS, or EFS.
+  # storageClassName: nfs-rwx
   accessModes:
     - ReadWriteMany
   resources:
@@ -271,7 +275,7 @@ spec:
             - sh
             - -c
             - |
-              until psql -h "$PGSQL_HOST" -p "$PGSQL_PORT" -U "$PGSQL_USER" -d "$PGSQL_DATABASE" -Atqc "SELECT to_regclass('public.sys_user') IS NOT NULL" | grep -q t; do
+              until psql -h "$PGSQL_HOST" -p "$PGSQL_PORT" -U "$PGSQL_USER" -d "$PGSQL_DATABASE" -Atqc "SELECT bool_and(to_regclass(table_name) IS NOT NULL) FROM (VALUES ('public.sys_plugin'), ('public.sys_kv_cache'), ('public.sys_cache_revision')) AS required(table_name)" | grep -q t; do
                 echo "waiting for database initialization"
                 sleep 2
               done

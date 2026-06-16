@@ -35,11 +35,13 @@
 | ---- | ------ | ---- |
 | `POSTGRES_PASSWORD` | `linapro-change-me` | PostgreSQL 密码。 |
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-postgres:5432)/linapro?sslmode=disable` | LinaPro 数据库连接串，需要与`POSTGRES_PASSWORD`保持一致。 |
-| `auth.jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
+| `jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
+| `jwt.expire` | `24h` | JWT Token 有效期。 |
 | `spec.ports[0].nodePort` | `30080` | `NodePort`对外访问端口。 |
 | `resources.requests.storage` | `20Gi` | PostgreSQL 和 LinaPro 数据卷容量。 |
 | `plugin.autoEnable[0].withMockData` | `false` | 启动自动安装`media`插件时是否加载演示数据。生产环境保持`false`。 |
 | `spec.replicas` | `3` | LinaPro 应用副本数。 |
+| `PersistentVolumeClaim/linapro-data.spec.storageClassName` | 未设置 | 可选。集群默认`StorageClass`不支持`ReadWriteMany`时需要设置。 |
 
 ## 配置外部 PostgreSQL 版本
 
@@ -53,8 +55,10 @@
 | `PGSQL_PASSWORD` | `linapro-change-me` | PostgreSQL 密码。 |
 | `PGSQL_DATABASE` | `linapro` | LinaPro 使用的数据库名。 |
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(pgsql.example.internal:5432)/linapro?sslmode=disable` | LinaPro 数据库连接串，需要与外部 PostgreSQL 配置保持一致。 |
-| `auth.jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
+| `jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
+| `jwt.expire` | `24h` | JWT Token 有效期。 |
 | `spec.replicas` | `3` | LinaPro 应用副本数。 |
+| `PersistentVolumeClaim/linapro-data.spec.storageClassName` | 未设置 | 可选。集群默认`StorageClass`不支持`ReadWriteMany`时需要设置。 |
 
 `linapro-db-init` `Job`会执行`./lina init --confirm=init`。配置的 PostgreSQL 账号必须可以连接 PostgreSQL 维护库`postgres`，检查目标数据库是否存在，在目标数据库不存在时创建数据库，并在目标数据库中创建或更新表、索引、注释和 Seed 数据。
 
@@ -69,7 +73,16 @@
 | `Deployment/linapro-redis` | `replicas: 1` | 提供 Redis 协调能力，用于选主、分布式锁和跨实例运行时一致性。 |
 | `PersistentVolumeClaim/linapro-data` | `ReadWriteMany` | 让 3 个 LinaPro Pod 共享上传文件和插件运行时数据。 |
 
-如果目标集群没有支持`ReadWriteMany`的存储类，需要先把 PVC 的存储类替换为支持共享挂载的存储类，再应用清单。
+如果目标集群没有默认支持`ReadWriteMany`的存储类，需要先把`PersistentVolumeClaim/linapro-data.spec.storageClassName`设置为支持共享挂载的存储类，再应用清单：
+
+```yaml
+spec:
+  storageClassName: nfs-rwx
+  accessModes:
+    - ReadWriteMany
+```
+
+请使用目标集群里真实存在且支持`ReadWriteMany`的存储类，例如 NFS、CephFS 或 EFS。否则`PersistentVolumeClaim/linapro-data`可能会一直处于`Pending`状态。
 
 ## 部署
 
@@ -91,7 +104,7 @@ kubectl apply -f linapro-k8s-external-pgsql.yaml
 | ---- | ---- |
 | `Job/linapro-db-init` | 使用挂载的`/app/config.yaml`执行一次`./lina init --confirm=init`，创建或升级宿主表结构和必需 Seed 数据。 |
 
-随后`linapro` Pod 会等待 PostgreSQL、Redis 和已初始化的宿主表结构就绪，再启动服务。
+随后`linapro` Pod 会等待 PostgreSQL、Redis 和已初始化的宿主表结构就绪，再启动服务。启动等待会检查插件和缓存必需表，包括`sys_plugin`、`sys_kv_cache`和`sys_cache_revision`，避免数据库初始化`Job`尚未完成宿主运行时表结构时应用提前启动。
 
 服务启动后，`plugin.autoEnable`会自动安装并启用`media`源码插件。插件安装阶段会执行`media`插件自己的安装 SQL。除非把`withMockData`改成`true`，否则不会加载演示数据。
 

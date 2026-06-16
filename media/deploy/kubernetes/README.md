@@ -35,11 +35,13 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | ----- | ------- | ----------- |
 | `POSTGRES_PASSWORD` | `linapro-change-me` | PostgreSQL password. |
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-postgres:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with `POSTGRES_PASSWORD`. |
-| `auth.jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
+| `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
+| `jwt.expire` | `24h` | JWT token validity duration. |
 | `spec.ports[0].nodePort` | `30080` | External access port for `NodePort`. |
 | `resources.requests.storage` | `20Gi` | Storage size for PostgreSQL and LinaPro data. |
 | `plugin.autoEnable[0].withMockData` | `false` | Whether to load `media` mock demo data during startup auto-install. Keep `false` for production. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
+| `PersistentVolumeClaim/linapro-data.spec.storageClassName` | unset | Optional. Set this when the cluster default `StorageClass` does not support `ReadWriteMany`. |
 
 ## Configure External PostgreSQL
 
@@ -53,8 +55,10 @@ When using `linapro-k8s-external-pgsql.yaml`, first update the external database
 | `PGSQL_PASSWORD` | `linapro-change-me` | PostgreSQL password. |
 | `PGSQL_DATABASE` | `linapro` | Database name used by LinaPro. |
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(pgsql.example.internal:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with the external PostgreSQL values. |
-| `auth.jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
+| `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
+| `jwt.expire` | `24h` | JWT token validity duration. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
+| `PersistentVolumeClaim/linapro-data.spec.storageClassName` | unset | Optional. Set this when the cluster default `StorageClass` does not support `ReadWriteMany`. |
 
 The `linapro-db-init` `Job` runs `./lina init --confirm=init`. The configured PostgreSQL account must be able to connect to the PostgreSQL maintenance database `postgres`, check whether the target database exists, create the target database when it is missing, and create or update tables, indexes, comments, and seed data in the target database.
 
@@ -69,7 +73,16 @@ Both manifests are configured for `3` LinaPro replicas:
 | `Deployment/linapro-redis` | `replicas: 1` | Provides Redis coordination for election, distributed locks, and cross-instance runtime consistency. |
 | `PersistentVolumeClaim/linapro-data` | `ReadWriteMany` | Shares upload and plugin runtime data across the three LinaPro pods. |
 
-If the target cluster does not provide a `ReadWriteMany` storage class, replace the PVC storage class with one that supports shared mounts before applying the manifest.
+If the target cluster does not provide a default `ReadWriteMany` storage class, set `PersistentVolumeClaim/linapro-data.spec.storageClassName` to a shared-mount storage class before applying the manifest:
+
+```yaml
+spec:
+  storageClassName: nfs-rwx
+  accessModes:
+    - ReadWriteMany
+```
+
+Use the actual RWX-capable storage class name from your cluster, such as NFS, CephFS, or EFS. Without an RWX-capable storage class, `PersistentVolumeClaim/linapro-data` can remain `Pending`.
 
 ## Deploy
 
@@ -91,7 +104,7 @@ The manifest creates one database initialization `Job`:
 | -------- | ------- |
 | `Job/linapro-db-init` | Runs `./lina init --confirm=init` once with the mounted `/app/config.yaml`. This creates or upgrades the host schema and required seed data. |
 
-The `linapro` pods then wait for PostgreSQL, Redis, and the initialized host schema before starting the server.
+The `linapro` pods then wait for PostgreSQL, Redis, and the initialized host schema before starting the server. The startup wait checks the required plugin and cache tables, including `sys_plugin`, `sys_kv_cache`, and `sys_cache_revision`, to avoid starting before the database initialization `Job` has finished the host runtime schema.
 
 After the server starts, `plugin.autoEnable` automatically installs and enables the `media` source plugin. The plugin install phase executes the `media` install SQL. Mock data is not loaded unless `withMockData` is changed to `true`.
 

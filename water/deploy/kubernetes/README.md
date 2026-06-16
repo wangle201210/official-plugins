@@ -1,6 +1,6 @@
 # LinaPro Water Kubernetes Deployment
 
-This directory provides a single-file Kubernetes deployment manifest for the `nightly-20260616` LinaPro image with only the `water` source plugin auto-enabled.
+This directory provides a single-file Kubernetes deployment manifest for a `water`-specific LinaPro image with only the `water` source plugin auto-enabled.
 
 The manifest deploys ten `linapro-water` pods behind one Kubernetes Service to spread CPU and memory pressure from watermark processing. It does not deploy the `media` plugin. Configure `mediaStrategy.baseUrl` to point to the LinaPro cluster where `media` is installed and where the `mediaopen` internal API is reachable.
 
@@ -9,13 +9,15 @@ The manifest deploys ten `linapro-water` pods behind one Kubernetes Service to s
 | File | Purpose |
 | ---- | ------- |
 | `linapro-k8s.yaml` | All-in-one `water` deployment that creates PostgreSQL, Redis coordination, one database init Job, and ten LinaPro `water` pods inside the cluster. |
+| `../docker/Dockerfile` | Dedicated `CGO` and FFmpeg/x264 image build for the `water` renderer. |
 | `README.zh-CN.md` | Chinese usage guide with the same deployment steps. |
 
 ## Prerequisites
 
 - A Kubernetes cluster with a default `StorageClass`.
 - `kubectl` configured for the target cluster.
-- The node can pull `ghcr.io/wangle201210/linapro:nightly-20260616`.
+- The node can pull `ghcr.io/wangle201210/linapro-water:nightly-20260616`.
+- The storage class used by `linapro-water-data` supports `ReadWriteMany`.
 - A reachable `media` LinaPro cluster with the `media` plugin enabled.
 - The `media` cluster exposes `GET /api/v1/strategies/resolve` to this `water` cluster.
 - Port `30081` is available when using the bundled `NodePort` service.
@@ -41,6 +43,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `resources.requests` | `500m` CPU, `512Mi` memory | Baseline resources for each watermark pod. Ten replicas request about `5` CPU and `5Gi` memory in total. |
 | `resources.limits` | `2` CPU, `2Gi` memory | Upper resources for each watermark pod. Ten replicas can burst to `20` CPU and `20Gi` memory in total. |
 | `spec.ports[0].nodePort` | `30081` | External access port for `NodePort`. |
+| `linapro-water-data.resources.requests.storage` | `10Gi` | Shared `/app/data` storage for uploads, dynamic plugin artifacts, and local runtime files. |
 | `resources.requests.storage` | `20Gi` | Storage size for the bundled PostgreSQL data volume. |
 
 The `water` plugin reads its plugin-scoped runtime config from `/app/config/plugins/water/config.yaml`. The manifest mounts this file from the `linapro-water-plugin-config` Secret. The template `manifest/config/config.example.yaml` is documentation only and is not read as a runtime default.
@@ -49,7 +52,23 @@ For cross-cluster access, set `mediaStrategy.baseUrl` to the `media` cluster `In
 
 The bundled PostgreSQL container sets `PGDATA` to `/var/lib/postgresql/data/pgdata` so volume-root metadata from some storage classes does not interfere with first-time database initialization.
 
-The `linapro-water` Deployment mounts `/app/data` as `emptyDir` so ten pods can start without competing for one `ReadWriteOnce` volume. This is suitable for the current `water` processing path, where watermark results are returned as data URLs or sent by callback. If you later use shared uploaded files, dynamic plugin artifacts, or persistent local files, replace `emptyDir` with a storage backend that supports concurrent multi-pod access, such as a `ReadWriteMany` volume or object storage integration.
+The `linapro-water` Deployment mounts `/app/data` from the `linapro-water-data` `ReadWriteMany` claim. This keeps host upload storage, dynamic plugin artifacts, and other local runtime files shared across the ten pods. If the deployment is strictly API-only and the cluster has no `ReadWriteMany` storage class, you can replace this volume with `emptyDir`, but uploaded files, dynamic plugin artifacts, and local runtime files will then be pod-local and lost on pod restart.
+
+## Build Image
+
+The generic `ghcr.io/wangle201210/linapro:nightly-20260616` image is not valid for real `water` rendering because the default image build disables `CGO`. The `water` renderer requires the `CGO` branch and FFmpeg/x264 runtime libraries.
+
+Build and push the dedicated image before applying the Kubernetes manifest:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -f apps/lina-plugins/water/deploy/docker/Dockerfile \
+  -t ghcr.io/wangle201210/linapro-water:nightly-20260616 \
+  --push .
+```
+
+The Dockerfile reuses `linactl build` with `plugins=1` and `cgo_enabled=1`, then installs FFmpeg/x264 runtime libraries in the final image. The Deployment also runs `verify-watermark-runtime` before the server starts, so replacing the image with a non-`CGO` build fails fast instead of serving broken watermark APIs.
 
 ## Deploy
 
@@ -65,13 +84,14 @@ The manifest creates a one-shot database initialization Job:
 | --- | ------- |
 | `linapro-water-init-database` | Runs `./lina init --confirm=init` once with the mounted `/app/config.yaml`. This creates or upgrades the host schema and required seed data. |
 
-Each `linapro-water` pod runs three init containers before starting the server:
+Each `linapro-water` pod runs four init containers before starting the server:
 
 | Init container | Purpose |
 | -------------- | ------- |
 | `wait-for-postgres` | Waits until PostgreSQL accepts connections. |
 | `wait-for-redis` | Waits until Redis accepts connections for cluster coordination. |
-| `wait-for-database-init` | Waits until the init Job has created the host schema needed by server startup. |
+| `wait-for-database-init` | Waits until the init Job has created the final distributed-cache revision index from the last host SQL file. |
+| `verify-watermark-runtime` | Fails fast when the selected image was built without `CGO` or is missing FFmpeg/x264 runtime libraries. |
 
 After the server starts, `plugin.autoEnable` automatically installs and enables the `water` source plugin. The plugin install phase executes the `water` install SQL. The enabled `water` plugin then uses the mounted plugin config to call the remote `mediaopen` strategy resolver.
 
@@ -134,8 +154,10 @@ http://127.0.0.1:9120/admin
 Edit the image field in `linapro-k8s.yaml`:
 
 ```yaml
-image: ghcr.io/wangle201210/linapro:nightly-20260616
+image: ghcr.io/wangle201210/linapro-water:nightly-20260616
 ```
+
+Use a `water` image built from `apps/lina-plugins/water/deploy/docker/Dockerfile`; do not replace it with the generic `linapro` image unless that image was also built with `CGO` and FFmpeg/x264 runtime libraries.
 
 Then apply the manifest again:
 

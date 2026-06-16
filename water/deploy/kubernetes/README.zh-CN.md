@@ -1,6 +1,6 @@
 # LinaPro Water Kubernetes 部署说明
 
-本目录提供一份单文件 Kubernetes 部署清单，用于部署只自动启用`water`源码插件的`nightly-20260616`版 LinaPro 镜像。
+本目录提供一份单文件 Kubernetes 部署清单，用于部署只自动启用`water`源码插件的 LinaPro 的`water`专用镜像。
 
 该清单默认部署 10 个`linapro-water` Pod，并通过一个 Kubernetes Service 分担水印处理带来的 CPU 和内存压力。清单不部署`media`插件。需要将`mediaStrategy.baseUrl`配置为已安装`media`插件、且`mediaopen`内部接口可被当前`water`集群访问的 LinaPro 集群地址。
 
@@ -9,13 +9,15 @@
 | 文件 | 用途 |
 | ---- | ---- |
 | `linapro-k8s.yaml` | 一体化`water`部署清单，会在集群内创建 PostgreSQL、Redis 协调服务、数据库初始化 Job 和 10 个 LinaPro `water` Pod。 |
+| `../docker/Dockerfile` | `water`渲染器专用的`CGO`和 FFmpeg/x264 镜像构建文件。 |
 | `README.md` | 英文使用说明，部署步骤与本文档保持一致。 |
 
 ## 前置条件
 
 - Kubernetes 集群已配置默认`StorageClass`。
 - `kubectl`已经连接到目标集群。
-- 节点可以拉取`ghcr.io/wangle201210/linapro:nightly-20260616`。
+- 节点可以拉取`ghcr.io/wangle201210/linapro-water:nightly-20260616`。
+- `linapro-water-data`使用的存储类支持`ReadWriteMany`。
 - 存在一个可访问的`media` LinaPro 集群，且已启用`media`插件。
 - `media`集群向当前`water`集群开放`GET /api/v1/strategies/resolve`。
 - 使用内置`NodePort`服务时，端口`30081`未被占用。
@@ -41,6 +43,7 @@
 | `resources.requests` | `500m` CPU、`512Mi`内存 | 每个水印处理 Pod 的基础资源请求。10 副本合计约请求`5`CPU 和`5Gi`内存。 |
 | `resources.limits` | `2` CPU、`2Gi`内存 | 每个水印处理 Pod 的资源上限。10 副本合计最高可使用`20`CPU 和`20Gi`内存。 |
 | `spec.ports[0].nodePort` | `30081` | `NodePort`对外访问端口。 |
+| `linapro-water-data.resources.requests.storage` | `10Gi` | `/app/data`共享存储，用于上传文件、动态插件产物和本地运行时文件。 |
 | `resources.requests.storage` | `20Gi` | 内置 PostgreSQL 数据卷容量。 |
 
 `water`插件会从`/app/config/plugins/water/config.yaml`读取插件作用域运行时配置。该清单通过`linapro-water-plugin-config` Secret 挂载该文件。`manifest/config/config.example.yaml`只是配置模板，不会作为运行时默认值读取。
@@ -49,7 +52,23 @@
 
 内置 PostgreSQL 容器会将`PGDATA`设置为`/var/lib/postgresql/data/pgdata`，避免部分存储类在卷根目录生成的元数据影响首次数据库初始化。
 
-`linapro-water`Deployment 默认将`/app/data`挂载为`emptyDir`，这样 10 个 Pod 可以同时启动，不会抢占同一个`ReadWriteOnce`数据卷。当前`water`处理路径会将水印结果作为 data URL 返回或通过回调发送，适合使用该模式。后续如果需要共享上传文件、动态插件产物或持久化本地文件，需要将`emptyDir`替换为支持多 Pod 并发访问的存储，例如`ReadWriteMany`卷或对象存储集成。
+`linapro-water`Deployment 会从`linapro-water-data`这个`ReadWriteMany`声明挂载`/app/data`。这样宿主上传目录、动态插件产物和其他本地运行时文件可以在 10 个 Pod 之间共享。如果该部署严格只提供 API，且集群没有`ReadWriteMany`存储类，可以将该卷替换为`emptyDir`；但上传文件、动态插件产物和本地运行时文件会变成 Pod 本地数据，并在 Pod 重启后丢失。
+
+## 构建镜像
+
+通用的`ghcr.io/wangle201210/linapro:nightly-20260616`镜像不能用于真实`water`渲染，因为默认镜像构建会关闭`CGO`。`water`渲染器需要`CGO`分支以及 FFmpeg/x264 运行库。
+
+应用 Kubernetes 清单前，先构建并推送专用镜像：
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -f apps/lina-plugins/water/deploy/docker/Dockerfile \
+  -t ghcr.io/wangle201210/linapro-water:nightly-20260616 \
+  --push .
+```
+
+该 Dockerfile 会复用`linactl build`，并使用`plugins=1`和`cgo_enabled=1`构建宿主，最终镜像会安装 FFmpeg/x264 运行库。Deployment 还会在服务启动前执行`verify-watermark-runtime`，如果镜像不是`CGO`构建或缺少 FFmpeg/x264 运行库，会直接启动失败，避免对外提供不可用的水印接口。
 
 ## 部署
 
@@ -65,13 +84,14 @@ kubectl apply -f linapro-k8s.yaml
 | --- | ---- |
 | `linapro-water-init-database` | 使用挂载的`/app/config.yaml`执行`./lina init --confirm=init`，创建或升级宿主表结构和必需 Seed 数据。 |
 
-每个`linapro-water`Pod 在启动服务前会先执行三个 init container：
+每个`linapro-water`Pod 在启动服务前会先执行四个 init container：
 
 | Init container | 用途 |
 | -------------- | ---- |
 | `wait-for-postgres` | 等待 PostgreSQL 可以连接。 |
 | `wait-for-redis` | 等待 Redis 可以连接，用于集群协调。 |
-| `wait-for-database-init` | 等待数据库初始化 Job 创建服务启动所需的宿主表结构。 |
+| `wait-for-database-init` | 等待数据库初始化 Job 创建最后一个宿主 SQL 文件中的分布式缓存修订索引。 |
+| `verify-watermark-runtime` | 当镜像关闭`CGO`或缺少 FFmpeg/x264 运行库时快速失败。 |
 
 服务启动后，`plugin.autoEnable`会自动安装并启用`water`源码插件。插件安装阶段会执行`water`插件自己的安装 SQL。启用后的`water`插件会使用挂载的插件配置调用远端`mediaopen`策略解析接口。
 
@@ -134,8 +154,10 @@ http://127.0.0.1:9120/admin
 编辑`linapro-k8s.yaml`中的镜像字段：
 
 ```yaml
-image: ghcr.io/wangle201210/linapro:nightly-20260616
+image: ghcr.io/wangle201210/linapro-water:nightly-20260616
 ```
+
+需要使用从`apps/lina-plugins/water/deploy/docker/Dockerfile`构建的`water`镜像；不要替换为通用`linapro`镜像，除非该镜像同样开启了`CGO`并包含 FFmpeg/x264 运行库。
 
 然后重新应用清单：
 

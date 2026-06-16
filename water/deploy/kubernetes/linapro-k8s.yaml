@@ -89,6 +89,18 @@ stringData:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  name: linapro-water-data
+  namespace: linapro-water
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
   name: linapro-water-postgres-data
   namespace: linapro-water
 spec:
@@ -275,7 +287,7 @@ spec:
                   key: POSTGRES_PASSWORD
       containers:
         - name: init-database
-          image: ghcr.io/wangle201210/linapro:nightly-20260616
+          image: ghcr.io/wangle201210/linapro-water:nightly-20260616
           imagePullPolicy: IfNotPresent
           command:
             - ./lina
@@ -359,7 +371,7 @@ spec:
             - sh
             - -c
             - |
-              until [ "$(psql -h linapro-water-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('sys_plugin', 'sys_kv_cache');")" = "2" ]; do
+              until [ "$(psql -h linapro-water-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from pg_indexes where schemaname = 'public' and tablename = 'sys_cache_revision' and indexname = 'idx_sys_cache_revision_domain_updated_at';")" = "1" ]; do
                 echo "waiting for database initialization"
                 sleep 2
               done
@@ -379,9 +391,31 @@ spec:
                 secretKeyRef:
                   name: linapro-water-postgres-secret
                   key: POSTGRES_PASSWORD
+        - name: verify-watermark-runtime
+          image: ghcr.io/wangle201210/linapro-water:nightly-20260616
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              if grep -a -q "watermark cgo/FFmpeg library is unavailable because CGO is disabled" /app/lina; then
+                echo "water image was built with CGO disabled; build apps/lina-plugins/water/deploy/docker/Dockerfile and use that image"
+                exit 1
+              fi
+              ldd_output="$(ldd /app/lina 2>&1 || true)"
+              if echo "$ldd_output" | grep -Eq "not found|No such file|Error loading shared library"; then
+                echo "$ldd_output"
+                echo "water image is missing FFmpeg/x264 runtime libraries"
+                exit 1
+              fi
+              if ! echo "$ldd_output" | grep -Eq "libav(format|codec|util|filter)|libswscale|libx264"; then
+                echo "$ldd_output"
+                echo "water image is not linked with FFmpeg/x264 runtime libraries"
+                exit 1
+              fi
       containers:
         - name: linapro
-          image: ghcr.io/wangle201210/linapro:nightly-20260616
+          image: ghcr.io/wangle201210/linapro-water:nightly-20260616
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -425,7 +459,8 @@ spec:
           secret:
             secretName: linapro-water-plugin-config
         - name: data
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: linapro-water-data
 ---
 apiVersion: v1
 kind: Service
