@@ -1,0 +1,9 @@
+# Runtime configuration template for the water source plugin.
+mediaStrategy:
+  # Remote LinaPro media cluster base URL. The resolver calls
+  # <baseUrl>/api/v1/strategies/resolve.
+  baseUrl: "http://media-linapro.example.com"
+  # Inner API key sent as X-Inner-Api-Key. The media plugin default is "media".
+  apiKey: "media"
+  # Timeout for one remote strategy lookup.
+  timeout: 10s

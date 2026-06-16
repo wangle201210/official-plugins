@@ -9,7 +9,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"lina-core/pkg/bizerr"
-	mediastrategy "lina-plugin-media/backend/provider/strategy"
 	"lina-plugin-water/backend/internal/library/watermark"
 )
 
@@ -40,12 +39,12 @@ func parseWatermarkStrategy(strategyBody string) (*watermarkConfig, error) {
 	return &normalized, nil
 }
 
-// resolveStrategy delegates effective media strategy lookup to the media plugin provider.
+// resolveStrategy delegates effective media strategy lookup to the configured resolver.
 func (s *serviceImpl) resolveStrategy(ctx context.Context, tenantID string, deviceID string) (*resolvedStrategy, error) {
 	if s == nil || s.strategyResolver == nil {
 		return nil, bizerr.NewCode(CodeWaterMediaResolverUnavailable)
 	}
-	strategy, err := s.strategyResolver.ResolveStrategy(ctx, mediastrategy.ResolveStrategyInput{
+	strategy, err := s.strategyResolver.ResolveStrategy(ctx, ResolveStrategyInput{
 		TenantId: strings.TrimSpace(tenantID),
 		DeviceId: strings.TrimSpace(deviceID),
 	})
@@ -55,8 +54,8 @@ func (s *serviceImpl) resolveStrategy(ctx context.Context, tenantID string, devi
 	return buildResolvedStrategy(strategy), nil
 }
 
-// buildResolvedStrategy converts the media provider output into service output.
-func buildResolvedStrategy(strategy *mediastrategy.ResolveStrategyOutput) *resolvedStrategy {
+// buildResolvedStrategy converts the media strategy projection into service output.
+func buildResolvedStrategy(strategy *ResolveStrategyOutput) *resolvedStrategy {
 	source := StrategySourceNone
 	if strategy != nil {
 		source = normalizeStrategySource(strategy.Source)

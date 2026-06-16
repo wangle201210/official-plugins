@@ -45,6 +45,8 @@ const (
 	maxConsumerCount = 32
 	// defaultCallbackTimeout is the callback HTTP client timeout.
 	defaultCallbackTimeout = 30 * time.Second
+	// defaultStrategyResolverTimeout is the remote media strategy API timeout.
+	defaultStrategyResolverTimeout = 10 * time.Second
 	// defaultTaskStatusTTL limits how long asynchronous task snapshots remain queryable.
 	defaultTaskStatusTTL = 12 * time.Hour
 	// defaultFontSize is used when a strategy omits fontSize.
@@ -55,4 +57,10 @@ const (
 	taskStatusCacheNamespace = "task-status"
 	// taskStatusCacheKeyPrefix keeps task keys readable in the host cache.
 	taskStatusCacheKeyPrefix = "water:task:"
+	// strategyResolverPath is the mediaopen endpoint used by remote water clusters.
+	strategyResolverPath = "/api/v1/strategies/resolve"
+	// strategyResolverAPIKeyHeader is the mediaopen internal API key header.
+	strategyResolverAPIKeyHeader = "X-Inner-Api-Key"
+	// maxStrategyResolverResponseBytes bounds remote media strategy API response decoding.
+	maxStrategyResolverResponseBytes = 1 << 20
 )

@@ -8,7 +8,6 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 
 	"lina-core/pkg/plugin/capability/cachecap"
-	mediastrategy "lina-plugin-media/backend/provider/strategy"
 )
 
 // Service defines the water plugin service contract.
@@ -26,9 +25,9 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	queue            *taskQueue             // queue executes asynchronous watermark tasks.
-	store            *taskStore             // store keeps recent task status snapshots in host cache.
-	strategyResolver mediastrategy.Resolver // strategyResolver resolves media-owned strategy bindings.
+	queue            *taskQueue       // queue executes asynchronous watermark tasks.
+	store            *taskStore       // store keeps recent task status snapshots in host cache.
+	strategyResolver StrategyResolver // strategyResolver resolves media-owned strategy bindings.
 }
 
 // taskCache defines the host cache operations water uses for task snapshots.
@@ -40,7 +39,7 @@ type taskCache interface {
 }
 
 // New creates and returns the shared water service instance.
-func New(cacheSvc cachecap.Service, strategyResolver mediastrategy.Resolver) (Service, error) {
+func New(cacheSvc cachecap.Service, strategyResolver StrategyResolver) (Service, error) {
 	if cacheSvc == nil {
 		return nil, gerror.New("water service requires host cache service")
 	}

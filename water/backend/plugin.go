@@ -7,7 +7,6 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 
 	"lina-core/pkg/plugin/pluginhost"
-	mediastrategy "lina-plugin-media/backend/provider/strategy"
 	waterplugin "lina-plugin-water"
 	watercontroller "lina-plugin-water/backend/internal/controller/water"
 	watersvc "lina-plugin-water/backend/internal/service/water"
@@ -34,15 +33,27 @@ func init() {
 // registerRoutes binds water routes through the published host middleware set.
 func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) error {
 	hostServices := registrar.Services()
-	if hostServices == nil || hostServices.BizCtx() == nil || hostServices.Cache() == nil {
-		return gerror.New("water routes require host bizctx and cache services")
+	if hostServices == nil || hostServices.Cache() == nil {
+		return gerror.New("water routes require host cache service")
 	}
-	routes := registrar.Routes()
-	middlewares := routes.Middlewares()
-	strategyResolver, err := mediastrategy.NewResolver(hostServices.BizCtx(), hostServices.Cache())
+	plugins := hostServices.Plugins()
+	if plugins == nil {
+		return gerror.New("water routes require host plugin config service")
+	}
+	configSvc := plugins.Config()
+	if configSvc == nil {
+		return gerror.New("water routes require host plugin config service")
+	}
+	config, err := watersvc.LoadRemoteStrategyResolverConfig(ctx, configSvc)
 	if err != nil {
 		return err
 	}
+	strategyResolver, err := watersvc.NewRemoteStrategyResolver(config)
+	if err != nil {
+		return err
+	}
+	routes := registrar.Routes()
+	middlewares := routes.Middlewares()
 	waterSvc, err := watersvc.New(hostServices.Cache(), strategyResolver)
 	if err != nil {
 		return err

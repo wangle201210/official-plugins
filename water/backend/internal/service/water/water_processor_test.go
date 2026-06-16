@@ -5,8 +5,6 @@ package water
 import (
 	"context"
 	"testing"
-
-	mediastrategy "lina-plugin-media/backend/provider/strategy"
 )
 
 // TestProcessSnapshotRendersWithoutInnerEnabled verifies media_strategy.enable
@@ -43,8 +41,8 @@ type fakeStrategyResolver struct {
 	strategy string
 }
 
-func (f fakeStrategyResolver) ResolveStrategy(_ context.Context, _ mediastrategy.ResolveStrategyInput) (*mediastrategy.ResolveStrategyOutput, error) {
-	return &mediastrategy.ResolveStrategyOutput{
+func (f fakeStrategyResolver) ResolveStrategy(_ context.Context, _ ResolveStrategyInput) (*ResolveStrategyOutput, error) {
+	return &ResolveStrategyOutput{
 		Matched:      true,
 		Source:       string(StrategySourceDevice),
 		SourceLabel:  strategySourceLabel(StrategySourceDevice),

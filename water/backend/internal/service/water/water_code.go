@@ -9,8 +9,14 @@ import (
 )
 
 var (
-	// CodeWaterMediaResolverUnavailable reports that media strategy provider is not configured.
-	CodeWaterMediaResolverUnavailable = bizerr.MustDefine("WATER_MEDIA_RESOLVER_UNAVAILABLE", "媒体策略解析服务不可用", gcode.CodeInternalError)
+	// CodeWaterMediaResolverUnavailable reports that the remote media strategy resolver is not configured.
+	CodeWaterMediaResolverUnavailable = bizerr.MustDefine("WATER_MEDIA_RESOLVER_UNAVAILABLE", "媒体策略解析接口未配置", gcode.CodeInternalError)
+	// CodeWaterStrategyResolverConfigInvalid reports that the remote media strategy resolver config is invalid.
+	CodeWaterStrategyResolverConfigInvalid = bizerr.MustDefine("WATER_STRATEGY_RESOLVER_CONFIG_INVALID", "媒体策略解析接口配置无效", gcode.CodeInternalError)
+	// CodeWaterStrategyResolverRequestFailed reports that the remote media strategy request failed.
+	CodeWaterStrategyResolverRequestFailed = bizerr.MustDefine("WATER_STRATEGY_RESOLVER_REQUEST_FAILED", "请求媒体策略解析接口失败", gcode.CodeInternalError)
+	// CodeWaterStrategyResolverResponseInvalid reports that the remote media strategy response is invalid.
+	CodeWaterStrategyResolverResponseInvalid = bizerr.MustDefine("WATER_STRATEGY_RESOLVER_RESPONSE_INVALID", "解析媒体策略接口响应失败", gcode.CodeInternalError)
 	// CodeWaterTenantRequired reports that the media tenant ID is missing.
 	CodeWaterTenantRequired = bizerr.MustDefine("WATER_TENANT_REQUIRED", "媒体租户ID不能为空", gcode.CodeInvalidParameter)
 	// CodeWaterImageRequired reports that the input image is missing.

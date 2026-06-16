@@ -1,8 +1,8 @@
 # Water Source Plugin
 
-The water source plugin provides image watermark processing based on the shared media strategy tables.
+The water source plugin provides image watermark processing based on the remote media strategy API.
 
-It reads `media_strategy`, `media_strategy_tenant`, `media_strategy_device`, and `media_strategy_device_tenant`; it does not create its own storage tables or tenant-isolated storage.
+It calls the configured `mediaopen` internal strategy resolution API and does not require the `media` source plugin to be installed in the same cluster.
 
 ## Runtime Configuration
 
@@ -18,6 +18,17 @@ snapshot_watermark:
 ```
 
 `media_strategy.enable` is the only switch for whether a strategy participates in watermark rendering. When `opacity` is omitted, the plugin uses `0.15`.
+
+Remote strategy lookup is configured through the water plugin runtime config:
+
+```yaml
+mediaStrategy:
+  baseUrl: "http://media-linapro.example.com"
+  apiKey: "media"
+  timeout: 10s
+```
+
+`baseUrl` points to the LinaPro cluster where the `media` plugin is installed. The resolver calls `GET /api/v1/strategies/resolve` and sends `apiKey` as `X-Inner-Api-Key`.
 
 The service runtime concurrency is configured in the host backend config:
 

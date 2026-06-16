@@ -2,7 +2,33 @@
 
 package water
 
-import "lina-plugin-water/backend/internal/library/watermark"
+import (
+	"context"
+
+	"lina-plugin-water/backend/internal/library/watermark"
+)
+
+// StrategyResolver defines the media strategy lookup contract consumed by water.
+type StrategyResolver interface {
+	// ResolveStrategy resolves the effective media strategy for one tenant/device pair.
+	ResolveStrategy(ctx context.Context, in ResolveStrategyInput) (*ResolveStrategyOutput, error)
+}
+
+// ResolveStrategyInput defines one strategy lookup request.
+type ResolveStrategyInput struct {
+	TenantId string // TenantId is the media tenant ID.
+	DeviceId string // DeviceId is the GB device ID.
+}
+
+// ResolveStrategyOutput defines one resolved media strategy projection.
+type ResolveStrategyOutput struct {
+	Matched      bool   // Matched reports whether a strategy matched.
+	Source       string // Source is the matching strategy source.
+	SourceLabel  string // SourceLabel is the source label prepared by media.
+	StrategyId   int64  // StrategyId is the matched strategy ID.
+	StrategyName string // StrategyName is the matched strategy name.
+	Strategy     string // Strategy is the matched YAML strategy body.
+}
 
 // SubmitSnapInput defines one asynchronous snapshot request.
 type SubmitSnapInput struct {

@@ -26,6 +26,7 @@ import (
 	"lina-core/pkg/plugin/pluginhost"
 	mediav1 "lina-plugin-media/backend/api/media/v1"
 	mediaopenv1 "lina-plugin-media/backend/api/mediaopen/v1"
+	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
 // mediaRouteHostServices publishes only the host services required by media route registration.
@@ -225,6 +226,106 @@ func TestMediaOpenRoutesUseInnerAPIAuth(t *testing.T) {
 			tenancyCalls.Load(),
 			permissionCalls.Load(),
 		)
+	}
+}
+
+// TestMediaOpenResolveStrategyRequiresInnerAPIAuth verifies the internal strategy resolver is not exposed publicly.
+func TestMediaOpenResolveStrategyRequiresInnerAPIAuth(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/strategies/resolve?tenantId=tenant-a&deviceId=device-a",
+		"",
+	)
+	if response.status != http.StatusUnauthorized {
+		t.Fatalf("expected unauthenticated internal strategy resolver to be rejected, got status=%d body=%s", response.status, response.body)
+	}
+}
+
+// TestMediaOpenResolveStrategyReturnsEffectiveStrategyWithInnerAPIAuth verifies the internal strategy route reaches the controller.
+func TestMediaOpenResolveStrategyReturnsEffectiveStrategyWithInnerAPIAuth(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+	setupMediaRouteSQLite(t)
+
+	var authCalls atomic.Int32
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		func(r *ghttp.Request) {
+			authCalls.Add(1)
+		},
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	const strategyContent = "watermark:\n  enabled: true"
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_strategy (id, name, strategy, "global", enable, creator_id, updater_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		101,
+		"租户设备策略",
+		strategyContent,
+		int(mediasvc.SwitchOff),
+		int(mediasvc.SwitchOn),
+		1,
+		1,
+	); err != nil {
+		t.Fatalf("insert strategy fixture: %v", err)
+	}
+	if _, err := g.DB().Exec(
+		context.Background(),
+		`INSERT INTO media_strategy_device_tenant (tenant_id, device_id, strategy_id) VALUES (?, ?, ?)`,
+		"tenant-a",
+		"device-a",
+		101,
+	); err != nil {
+		t.Fatalf("insert tenant-device strategy binding fixture: %v", err)
+	}
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/strategies/resolve?tenantId=tenant-a&deviceId=device-a",
+		"",
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected authenticated internal strategy resolver to pass, got status=%d body=%s", response.status, response.body)
+	}
+	var out mediaopenv1.ResolveStrategyRes
+	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+		t.Fatalf("expected strategy JSON response, got body=%s err=%v", response.body, err)
+	}
+	if !out.Matched || out.Source != string(mediasvc.StrategySourceTenantDevice) {
+		t.Fatalf("expected tenant-device strategy match, got %+v", out)
+	}
+	if out.StrategyId != 101 || out.StrategyName != "租户设备策略" || out.Strategy != strategyContent {
+		t.Fatalf("expected controller strategy projection, got %+v", out)
+	}
+	if authCalls.Load() != 0 {
+		t.Fatalf("expected mediaopen strategy resolver to avoid host Auth, got %d calls", authCalls.Load())
 	}
 }
 
@@ -651,6 +752,7 @@ func TestMediaOpenRequestDTOsDeclarePublicAccess(t *testing.T) {
 		mediaopenv1.GetRouteDataReq{},
 		mediaopenv1.DelRouteDataReq{},
 		mediaopenv1.UserDeviceStrategyByTokenReq{},
+		mediaopenv1.ResolveStrategyReq{},
 		mediaopenv1.TenantWhiteIPsByTokenReq{},
 		mediaopenv1.GetStreamAliasByAliasReq{},
 		mediaopenv1.ListAllNodesReq{},
@@ -1381,7 +1483,17 @@ func setupMediaRouteSQLite(t *testing.T) {
 	})
 
 	statements := []string{
-		`CREATE TABLE media_strategy (id INTEGER PRIMARY KEY AUTOINCREMENT)`,
+		`CREATE TABLE media_strategy (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			strategy TEXT NOT NULL,
+			"global" INTEGER NOT NULL DEFAULT 0,
+			enable INTEGER NOT NULL DEFAULT 1,
+			creator_id INTEGER,
+			create_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updater_id INTEGER,
+			update_time TEXT
+		)`,
 		`CREATE TABLE media_strategy_device (device_id TEXT PRIMARY KEY, strategy_id INTEGER NOT NULL)`,
 		`CREATE TABLE media_strategy_tenant (tenant_id TEXT PRIMARY KEY, strategy_id INTEGER NOT NULL)`,
 		`CREATE TABLE media_strategy_device_tenant (tenant_id TEXT NOT NULL, device_id TEXT NOT NULL, strategy_id INTEGER NOT NULL, PRIMARY KEY (tenant_id, device_id))`,

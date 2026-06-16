@@ -12,6 +12,7 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 - Stream alias CRUD
 - Node, device-node, and tenant stream config CRUD
 - Tenant whitelist CRUD
+- Mediaopen internal strategy resolution API: `GET /api/v1/strategies/resolve?tenantId=<tenantId>&deviceId=<deviceId>`
 - Mediaopen strategy authorization API: `GET /api/v1/strategies/user-device?token=<token>&deviceId=<deviceId>`
 - Mediaopen stream alias config API: `GET /api/v1/stream-aliases/by-alias?alias=<alias>`
 - Mediaopen full node config API: `GET /api/v1/nodes/all`

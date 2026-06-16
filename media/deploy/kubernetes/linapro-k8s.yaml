@@ -1,0 +1,254 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: linapro
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: linapro-postgres-secret
+  namespace: linapro
+type: Opaque
+stringData:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: linapro-change-me
+  POSTGRES_DB: linapro
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: linapro-config
+  namespace: linapro
+type: Opaque
+stringData:
+  config.yaml: |
+    server:
+      address: ":9120"
+      serverRoot: "resource/public"
+      dumpRouterMap: false
+      routeOverWrite: true
+
+    logger:
+      path: "stdout"
+      stdout: true
+      level: "all"
+
+    database:
+      default:
+        link: "pgsql:postgres:linapro-change-me@tcp(linapro-postgres:5432)/linapro?sslmode=disable"
+        debug: false
+        dryRun: false
+
+    auth:
+      jwt:
+        secret: "linapro-jwt-change-me"
+
+    cluster:
+      enabled: false
+
+    upload:
+      path: "/app/data/upload"
+
+    plugin:
+      autoEnable:
+        - id: "media"
+          withMockData: false
+      dynamic:
+        storagePath: "/app/data/wasm"
+
+    workspace:
+      basePath: "/admin"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: linapro-postgres-data
+  namespace: linapro
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: linapro-postgres
+  namespace: linapro
+spec:
+  serviceName: linapro-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linapro-postgres
+  template:
+    metadata:
+      labels:
+        app: linapro-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:14-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-postgres-secret
+                  key: POSTGRES_DB
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: linapro-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linapro-postgres
+  namespace: linapro
+spec:
+  type: ClusterIP
+  selector:
+    app: linapro-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: linapro-data
+  namespace: linapro
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linapro
+  namespace: linapro
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linapro
+  template:
+    metadata:
+      labels:
+        app: linapro
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:14-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h linapro-postgres -p 5432 -U postgres; do
+                echo "waiting for postgres"
+                sleep 2
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: linapro-postgres-secret
+                  key: POSTGRES_PASSWORD
+        - name: init-database
+          image: ghcr.io/wangle201210/linapro:nightly-20260616
+          imagePullPolicy: IfNotPresent
+          command:
+            - ./lina
+          args:
+            - init
+            - --confirm=init
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: data
+              mountPath: /app/data
+      containers:
+        - name: linapro
+          image: ghcr.io/wangle201210/linapro:nightly-20260616
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 9120
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: data
+              mountPath: /app/data
+          readinessProbe:
+            tcpSocket:
+              port: 9120
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 9120
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+      volumes:
+        - name: config
+          secret:
+            secretName: linapro-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: linapro-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linapro
+  namespace: linapro
+spec:
+  type: NodePort
+  selector:
+    app: linapro
+  ports:
+    - name: http
+      port: 9120
+      targetPort: 9120
+      nodePort: 30080
