@@ -87,15 +87,15 @@ type: Opaque
 stringData:
   media-config.yaml: |
     collectionServer:
-      enabled: false
+      enabled: true
       addr: ":1911"
       discovery:
-        enabled: false
-        host: "127.0.0.1"
+        enabled: true
+        host: "linapro-nacos"
         port: 8848
         namespace: "public"
-        logDir: "./logs"
-        cacheDir: "./cache"
+        logDir: "/tmp/nacos/logs"
+        cacheDir: "/tmp/nacos/cache"
         preloadCache: true
         timeout: 5000
         groupName: "DEFAULT_GROUP"
@@ -237,6 +237,126 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  name: linapro-nacos-data
+  namespace: linapro
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linapro-nacos
+  namespace: linapro
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linapro-nacos
+  template:
+    metadata:
+      labels:
+        app: linapro-nacos
+    spec:
+      containers:
+        - name: nacos
+          image: nacos/nacos-server:v2.3.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODE
+              value: standalone
+            - name: PREFER_HOST_MODE
+              value: hostname
+            - name: NACOS_AUTH_ENABLE
+              value: "false"
+            - name: JVM_XMS
+              value: 256m
+            - name: JVM_XMX
+              value: 512m
+            - name: JVM_XMN
+              value: 128m
+          ports:
+            - name: http
+              containerPort: 8848
+            - name: grpc-client
+              containerPort: 9848
+            - name: grpc-server
+              containerPort: 9849
+            - name: raft
+              containerPort: 7848
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          volumeMounts:
+            - name: data
+              mountPath: /home/nacos/data
+          readinessProbe:
+            tcpSocket:
+              port: 8848
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 18
+          livenessProbe:
+            tcpSocket:
+              port: 8848
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: linapro-nacos-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linapro-nacos
+  namespace: linapro
+spec:
+  type: ClusterIP
+  selector:
+    app: linapro-nacos
+  ports:
+    - name: http
+      port: 8848
+      targetPort: 8848
+    - name: grpc-client
+      port: 9848
+      targetPort: 9848
+    - name: grpc-server
+      port: 9849
+      targetPort: 9849
+    - name: raft
+      port: 7848
+      targetPort: 7848
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linapro-nacos-external
+  namespace: linapro
+spec:
+  type: NodePort
+  selector:
+    app: linapro-nacos
+  ports:
+    - name: http
+      port: 8848
+      targetPort: 8848
+      nodePort: 30088
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
   name: linapro-data
   namespace: linapro
 spec:
@@ -364,6 +484,17 @@ spec:
                 echo "waiting for redis"
                 sleep 2
               done
+        - name: wait-for-nacos
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z linapro-nacos 8848; do
+                echo "waiting for nacos"
+                sleep 2
+              done
         - name: wait-for-database-init
           image: postgres:14-alpine
           imagePullPolicy: IfNotPresent
@@ -398,6 +529,8 @@ spec:
           ports:
             - name: http
               containerPort: 9120
+            - name: collection
+              containerPort: 1911
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
@@ -449,3 +582,21 @@ spec:
     - name: http
       port: 9120
       targetPort: 9120
+    - name: collection
+      port: 1911
+      targetPort: 1911
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linapro-collection-external
+  namespace: linapro
+spec:
+  type: NodePort
+  selector:
+    app: linapro
+  ports:
+    - name: collection
+      port: 1911
+      targetPort: 1911
+      nodePort: 30091
