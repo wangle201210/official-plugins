@@ -46,6 +46,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-postgres:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with `POSTGRES_PASSWORD`. |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
 | `jwt.expire` | `24h` | JWT token validity duration. |
+| `logger.level` | `info` | Runtime log level. Keep `info` for multi-replica deployments; use `all` only for short-lived debugging. |
 | `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | Runtime config for the `media` source plugin. |
 | `resources.requests.storage` | `20Gi` | Storage size for PostgreSQL and LinaPro data. |
@@ -67,6 +68,7 @@ When using `linapro-k8s-external-pgsql.yaml`, first update the external database
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(pgsql.example.internal:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with the external PostgreSQL values. |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
 | `jwt.expire` | `24h` | JWT token validity duration. |
+| `logger.level` | `info` | Runtime log level. Keep `info` for multi-replica deployments; use `all` only for short-lived debugging. |
 | `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | Runtime config for the `media` source plugin. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
@@ -89,7 +91,6 @@ Keep these constraints when editing the manifests:
 - Do not add `server.serverRoot: "resource/public"` for `nightly-20260616`. The image does not contain `/app/resource/public`, and LinaPro fails during startup if that path is configured.
 - Keep the `i18n` block in `config.yaml`. This image requires `i18n.default` at runtime.
 - Keep the plugin config mount at `/app/config`. The source plugin config loader resolves production plugin config files from `/app/config/plugins/<plugin-id>/config.yaml` in this image.
-- No `sicau-niu` runtime config is required when the image includes the missing `token.secret` warning-only fix. The bundled `sicau-niu` source plugin will log a warning when `token.secret` is absent, but it will not block `media` startup.
 
 ## Multi-Replica Runtime
 
@@ -148,8 +149,10 @@ kubectl -n linapro get svc
 Follow LinaPro logs:
 
 ```bash
-kubectl -n linapro logs deploy/linapro -f
+kubectl -n linapro logs -f -l app=linapro -c linapro --max-log-requests=3
 ```
+
+`kubectl logs deploy/linapro -f` follows a deployment-selected pod and can miss activity from the other replicas.
 
 If database initialization fails, inspect the initialization `Job` logs:
 
@@ -166,10 +169,10 @@ deployments. The current manifests and the new image fix cover them:
 | ------- | ----- | --- |
 | `SetServerRoot failed: cannot find "resource/public"` | `server.serverRoot` pointed to a directory not present in the image. | Leave `server.serverRoot` unset. |
 | `runtime config i18n.default cannot be empty` | Host `i18n` runtime config was missing. | Keep the included `i18n.default` and `i18n.locales` block. |
-| `Player token secret is not configured` | Older images treated missing `sicau-niu` `token.secret` as a startup error. | Use an image that includes the warning-only fix. If an older image must be used, temporarily mount `/app/config/plugins/sicau-niu/config.yaml` with a production `token.secret`. |
 | `PersistentVolumeClaim/linapro-data` stays `Pending` | The default `StorageClass` does not support `ReadWriteMany` or no default storage class exists. | Set `PersistentVolumeClaim/linapro-data.spec.storageClassName` to an RWX-capable storage class. |
 | `kubectl` reports `Forbidden` for namespace resources | The active kubeconfig user does not have enough rights. | Use a kubeconfig with cluster-admin permissions, for example `/etc/kubernetes/admin.conf` on many self-managed nodes. |
 | Port `8082` is required | Kubernetes `NodePort` normally uses the `30000-32767` range, so the manifest keeps the service as `ClusterIP`. | Use `kubectl port-forward`, `Ingress`, or `LoadBalancer` to expose `8082`. |
+| Repeated `[cluster] not leader, waiting for lease expiry` logs | `cluster.enabled: true` is running with debug-level logging enabled. Follower pods log election wait messages on every renew interval. | Keep the manifest default `logger.level: "info"` for normal multi-replica deployments. |
 
 To manually rerun the host database initialization after changing `config.yaml`, delete the completed `Job` and apply the manifest again:
 
@@ -206,6 +209,14 @@ http://127.0.0.1:9120/admin
 
 For production traffic, prefer `Ingress` or `LoadBalancer` instead of a manual
 `port-forward` process.
+
+Inside the Kubernetes cluster, the Service DNS name is:
+
+```text
+http://linapro.linapro.svc.cluster.local:9120
+```
+
+Use `kubectl port-forward` only for smoke checks. Port forwarding a Service can tunnel to a single backend pod, so it is not a valid way to verify multi-pod load balancing. Use the Service DNS name from inside the cluster, or use `Ingress`, `LoadBalancer`, or `NodePort` for traffic that should be distributed across all replicas.
 
 To use `NodePort` instead, change `Service/linapro.spec.type` to `NodePort` and
 set a port in the cluster's node-port range, for example:

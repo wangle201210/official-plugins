@@ -32,6 +32,7 @@
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-water-postgres:5432)/linapro?sslmode=disable` | LinaPro 数据库连接串，需要与`POSTGRES_PASSWORD`保持一致。 |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
 | `jwt.expire` | `24h` | JWT 过期时间。 |
+| `logger.level` | `info` | 运行日志级别。多副本部署保持`info`；仅在短时间排障时改为`all`。 |
 | `cluster.enabled` | `true` | 为 10 个`water`Pod 启用 LinaPro 集群协调。 |
 | `cluster.redis.address` | `linapro-water-redis:6379` | Redis 协调地址，用于集群选主、锁和共享运行期 KV cache。 |
 | `plugin.autoEnable` | 仅`water` | 本清单只会自动安装并启用`water`源码插件。 |
@@ -48,7 +49,7 @@
 
 `water`插件会从`/app/config/plugins/water/config.yaml`读取插件作用域运行时配置。该清单通过`linapro-water-plugin-config` Secret 挂载该文件。`manifest/config/config.example.yaml`只是配置模板，不会作为运行时默认值读取。
 
-跨集群访问时，将`mediaStrategy.baseUrl`设置为`media`集群的`Ingress`、负载均衡、专线地址、VPN 地址或`NodePort`地址。`mediaStrategy.apiKey`必须与`media`集群的`innerapi.apiKey`配置一致。
+跨集群访问时，将`mediaStrategy.baseUrl`设置为`media`集群的`Ingress`、负载均衡、专线地址、VPN 地址或`NodePort`地址。如果`media`使用同级清单部署在同一个 Kubernetes 集群内，集群内地址通常是`http://linapro.linapro.svc.cluster.local:9120`。`mediaStrategy.apiKey`必须与`media`集群的`innerapi.apiKey`配置一致；`media`插件未显式配置`innerapi.apiKey`时，默认值是`media`。
 
 内置 PostgreSQL 容器会将`PGDATA`设置为`/var/lib/postgresql/data/pgdata`，避免部分存储类在卷根目录生成的元数据影响首次数据库初始化。
 
@@ -103,11 +104,13 @@ kubectl -n linapro-water get job
 kubectl -n linapro-water get svc
 ```
 
-查看 LinaPro 日志：
+查看所有`water`副本的 LinaPro 日志：
 
 ```bash
-kubectl -n linapro-water logs deploy/linapro-water -f
+kubectl -n linapro-water logs -f -l app=linapro-water -c linapro --max-log-requests=10
 ```
+
+`kubectl logs deploy/linapro-water -f`只会跟随 Deployment 选择到的 Pod，可能看不到其他副本的处理日志。
 
 如果数据库初始化失败，可以查看 init container 日志：
 
@@ -148,6 +151,39 @@ kubectl -n linapro-water port-forward svc/linapro-water 9120:9120
 ```text
 http://127.0.0.1:9120/admin
 ```
+
+在 Kubernetes 集群内部，Service DNS 地址是：
+
+```text
+http://linapro-water.linapro-water.svc.cluster.local:9120
+```
+
+`kubectl port-forward`只适合做连通性 smoke 检查。对 Service 执行端口转发时，流量可能只进入单个后端 Pod，因此不能用于验证多 Pod 负载均衡或容量压测。需要分发到所有副本的流量，应从集群内部使用 Service DNS，或通过`NodePort`、`Ingress`、`LoadBalancer`进入。
+
+## 异步队列与回调
+
+每个 Pod 都有一个进程内异步任务队列，最多缓存`1024`个等待任务。只有提交流量均匀分发到多个 Pod 时，总队列容量才会随`spec.replicas`扩展。如果单个 Pod 收到的提交速度超过本 Pod 的`water.consumerCount`消费者处理速度，新提交会失败并返回`WATER_TASK_QUEUE_FULL`。扩容时需要同时评估`spec.replicas`、`water.consumerCount`、CPU 和内存，不要通过`kubectl port-forward`做容量测试。
+
+异步任务状态存储在宿主共享 KV cache 中，因此可以从任意 Pod 查询。状态响应会故意保持`image`为空，避免大图片写入缓存超过单值大小限制；完整输出图片只通过回调返回。
+
+提交接口支持`callbackUrl`。存在回调地址时，`water`会使用`Content-Type: application/json`发送`POST`请求，请求体结构如下：
+
+```json
+{
+  "error_code": "",
+  "deviceCode": "device-a",
+  "channelCode": "channel-a",
+  "deviceIdx": "1",
+  "image": "data:image/png;base64,...",
+  "imageName": "snap.png",
+  "imagePath": "/tmp/snap.png",
+  "accessNode": "",
+  "acceptNode": "",
+  "uploadUrl": ""
+}
+```
+
+回调接收端需要在超时时间内返回`2xx`状态码。如果接收端要求`image_base64`或`image_url`等字段，需要调整接收端或增加一个回调适配层；当前回调契约使用`image`字段。
 
 ## 更新镜像
 

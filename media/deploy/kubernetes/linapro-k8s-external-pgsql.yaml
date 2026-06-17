@@ -32,7 +32,7 @@ stringData:
     logger:
       path: "stdout"
       stdout: true
-      level: "all"
+      level: "info"
 
     database:
       default:

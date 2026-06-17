@@ -32,6 +32,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-water-postgres:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with `POSTGRES_PASSWORD`. |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
 | `jwt.expire` | `24h` | JWT expiration duration. |
+| `logger.level` | `info` | Runtime log level. Keep `info` for multi-replica deployments; use `all` only for short-lived debugging. |
 | `cluster.enabled` | `true` | Enables LinaPro cluster coordination for the ten `water` pods. |
 | `cluster.redis.address` | `linapro-water-redis:6379` | Redis endpoint used for cluster election, locks, and shared runtime KV cache. |
 | `plugin.autoEnable` | `water` only | Only the `water` source plugin is automatically installed and enabled by this manifest. |
@@ -48,7 +49,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 
 The `water` plugin reads its plugin-scoped runtime config from `/app/config/plugins/water/config.yaml`. The manifest mounts this file from the `linapro-water-plugin-config` Secret. The template `manifest/config/config.example.yaml` is documentation only and is not read as a runtime default.
 
-For cross-cluster access, set `mediaStrategy.baseUrl` to the `media` cluster `Ingress`, load balancer, VPN address, or `NodePort` URL. The configured `mediaStrategy.apiKey` must match the `media` cluster `innerapi.apiKey` value.
+For cross-cluster access, set `mediaStrategy.baseUrl` to the `media` cluster `Ingress`, load balancer, VPN address, or `NodePort` URL. If `media` is deployed from the sibling manifest in the same Kubernetes cluster, the cluster-local URL is usually `http://linapro.linapro.svc.cluster.local:9120`. The configured `mediaStrategy.apiKey` must match the `media` cluster `innerapi.apiKey` value; when the `media` plugin does not explicitly set `innerapi.apiKey`, its default is `media`.
 
 The bundled PostgreSQL container sets `PGDATA` to `/var/lib/postgresql/data/pgdata` so volume-root metadata from some storage classes does not interfere with first-time database initialization.
 
@@ -103,11 +104,13 @@ kubectl -n linapro-water get job
 kubectl -n linapro-water get svc
 ```
 
-Follow LinaPro logs:
+Follow LinaPro logs from all `water` replicas:
 
 ```bash
-kubectl -n linapro-water logs deploy/linapro-water -f
+kubectl -n linapro-water logs -f -l app=linapro-water -c linapro --max-log-requests=10
 ```
+
+`kubectl logs deploy/linapro-water -f` follows a deployment-selected pod and can miss activity from the other replicas.
 
 If database initialization fails, inspect the init container logs:
 
@@ -149,6 +152,39 @@ Then open:
 http://127.0.0.1:9120/admin
 ```
 
+Inside the Kubernetes cluster, the Service DNS name is:
+
+```text
+http://linapro-water.linapro-water.svc.cluster.local:9120
+```
+
+Use `kubectl port-forward` only for smoke checks. Port forwarding a Service can tunnel to a single backend pod, so it is not a valid way to verify multi-pod load balancing or run capacity tests. Use the Service DNS name from inside the cluster, or use `NodePort`, `Ingress`, or `LoadBalancer` for traffic that should be distributed across all replicas.
+
+## Async Queue and Callback
+
+Each pod owns one in-process asynchronous task queue with a capacity of `1024` waiting tasks. Total queue capacity scales with `spec.replicas` only when submit traffic is balanced across pods. If one pod receives submissions faster than its `water.consumerCount` workers can drain them, new submit requests fail with `WATER_TASK_QUEUE_FULL`. Scale `spec.replicas`, `water.consumerCount`, CPU, and memory together, and avoid testing capacity through `kubectl port-forward`.
+
+Asynchronous task status is stored in the shared host KV cache, so status can be queried from any pod. The status response intentionally leaves `image` empty to keep cache values bounded; the full output image is delivered only through the callback.
+
+The submit API accepts `callbackUrl`. When a callback URL is present, `water` sends a `POST` request with `Content-Type: application/json` and this payload shape:
+
+```json
+{
+  "error_code": "",
+  "deviceCode": "device-a",
+  "channelCode": "channel-a",
+  "deviceIdx": "1",
+  "image": "data:image/png;base64,...",
+  "imageName": "snap.png",
+  "imagePath": "/tmp/snap.png",
+  "accessNode": "",
+  "acceptNode": "",
+  "uploadUrl": ""
+}
+```
+
+The receiver must return a `2xx` response within the callback timeout. If the receiver expects fields such as `image_base64` or `image_url`, adapt the receiver or add a small callback adapter; the current callback contract uses `image`.
+
 ## Update Image
 
 Edit the image field in `linapro-k8s.yaml`:
@@ -170,6 +206,8 @@ kubectl apply -f linapro-k8s.yaml
 Watermark processing is CPU and memory intensive. This manifest starts with ten pods and two consumers per pod, so the default processing width is twenty consumers. Tune `spec.replicas`, `resources.requests`, `resources.limits`, and `water.consumerCount` together.
 
 Ingress or Service routing can distribute requests across the ten pods. The host KV cache uses the bundled Redis coordination backend in cluster mode, so asynchronous task status can be read from any pod. The in-process task queue remains local to the pod that accepted the submit request, which is expected for this deployment shape.
+
+The manifest defaults `logger.level` to `info`. With `cluster.enabled: true`, setting the level to `all` prints debug election messages from follower pods, including `[cluster] not leader, waiting for lease expiry`, on every renew interval.
 
 ## Uninstall
 

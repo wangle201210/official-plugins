@@ -43,6 +43,7 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-postgres:5432)/linapro?sslmode=disable` | LinaPro 数据库连接串，需要与`POSTGRES_PASSWORD`保持一致。 |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
 | `jwt.expire` | `24h` | JWT Token 有效期。 |
+| `logger.level` | `info` | 运行日志级别。多副本部署保持`info`；仅在短时间排障时改为`all`。 |
 | `i18n.default` | `zh-CN` | 宿主运行时必需的默认语言配置，不要删除该配置块。 |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | `media`源码插件运行配置。 |
 | `resources.requests.storage` | `20Gi` | PostgreSQL 和 LinaPro 数据卷容量。 |
@@ -64,6 +65,7 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(pgsql.example.internal:5432)/linapro?sslmode=disable` | LinaPro 数据库连接串，需要与外部 PostgreSQL 配置保持一致。 |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
 | `jwt.expire` | `24h` | JWT Token 有效期。 |
+| `logger.level` | `info` | 运行日志级别。多副本部署保持`info`；仅在短时间排障时改为`all`。 |
 | `i18n.default` | `zh-CN` | 宿主运行时必需的默认语言配置，不要删除该配置块。 |
 | `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: false` | `media`源码插件运行配置。 |
 | `spec.replicas` | `3` | LinaPro 应用副本数。 |
@@ -85,7 +87,6 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 - 不要为`nightly-20260616`添加`server.serverRoot: "resource/public"`。该镜像内没有`/app/resource/public`，配置该路径会导致 LinaPro 启动失败。
 - 保留`config.yaml`中的`i18n`配置块。该镜像运行时要求`i18n.default`非空。
 - 保留插件配置挂载路径`/app/config`。该镜像的源码插件配置加载器会从`/app/config/plugins/<plugin-id>/config.yaml`读取生产运行配置。
-- 使用包含缺失`token.secret`降级为 warning 修复的新镜像时，不需要配置`sicau-niu`运行配置。镜像内置的`sicau-niu`源码插件在缺少`token.secret`时只会记录 warning，不会阻塞`media`启动。
 
 ## 多副本运行配置
 
@@ -141,11 +142,13 @@ kubectl -n linapro get job linapro-db-init
 kubectl -n linapro get svc
 ```
 
-查看 LinaPro 日志：
+查看所有 LinaPro 副本日志：
 
 ```bash
-kubectl -n linapro logs deploy/linapro -f
+kubectl -n linapro logs -f -l app=linapro -c linapro --max-log-requests=3
 ```
+
+`kubectl logs deploy/linapro -f`只会跟随 Deployment 选择到的 Pod，可能看不到其他副本日志。
 
 如果数据库初始化失败，可以查看初始化`Job`日志：
 
@@ -161,7 +164,6 @@ kubectl -n linapro logs job/linapro-db-init
 | ---- | ---- | -------- |
 | `SetServerRoot failed: cannot find "resource/public"` | `server.serverRoot`指向了镜像中不存在的目录。 | 保持`server.serverRoot`未配置。 |
 | `runtime config i18n.default cannot be empty` | 宿主缺少`i18n`运行配置。 | 保留清单内置的`i18n.default`和`i18n.locales`配置。 |
-| `Player token secret is not configured` | 旧镜像会把缺少`sicau-niu`的`token.secret`当作启动错误。 | 使用包含只记录 warning 修复的新镜像。如果必须使用旧镜像，临时挂载带生产`token.secret`的`/app/config/plugins/sicau-niu/config.yaml`。 |
 | `PersistentVolumeClaim/linapro-data`一直处于`Pending` | 默认`StorageClass`不支持`ReadWriteMany`，或集群没有默认存储类。 | 设置`PersistentVolumeClaim/linapro-data.spec.storageClassName`为支持 RWX 的存储类。 |
 | `kubectl`访问命名空间资源时报`Forbidden` | 当前`kubeconfig`用户权限不足。 | 使用具备集群管理员权限的`kubeconfig`，很多自建节点可使用`/etc/kubernetes/admin.conf`。 |
 | 需要使用端口`8082` | Kubernetes `NodePort`通常使用`30000-32767`端口范围，因此清单默认保持`ClusterIP`。 | 使用`kubectl port-forward`、`Ingress`或`LoadBalancer`暴露`8082`。 |
@@ -200,6 +202,14 @@ http://127.0.0.1:9120/admin
 ```
 
 生产流量建议使用`Ingress`或`LoadBalancer`，不要依赖手工运行的`port-forward`进程。
+
+在 Kubernetes 集群内部，Service DNS 地址是：
+
+```text
+http://linapro.linapro.svc.cluster.local:9120
+```
+
+`kubectl port-forward`只适合做连通性 smoke 检查。对 Service 执行端口转发时，流量可能只进入单个后端 Pod，因此不能用于验证多 Pod 负载均衡。需要分发到所有副本的流量，应从集群内部使用 Service DNS，或通过`Ingress`、`LoadBalancer`、`NodePort`进入。
 
 如果需要改用`NodePort`，可以把`Service/linapro.spec.type`改成`NodePort`，并设置集群节点端口范围内的端口，例如：
 
