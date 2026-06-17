@@ -2,7 +2,10 @@
 
 package water
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 // TestParseWatermarkStrategySnapshotNode verifies Lina snapshot watermark YAML parsing.
 func TestParseWatermarkStrategySnapshotNode(t *testing.T) {
@@ -90,4 +93,72 @@ func TestParseWatermarkStrategyIgnoresGenericWatermark(t *testing.T) {
 	if cfg != nil {
 		t.Fatalf("expected generic watermark node to be ignored, got %+v", cfg)
 	}
+}
+
+// TestResolveStrategyCachesTenantDeviceResult verifies repeated lookups reuse host cache.
+func TestResolveStrategyCachesTenantDeviceResult(t *testing.T) {
+	ctx := context.Background()
+	cacheSvc := newTaskStoreCache()
+	resolver := &countingStrategyResolver{
+		next: &ResolveStrategyOutput{
+			Matched:      true,
+			Source:       string(StrategySourceTenantDevice),
+			SourceLabel:  strategySourceLabel(StrategySourceTenantDevice),
+			StrategyId:   17,
+			StrategyName: "租户设备策略",
+			Strategy:     "snapshot_watermark:\n  text: cached\n",
+		},
+	}
+	service := &serviceImpl{strategyCache: cacheSvc, strategyResolver: resolver}
+
+	first, err := service.resolveStrategy(ctx, " tenant-a ", " device-a ")
+	if err != nil {
+		t.Fatalf("resolve first strategy: %v", err)
+	}
+	resolver.next = &ResolveStrategyOutput{
+		Matched:      true,
+		Source:       string(StrategySourceDevice),
+		SourceLabel:  strategySourceLabel(StrategySourceDevice),
+		StrategyId:   23,
+		StrategyName: "设备策略",
+		Strategy:     "snapshot_watermark:\n  text: changed\n",
+	}
+	second, err := service.resolveStrategy(ctx, "tenant-a", "device-a")
+	if err != nil {
+		t.Fatalf("resolve cached strategy: %v", err)
+	}
+
+	if resolver.calls != 1 {
+		t.Fatalf("expected one resolver call after cache hit, got %d", resolver.calls)
+	}
+	if first.StrategyId != 17 || second.StrategyId != 17 {
+		t.Fatalf("expected cached strategy id 17, first=%+v second=%+v", first, second)
+	}
+	if cacheSvc.lastNamespace != strategyResolveCacheNamespace {
+		t.Fatalf("expected strategy cache namespace, got %q", cacheSvc.lastNamespace)
+	}
+	if cacheSvc.lastKey != "water:strategy:tenant:tenant-a:device:device-a" {
+		t.Fatalf("expected readable tenant-device cache key, got %q", cacheSvc.lastKey)
+	}
+	if cacheSvc.lastTTL != strategyResolveCacheTTL {
+		t.Fatalf("expected strategy cache TTL %s, got %s", strategyResolveCacheTTL, cacheSvc.lastTTL)
+	}
+}
+
+// TestStrategyResolveCacheKeyAllowsEmptyDevice verifies tenant-only lookups use a readable blank segment.
+func TestStrategyResolveCacheKeyAllowsEmptyDevice(t *testing.T) {
+	key := strategyResolveCacheKey(ResolveStrategyInput{TenantId: " tenant-a ", DeviceId: " "})
+	if key != "water:strategy:tenant:tenant-a:device:_" {
+		t.Fatalf("expected readable tenant-only key, got %q", key)
+	}
+}
+
+type countingStrategyResolver struct {
+	calls int
+	next  *ResolveStrategyOutput
+}
+
+func (r *countingStrategyResolver) ResolveStrategy(_ context.Context, _ ResolveStrategyInput) (*ResolveStrategyOutput, error) {
+	r.calls++
+	return r.next, nil
 }

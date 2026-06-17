@@ -147,6 +147,7 @@ func (s *serviceImpl) CreateStrategy(ctx context.Context, in StrategyMutationInp
 	if err != nil {
 		return 0, err
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return id, nil
 }
 
@@ -163,7 +164,7 @@ func (s *serviceImpl) UpdateStrategy(ctx context.Context, id int64, in StrategyM
 		return err
 	}
 
-	return dao.MediaStrategy.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+	err = dao.MediaStrategy.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
 		if normalized.Global == int(SwitchOn) {
 			if err := s.clearGlobalStrategies(ctx); err != nil {
 				return err
@@ -184,6 +185,11 @@ func (s *serviceImpl) UpdateStrategy(ctx context.Context, id int64, in StrategyM
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	s.invalidateStrategyResolveCache(ctx)
+	return nil
 }
 
 // UpdateStrategyEnable changes one media strategy enable status.
@@ -209,6 +215,7 @@ func (s *serviceImpl) UpdateStrategyEnable(ctx context.Context, id int64, enable
 	if err != nil {
 		return bizerr.WrapCode(err, CodeMediaStrategyUpdateFailed)
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return nil
 }
 
@@ -221,7 +228,7 @@ func (s *serviceImpl) SetGlobalStrategy(ctx context.Context, id int64) error {
 		return err
 	}
 
-	return dao.MediaStrategy.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+	err := dao.MediaStrategy.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
 		if err := s.clearGlobalStrategies(ctx); err != nil {
 			return err
 		}
@@ -238,6 +245,11 @@ func (s *serviceImpl) SetGlobalStrategy(ctx context.Context, id int64) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	s.invalidateStrategyResolveCache(ctx)
+	return nil
 }
 
 // DeleteStrategy deletes one unreferenced media strategy.
@@ -259,6 +271,7 @@ func (s *serviceImpl) DeleteStrategy(ctx context.Context, id int64) error {
 	if err != nil {
 		return bizerr.WrapCode(err, CodeMediaStrategyDeleteFailed)
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return nil
 }
 

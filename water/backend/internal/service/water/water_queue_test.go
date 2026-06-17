@@ -1,4 +1,4 @@
-// This file tests asynchronous watermark task queue state transitions.
+// This file tests asynchronous watermark local queue state transitions.
 
 package water
 
@@ -11,6 +11,32 @@ import (
 	"testing"
 	"time"
 )
+
+// TestLocalTaskQueueSubmitStaysProcessLocal verifies submit only delivers to
+// the in-process channel and does not persist task payloads to host cache or Redis.
+func TestLocalTaskQueueSubmitStaysProcessLocal(t *testing.T) {
+	ctx := context.Background()
+	queue := newLocalTaskQueue(nil, nil)
+	queue.startOnce.Do(func() {})
+
+	task := &watermarkTask{
+		id:      "task-local-only",
+		ctx:     ctx,
+		request: SubmitSnapInput{Tenant: "tenant-a", DeviceId: "device-a"},
+	}
+	if err := queue.submit(ctx, task); err != nil {
+		t.Fatalf("submit local task: %v", err)
+	}
+
+	select {
+	case got := <-queue.tasks:
+		if got != task {
+			t.Fatalf("expected queued task pointer %p, got %p", task, got)
+		}
+	default:
+		t.Fatal("expected task to be queued in local channel")
+	}
+}
 
 // TestTaskQueueDoesNotCacheLargeImageResult verifies async status snapshots
 // stay below the host cache value limit while callbacks still receive images.
@@ -42,7 +68,7 @@ func TestTaskQueueDoesNotCacheLargeImageResult(t *testing.T) {
 		t.Fatalf("create task snapshot: %v", err)
 	}
 
-	queue := newTaskQueue(store, func(context.Context, SubmitSnapInput) (*ProcessOutput, error) {
+	queue := newLocalTaskQueue(store, func(context.Context, SubmitSnapInput) (*ProcessOutput, error) {
 		return &ProcessOutput{
 			Success:     true,
 			Status:      TaskStatusSuccess,

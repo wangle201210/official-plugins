@@ -57,6 +57,12 @@ const (
 	taskStatusCacheNamespace = "task-status"
 	// taskStatusCacheKeyPrefix keeps task keys readable in the host cache.
 	taskStatusCacheKeyPrefix = "water:task:"
+	// strategyResolveCacheNamespace scopes resolved media strategies inside the plugin cache.
+	strategyResolveCacheNamespace = "strategy-resolve"
+	// strategyResolveCacheKeyPrefix keeps strategy resolution keys readable in the host cache.
+	strategyResolveCacheKeyPrefix = "water:strategy:"
+	// strategyResolveCacheTTL limits stale remote strategy resolution reuse.
+	strategyResolveCacheTTL = 30 * time.Second
 	// strategyResolverPath is the mediaopen endpoint used by remote water clusters.
 	strategyResolverPath = "/api/v1/strategies/resolve"
 	// strategyResolverAPIKeyHeader is the mediaopen internal API key header.

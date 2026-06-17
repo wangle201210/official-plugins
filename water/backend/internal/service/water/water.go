@@ -25,12 +25,13 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	queue            *taskQueue       // queue executes asynchronous watermark tasks.
+	queue            *localTaskQueue  // queue executes asynchronous watermark tasks in the current process.
 	store            *taskStore       // store keeps recent task status snapshots in host cache.
+	strategyCache    taskCache        // strategyCache keeps short-lived media strategy results in host cache.
 	strategyResolver StrategyResolver // strategyResolver resolves media-owned strategy bindings.
 }
 
-// taskCache defines the host cache operations water uses for task snapshots.
+// taskCache defines the host cache operations water uses for transient plugin values.
 type taskCache interface {
 	// Get returns the cached task snapshot payload for key when it exists.
 	Get(ctx context.Context, namespace string, key string) (*cachecap.CacheItem, bool, error)
@@ -49,8 +50,9 @@ func New(cacheSvc cachecap.Service, strategyResolver StrategyResolver) (Service,
 	store := newTaskStore(cacheSvc)
 	service := &serviceImpl{
 		store:            store,
+		strategyCache:    cacheSvc,
 		strategyResolver: strategyResolver,
 	}
-	service.queue = newTaskQueue(store, service.processSnapshot)
+	service.queue = newLocalTaskQueue(store, service.processSnapshot)
 	return service, nil
 }

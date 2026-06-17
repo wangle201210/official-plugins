@@ -208,6 +208,7 @@ func (s *serviceImpl) SaveDeviceBinding(ctx context.Context, in DeviceBindingMut
 	if err != nil {
 		return nil, err
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return &DeviceBindingMutationOutput{DeviceId: deviceID, StrategyId: in.StrategyId}, nil
 }
 
@@ -223,6 +224,7 @@ func (s *serviceImpl) DeleteDeviceBinding(ctx context.Context, deviceID string) 
 	if err := s.deleteDeviceBindingRecord(ctx, normalizedDeviceID); err != nil {
 		return nil, err
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return &DeviceBindingMutationOutput{DeviceId: normalizedDeviceID}, nil
 }
 
@@ -270,6 +272,7 @@ func (s *serviceImpl) SaveTenantBinding(ctx context.Context, in TenantBindingMut
 	if err != nil {
 		return nil, err
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return &TenantBindingMutationOutput{TenantId: tenantID, StrategyId: in.StrategyId}, nil
 }
 
@@ -285,6 +288,7 @@ func (s *serviceImpl) DeleteTenantBinding(ctx context.Context, tenantID string) 
 	if err := s.deleteTenantBindingRecord(ctx, normalizedTenantID); err != nil {
 		return nil, err
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return &TenantBindingMutationOutput{TenantId: normalizedTenantID}, nil
 }
 
@@ -329,6 +333,7 @@ func (s *serviceImpl) SaveTenantDeviceBinding(ctx context.Context, in TenantDevi
 	if err != nil {
 		return nil, err
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return &TenantDeviceBindingMutationOutput{
 		TenantId:   tenantID,
 		DeviceId:   deviceID,
@@ -352,52 +357,8 @@ func (s *serviceImpl) DeleteTenantDeviceBinding(ctx context.Context, tenantID st
 	if err := s.deleteTenantDeviceBindingRecord(ctx, normalizedTenantID, normalizedDeviceID); err != nil {
 		return nil, err
 	}
+	s.invalidateStrategyResolveCache(ctx)
 	return &TenantDeviceBindingMutationOutput{TenantId: normalizedTenantID, DeviceId: normalizedDeviceID}, nil
-}
-
-// ResolveStrategy resolves the effective strategy for one tenant/device pair.
-func (s *serviceImpl) ResolveStrategy(ctx context.Context, in ResolveStrategyInput) (*ResolveStrategyOutput, error) {
-	if err := validateMediaTablesReady(ctx); err != nil {
-		return nil, err
-	}
-	tenantID := strings.TrimSpace(in.TenantId)
-	deviceID := strings.TrimSpace(in.DeviceId)
-
-	if tenantID != "" && deviceID != "" {
-		strategy, err := s.strategyFromTenantDeviceBinding(ctx, tenantID, deviceID)
-		if err != nil {
-			return nil, err
-		}
-		if strategy != nil {
-			return buildResolveOutput(StrategySourceTenantDevice, strategy), nil
-		}
-	}
-	if deviceID != "" {
-		strategy, err := s.strategyFromDeviceBinding(ctx, deviceID)
-		if err != nil {
-			return nil, err
-		}
-		if strategy != nil {
-			return buildResolveOutput(StrategySourceDevice, strategy), nil
-		}
-	}
-	if tenantID != "" {
-		strategy, err := s.strategyFromTenantBinding(ctx, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		if strategy != nil {
-			return buildResolveOutput(StrategySourceTenant, strategy), nil
-		}
-	}
-	strategy, err := s.globalStrategy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if strategy != nil {
-		return buildResolveOutput(StrategySourceGlobal, strategy), nil
-	}
-	return buildResolveOutput(StrategySourceNone, nil), nil
 }
 
 // AuthenticateTietaToken validates one Tieta token and returns the Tieta user identity.

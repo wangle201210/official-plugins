@@ -23,25 +23,25 @@ type watermarkTask struct {
 	request SubmitSnapInput
 }
 
-// taskQueue owns worker startup and queued task delivery.
-type taskQueue struct {
+// localTaskQueue owns process-local worker startup and queued task delivery.
+type localTaskQueue struct {
 	store     *taskStore
 	processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)
 	tasks     chan *watermarkTask
 	startOnce sync.Once
 }
 
-// newTaskQueue creates one task queue with lazy workers.
-func newTaskQueue(store *taskStore, processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)) *taskQueue {
-	return &taskQueue{
+// newLocalTaskQueue creates one process-local task queue with lazy workers.
+func newLocalTaskQueue(store *taskStore, processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)) *localTaskQueue {
+	return &localTaskQueue{
 		store:     store,
 		processor: processor,
 		tasks:     make(chan *watermarkTask, defaultTaskQueueCapacity),
 	}
 }
 
-// submit enqueues one asynchronous task.
-func (q *taskQueue) submit(ctx context.Context, task *watermarkTask) error {
+// submit enqueues one asynchronous task in this process only.
+func (q *localTaskQueue) submit(ctx context.Context, task *watermarkTask) error {
 	q.start(ctx)
 	select {
 	case q.tasks <- task:
@@ -52,7 +52,7 @@ func (q *taskQueue) submit(ctx context.Context, task *watermarkTask) error {
 }
 
 // start lazily starts workers.
-func (q *taskQueue) start(ctx context.Context) {
+func (q *localTaskQueue) start(ctx context.Context) {
 	q.startOnce.Do(func() {
 		consumerCount := g.Cfg().MustGet(ctx, "water.consumerCount", defaultConsumerCount).Int()
 		if consumerCount < 1 {
@@ -69,7 +69,7 @@ func (q *taskQueue) start(ctx context.Context) {
 }
 
 // consume processes queued tasks until the process exits.
-func (q *taskQueue) consume(rootCtx context.Context, consumerID int) {
+func (q *localTaskQueue) consume(rootCtx context.Context, consumerID int) {
 	logger.Infof(rootCtx, "水印消费者 %d 已启动", consumerID)
 	for task := range q.tasks {
 		if task == nil {
@@ -80,7 +80,7 @@ func (q *taskQueue) consume(rootCtx context.Context, consumerID int) {
 }
 
 // processTask executes one asynchronous task and records the final status.
-func (q *taskQueue) processTask(consumerID int, task *watermarkTask) {
+func (q *localTaskQueue) processTask(consumerID int, task *watermarkTask) {
 	start := time.Now()
 	ctx := task.ctx
 	if q == nil || q.processor == nil {

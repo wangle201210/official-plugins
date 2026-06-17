@@ -4,11 +4,14 @@ package water
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
 	"lina-core/pkg/bizerr"
+	"lina-core/pkg/logger"
+	"lina-core/pkg/plugin/capability/cachecap"
 	"lina-plugin-water/backend/internal/library/watermark"
 )
 
@@ -44,14 +47,84 @@ func (s *serviceImpl) resolveStrategy(ctx context.Context, tenantID string, devi
 	if s == nil || s.strategyResolver == nil {
 		return nil, bizerr.NewCode(CodeWaterMediaResolverUnavailable)
 	}
-	strategy, err := s.strategyResolver.ResolveStrategy(ctx, ResolveStrategyInput{
+	in := ResolveStrategyInput{
 		TenantId: strings.TrimSpace(tenantID),
 		DeviceId: strings.TrimSpace(deviceID),
-	})
+	}
+	if cached, ok := s.cachedResolveStrategy(ctx, in); ok {
+		return buildResolvedStrategy(cached), nil
+	}
+	strategy, err := s.strategyResolver.ResolveStrategy(ctx, in)
 	if err != nil {
 		return nil, err
 	}
+	if strategy == nil {
+		strategy = &ResolveStrategyOutput{
+			Matched:     false,
+			Source:      string(StrategySourceNone),
+			SourceLabel: strategySourceLabel(StrategySourceNone),
+		}
+	}
+	s.cacheResolveStrategy(ctx, in, strategy)
 	return buildResolvedStrategy(strategy), nil
+}
+
+// cachedResolveStrategy returns one cached remote strategy projection when available.
+func (s *serviceImpl) cachedResolveStrategy(ctx context.Context, in ResolveStrategyInput) (*ResolveStrategyOutput, bool) {
+	if s == nil || s.strategyCache == nil {
+		return nil, false
+	}
+	item, found, err := s.strategyCache.Get(ctx, strategyResolveCacheNamespace, strategyResolveCacheKey(in))
+	if err != nil {
+		logger.Warningf(ctx, "读取水印策略解析缓存失败: %v", err)
+		return nil, false
+	}
+	if !found || item == nil || item.ValueKind != cachecap.CacheValueKindString || strings.TrimSpace(item.Value) == "" {
+		return nil, false
+	}
+	var out ResolveStrategyOutput
+	if err = json.Unmarshal([]byte(item.Value), &out); err != nil {
+		logger.Warningf(ctx, "解析水印策略解析缓存失败: %v", err)
+		return nil, false
+	}
+	return &out, true
+}
+
+// cacheResolveStrategy stores one remote strategy projection for short-lived reuse.
+func (s *serviceImpl) cacheResolveStrategy(ctx context.Context, in ResolveStrategyInput, out *ResolveStrategyOutput) {
+	if s == nil || s.strategyCache == nil || out == nil {
+		return
+	}
+	payload, err := json.Marshal(out)
+	if err != nil {
+		logger.Warningf(ctx, "序列化水印策略解析缓存失败: %v", err)
+		return
+	}
+	if _, err = s.strategyCache.Set(
+		ctx,
+		strategyResolveCacheNamespace,
+		strategyResolveCacheKey(in),
+		string(payload),
+		strategyResolveCacheTTL,
+	); err != nil {
+		logger.Warningf(ctx, "写入水印策略解析缓存失败: %v", err)
+	}
+}
+
+// strategyResolveCacheKey builds a readable tenant/device key for remote resolution results.
+func strategyResolveCacheKey(in ResolveStrategyInput) string {
+	return strategyResolveCacheKeyPrefix +
+		"tenant:" + strategyResolveCacheSegment(in.TenantId) +
+		":device:" + strategyResolveCacheSegment(in.DeviceId)
+}
+
+// strategyResolveCacheSegment keeps cache keys readable while preserving empty values.
+func strategyResolveCacheSegment(value string) string {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return "_"
+	}
+	return strings.NewReplacer(" ", "_", "\t", "_", "\n", "_", "\r", "_").Replace(normalized)
 }
 
 // buildResolvedStrategy converts the media strategy projection into service output.
