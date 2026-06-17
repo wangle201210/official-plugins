@@ -37,11 +37,11 @@ type managedJobDeclaration struct {
 	displayName string
 	description string
 	pattern     string
-	handler     pluginhost.CronJobHandler
+	handler     pluginhost.JobHandler
 }
 
 // Register contributes all migrated uidentity/admin app/jobs handlers to the host.
-func (s *serviceImpl) Register(ctx context.Context, registrar pluginhost.CronRegistrar) error {
+func (s *serviceImpl) Register(ctx context.Context, registrar pluginhost.JobsRegistrar) error {
 	for _, declaration := range s.declarations() {
 		if err := registrar.AddWithMetadata(
 			ctx,
@@ -57,11 +57,11 @@ func (s *serviceImpl) Register(ctx context.Context, registrar pluginhost.CronReg
 	return nil
 }
 
-// guardConcurrency wraps one cron handler so it runs at most once at a time,
+// guardConcurrency wraps one scheduled-job handler so it runs at most once at a time,
 // replicating the old per-job Redis lock. It first defers to a single primary
 // node in a multi-node deployment, then takes a per-job in-process lock so a
 // long run is not overlapped by the next trigger on the same node.
-func (s *serviceImpl) guardConcurrency(registrar pluginhost.CronRegistrar, name string, handler pluginhost.CronJobHandler) pluginhost.CronJobHandler {
+func (s *serviceImpl) guardConcurrency(registrar pluginhost.JobsRegistrar, name string, handler pluginhost.JobHandler) pluginhost.JobHandler {
 	return func(ctx context.Context) error {
 		if registrar != nil && !registrar.IsPrimaryNode() {
 			return nil

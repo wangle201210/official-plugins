@@ -20,14 +20,18 @@ const (
 
 // init registers the water source plugin and its host callbacks.
 func init() {
-	plugin := pluginhost.NewSourcePlugin(pluginID)
+	plugin := pluginhost.NewDeclarations(pluginID)
 	plugin.Assets().UseEmbeddedFiles(waterplugin.EmbeddedFiles)
-	plugin.HTTP().RegisterRoutes(
+	if err := plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,
 		pluginhost.CallbackExecutionModeBlocking,
 		registerRoutes,
-	)
-	pluginhost.RegisterSourcePlugin(plugin)
+	); err != nil {
+		panic(err)
+	}
+	if err := pluginhost.RegisterSourcePlugin(plugin); err != nil {
+		panic(err)
+	}
 }
 
 // registerRoutes binds water routes through the published host middleware set.

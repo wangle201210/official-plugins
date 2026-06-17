@@ -20,20 +20,28 @@ const (
 
 // init registers the CMS source plugin and its host callbacks.
 func init() {
-	plugin := pluginhost.NewSourcePlugin(pluginID)
+	plugin := pluginhost.NewDeclarations(pluginID)
 	plugin.Assets().UseEmbeddedFiles(cmsplugin.EmbeddedFiles)
-	plugin.Lifecycle().RegisterUninstallHandler(func(ctx context.Context, input pluginhost.SourcePluginUninstallInput) error {
-		if !input.PurgeStorageData() {
-			return nil
-		}
-		return cmssvc.PurgeStorageData(ctx)
-	})
-	plugin.HTTP().RegisterRoutes(
+	if err := plugin.Lifecycle().RegisterUninstallHandler(
+		func(ctx context.Context, input pluginhost.SourcePluginUninstallInput) error {
+			if !input.PurgeStorageData() {
+				return nil
+			}
+			return cmssvc.PurgeStorageData(ctx)
+		},
+	); err != nil {
+		panic(err)
+	}
+	if err := plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,
 		pluginhost.CallbackExecutionModeBlocking,
 		registerRoutes,
-	)
-	pluginhost.RegisterSourcePlugin(plugin)
+	); err != nil {
+		panic(err)
+	}
+	if err := pluginhost.RegisterSourcePlugin(plugin); err != nil {
+		panic(err)
+	}
 }
 
 // registerRoutes binds CMS public and management routes through the published

@@ -11,7 +11,7 @@ import (
 
 	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-core/pkg/plugin/capability/plugincap"
-	"lina-core/pkg/plugin/capability/tenantcap"
+	"lina-core/pkg/plugin/capability/tenantcap/tenantspi"
 )
 
 // Account status values.
@@ -358,14 +358,14 @@ var _ Service = (*serviceImpl)(nil)
 type serviceImpl struct {
 	bizCtxSvc    bizctxcap.Service                  // Business context bridge.
 	configSvc    plugincap.ConfigService            // Plugin-scoped static config reader.
-	tenantFilter tenantcap.PluginTableFilterService // Tenant query filter bridge.
+	tenantFilter tenantspi.PluginTableFilterService // Tenant query filter bridge.
 }
 
 // New creates and returns a new UIdentity service instance.
 func New(
 	bizCtxSvc bizctxcap.Service,
 	configSvc plugincap.ConfigService,
-	tenantFilter tenantcap.PluginTableFilterService,
+	tenantFilter tenantspi.PluginTableFilterService,
 ) Service {
 	return &serviceImpl{
 		bizCtxSvc:    bizCtxSvc,

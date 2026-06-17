@@ -11,36 +11,36 @@ import (
 	"lina-core/pkg/plugin/pluginhost"
 )
 
-type fakeCronRegistrar struct {
+type fakeJobsRegistrar struct {
 	names      []string
-	handlers   map[string]pluginhost.CronJobHandler
+	handlers   map[string]pluginhost.JobHandler
 	notPrimary bool
 }
 
-func (r *fakeCronRegistrar) Add(ctx context.Context, pattern string, name string, handler pluginhost.CronJobHandler) error {
+func (r *fakeJobsRegistrar) Add(ctx context.Context, pattern string, name string, handler pluginhost.JobHandler) error {
 	return r.AddWithMetadata(ctx, pattern, name, name, "", handler)
 }
 
-func (r *fakeCronRegistrar) AddWithMetadata(_ context.Context, _ string, name string, _ string, _ string, handler pluginhost.CronJobHandler) error {
+func (r *fakeJobsRegistrar) AddWithMetadata(_ context.Context, _ string, name string, _ string, _ string, handler pluginhost.JobHandler) error {
 	r.names = append(r.names, name)
 	if r.handlers == nil {
-		r.handlers = map[string]pluginhost.CronJobHandler{}
+		r.handlers = map[string]pluginhost.JobHandler{}
 	}
 	r.handlers[name] = handler
 	return nil
 }
 
-func (r *fakeCronRegistrar) IsPrimaryNode() bool {
+func (r *fakeJobsRegistrar) IsPrimaryNode() bool {
 	return !r.notPrimary
 }
 
-func (r *fakeCronRegistrar) Services() pluginhost.Services {
+func (r *fakeJobsRegistrar) Services() pluginhost.Services {
 	return nil
 }
 
 func TestRegisterContributesOldJobRegistry(t *testing.T) {
 	service := New(nil, nil, nil)
-	registrar := &fakeCronRegistrar{}
+	registrar := &fakeJobsRegistrar{}
 	if err := service.Register(context.Background(), registrar); err != nil {
 		t.Fatalf("Register returned error: %v", err)
 	}

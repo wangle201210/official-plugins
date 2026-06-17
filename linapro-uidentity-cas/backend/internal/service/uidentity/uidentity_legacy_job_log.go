@@ -15,7 +15,7 @@ import (
 	"github.com/gogf/gf/v2/util/gconv"
 
 	"lina-core/pkg/bizerr"
-	"lina-core/pkg/plugin/capability/tenantcap"
+	"lina-core/pkg/plugin/capability/tenantcap/tenantspi"
 )
 
 const (
@@ -139,12 +139,12 @@ func (s *serviceImpl) legacyJobLogScopedModel(ctx context.Context) *gdb.Model {
 	if current.PlatformBypass {
 		return model
 	}
-	return model.Where(tenantcap.TenantFilterColumn, current.TenantID)
+	return model.Where(tenantspi.TenantFilterColumn, current.TenantID)
 }
 
 func (s *serviceImpl) legacyJobLogMutationData(ctx context.Context, body map[string]any) map[string]any {
 	now := time.Now()
-	current := tenantcap.TenantFilterContext{}
+	current := tenantspi.TenantFilterContext{}
 	if s.tenantFilter != nil {
 		current = s.tenantFilter.Context(ctx)
 	}

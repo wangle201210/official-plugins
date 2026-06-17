@@ -33,7 +33,7 @@ var sharedCronSvc cronsvc.Service
 
 // init registers the media source plugin and its host callbacks.
 func init() {
-	plugin := pluginhost.NewSourcePlugin(pluginID)
+	plugin := pluginhost.NewDeclarations(pluginID)
 	plugin.Assets().UseEmbeddedFiles(mediaplugin.EmbeddedFiles)
 	if err := plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,

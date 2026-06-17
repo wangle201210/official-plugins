@@ -16,7 +16,7 @@ func TestGuardConcurrencySkipsNonPrimaryNode(t *testing.T) {
 
 	s := &serviceImpl{}
 	ran := false
-	guarded := s.guardConcurrency(&fakeCronRegistrar{notPrimary: true}, "job", func(context.Context) error {
+	guarded := s.guardConcurrency(&fakeJobsRegistrar{notPrimary: true}, "job", func(context.Context) error {
 		ran = true
 		return nil
 	})
@@ -34,7 +34,7 @@ func TestGuardConcurrencySkipsOverlappingRun(t *testing.T) {
 	t.Parallel()
 
 	s := &serviceImpl{}
-	registrar := &fakeCronRegistrar{}
+	registrar := &fakeJobsRegistrar{}
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var runs int

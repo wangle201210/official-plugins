@@ -159,17 +159,17 @@ const (
 	// defaultIOTLocatorHTTPTimeout bounds one external IOT HTTP request so a slow
 	// platform response does not overlap the next 1-minute refresh indefinitely.
 	defaultIOTLocatorHTTPTimeout = 8 * time.Second
-	// ironLocationRefreshCronName identifies the iron-cow IOT refresh cron declaration.
-	ironLocationRefreshCronName = "sicau-niu-iron-location-refresh"
-	// ironLocationRefreshCronDisplayName is the English source title for the locator refresh cron.
-	ironLocationRefreshCronDisplayName = "Sicau Niu Iron Location Refresh"
-	// ironLocationRefreshCronDescription is the English source description for the locator refresh cron.
-	ironLocationRefreshCronDescription = "Refreshes registered iron-cow locator coordinates from the IOT positioning platform."
+	// ironLocationRefreshJobName identifies the iron-cow IOT refresh job declaration.
+	ironLocationRefreshJobName = "sicau-niu-iron-location-refresh"
+	// ironLocationRefreshJobDisplayName is the English source title for the locator refresh job.
+	ironLocationRefreshJobDisplayName = "Sicau Niu Iron Location Refresh"
+	// ironLocationRefreshJobDescription is the English source description for the locator refresh job.
+	ironLocationRefreshJobDescription = "Refreshes registered iron-cow locator coordinates from the IOT positioning platform."
 )
 
 // init registers the embedded sicau-niu source plugin and its route callbacks.
 func init() {
-	plugin := pluginhost.NewSourcePlugin(pluginID)
+	plugin := pluginhost.NewDeclarations(pluginID)
 	plugin.Assets().UseEmbeddedFiles(pluginsicauniu.EmbeddedFiles)
 	if err := plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,
@@ -178,10 +178,10 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
-	if err := plugin.Cron().RegisterCron(
-		pluginhost.ExtensionPointCronRegister,
+	if err := plugin.Jobs().RegisterJobs(
+		pluginhost.ExtensionPointJobsRegister,
 		pluginhost.CallbackExecutionModeBlocking,
-		registerIronLocationCron,
+		registerIronLocationJob,
 	); err != nil {
 		panic(err)
 	}
@@ -427,15 +427,15 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	return nil
 }
 
-// registerIronLocationCron contributes the primary-node IOT locator refresh job
+// registerIronLocationJob contributes the primary-node IOT locator refresh job
 // when niu.key and niu.secret are configured. Missing credentials keep
 // development and test deployments on stored/mock coordinates without registering
 // an external polling job.
-func registerIronLocationCron(ctx context.Context, registrar pluginhost.CronRegistrar) error {
+func registerIronLocationJob(ctx context.Context, registrar pluginhost.JobsRegistrar) error {
 	if registrar == nil {
-		return gerror.New("sicau-niu iron-location cron requires registrar")
+		return gerror.New("sicau-niu iron-location job requires registrar")
 	}
-	configSvc, err := pluginConfigFromServices(registrar.Services(), "sicau-niu iron-location cron")
+	configSvc, err := pluginConfigFromServices(registrar.Services(), "sicau-niu iron-location job")
 	if err != nil {
 		return err
 	}
@@ -449,16 +449,16 @@ func registerIronLocationCron(ctx context.Context, registrar pluginhost.CronRegi
 	return registrar.AddWithMetadata(
 		ctx,
 		"@every "+interval.String(),
-		ironLocationRefreshCronName,
-		ironLocationRefreshCronDisplayName,
-		ironLocationRefreshCronDescription,
+		ironLocationRefreshJobName,
+		ironLocationRefreshJobDisplayName,
+		ironLocationRefreshJobDescription,
 		func(ctx context.Context) error {
 			return refreshIronLocations(ctx, registrar.IsPrimaryNode(), refresher)
 		},
 	)
 }
 
-// refreshIronLocations runs one primary-node refresh cycle. The cron registrar
+// refreshIronLocations runs one primary-node refresh cycle. The job registrar
 // already guards disabled plugins; this function keeps primary-node gating and
 // refresher dependency checks testable without touching host scheduler state.
 func refreshIronLocations(ctx context.Context, primaryNode bool, refresher feedingsvc.IronLocationRefresher) error {

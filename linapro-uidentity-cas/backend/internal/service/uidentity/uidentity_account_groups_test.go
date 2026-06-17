@@ -10,7 +10,7 @@ import (
 	"time"
 
 	_ "lina-core/pkg/dbdriver"
-	"lina-core/pkg/plugin/capability/tenantcap"
+	"lina-core/pkg/plugin/capability/tenantcap/tenantspi"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/dao"
 	"lina-plugin-linapro-uidentity-cas/backend/internal/model/do"
 )
@@ -23,7 +23,7 @@ func TestAccountResourceSyncsGroupIDs(t *testing.T) {
 	actorID := 8821
 	number := fmt.Sprintf("g%09d", time.Now().UnixNano()%1000000000)
 	service := &serviceImpl{
-		tenantFilter: testTenantFilter{current: tenantcap.TenantFilterContext{
+		tenantFilter: testTenantFilter{current: tenantspi.TenantFilterContext{
 			TenantID: tenantID,
 			UserID:   actorID,
 		}},

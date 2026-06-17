@@ -24,7 +24,7 @@ const (
 
 // init registers the linapro-uidentity-cas source plugin and its host callbacks.
 func init() {
-	plugin := pluginhost.NewSourcePlugin(pluginID)
+	plugin := pluginhost.NewDeclarations(pluginID)
 	plugin.Assets().UseEmbeddedFiles(uidentitycas.EmbeddedFiles)
 	if err := plugin.HTTP().RegisterRoutes(
 		pluginhost.ExtensionPointHTTPRouteRegister,
@@ -33,8 +33,8 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
-	if err := plugin.Cron().RegisterCron(
-		pluginhost.ExtensionPointCronRegister,
+	if err := plugin.Jobs().RegisterJobs(
+		pluginhost.ExtensionPointJobsRegister,
 		pluginhost.CallbackExecutionModeBlocking,
 		registerManagedJobs,
 	); err != nil {
@@ -88,7 +88,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 // registerManagedJobs contributes old uidentity/admin job registry entries as
 // LinaPro managed scheduled-job handlers. Scheduling, persistence, logs, and
 // trigger control stay in the host task-management module.
-func registerManagedJobs(ctx context.Context, registrar pluginhost.CronRegistrar) error {
+func registerManagedJobs(ctx context.Context, registrar pluginhost.JobsRegistrar) error {
 	services := registrar.Services()
 	if services == nil || services.BizCtx() == nil || services.TenantFilter() == nil {
 		return gerror.New("linapro-uidentity-cas jobs require host bizctx and tenant-filter services")
