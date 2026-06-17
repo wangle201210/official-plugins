@@ -1,10 +1,10 @@
 package watermark
 
 /*
-#cgo amd64,linux LDFLAGS: -L. -lamd64_watermark -L. -laddon
-#cgo amd64,darwin LDFLAGS: -L. -lamd64_watermark -L. -laddon
-#cgo arm64,linux LDFLAGS: -L. -larm64_watermark -L. -laddon
-#cgo arm64,darwin LDFLAGS: -L. -larm64_watermark -L. -laddon
+#cgo amd64,linux LDFLAGS: -L. -lamd64_watermark
+#cgo amd64,darwin LDFLAGS: -L. -lamd64_watermark
+#cgo arm64,linux LDFLAGS: -L. -larm64_watermark
+#cgo arm64,darwin LDFLAGS: -L. -larm64_watermark
 #cgo pkg-config: libavformat libavcodec libavutil libavfilter libswscale x264
 
 #include <stdlib.h>
