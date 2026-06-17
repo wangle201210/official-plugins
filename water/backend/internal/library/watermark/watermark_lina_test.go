@@ -5,7 +5,7 @@ package watermark
 import (
 	"image"
 	"os"
-	"strings"
+	"runtime"
 	"testing"
 )
 
@@ -49,14 +49,15 @@ func TestWatermarkOutputBufferSizeHandlesTinyInputs(t *testing.T) {
 	}
 }
 
-// TestMigratedHotGoWatermarkSourceUnmodified verifies the critical C source
-// still contains HotGo's FFmpeg entrypoint name.
-func TestMigratedHotGoWatermarkSourceUnmodified(t *testing.T) {
-	content, err := os.ReadFile("watermark.c")
+// TestMigratedHotGoWatermarkStaticLibraryPresent verifies the current platform
+// has the prebuilt FFmpeg/C library required by the cgo adapter.
+func TestMigratedHotGoWatermarkStaticLibraryPresent(t *testing.T) {
+	libraryName := "lib" + runtime.GOARCH + "_watermark.a"
+	info, err := os.Stat(libraryName)
 	if err != nil {
-		t.Fatalf("read migrated watermark.c: %v", err)
+		t.Fatalf("stat migrated hotgo static library %s: %v", libraryName, err)
 	}
-	if !strings.Contains(string(content), "int process_jpg_watermark") {
-		t.Fatal("expected migrated watermark.c to keep HotGo process_jpg_watermark entrypoint")
+	if info.Size() == 0 {
+		t.Fatalf("expected migrated hotgo static library %s to be non-empty", libraryName)
 	}
 }
