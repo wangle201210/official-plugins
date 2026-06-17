@@ -132,6 +132,14 @@ After changing `mediaStrategy` values, update the `linapro-water-plugin-config` 
 kubectl -n linapro-water rollout restart deploy/linapro-water
 ```
 
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| ------- | ----- | --- |
+| `SetServerRoot failed: cannot find "resource/public"` | The selected `water` image does not contain `/app/resource/public`, but the manifest configures `server.serverRoot: "resource/public"`. | Remove `server.serverRoot` from the `linapro-water-config` `config.yaml`, apply the manifest again, and restart `Deployment/linapro-water`. |
+| `runtime config i18n.default cannot be empty` | The selected image requires `i18n.default` in the host runtime config. | Add `i18n.default` and `i18n.locales` to the `linapro-water-config` `config.yaml`. |
+| Pods stay at `Init:3/4` for a long time | `verify-watermark-runtime` is checking `/app/lina` for `CGO` and FFmpeg/x264 linkage. This can take tens of seconds with a new image or cold cache. | Inspect `kubectl -n linapro-water logs <pod> -c verify-watermark-runtime` and pod events. If there is no missing-library error, wait for the check to finish. If it reports missing FFmpeg/x264 libraries or a non-`CGO` build, switch to a `water` image built from `../docker/Dockerfile`. |
+
 ## Access
 
 When the `linapro-water` pod is ready, access LinaPro through any Kubernetes node:

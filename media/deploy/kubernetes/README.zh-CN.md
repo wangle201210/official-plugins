@@ -167,6 +167,7 @@ kubectl -n linapro logs job/linapro-db-init
 | `PersistentVolumeClaim/linapro-data`一直处于`Pending` | 默认`StorageClass`不支持`ReadWriteMany`，或集群没有默认存储类。 | 设置`PersistentVolumeClaim/linapro-data.spec.storageClassName`为支持 RWX 的存储类。 |
 | `kubectl`访问命名空间资源时报`Forbidden` | 当前`kubeconfig`用户权限不足。 | 使用具备集群管理员权限的`kubeconfig`，很多自建节点可使用`/etc/kubernetes/admin.conf`。 |
 | 需要使用端口`8082` | Kubernetes `NodePort`通常使用`30000-32767`端口范围，因此清单默认保持`ClusterIP`。 | 使用`kubectl port-forward`、`Ingress`或`LoadBalancer`暴露`8082`。 |
+| 首次多副本启动时部分副本短暂输出`Startup auto-enable plugin media timed out`并重启一次 | 多个`linapro`副本并发启动，`media`插件自动安装和启用由其中一个副本先完成，其他副本可能在首轮等待窗口内超时。 | 先等待`Deployment/linapro`达到`3/3`，再检查`sys_plugin`中`media`的`installed`、`status`、`desired_state`和`current_state`。如果状态为已安装且`desired_state/current_state`均为`enabled`，且后续日志无持续错误，则无需处理。 |
 
 修改`config.yaml`后如需手工重跑宿主数据库初始化，删除已完成的`Job`后重新应用清单：
 

@@ -132,6 +132,14 @@ kubectl -n linapro-water rollout restart deploy/linapro-water
 kubectl -n linapro-water rollout restart deploy/linapro-water
 ```
 
+## 问题记录与排障
+
+| 现象 | 原因 | 处理方式 |
+| ---- | ---- | -------- |
+| `SetServerRoot failed: cannot find "resource/public"` | 使用的`water`镜像内没有`/app/resource/public`，但清单配置了`server.serverRoot: "resource/public"`。 | 从`linapro-water-config`的`config.yaml`中移除`server.serverRoot`，重新应用清单并重启`Deployment/linapro-water`。 |
+| `runtime config i18n.default cannot be empty` | 目标镜像运行时要求宿主配置中存在`i18n.default`。 | 在`linapro-water-config`的`config.yaml`中补充`i18n.default`和`i18n.locales`配置。 |
+| Pod 长时间停留在`Init:3/4` | `verify-watermark-runtime`正在对`/app/lina`执行`CGO`和 FFmpeg/x264 链接检查，新镜像或冷缓存场景下可能持续几十秒。 | 先查看`kubectl -n linapro-water logs <pod> -c verify-watermark-runtime`和事件。如果没有缺失库错误，等待检查完成；如果提示缺少 FFmpeg/x264 或非`CGO`构建，需要换用按`../docker/Dockerfile`构建的`water`镜像。 |
+
 ## 访问
 
 等待`linapro-water` Pod 就绪后，通过任意 Kubernetes 节点访问：
