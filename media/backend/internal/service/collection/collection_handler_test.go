@@ -5,6 +5,7 @@ package collection
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -187,6 +188,34 @@ func TestEventHandlerLooksUpDiscoveryInstance(t *testing.T) {
 	}
 }
 
+// TestEventHandlerWritesEmptyLookupAckWhenDiscoveryHasNoInstance verifies empty Nacos lookups still reply.
+func TestEventHandlerWritesEmptyLookupAckWhenDiscoveryHasNoInstance(t *testing.T) {
+	client := &fakeDiscoveryClient{
+		lookupErr: errors.New("instance list is empty!"),
+	}
+	handler := newTestDiscoveryHandler(t, client)
+	conn := &recordingConn{}
+
+	err := handler.OnCmdDiscovery(conn, &gen.Lookup{
+		ServiceName: "media-node",
+		Node:        5,
+		Healthy:     true,
+	})
+	if err != nil {
+		t.Fatalf("lookup empty discovery instance: %v", err)
+	}
+	if conn.cmd != uint8(gen.CMD_DISCOVERY) || conn.subcmd != uint8(gen.SCMDDisco_LOOKUP_ACK) {
+		t.Fatalf("expected lookup ack response, got cmd=%d subcmd=%d", conn.cmd, conn.subcmd)
+	}
+	ack, ok := conn.pkt.(*gen.LookupAck)
+	if !ok {
+		t.Fatalf("expected lookup ack packet, got %T", conn.pkt)
+	}
+	if len(ack.GetServices()) != 0 {
+		t.Fatalf("expected empty services after no instance, got %#v", ack.GetServices())
+	}
+}
+
 // newTestDiscoveryHandler creates a handler wired to a fake discovery client.
 func newTestDiscoveryHandler(t *testing.T, client *fakeDiscoveryClient) network.EventHandler {
 	t.Helper()
@@ -239,6 +268,7 @@ type fakeDiscoveryClient struct {
 	lookupServiceName string
 	lookupGroupName   string
 	lookupResult      *gen.Instance
+	lookupErr         error
 	closed            bool
 }
 
@@ -263,7 +293,7 @@ func (c *fakeDiscoveryClient) DeregisterInstance(serviceName, groupName, ip stri
 func (c *fakeDiscoveryClient) GetServiceInstanceByGroup(serviceName, groupName string) (*gen.Instance, error) {
 	c.lookupServiceName = serviceName
 	c.lookupGroupName = groupName
-	return c.lookupResult, nil
+	return c.lookupResult, c.lookupErr
 }
 
 // Close records that the fake client was closed.

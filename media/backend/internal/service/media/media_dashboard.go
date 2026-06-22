@@ -149,6 +149,11 @@ type DashboardProtocolItem struct {
 	CurrentSessions int    `json:"current_sessions"`
 }
 
+type dashboardStreamActiveSessionCounts struct {
+	Counts map[string]int
+	Loaded bool
+}
+
 // ListDashboardSessionsInput defines dashboard session list filters.
 type ListDashboardSessionsInput struct {
 	StreamId     string
@@ -658,13 +663,13 @@ func buildDashboardStreamItem(item *dashboardStreamEntity) *DashboardStreamItem 
 	if item == nil {
 		return &DashboardStreamItem{ProtocolSummary: []*DashboardProtocolItem{}}
 	}
-	return buildDashboardStreamItemWithCounts(item, nil)
+	return buildDashboardStreamItemWithCounts(item, dashboardStreamActiveSessionCounts{})
 }
 
 // buildDashboardStreamItemWithCounts converts one stream entity and active session counts to dashboard output.
 func buildDashboardStreamItemWithCounts(
 	item *dashboardStreamEntity,
-	activeSessionCounts map[string]int,
+	activeSessionCounts dashboardStreamActiveSessionCounts,
 ) *DashboardStreamItem {
 	if item == nil {
 		return &DashboardStreamItem{ProtocolSummary: []*DashboardProtocolItem{}}
@@ -715,10 +720,13 @@ func dashboardStreamEntityIDs(items []*dashboardStreamEntity) []string {
 }
 
 // dashboardStreamSessionCounts returns active session counts grouped by stream and protocol.
-func dashboardStreamSessionCounts(ctx context.Context, streamIDs []string) (map[string]map[string]int, error) {
-	result := make(map[string]map[string]int, len(streamIDs))
+func dashboardStreamSessionCounts(ctx context.Context, streamIDs []string) (map[string]dashboardStreamActiveSessionCounts, error) {
+	result := make(map[string]dashboardStreamActiveSessionCounts, len(streamIDs))
 	if len(streamIDs) == 0 {
 		return result, nil
+	}
+	for _, streamID := range streamIDs {
+		result[streamID] = dashboardStreamActiveSessionCounts{Counts: map[string]int{}, Loaded: true}
 	}
 
 	columns := dao.MediaReportSession.Columns()
@@ -744,10 +752,13 @@ func dashboardStreamSessionCounts(ctx context.Context, streamIDs []string) (map[
 		if item == nil || strings.TrimSpace(item.StreamId) == "" {
 			continue
 		}
-		if _, ok := result[item.StreamId]; !ok {
-			result[item.StreamId] = map[string]int{}
+		activeCounts := result[item.StreamId]
+		if activeCounts.Counts == nil {
+			activeCounts.Counts = map[string]int{}
 		}
-		result[item.StreamId][item.ProtocolType] = item.SessionCount
+		activeCounts.Loaded = true
+		activeCounts.Counts[item.ProtocolType] = item.SessionCount
+		result[item.StreamId] = activeCounts
 	}
 	return result, nil
 }
@@ -755,19 +766,20 @@ func dashboardStreamSessionCounts(ctx context.Context, streamIDs []string) (map[
 // mergeDashboardProtocolSessionCounts overlays active session rows onto protocol_summary current counts.
 func mergeDashboardProtocolSessionCounts(
 	summary []*DashboardProtocolItem,
-	activeSessionCounts map[string]int,
+	activeSessionCounts dashboardStreamActiveSessionCounts,
 ) []*DashboardProtocolItem {
-	if len(activeSessionCounts) == 0 {
+	if !activeSessionCounts.Loaded {
 		return summary
 	}
-	items := make([]*DashboardProtocolItem, 0, len(summary)+len(activeSessionCounts))
+	counts := activeSessionCounts.Counts
+	items := make([]*DashboardProtocolItem, 0, len(summary)+len(counts))
 	seen := make(map[string]struct{}, len(summary))
 	for _, item := range summary {
 		if item == nil {
 			continue
 		}
 		protocol := strings.TrimSpace(item.ProtocolType)
-		currentSessions := activeSessionCounts[protocol]
+		currentSessions := counts[protocol]
 		items = append(items, &DashboardProtocolItem{
 			ProtocolType:    item.ProtocolType,
 			TotalSessions:   item.TotalSessions,
@@ -778,8 +790,8 @@ func mergeDashboardProtocolSessionCounts(
 		}
 	}
 
-	extraProtocols := make([]string, 0, len(activeSessionCounts))
-	for protocol := range activeSessionCounts {
+	extraProtocols := make([]string, 0, len(counts))
+	for protocol := range counts {
 		if strings.TrimSpace(protocol) == "" {
 			continue
 		}
@@ -793,7 +805,7 @@ func mergeDashboardProtocolSessionCounts(
 		items = append(items, &DashboardProtocolItem{
 			ProtocolType:    protocol,
 			TotalSessions:   0,
-			CurrentSessions: activeSessionCounts[protocol],
+			CurrentSessions: counts[protocol],
 		})
 	}
 	return items
@@ -1150,6 +1162,9 @@ func dashboardElapsedSeconds(startTime *gtime.Time, closeTime *gtime.Time, expli
 	}
 	startMillis := startTime.TimestampMilli()
 	if endMillis <= startMillis {
+		if explicitDuration > 0 {
+			return explicitDuration
+		}
 		return 0
 	}
 	elapsedSeconds := (endMillis - startMillis) / 1000

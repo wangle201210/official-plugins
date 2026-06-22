@@ -257,6 +257,9 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if closedStream == nil || closedStream.CloseTime == nil {
 		t.Fatalf("expected stream delete event to mark close_time, got %#v", closedStream)
 	}
+	if closedStream.Status != string(reportStreamStatusClosed) || closedStream.CurrentActiveSessions != 0 {
+		t.Fatalf("expected stream delete event to close projection counters, got %#v", closedStream)
+	}
 	if err := writer.HandleMachineMetric(ctx, &gen.MachineMetric{
 		InstanceId:   instanceID,
 		InstanceName: "media-server-a",
@@ -274,6 +277,65 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	}
 	if counted.CpuLoad != 33.5 || counted.LiveStreams != 0 || counted.Sessions != 0 {
 		t.Fatalf("expected machine metric not to overwrite counters, got %#v", counted)
+	}
+}
+
+// TestReportRuntimeClearsProtocolCurrentSessionsOnStreamClose verifies close keeps lifetime totals but clears live protocol counters.
+func TestReportRuntimeClearsProtocolCurrentSessionsOnStreamClose(t *testing.T) {
+	if os.Getenv("LINAPRO_TEST_POSTGRES") != "1" {
+		t.Skip("set LINAPRO_TEST_POSTGRES=1 to run against a local PostgreSQL database")
+	}
+
+	ctx := context.Background()
+	setupCollectionReportPostgres(t, ctx)
+
+	const (
+		nodeID     = "collection-close-summary-node"
+		instanceID = "collection-close-summary-instance"
+		streamID   = "collection-close-summary-stream"
+		reportTime = int64(1_780_000_300)
+	)
+	cleanupCollectionReportRows(t, ctx, nodeID, instanceID, streamID, "")
+	t.Cleanup(func() {
+		cleanupCollectionReportRows(t, ctx, nodeID, instanceID, streamID, "")
+	})
+
+	writer := newReportRuntime(newMemoryCollectionCache())
+	if err := writer.HandleStreamMetric(ctx, uint8(gen.SCMDDataReport_STREAM_ADD), &gen.StreamMetric{
+		StreamId:              streamID,
+		MachineId:             instanceID,
+		InstanceId:            instanceID,
+		NodeId:                nodeID,
+		Status:                gen.StreamStatus_SS_RUNNING,
+		Protocol:              gen.StreamProtocol_SP_HLS,
+		CurrentActiveSessions: 1,
+		TotalSessionsLifetime: 1,
+		Timestamp:             reportTime,
+	}); err != nil {
+		t.Fatalf("stream add: %v", err)
+	}
+	if err := writer.HandleStreamMetric(ctx, uint8(gen.SCMDDataReport_STREAM_DELETE), &gen.StreamMetric{
+		StreamId:  streamID,
+		Timestamp: reportTime + 1,
+	}); err != nil {
+		t.Fatalf("stream delete: %v", err)
+	}
+
+	var stream *entity.MediaReportStream
+	if err := dao.MediaReportStream.Ctx(ctx).Where(dao.MediaReportStream.Columns().StreamId, streamID).Scan(&stream); err != nil {
+		t.Fatalf("query stream projection: %v", err)
+	}
+	if stream == nil {
+		t.Fatal("expected stream projection")
+	}
+	var summary []protocolSummaryItem
+	if err := json.Unmarshal([]byte(stream.ProtocolSummary), &summary); err != nil {
+		t.Fatalf("decode protocol summary: %v", err)
+	}
+	if stream.Status != string(reportStreamStatusClosed) || stream.CurrentActiveSessions != 0 ||
+		len(summary) != 1 || summary[0].ProtocolType != "HLS" ||
+		summary[0].TotalSessions != 1 || summary[0].CurrentSessions != 0 {
+		t.Fatalf("expected closed stream live counters cleared, stream=%#v summary=%#v", stream, summary)
 	}
 }
 

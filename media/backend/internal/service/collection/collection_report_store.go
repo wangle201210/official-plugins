@@ -723,14 +723,46 @@ func markReportStreamClosed(ctx context.Context, streamID string, reportTime int
 	if streamID == "" {
 		return nil
 	}
+	cols := dao.MediaReportStream.Columns()
+	var stream *entity.MediaReportStream
+	if err := dao.MediaReportStream.Ctx(ctx).Where(cols.StreamId, streamID).Scan(&stream); err != nil {
+		return err
+	}
+	protocolSummary := zeroReportProtocolCurrentSessions(streamProtocolSummary(stream))
 	_, err := dao.MediaReportStream.Ctx(ctx).
 		Data(do.MediaReportStream{
-			CloseTime:  reportTimeToGTime(normalizeReportTime(reportTime)),
-			ReportTime: normalizeReportTime(reportTime),
+			Status:                string(reportStreamStatusClosed),
+			CurrentActiveSessions: 0,
+			ProtocolSummary:       protocolSummary,
+			CloseTime:             reportTimeToGTime(normalizeReportTime(reportTime)),
+			ReportTime:            normalizeReportTime(reportTime),
 		}).
-		Where(dao.MediaReportStream.Columns().StreamId, streamID).
+		Where(cols.StreamId, streamID).
 		Update()
 	return err
+}
+
+// streamProtocolSummary decodes a stored stream protocol summary projection.
+func streamProtocolSummary(stream *entity.MediaReportStream) []protocolSummaryItem {
+	if stream == nil || stream.ProtocolSummary == "" {
+		return nil
+	}
+	items := make([]protocolSummaryItem, 0)
+	if err := json.Unmarshal([]byte(stream.ProtocolSummary), &items); err != nil {
+		return nil
+	}
+	return items
+}
+
+// zeroReportProtocolCurrentSessions preserves protocol lifetime totals while clearing live counters.
+func zeroReportProtocolCurrentSessions(items []protocolSummaryItem) string {
+	if len(items) == 0 {
+		return defaultReportJSONArray
+	}
+	for i := range items {
+		items[i].CurrentSessions = 0
+	}
+	return mustEncodeJSON(items, defaultReportJSONArray)
 }
 
 // markReportSessionClosed records one session close time after a lifecycle delete event.

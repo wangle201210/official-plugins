@@ -211,9 +211,12 @@ func TestBuildDashboardStreamItemUsesActiveSessionCounts(t *testing.T) {
 		TotalSessionsLifetime: 30,
 		CurrentActiveSessions: 999,
 		ProtocolSummary:       `[{"protocol_type":"HLS","total_sessions":20,"current_sessions":999},{"protocol_type":"RTMP","total_sessions":10,"current_sessions":999}]`,
-	}, map[string]int{
-		"HLS":  2,
-		"RTMP": 1,
+	}, dashboardStreamActiveSessionCounts{
+		Loaded: true,
+		Counts: map[string]int{
+			"HLS":  2,
+			"RTMP": 1,
+		},
 	})
 	if item.ProtocolCount != 2 || item.TotalSessionsLifetime != 30 || item.CurrentActiveSessions != 3 {
 		t.Fatalf("expected stream counters from protocol summary and active sessions, got %#v", item)
@@ -231,12 +234,50 @@ func TestBuildDashboardStreamItemKeepsFallbackLifetime(t *testing.T) {
 		TotalSessionsLifetime: 42,
 		CurrentActiveSessions: 999,
 		ProtocolSummary:       `[]`,
-	}, map[string]int{"HLS": 3})
+	}, dashboardStreamActiveSessionCounts{Loaded: true, Counts: map[string]int{"HLS": 3}})
 	if item.ProtocolCount != 1 || item.TotalSessionsLifetime != 42 || item.CurrentActiveSessions != 3 {
 		t.Fatalf("expected fallback lifetime and active session count, got %#v", item)
 	}
 	if len(item.ProtocolSummary) != 1 || item.ProtocolSummary[0].TotalSessions != 0 || item.ProtocolSummary[0].CurrentSessions != 3 {
 		t.Fatalf("expected extra protocol to carry current count only, got %#v", item.ProtocolSummary)
+	}
+}
+
+// TestBuildDashboardStreamItemClearsStaleActiveCounts verifies stale report summary current counts are not authoritative.
+func TestBuildDashboardStreamItemClearsStaleActiveCounts(t *testing.T) {
+	item := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+		StreamId:              "stream-a",
+		ProtocolCount:         1,
+		TotalSessionsLifetime: 1,
+		CurrentActiveSessions: 1,
+		ProtocolSummary:       `[{"protocol_type":"HLS","total_sessions":1,"current_sessions":1}]`,
+	}, dashboardStreamActiveSessionCounts{Loaded: true, Counts: map[string]int{}})
+	if item.ProtocolCount != 1 || item.TotalSessionsLifetime != 1 || item.CurrentActiveSessions != 0 {
+		t.Fatalf("expected active session counts to clear stale stream counters, got %#v", item)
+	}
+	if len(item.ProtocolSummary) != 1 || item.ProtocolSummary[0].CurrentSessions != 0 {
+		t.Fatalf("expected active session counts to clear stale protocol summary, got %#v", item.ProtocolSummary)
+	}
+}
+
+// TestDashboardElapsedSecondsFallsBackToReportedDuration verifies dashboard durations survive timestamp timezone skew.
+func TestDashboardElapsedSecondsFallsBackToReportedDuration(t *testing.T) {
+	futureStartTime := gtime.NewFromTime(time.Now().Add(time.Hour))
+
+	if duration := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+		StreamId:  "stream-a",
+		StartTime: futureStartTime,
+		Duration:  60,
+	}, dashboardStreamActiveSessionCounts{}).Duration; duration != 60 {
+		t.Fatalf("expected stream explicit duration fallback, got %d", duration)
+	}
+
+	if duration := buildDashboardSessionItem(&dashboardSessionEntity{
+		SessionId:    "session-a",
+		StartTime:    futureStartTime,
+		PlayDuration: 60,
+	}).PlayDuration; duration != 60 {
+		t.Fatalf("expected session explicit duration fallback, got %d", duration)
 	}
 }
 

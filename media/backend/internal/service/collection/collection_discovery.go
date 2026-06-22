@@ -202,6 +202,9 @@ func (r *discoveryRuntime) Lookup(packet *gen.Lookup) (*gen.LookupAck, error) {
 	}
 	instance, err := client.GetServiceInstanceByGroup(serviceName, r.groupForNode(packet.GetNode()))
 	if err != nil {
+		if isDiscoveryEmptyInstanceError(err) {
+			return &gen.LookupAck{}, nil
+		}
 		return nil, err
 	}
 	if instance == nil {
@@ -379,4 +382,12 @@ func cleanLookupInstance(instance *gen.Instance) *gen.Instance {
 	copied := *instance
 	copied.InstanceName = cleanName
 	return &copied
+}
+
+// isDiscoveryEmptyInstanceError recognizes Nacos' "no healthy instance" response as an empty lookup result.
+func isDiscoveryEmptyInstanceError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "instance list is empty")
 }
