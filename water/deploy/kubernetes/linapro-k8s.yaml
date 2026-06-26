@@ -42,6 +42,15 @@ stringData:
       secret: "linapro-jwt-change-me"
       expire: 24h
 
+    i18n:
+      default: zh-CN
+      enabled: true
+      locales:
+        - locale: en-US
+          nativeName: English
+        - locale: zh-CN
+          nativeName: 简体中文
+
     cluster:
       enabled: true
       coordination: redis

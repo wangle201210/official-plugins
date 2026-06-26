@@ -32,6 +32,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-water-postgres:5432)/linapro?sslmode=disable` | LinaPro database connection string. Keep it aligned with `POSTGRES_PASSWORD`. |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT signing secret. |
 | `jwt.expire` | `24h` | JWT expiration duration. |
+| `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
 | `logger.level` | `info` | Runtime log level. Keep `info` for multi-replica deployments; use `all` only for short-lived debugging. |
 | `cluster.enabled` | `true` | Enables LinaPro cluster coordination for the ten `water` pods. |
 | `cluster.redis.address` | `linapro-water-redis:6379` | Redis endpoint used for cluster election, locks, and shared runtime KV cache. |

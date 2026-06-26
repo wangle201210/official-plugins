@@ -32,6 +32,7 @@
 | `database.default.link` | `pgsql:postgres:linapro-change-me@tcp(linapro-water-postgres:5432)/linapro?sslmode=disable` | LinaPro 数据库连接串，需要与`POSTGRES_PASSWORD`保持一致。 |
 | `jwt.secret` | `linapro-jwt-change-me` | JWT 签名密钥。 |
 | `jwt.expire` | `24h` | JWT 过期时间。 |
+| `i18n.default` | `zh-CN` | 必需的宿主运行时默认语言配置。不要删除该配置块。 |
 | `logger.level` | `info` | 运行日志级别。多副本部署保持`info`；仅在短时间排障时改为`all`。 |
 | `cluster.enabled` | `true` | 为 10 个`water`Pod 启用 LinaPro 集群协调。 |
 | `cluster.redis.address` | `linapro-water-redis:6379` | Redis 协调地址，用于集群选主、锁和共享运行期 KV cache。 |
