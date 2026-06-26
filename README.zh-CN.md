@@ -22,16 +22,13 @@ LinaPro 将`apps/lina-core`定位为稳定的全栈框架宿主。宿主保留�
 | `linapro-demo-dynamic` | `dynamic` | `tenant_aware` | `tenant_scoped` | 动态`WASM`插件示例，演示菜单内嵌页面、插件自有`SQL`表`CRUD`和独立静态页面 |
 | `sicau-niu` | `source` | `tenant_aware` | `tenant_scoped` | 最小源码插件示例，演示菜单页面、公开路由和受保护路由，不含数据库或`i18n`资源 |
 
-根目录`go.mod`和`lina-plugins.go`负责接线随宿主编译的源码插件。`linapro-demo-dynamic`不作为源码插件接线，它是`WASM`构建与运行时生命周期流程的参考插件。
+`linactl`会在插件完整构建时根据插件清单和插件本地`Go`模块自动生成已忽略的`temp/official-plugins`聚合模块和`temp/go.work.plugins`工作区，用于接线随宿主编译的源码插件。`linapro-demo-dynamic`不会进入源码插件聚合，它是`WASM`构建与运行时生命周期流程的参考插件。
 
 ## 工作区文件
 
 | 路径 | 用途 |
 |------|------|
-| `go.mod` | 用于源码插件编译检查的本地`Go`工作区模块 |
-| `lina-plugins.go` | 宿主编译用的源码插件显式导入注册表 |
-| `Makefile` | 插件工作区构建与代码生成入口；`make wasm p=<plugin-id>`、`make ctrl p=<plugin-id>`和`make dao p=<plugin-id>`会委托给`linactl` |
-| `package.json` | 源码插件包的前端工作区元数据 |
+| `<plugin-id>/hack/config.yaml` | 插件本地工具配置入口，包含代码生成、自定义构建和其他插件自有工具配置 |
 | `<plugin-id>/plugin.yaml` | 插件清单，包含元数据、菜单、安装模式、`i18n`、资产、依赖和宿主服务声明 |
 | `<plugin-id>/Makefile` | 插件本地代码生成包装入口，会引入根目录共享的`hack/makefiles/plugin.codegen.mk`目标片段 |
 | `<plugin-id>/README.md` | 插件级英文说明 |
@@ -80,7 +77,6 @@ apps/lina-plugins/<plugin-id>/
       dao/                插件存在数据库访问时生成的本地 DAO 工件
       model/do/           插件存在数据库访问时生成的本地 DO 工件
       model/entity/       插件存在数据库访问时生成的本地实体工件
-    hack/config.yaml      存在 DAO 生成时的插件本地 GoFrame codegen 配置
     plugin.go             后端注册、路由注册、生命周期入口或动态桥接入口
   frontend/pages/         插件自有页面或公开静态资产
   manifest/
@@ -88,7 +84,9 @@ apps/lina-plugins/<plugin-id>/
     sql/mock-data/        可选 mock 或演示 SQL 资产
     sql/uninstall/        可选卸载 SQL 资产
     i18n/<locale>/        插件 i18n 资源
-  hack/tests/             可选的插件自有 E2E 用例、页面对象和 helper
+  hack/
+    config.yaml           插件本地工具配置入口，包含代码生成和自定义构建配置
+    tests/                可选的插件自有 E2E 用例、页面对象和 helper
   go.mod                  插件本地 Go 模块
   Makefile                插件本地代码生成包装入口
   plugin.yaml             插件清单
@@ -97,7 +95,17 @@ apps/lina-plugins/<plugin-id>/
   README.zh-CN.md         中文说明
 ```
 
-插件根目录`Makefile`是根目录共享`hack/makefiles/plugin.codegen.mk`片段的薄包装。共享片段会根据引入它的插件目录推导目标后端目录，因此插件`Makefile`不得硬编码`apps/lina-plugins/<plugin-id>/backend`。在插件目录内执行`make ctrl`或`make dao`会使用该插件的`backend/hack/config.yaml`；也可以在`apps/lina-plugins/`下执行`make ctrl p=<plugin-id>`和`make dao p=<plugin-id>`。
+插件根目录`Makefile`是根目录共享`hack/makefiles/plugin.codegen.mk`片段的薄包装。共享片段会根据引入它的插件目录推导目标后端目录，因此插件`Makefile`不得硬编码`apps/lina-plugins/<plugin-id>/backend`。在插件目录内执行`make ctrl`或`make dao`会使用该插件根目录的`hack/config.yaml`；如果需要从仓库根目录显式指定插件后端，可执行`make ctrl dir=apps/lina-plugins/<plugin-id>/backend`或`make dao dir=apps/lina-plugins/<plugin-id>/backend`。直接调用`linactl ctrl`和`linactl dao`时，目标选择器同样只支持`dir=<backend-dir>`。
+
+需要自定义构建步骤的插件必须在插件根`hack/config.yaml`的`build.commands`下声明。根目录`make build`会扫描`apps/lina-plugins`下包含`plugin.yaml`的直接插件目录，并在宿主后端编译前执行已配置的构建指令。传入`dir=apps/lina-plugins/<plugin-id>`时只构建该插件。缺少`build.commands`是合法状态，表示插件没有自定义构建步骤。
+
+```yaml
+build:
+  commands:
+    - pnpm --dir "$(PLUGIN_ROOT)/frontend" run build
+```
+
+`$(PLUGIN_ROOT)`会展开为插件目录，`$(REPO_ROOT)`会展开为仓库根目录。构建指令从插件根目录执行。
 
 `backend/internal/service/`是插件业务服务的唯一合法目录，禁止创建`backend/service/`。动态插件保持同样的`backend/api/`、`backend/plugin.go`、`backend/internal/controller/`和`backend/internal/service/`结构；桥接文件只负责适配`WASM`与`pluginbridge`协议。`guest`业务能力 client 必须来自`lina-core/pkg/plugin/pluginbridge`，不得从`pluginbridge`根包获取。
 
@@ -111,17 +119,17 @@ apps/lina-plugins/<plugin-id>/
 2. 在`plugin.yaml`和`manifest/`中维护插件元数据、菜单、页面挂载、生命周期资源、`SQL`资产和`i18n`资产。
 3. 后端实现保留在`backend/`下，业务逻辑放在`backend/internal/service/`中。
 4. 前端页面放在`frontend/pages/`下，或通过`plugin.yaml`的`public_assets`声明公开资产目录。
-5. 当插件必须编译进宿主时，在`apps/lina-plugins/lina-plugins.go`中显式注册。
+5. 保持插件自身`go.mod`和`backend/plugin.go`完整；`linactl`会在插件完整构建时自动发现并聚合源码插件后端包。
 
 ## 动态插件
 
 动态插件以运行时托管的`WASM`产物交付。`linapro-demo-dynamic/`是上传、安装、启用、停用、卸载、`hostServices`、公开静态资产和通过受治理宿主服务访问插件自有数据的参考实现。
 
-构建全部动态插件，或通过`p=<plugin-id>`构建单个插件：
+在仓库根目录构建全部动态插件，或通过`p=<plugin-id>`构建单个插件：
 
 ```bash
-make -C apps/lina-plugins wasm
-make -C apps/lina-plugins wasm p=linapro-demo-dynamic
+make wasm
+make wasm p=linapro-demo-dynamic
 ```
 
 动态插件必须在`plugin.yaml`中声明`type: dynamic`，使用`main.go`和`go.mod`作为`guest`构建入口，通过`hostServices`描述运行时能力和资源边界，并从`lina-core/pkg/plugin/pluginbridge`导入 runtime、storage、data、cache、users、notifications、plugins 等业务宿主服务 client。插件本地配置通过`Plugins().Config()`消费，并授权为`plugins.config.get`；通知发送使用`Notifications().Send()`和`notifications.messages.send`；定时任务由`jobs`领域管理，不再通过独立动态`cron`host service 声明。
