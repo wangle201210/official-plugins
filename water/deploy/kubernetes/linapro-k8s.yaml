@@ -24,7 +24,6 @@ stringData:
   config.yaml: |
     server:
       address: ":9120"
-      serverRoot: "resource/public"
       dumpRouterMap: false
       routeOverWrite: true
 
