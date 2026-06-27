@@ -122,6 +122,21 @@ func (c *mediaRouteCache) Get(
 	return &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}, true, nil
 }
 
+// GetMany returns stored cache items for an explicit key set.
+func (c *mediaRouteCache) GetMany(_ context.Context, in cachecap.GetManyInput) (*cachecap.GetManyOutput, error) {
+	items := make(map[string]*cachecap.CacheItem, len(in.Keys))
+	missingKeys := make([]string, 0)
+	for _, key := range in.Keys {
+		value, ok := c.values[in.Namespace+"\x00"+key]
+		if !ok {
+			missingKeys = append(missingKeys, key)
+			continue
+		}
+		items[key] = &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}
+	}
+	return &cachecap.GetManyOutput{Items: items, MissingKeys: missingKeys}, nil
+}
+
 // Set stores one string cache item.
 func (c *mediaRouteCache) Set(
 	_ context.Context,
@@ -134,9 +149,31 @@ func (c *mediaRouteCache) Set(
 	return &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}, nil
 }
 
+// SetMany stores string cache items for an explicit key set.
+func (c *mediaRouteCache) SetMany(_ context.Context, in cachecap.SetManyInput) (*cachecap.SetManyOutput, error) {
+	items := make(map[string]*cachecap.CacheItem, len(in.Items))
+	for _, item := range in.Items {
+		c.values[in.Namespace+"\x00"+item.Key] = item.Value
+		items[item.Key] = &cachecap.CacheItem{
+			Key:       item.Key,
+			ValueKind: cachecap.CacheValueKindString,
+			Value:     item.Value,
+		}
+	}
+	return &cachecap.SetManyOutput{Items: items}, nil
+}
+
 // Delete removes one cache item.
 func (c *mediaRouteCache) Delete(_ context.Context, namespace string, key string) error {
 	delete(c.values, namespace+"\x00"+key)
+	return nil
+}
+
+// DeleteMany removes stored cache items for an explicit key set.
+func (c *mediaRouteCache) DeleteMany(_ context.Context, in cachecap.DeleteManyInput) error {
+	for _, key := range in.Keys {
+		delete(c.values, in.Namespace+"\x00"+key)
+	}
 	return nil
 }
 
@@ -874,6 +911,16 @@ func TestMediaPluginOpenAPIDocumentOnlyContainsMediaRoutes(t *testing.T) {
 	if _, ok := document.Paths["/api/v1/user"]; ok {
 		t.Fatalf("expected media OpenAPI document to exclude core routes")
 	}
+	forbiddenTCPPaths := []string{
+		"/api/v1/media/collection",
+		"/api/v1/media/collection/tcp",
+		"/api/v1/media/tcp",
+	}
+	for _, path := range forbiddenTCPPaths {
+		if _, ok := document.Paths[path]; ok {
+			t.Fatalf("expected media OpenAPI document to avoid fake TCP collection path %s", path)
+		}
+	}
 
 	expectedManagementTags := map[string]map[string]string{
 		"/api/v1/media/strategies": {
@@ -996,6 +1043,21 @@ func TestMediaPluginAPIDocsPageLoadsMediaDocument(t *testing.T) {
 		`TryIt_securitySchemeValues`,
 		`BearerAuth`,
 		`InnerApiKeyAuth`,
+		`TCP 采集协议`,
+		`collectionServer.enabled`,
+		`collectionServer.addr`,
+		`MachineMetric`,
+		`NetworkMetric`,
+		`StreamMetric`,
+		`SessionMetric`,
+		`STREAM_ADD`,
+		`SESSION_DELETE`,
+		`Instance`,
+		`Deregister`,
+		`Lookup`,
+		`apps/lina-plugins/media`,
+		`GOWORK=off`,
+		`go run ./hack/tools/collection-client -action smoke -addr 127.0.0.1:1911`,
 	}
 	for _, fragment := range requiredFragments {
 		if !strings.Contains(response.body, fragment) {
