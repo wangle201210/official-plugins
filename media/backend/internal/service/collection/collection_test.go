@@ -202,6 +202,30 @@ func (c *memoryCollectionCache) Get(_ context.Context, namespace string, key str
 	return &copied, true, nil
 }
 
+// GetMany returns stored cache items for an explicit key set.
+func (c *memoryCollectionCache) GetMany(
+	_ context.Context,
+	in cachecap.GetManyInput,
+) (*cachecap.GetManyOutput, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	output := &cachecap.GetManyOutput{
+		Items:       make(map[string]*cachecap.CacheItem),
+		MissingKeys: make([]string, 0),
+	}
+	for _, key := range in.Keys {
+		item, ok := c.values[c.cacheKey(in.Namespace, key)]
+		if !ok {
+			output.MissingKeys = append(output.MissingKeys, key)
+			continue
+		}
+		copied := *item
+		output.Items[key] = &copied
+	}
+	return output, nil
+}
+
 // Set stores one string cache item.
 func (c *memoryCollectionCache) Set(
 	_ context.Context,
@@ -218,12 +242,44 @@ func (c *memoryCollectionCache) Set(
 	return item, nil
 }
 
+// SetMany stores string cache items for an explicit key set.
+func (c *memoryCollectionCache) SetMany(
+	_ context.Context,
+	in cachecap.SetManyInput,
+) (*cachecap.SetManyOutput, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	output := &cachecap.SetManyOutput{Items: make(map[string]*cachecap.CacheItem)}
+	for _, input := range in.Items {
+		item := &cachecap.CacheItem{
+			Key:       input.Key,
+			ValueKind: cachecap.CacheValueKindString,
+			Value:     input.Value,
+		}
+		c.values[c.cacheKey(in.Namespace, input.Key)] = item
+		output.Items[input.Key] = item
+	}
+	return output, nil
+}
+
 // Delete removes one cache item.
 func (c *memoryCollectionCache) Delete(_ context.Context, namespace string, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	delete(c.values, c.cacheKey(namespace, key))
+	return nil
+}
+
+// DeleteMany removes an explicit key set.
+func (c *memoryCollectionCache) DeleteMany(_ context.Context, in cachecap.DeleteManyInput) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, key := range in.Keys {
+		delete(c.values, c.cacheKey(in.Namespace, key))
+	}
 	return nil
 }
 

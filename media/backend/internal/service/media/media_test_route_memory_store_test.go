@@ -36,6 +36,27 @@ func (s *memoryRouteMemoryCache) Get(_ context.Context, namespace string, key st
 	return &copied, true, nil
 }
 
+// GetMany returns cached route memory values for explicit keys.
+func (s *memoryRouteMemoryCache) GetMany(_ context.Context, in cachecap.GetManyInput) (*cachecap.GetManyOutput, error) {
+	s.lastNamespace = in.Namespace
+	output := &cachecap.GetManyOutput{
+		Items:       make(map[string]*cachecap.CacheItem),
+		MissingKeys: make([]string, 0),
+	}
+	for _, key := range in.Keys {
+		s.lastKey = key
+		item, ok := s.items[in.Namespace+"\x00"+key]
+		if !ok {
+			output.MissingKeys = append(output.MissingKeys, key)
+			continue
+		}
+		copied := *item
+		copied.Key = key
+		output.Items[key] = &copied
+	}
+	return output, nil
+}
+
 // Set records one route memory value.
 func (s *memoryRouteMemoryCache) Set(_ context.Context, namespace string, key string, value string, ttl time.Duration) (*cachecap.CacheItem, error) {
 	s.lastNamespace = namespace
@@ -46,11 +67,39 @@ func (s *memoryRouteMemoryCache) Set(_ context.Context, namespace string, key st
 	return item, nil
 }
 
+// SetMany records route memory values for explicit keys.
+func (s *memoryRouteMemoryCache) SetMany(_ context.Context, in cachecap.SetManyInput) (*cachecap.SetManyOutput, error) {
+	s.lastNamespace = in.Namespace
+	output := &cachecap.SetManyOutput{Items: make(map[string]*cachecap.CacheItem)}
+	for _, input := range in.Items {
+		s.lastKey = input.Key
+		s.lastTTL = input.TTL
+		item := &cachecap.CacheItem{
+			Key:       input.Key,
+			ValueKind: cachecap.CacheValueKindString,
+			Value:     input.Value,
+		}
+		s.items[in.Namespace+"\x00"+input.Key] = item
+		output.Items[input.Key] = item
+	}
+	return output, nil
+}
+
 // Delete removes one in-memory route memory value.
 func (s *memoryRouteMemoryCache) Delete(_ context.Context, namespace string, key string) error {
 	s.lastNamespace = namespace
 	s.lastKey = key
 	delete(s.items, namespace+"\x00"+key)
+	return nil
+}
+
+// DeleteMany removes in-memory route memory values for explicit keys.
+func (s *memoryRouteMemoryCache) DeleteMany(_ context.Context, in cachecap.DeleteManyInput) error {
+	s.lastNamespace = in.Namespace
+	for _, key := range in.Keys {
+		s.lastKey = key
+		delete(s.items, in.Namespace+"\x00"+key)
+	}
 	return nil
 }
 
