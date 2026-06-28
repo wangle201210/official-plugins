@@ -15,6 +15,20 @@ import (
 	"github.com/dellinger2023/net-flux/gen"
 )
 
+// TestNewDeregisterInstanceParamUsesEphemeral verifies deregistration targets
+// the same temporary instance type used by registration.
+func TestNewDeregisterInstanceParamUsesEphemeral(t *testing.T) {
+	param := newDeregisterInstanceParam("media-node", "901", "127.0.0.1", 19091)
+
+	if !param.Ephemeral {
+		t.Fatal("expected deregister request to target ephemeral Nacos instances")
+	}
+	if param.ServiceName != "media-node" || param.GroupName != "901" ||
+		param.Ip != "127.0.0.1" || param.Port != 19091 {
+		t.Fatalf("unexpected deregister request: %#v", param)
+	}
+}
+
 // TestNacosDiscoveryClientIntegration verifies register, lookup, and deregister
 // against a real Nacos server. It is skipped unless LINAPRO_TEST_NACOS=1 is set.
 func TestNacosDiscoveryClientIntegration(t *testing.T) {

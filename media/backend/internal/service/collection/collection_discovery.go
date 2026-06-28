@@ -76,13 +76,20 @@ func (c *nacosDiscoveryClient) RegisterInstance(instance *gen.Instance) error {
 
 // DeregisterInstance deregisters one instance from Nacos.
 func (c *nacosDiscoveryClient) DeregisterInstance(serviceName, groupName, ip string, port uint64) error {
-	_, err := c.client.DeregisterInstance(vo.DeregisterInstanceParam{
+	_, err := c.client.DeregisterInstance(newDeregisterInstanceParam(serviceName, groupName, ip, port))
+	return err
+}
+
+// newDeregisterInstanceParam builds the Nacos deregistration request matching
+// the temporary instances registered by this collection server.
+func newDeregisterInstanceParam(serviceName, groupName, ip string, port uint64) vo.DeregisterInstanceParam {
+	return vo.DeregisterInstanceParam{
 		ServiceName: serviceName,
 		GroupName:   groupName,
 		Ip:          ip,
 		Port:        port,
-	})
-	return err
+		Ephemeral:   true,
+	}
 }
 
 // GetServiceInstanceByGroup queries one healthy Nacos instance and converts it to net-flux format.
