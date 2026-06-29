@@ -1046,6 +1046,8 @@ func TestMediaPluginAPIDocsPageLoadsMediaDocument(t *testing.T) {
 		`TCP 采集协议`,
 		`collectionServer.enabled`,
 		`collectionServer.addr`,
+		`collectionServer.discovery.node`,
+		`collectionServer.discovery.notLoadCacheAtStart`,
 		`MachineMetric`,
 		`NetworkMetric`,
 		`StreamMetric`,

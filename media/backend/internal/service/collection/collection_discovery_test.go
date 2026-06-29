@@ -46,6 +46,22 @@ func TestNacosInstanceParamsUsePersistentRegistration(t *testing.T) {
 	}
 }
 
+// TestNacosClientConfigAvoidsLocalStaleCache verifies lookup correctness does
+// not depend on Nacos SDK process or disk cache state.
+func TestNacosClientConfigAvoidsLocalStaleCache(t *testing.T) {
+	cfg := defaultDiscoveryConfig()
+	cfg.Enabled = true
+	cfg.NotLoadCacheAtStart = true
+	clientConfig := newNacosClientConfig(cfg)
+
+	if !clientConfig.NotLoadCacheAtStart {
+		t.Fatal("expected Nacos SDK client to skip loading local disk cache")
+	}
+	if !clientConfig.UpdateCacheWhenEmpty {
+		t.Fatal("expected Nacos SDK client to update local state when service is empty")
+	}
+}
+
 // TestNacosDiscoveryClientIntegration verifies register, lookup, and deregister
 // against a real Nacos server. It is skipped unless LINAPRO_TEST_NACOS=1 is set.
 func TestNacosDiscoveryClientIntegration(t *testing.T) {
@@ -118,6 +134,7 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 		t.Fatalf("deregister Nacos instance: %v", err)
 	}
 	registered = false
+	waitForEmptyLookupAck(t, lookupRuntime, instanceName, instance.Node)
 	deleteNacosTestService(t, baseURL, instanceName, nodeGroup(instance.Node))
 }
 
@@ -141,6 +158,31 @@ func waitForLookupAck(t *testing.T, runtime *discoveryRuntime, serviceName strin
 	}
 	t.Fatalf("lookup Nacos instance did not return a service before timeout, lastErr=%v", lastErr)
 	return nil
+}
+
+// waitForEmptyLookupAck waits for Nacos deregistration propagation.
+func waitForEmptyLookupAck(t *testing.T, runtime *discoveryRuntime, serviceName string, node int32) {
+	t.Helper()
+
+	var (
+		lastErr error
+		lastAck *gen.LookupAck
+	)
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		ack, err := runtime.Lookup(&gen.Lookup{
+			ServiceName: serviceName,
+			Node:        node,
+			Healthy:     true,
+		})
+		if err == nil && len(ack.GetServices()) == 0 {
+			return
+		}
+		lastErr = err
+		lastAck = ack
+		time.Sleep(500 * time.Millisecond)
+	}
+	t.Fatalf("lookup Nacos instance did not become empty before timeout, lastErr=%v lastAck=%#v", lastErr, lastAck)
 }
 
 // envString returns a string environment value or fallback.

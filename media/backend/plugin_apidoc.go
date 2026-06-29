@@ -214,7 +214,8 @@ const mediaAPIDocsHTML = `<!DOCTYPE html>
           <tr><th><code>collectionServer.enabled</code></th><td>是否启动 TCP 采集 server；默认 <code>false</code>。</td></tr>
           <tr><th><code>collectionServer.addr</code></th><td>TCP 监听地址；默认 <code>:1911</code>。</td></tr>
           <tr><th><code>collectionServer.discovery.enabled</code></th><td>是否启用 Nacos discovery 命令；默认 <code>false</code>。</td></tr>
-          <tr><th><code>collectionServer.discovery.groupName</code></th><td>Nacos 默认 group；默认 <code>DEFAULT_GROUP</code>。</td></tr>
+          <tr><th><code>collectionServer.discovery.node</code></th><td>discovery 命令缺省节点；服务注册、查询和注销时映射为 Nacos group。</td></tr>
+          <tr><th><code>collectionServer.discovery.notLoadCacheAtStart</code></th><td>是否跳过加载 Nacos SDK 本地磁盘缓存；默认 <code>true</code>。</td></tr>
         </tbody>
       </table>
 

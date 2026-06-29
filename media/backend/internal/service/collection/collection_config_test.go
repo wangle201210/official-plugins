@@ -47,9 +47,8 @@ collectionServer:
     namespace: "media"
     logDir: "./media-logs"
     cacheDir: "./media-cache"
-    preloadCache: false
+    notLoadCacheAtStart: false
     timeout: 3000
-    groupName: "MEDIA_GROUP"
     username: "media-user"
     password: "media-pass"
     node: 7
@@ -81,14 +80,11 @@ collectionServer:
 	if cfg.Discovery.CacheDir != "./media-cache" {
 		t.Fatalf("expected configured discovery cache dir, got %s", cfg.Discovery.CacheDir)
 	}
-	if cfg.Discovery.PreloadCache {
-		t.Fatal("expected configured discovery preload cache false")
+	if cfg.Discovery.NotLoadCacheAtStart {
+		t.Fatal("expected configured discovery notLoadCacheAtStart false")
 	}
 	if cfg.Discovery.Timeout != 3000 {
 		t.Fatalf("expected configured discovery timeout, got %d", cfg.Discovery.Timeout)
-	}
-	if cfg.Discovery.GroupName != "MEDIA_GROUP" {
-		t.Fatalf("expected configured discovery group name, got %s", cfg.Discovery.GroupName)
 	}
 	if cfg.Discovery.Username != "media-user" {
 		t.Fatalf("expected configured discovery username, got %s", cfg.Discovery.Username)

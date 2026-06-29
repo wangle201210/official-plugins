@@ -31,12 +31,10 @@ const (
 	configKeyCollectionServerDiscoveryLogDir = "collectionServer.discovery.logDir"
 	// configKeyCollectionServerDiscoveryCacheDir identifies the Nacos SDK cache directory.
 	configKeyCollectionServerDiscoveryCacheDir = "collectionServer.discovery.cacheDir"
-	// configKeyCollectionServerDiscoveryPreloadCache identifies whether Nacos SDK preloads cache.
-	configKeyCollectionServerDiscoveryPreloadCache = "collectionServer.discovery.preloadCache"
+	// configKeyCollectionServerDiscoveryNotLoadCacheAtStart identifies whether Nacos skips local cache loading.
+	configKeyCollectionServerDiscoveryNotLoadCacheAtStart = "collectionServer.discovery.notLoadCacheAtStart"
 	// configKeyCollectionServerDiscoveryTimeout identifies the Nacos request timeout in milliseconds.
 	configKeyCollectionServerDiscoveryTimeout = "collectionServer.discovery.timeout"
-	// configKeyCollectionServerDiscoveryGroupName identifies the default Nacos group.
-	configKeyCollectionServerDiscoveryGroupName = "collectionServer.discovery.groupName"
 	// configKeyCollectionServerDiscoveryUsername identifies the Nacos username.
 	configKeyCollectionServerDiscoveryUsername = "collectionServer.discovery.username"
 	// configKeyCollectionServerDiscoveryPassword identifies the Nacos password.
@@ -57,8 +55,6 @@ const (
 	defaultDiscoveryCacheDir = "./cache"
 	// defaultDiscoveryTimeout is the net-flux example-compatible Nacos timeout in milliseconds.
 	defaultDiscoveryTimeout = 5000
-	// defaultDiscoveryGroupName is the net-flux example-compatible Nacos group.
-	defaultDiscoveryGroupName = "DEFAULT_GROUP"
 	// defaultDiscoveryUsername is the net-flux example-compatible Nacos username.
 	defaultDiscoveryUsername = "nacos"
 	// defaultDiscoveryPassword is the net-flux example-compatible Nacos password.
@@ -91,12 +87,10 @@ type DiscoveryConfig struct {
 	LogDir string `json:"logDir"`
 	// CacheDir is the Nacos SDK local cache directory.
 	CacheDir string `json:"cacheDir"`
-	// PreloadCache controls Nacos SDK cache preload behavior.
-	PreloadCache bool `json:"preloadCache"`
+	// NotLoadCacheAtStart controls whether Nacos SDK skips loading local disk cache at client creation.
+	NotLoadCacheAtStart bool `json:"notLoadCacheAtStart"`
 	// Timeout is the Nacos SDK request timeout in milliseconds.
 	Timeout int `json:"timeout"`
-	// GroupName is the default Nacos group name.
-	GroupName string `json:"groupName"`
 	// Username is the optional Nacos username.
 	Username string `json:"username"`
 	// Password is the optional Nacos password.
@@ -161,18 +155,17 @@ func defaultConfig() *Config {
 // defaultDiscoveryConfig returns the optional Nacos discovery defaults.
 func defaultDiscoveryConfig() DiscoveryConfig {
 	return DiscoveryConfig{
-		Enabled:      false,
-		Host:         defaultDiscoveryHost,
-		Port:         defaultDiscoveryPort,
-		Namespace:    defaultDiscoveryNamespace,
-		LogDir:       defaultDiscoveryLogDir,
-		CacheDir:     defaultDiscoveryCacheDir,
-		PreloadCache: true,
-		Timeout:      defaultDiscoveryTimeout,
-		GroupName:    defaultDiscoveryGroupName,
-		Username:     defaultDiscoveryUsername,
-		Password:     defaultDiscoveryPassword,
-		Node:         defaultDiscoveryNode,
+		Enabled:             false,
+		Host:                defaultDiscoveryHost,
+		Port:                defaultDiscoveryPort,
+		Namespace:           defaultDiscoveryNamespace,
+		LogDir:              defaultDiscoveryLogDir,
+		CacheDir:            defaultDiscoveryCacheDir,
+		NotLoadCacheAtStart: true,
+		Timeout:             defaultDiscoveryTimeout,
+		Username:            defaultDiscoveryUsername,
+		Password:            defaultDiscoveryPassword,
+		Node:                defaultDiscoveryNode,
 	}
 }
 
@@ -196,9 +189,6 @@ func loadDiscoveryConfig(ctx context.Context, reader plugincap.ConfigService, cf
 	if cfg.Discovery.CacheDir, err = readStringConfig(ctx, reader, configKeyCollectionServerDiscoveryCacheDir, cfg.Discovery.CacheDir, true); err != nil {
 		return err
 	}
-	if cfg.Discovery.GroupName, err = readStringConfig(ctx, reader, configKeyCollectionServerDiscoveryGroupName, cfg.Discovery.GroupName, true); err != nil {
-		return err
-	}
 	if cfg.Discovery.Username, err = readStringConfig(ctx, reader, configKeyCollectionServerDiscoveryUsername, cfg.Discovery.Username, true); err != nil {
 		return err
 	}
@@ -215,8 +205,8 @@ func loadDiscoveryConfig(ctx context.Context, reader plugincap.ConfigService, cf
 	if cfg.Discovery.Node, err = reader.Int(ctx, configKeyCollectionServerDiscoveryNode, cfg.Discovery.Node); err != nil {
 		return gerror.Wrap(err, "read media collection discovery node config failed")
 	}
-	if cfg.Discovery.PreloadCache, err = reader.Bool(ctx, configKeyCollectionServerDiscoveryPreloadCache, cfg.Discovery.PreloadCache); err != nil {
-		return gerror.Wrap(err, "read media collection discovery preload cache config failed")
+	if cfg.Discovery.NotLoadCacheAtStart, err = reader.Bool(ctx, configKeyCollectionServerDiscoveryNotLoadCacheAtStart, cfg.Discovery.NotLoadCacheAtStart); err != nil {
+		return gerror.Wrap(err, "read media collection discovery not load cache at start config failed")
 	}
 	return nil
 }
@@ -284,9 +274,6 @@ func (c DiscoveryConfig) validate() error {
 	}
 	if c.Timeout <= 0 {
 		return gerror.Newf("config %s must be positive when discovery is enabled", configKeyCollectionServerDiscoveryTimeout)
-	}
-	if strings.TrimSpace(c.GroupName) == "" {
-		return gerror.Newf("config %s cannot be empty when discovery is enabled", configKeyCollectionServerDiscoveryGroupName)
 	}
 	if c.Node <= 0 {
 		return gerror.Newf("config %s must be positive when discovery is enabled", configKeyCollectionServerDiscoveryNode)

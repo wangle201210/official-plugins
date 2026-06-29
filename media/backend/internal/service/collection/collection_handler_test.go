@@ -101,6 +101,9 @@ func TestEventHandlerRegistersDiscoveryInstance(t *testing.T) {
 	if client.registered.GetNode() != 2 {
 		t.Fatalf("expected registered node 2, got %d", client.registered.GetNode())
 	}
+	if !client.closed {
+		t.Fatal("expected discovery client closed after register")
+	}
 }
 
 // TestEventHandlerDeregistersDiscoveryInstance verifies Deregister packets remove instances.
@@ -186,6 +189,9 @@ func TestEventHandlerLooksUpDiscoveryInstance(t *testing.T) {
 		instance.GetPrivatePort() != client.lookupResult.GetPrivatePort() {
 		t.Fatalf("unexpected lookup instance endpoint: %#v", service.GetInstances())
 	}
+	if !client.closed {
+		t.Fatal("expected discovery client closed after lookup")
+	}
 }
 
 // TestEventHandlerWritesEmptyLookupAckWhenDiscoveryHasNoInstance verifies empty Nacos lookups still reply.
@@ -214,18 +220,79 @@ func TestEventHandlerWritesEmptyLookupAckWhenDiscoveryHasNoInstance(t *testing.T
 	if len(ack.GetServices()) != 0 {
 		t.Fatalf("expected empty services after no instance, got %#v", ack.GetServices())
 	}
+	if !client.closed {
+		t.Fatal("expected discovery client closed after empty lookup")
+	}
+}
+
+// TestEventHandlerCreatesFreshDiscoveryClientPerLookup verifies lookups do not reuse stale Nacos caches.
+func TestEventHandlerCreatesFreshDiscoveryClientPerLookup(t *testing.T) {
+	firstClient := &fakeDiscoveryClient{
+		lookupResult: &gen.Instance{
+			InstanceName: "6@@media-node",
+			PrivateIp:    "10.0.0.12",
+			PrivatePort:  8080,
+			Node:         6,
+		},
+	}
+	secondClient := &fakeDiscoveryClient{
+		lookupErr: errors.New("instance list is empty!"),
+	}
+	handler := newTestDiscoveryHandlerWithFactory(t, func(DiscoveryConfig) (discoveryClient, error) {
+		if !firstClient.closed {
+			return firstClient, nil
+		}
+		return secondClient, nil
+	})
+
+	firstConn := &recordingConn{}
+	if err := handler.OnCmdDiscovery(firstConn, &gen.Lookup{ServiceName: "media-node", Node: 6, Healthy: true}); err != nil {
+		t.Fatalf("first lookup discovery instance: %v", err)
+	}
+	firstAck, ok := firstConn.pkt.(*gen.LookupAck)
+	if !ok || len(firstAck.GetServices()) != 1 {
+		t.Fatalf("expected first lookup to return one service, got %#v", firstConn.pkt)
+	}
+	if !firstClient.closed {
+		t.Fatal("expected first discovery client closed after lookup")
+	}
+
+	secondConn := &recordingConn{}
+	if err := handler.OnCmdDiscovery(secondConn, &gen.Lookup{ServiceName: "media-node", Node: 6, Healthy: true}); err != nil {
+		t.Fatalf("second lookup discovery instance: %v", err)
+	}
+	secondAck, ok := secondConn.pkt.(*gen.LookupAck)
+	if !ok {
+		t.Fatalf("expected second lookup ack packet, got %T", secondConn.pkt)
+	}
+	if len(secondAck.GetServices()) != 0 {
+		t.Fatalf("expected second lookup to observe empty discovery state, got %#v", secondAck.GetServices())
+	}
+	if !secondClient.closed {
+		t.Fatal("expected second discovery client closed after lookup")
+	}
 }
 
 // newTestDiscoveryHandler creates a handler wired to a fake discovery client.
 func newTestDiscoveryHandler(t *testing.T, client *fakeDiscoveryClient) network.EventHandler {
 	t.Helper()
 
+	return newTestDiscoveryHandlerWithFactory(t, func(DiscoveryConfig) (discoveryClient, error) {
+		return client, nil
+	})
+}
+
+// newTestDiscoveryHandlerWithFactory creates a handler wired to a fake discovery factory.
+func newTestDiscoveryHandlerWithFactory(
+	t *testing.T,
+	factory discoveryClientFactory,
+) network.EventHandler {
+	t.Helper()
+
 	cfg := defaultDiscoveryConfig()
 	cfg.Enabled = true
 	runtime := newDiscoveryRuntime(cfg)
-	runtime.factory = func(DiscoveryConfig) (discoveryClient, error) {
-		return client, nil
-	}
+	runtime.factory = factory
 	return newEventHandler(context.Background(), runtime, nil)
 }
 

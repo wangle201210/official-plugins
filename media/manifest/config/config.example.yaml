@@ -17,12 +17,10 @@ collectionServer:
     logDir: "./logs"
     # Nacos SDK local cache directory.
     cacheDir: "./cache"
-    # Whether the Nacos SDK preloads local cache.
-    preloadCache: true
+    # Whether the Nacos SDK skips loading local cache at client startup.
+    notLoadCacheAtStart: true
     # Nacos SDK request timeout in milliseconds.
     timeout: 5000
-    # Default Nacos group.
-    groupName: "DEFAULT_GROUP"
     # Nacos username.
     username: "nacos"
     # Nacos password.

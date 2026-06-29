@@ -98,9 +98,8 @@ stringData:
         namespace: "public"
         logDir: "/tmp/nacos/logs"
         cacheDir: "/tmp/nacos/cache"
-        preloadCache: true
+        notLoadCacheAtStart: true
         timeout: 5000
-        groupName: "DEFAULT_GROUP"
         username: "nacos"
         password: "nacos"
         node: 1

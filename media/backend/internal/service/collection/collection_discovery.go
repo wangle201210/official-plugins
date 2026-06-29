@@ -36,21 +36,27 @@ var newDiscoveryClient discoveryClientFactory = func(cfg DiscoveryConfig) (disco
 				Port:   uint64(cfg.Port),
 			},
 		},
-		"clientConfig": constant.ClientConfig{
-			NamespaceId:         cfg.Namespace,
-			TimeoutMs:           uint64(cfg.Timeout),
-			NotLoadCacheAtStart: cfg.PreloadCache,
-			LogDir:              cfg.LogDir,
-			CacheDir:            cfg.CacheDir,
-			LogLevel:            "info",
-			Username:            cfg.Username,
-			Password:            cfg.Password,
-		},
+		"clientConfig": newNacosClientConfig(cfg),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &nacosDiscoveryClient{client: nacosClient}, nil
+}
+
+// newNacosClientConfig builds the Nacos SDK config used by short-lived discovery clients.
+func newNacosClientConfig(cfg DiscoveryConfig) constant.ClientConfig {
+	return constant.ClientConfig{
+		NamespaceId:          cfg.Namespace,
+		TimeoutMs:            uint64(cfg.Timeout),
+		NotLoadCacheAtStart:  cfg.NotLoadCacheAtStart,
+		UpdateCacheWhenEmpty: true,
+		LogDir:               cfg.LogDir,
+		CacheDir:             cfg.CacheDir,
+		LogLevel:             "info",
+		Username:             cfg.Username,
+		Password:             cfg.Password,
+	}
 }
 
 // nacosDiscoveryClient adapts Nacos SDK naming operations to net-flux packets.
@@ -117,7 +123,7 @@ func (c *nacosDiscoveryClient) Close() {
 	c.client.CloseClient()
 }
 
-// discoveryRuntime owns a lazily-created Nacos discovery client.
+// discoveryRuntime creates short-lived Nacos discovery clients for TCP packets.
 type discoveryRuntime struct {
 	cfg     DiscoveryConfig
 	factory discoveryClientFactory
@@ -155,6 +161,7 @@ func (r *discoveryRuntime) Register(instance *gen.Instance) error {
 	if err != nil {
 		return err
 	}
+	defer r.closeClientLocked()
 	return client.RegisterInstance(normalized)
 }
 
@@ -185,11 +192,8 @@ func (r *discoveryRuntime) Deregister(packet *gen.Deregister) error {
 	if err != nil {
 		return err
 	}
-	if err := client.DeregisterInstance(serviceName, r.groupForNode(packet.GetNode()), ip, uint64(packet.GetPort())); err != nil {
-		return err
-	}
-	r.closeClientLocked()
-	return nil
+	defer r.closeClientLocked()
+	return client.DeregisterInstance(serviceName, r.groupForNode(packet.GetNode()), ip, uint64(packet.GetPort()))
 }
 
 // Lookup queries one media service instance from Nacos and builds the net-flux response.
@@ -212,6 +216,7 @@ func (r *discoveryRuntime) Lookup(packet *gen.Lookup) (*gen.LookupAck, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.closeClientLocked()
 	instance, err := client.GetServiceInstanceByGroup(serviceName, r.groupForNode(packet.GetNode()))
 	if err != nil {
 		if isDiscoveryEmptyInstanceError(err) {
