@@ -5,6 +5,7 @@ package media
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -451,7 +452,7 @@ func dashboardSessionModel(ctx context.Context, in ListDashboardSessionsInput) *
 	if keyword := strings.TrimSpace(in.Keyword); keyword != "" {
 		likeKeyword := "%" + keyword + "%"
 		model = model.Where(
-			"("+columns.SessionId+" LIKE ? OR "+columns.ClientId+" LIKE ? OR "+columns.ClientIp+" LIKE ? OR "+columns.UserName+" LIKE ? OR "+columns.ProtocolType+" LIKE ?)",
+			"("+columns.SessionId+" LIKE ? OR "+columns.ClientId+" LIKE ? OR "+dashboardTextField(columns.ClientIp)+" LIKE ? OR "+columns.UserName+" LIKE ? OR "+columns.ProtocolType+" LIKE ?)",
 			likeKeyword,
 			likeKeyword,
 			likeKeyword,
@@ -460,6 +461,11 @@ func dashboardSessionModel(ctx context.Context, in ListDashboardSessionsInput) *
 		)
 	}
 	return model
+}
+
+// dashboardTextField casts non-text database fields before keyword matching.
+func dashboardTextField(column string) string {
+	return fmt.Sprintf("CAST(%s AS TEXT)", column)
 }
 
 // dashboardWhereSourceID maps dashboard source filters to stored node or instance dimensions.

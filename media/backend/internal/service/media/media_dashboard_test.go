@@ -169,6 +169,17 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	assertDashboardProtocolGroup(t, keywordSessions.Protocols[0], "HLS", 1, "session-b")
 	assertDashboardProtocolGroup(t, keywordSessions.Protocols[1], "RTMP", 0)
 
+	ipKeywordSessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{
+		StreamId: "stream-a",
+		TenantId: "tenant-a",
+		Keyword:  "192.0.2.12",
+	})
+	if err != nil {
+		t.Fatalf("list sessions by client ip keyword: %v", err)
+	}
+	assertDashboardProtocolGroup(t, ipKeywordSessions.Protocols[0], "HLS", 1, "session-b")
+	assertDashboardProtocolGroup(t, ipKeywordSessions.Protocols[1], "RTMP", 0)
+
 	if len(sessions.Protocols[0].Sessions[0].LinkHops) != 1 || sessions.Protocols[0].Sessions[0].LinkHops[0].HopIndex != 1 {
 		t.Fatalf("expected decoded link hops, got %#v", sessions.Protocols[0].Sessions[0].LinkHops)
 	}
@@ -798,7 +809,7 @@ func dashboardSessionDO(
 		StreamName:        streamName,
 		TenantId:          tenantID,
 		ClientId:          clientID,
-		ClientIp:          "192.0.2.10",
+		ClientIp:          dashboardTestSessionIP(sessionID),
 		ClientType:        int(SessionClientTypePC),
 		UserName:          userName,
 		ProtocolType:      protocolType,
@@ -814,6 +825,19 @@ func dashboardSessionDO(
 		LinkHops:          `[{"hop_index":1,"node_id":"node-a","latency_ms":12}]`,
 		TotalLinkLatency:  999,
 		ReportTime:        reportTime,
+	}
+}
+
+func dashboardTestSessionIP(sessionID string) string {
+	switch sessionID {
+	case "session-a":
+		return "192.0.2.11"
+	case "session-b":
+		return "192.0.2.12"
+	case "session-c":
+		return "192.0.2.13"
+	default:
+		return "192.0.2.10"
 	}
 }
 
