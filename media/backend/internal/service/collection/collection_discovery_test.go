@@ -15,13 +15,30 @@ import (
 	"github.com/dellinger2023/net-flux/gen"
 )
 
-// TestNewDeregisterInstanceParamUsesEphemeral verifies deregistration targets
-// the same temporary instance type used by registration.
-func TestNewDeregisterInstanceParamUsesEphemeral(t *testing.T) {
+// TestNacosInstanceParamsUsePersistentRegistration verifies discovery entries
+// are not bound to one LinaPro pod's Nacos client session.
+func TestNacosInstanceParamsUsePersistentRegistration(t *testing.T) {
+	register := newRegisterInstanceParam(&gen.Instance{
+		InstanceName: "media-node",
+		PrivateIp:    "127.0.0.1",
+		PrivatePort:  19091,
+		PublicIp:     "203.0.113.10",
+		PublicPort:   19092,
+		InnerIp:      "10.244.0.11",
+		InnerPort:    1911,
+		Node:         901,
+	})
 	param := newDeregisterInstanceParam("media-node", "901", "127.0.0.1", 19091)
 
-	if !param.Ephemeral {
-		t.Fatal("expected deregister request to target ephemeral Nacos instances")
+	if register.Ephemeral {
+		t.Fatal("expected register request to create persistent Nacos instances")
+	}
+	if param.Ephemeral {
+		t.Fatal("expected deregister request to target persistent Nacos instances")
+	}
+	if register.ServiceName != param.ServiceName || register.GroupName != param.GroupName ||
+		register.Ip != param.Ip || register.Port != param.Port {
+		t.Fatalf("register and deregister target mismatch: register=%#v deregister=%#v", register, param)
 	}
 	if param.ServiceName != "media-node" || param.GroupName != "901" ||
 		param.Ip != "127.0.0.1" || param.Port != 19091 {
@@ -44,8 +61,12 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 	cfg.CacheDir = t.TempDir()
 	baseURL := fmt.Sprintf("http://%s:%d", cfg.Host, cfg.Port)
 
-	runtime := newDiscoveryRuntime(cfg)
-	defer runtime.Close()
+	registerRuntime := newDiscoveryRuntime(cfg)
+	defer registerRuntime.Close()
+	lookupRuntime := newDiscoveryRuntime(cfg)
+	defer lookupRuntime.Close()
+	deregisterRuntime := newDiscoveryRuntime(cfg)
+	defer deregisterRuntime.Close()
 
 	instanceName := fmt.Sprintf("linapro-media-collection-test-%d", time.Now().UnixNano())
 	instance := &gen.Instance{
@@ -59,13 +80,13 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 		Node:         901,
 	}
 
-	if err := runtime.Register(instance); err != nil {
+	if err := registerRuntime.Register(instance); err != nil {
 		t.Fatalf("register Nacos instance: %v", err)
 	}
 	registered := true
 	defer func() {
 		if registered {
-			_ = runtime.Deregister(&gen.Deregister{
+			_ = deregisterRuntime.Deregister(&gen.Deregister{
 				InstanceName: instanceName,
 				Ip:           instance.PrivateIp,
 				Port:         instance.PrivatePort,
@@ -75,7 +96,7 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 		deleteNacosTestService(t, baseURL, instanceName, nodeGroup(instance.Node))
 	}()
 
-	ack := waitForLookupAck(t, runtime, instanceName, instance.Node)
+	ack := waitForLookupAck(t, lookupRuntime, instanceName, instance.Node)
 	service := ack.GetServices()[0]
 	if service.GetName() != instanceName {
 		t.Fatalf("expected service name %s, got %s", instanceName, service.GetName())
@@ -88,7 +109,7 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 		t.Fatalf("unexpected lookup instance private endpoint: %s:%d", found.GetPrivateIp(), found.GetPrivatePort())
 	}
 
-	if err := runtime.Deregister(&gen.Deregister{
+	if err := deregisterRuntime.Deregister(&gen.Deregister{
 		InstanceName: instanceName,
 		Ip:           instance.PrivateIp,
 		Port:         instance.PrivatePort,

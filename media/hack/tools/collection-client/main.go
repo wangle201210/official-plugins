@@ -109,7 +109,7 @@ func parseFlags() clientConfig {
 	flag.Float64Var(&cfg.weight, "weight", 1.0, "instance weight")
 	flag.BoolVar(&cfg.healthy, "healthy", true, "instance health flag")
 	flag.BoolVar(&cfg.enable, "enable", true, "instance enabled flag")
-	flag.BoolVar(&cfg.ephemeral, "ephemeral", true, "instance ephemeral flag")
+	flag.BoolVar(&cfg.ephemeral, "ephemeral", false, "instance ephemeral flag; server-side Nacos registration stays persistent")
 	flag.StringVar(&cfg.extra, "extra", "", "extra metadata, comma-separated key=value pairs")
 	flag.StringVar(&cfg.tenantID, "tenant-id", "tenant-demo", "tenant id used by report packets")
 	flag.StringVar(&cfg.nodeID, "node-id", "", "media node id used by report packets; defaults to node-<node>")

@@ -60,7 +60,13 @@ type nacosDiscoveryClient struct {
 
 // RegisterInstance registers one net-flux instance in Nacos.
 func (c *nacosDiscoveryClient) RegisterInstance(instance *gen.Instance) error {
-	_, err := c.client.RegisterInstance(vo.RegisterInstanceParam{
+	_, err := c.client.RegisterInstance(newRegisterInstanceParam(instance))
+	return err
+}
+
+// newRegisterInstanceParam builds a pod-independent Nacos registration request.
+func newRegisterInstanceParam(instance *gen.Instance) vo.RegisterInstanceParam {
+	return vo.RegisterInstanceParam{
 		ServiceName: instance.GetInstanceName(),
 		GroupName:   nodeGroup(instance.GetNode()),
 		Ip:          instance.GetPrivateIp(),
@@ -68,10 +74,9 @@ func (c *nacosDiscoveryClient) RegisterInstance(instance *gen.Instance) error {
 		Enable:      true,
 		Healthy:     true,
 		Weight:      1.0,
-		Ephemeral:   true,
+		Ephemeral:   false,
 		Metadata:    instanceMetadata(instance),
-	})
-	return err
+	}
 }
 
 // DeregisterInstance deregisters one instance from Nacos.
@@ -81,14 +86,14 @@ func (c *nacosDiscoveryClient) DeregisterInstance(serviceName, groupName, ip str
 }
 
 // newDeregisterInstanceParam builds the Nacos deregistration request matching
-// the temporary instances registered by this collection server.
+// the persistent instances registered by this collection server.
 func newDeregisterInstanceParam(serviceName, groupName, ip string, port uint64) vo.DeregisterInstanceParam {
 	return vo.DeregisterInstanceParam{
 		ServiceName: serviceName,
 		GroupName:   groupName,
 		Ip:          ip,
 		Port:        port,
-		Ephemeral:   true,
+		Ephemeral:   false,
 	}
 }
 

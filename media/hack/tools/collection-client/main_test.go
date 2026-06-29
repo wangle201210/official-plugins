@@ -4,12 +4,31 @@ package main
 
 import (
 	"context"
+	"flag"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
 	"github.com/dellinger2023/net-flux/pkg/network"
 )
+
+// TestParseFlagsDefaultsToPersistentDiscovery verifies CLI defaults match server-side discovery.
+func TestParseFlagsDefaultsToPersistentDiscovery(t *testing.T) {
+	oldCommandLine := flag.CommandLine
+	oldArgs := os.Args
+	t.Cleanup(func() {
+		flag.CommandLine = oldCommandLine
+		os.Args = oldArgs
+	})
+	flag.CommandLine = flag.NewFlagSet("collection-client-test", flag.ContinueOnError)
+	os.Args = []string{"collection-client"}
+
+	cfg := parseFlags()
+	if cfg.ephemeral {
+		t.Fatal("expected discovery register packets to default to persistent instances")
+	}
+}
 
 // TestNormalizeConfigFillsReportDefaults verifies report actions derive stable business keys.
 func TestNormalizeConfigFillsReportDefaults(t *testing.T) {
