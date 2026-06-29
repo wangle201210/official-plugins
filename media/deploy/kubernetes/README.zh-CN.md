@@ -266,6 +266,10 @@ metadata:
   namespace: linapro
 spec:
   type: NodePort
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
   selector:
     app: linapro
   ports:
@@ -274,6 +278,8 @@ spec:
       targetPort: 1911
       nodePort: 30091
 ```
+
+`sessionAffinity: ClientIP`会让同一个采集端的连续 TCP 连接保持在同一个后端 Pod 上。发现注册使用由注册 Pod 的客户端会话维持的 Nacos 临时实例，因此同一个采集端的`register`、`deregister`、`lookup`检查不应被分发到不同副本。
 
 ## 更新镜像
 

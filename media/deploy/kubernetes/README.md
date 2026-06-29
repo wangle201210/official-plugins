@@ -276,6 +276,10 @@ metadata:
   namespace: linapro
 spec:
   type: NodePort
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
   selector:
     app: linapro
   ports:
@@ -284,6 +288,12 @@ spec:
       targetPort: 1911
       nodePort: 30091
 ```
+
+`sessionAffinity: ClientIP` keeps repeated TCP collection connections from the
+same collector on the same backend pod. Discovery registration uses ephemeral
+Nacos instances held by the registering pod's client session, so
+`register`/`deregister`/`lookup` checks from one collector must not be spread
+across different replicas.
 
 ## Update Image
 

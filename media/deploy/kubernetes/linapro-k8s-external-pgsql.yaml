@@ -540,6 +540,10 @@ metadata:
   namespace: linapro
 spec:
   type: NodePort
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
   selector:
     app: linapro
   ports:
