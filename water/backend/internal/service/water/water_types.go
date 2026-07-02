@@ -143,19 +143,11 @@ func (c *watermarkConfig) ToWatermarkConfig() watermark.WatermarkConfig {
 		return watermark.WatermarkConfig{}
 	}
 	return watermark.WatermarkConfig{
-		TextSetting: watermark.TextSetting{
-			Text:     c.Text,
-			Font:     c.Font,
-			FontSize: c.FontSize,
-			Color:    c.Color,
-			PosX:     c.PosX,
-			PosY:     c.PosY,
-			Align:    c.Align.ToHotGoAlignment(),
-		},
-		ImageSetting: watermark.ImageSetting{
-			Image:   c.Image,
-			Opacity: c.Opacity,
-			Base64:  c.Base64,
-		},
+		Order:    c.Text,
+		Font:     c.Font,
+		FontSize: c.FontSize,
+		Color:    c.Color,
+		Opacity:  c.Opacity,
+		Base64:   normalizeWatermarkBase64(c.Base64),
 	}
 }

@@ -1,5 +1,7 @@
 //go:build cgo
 
+// This file verifies LinaPro's cgo adapter around the migrated HotGo watermark library.
+
 package watermark
 
 import (
@@ -18,16 +20,10 @@ func TestMigratedHotGoWatermarkLibraryProducesJpeg(t *testing.T) {
 	}
 
 	output, err := DrawWatermarkJpeg(nil, input, WatermarkConfig{
-		TextSetting: TextSetting{
-			Text:     "LinaPro 水印测试",
-			FontSize: 32,
-			Color:    "white",
-			Align:    AlignmentBottomRight,
-		},
-		ImageSetting: ImageSetting{
-			Image:   "background.png",
-			Opacity: 0.15,
-		},
+		Order:    "LinaPro 水印测试",
+		FontSize: 32,
+		Color:    "white",
+		Opacity:  0.15,
 	})
 	if err != nil {
 		t.Fatalf("draw watermark with migrated hotgo library: %v", err)

@@ -43,7 +43,7 @@ func DrawWatermarkJpeg(_ context.Context, input []byte, config WatermarkConfig) 
 	}
 	bounds := img.Bounds()
 	inputSize := len(input)
-	filterDescr := makeFilterDescr(bounds, config)
+	filterDescr := makeFilterDescr(bounds, config, nil)
 
 	outputBuf := bufferPool.Get().([]byte)
 	defer func() {

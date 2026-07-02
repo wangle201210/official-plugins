@@ -31,14 +31,14 @@ var (
 
 // withDefaultFont fills the default CJK-capable font when a text watermark omits font.
 func withDefaultFont(config WatermarkConfig) (WatermarkConfig, error) {
-	if strings.TrimSpace(config.TextSetting.Text) == "" || strings.TrimSpace(config.TextSetting.Font) != "" {
+	if strings.TrimSpace(config.Order) == "" || strings.TrimSpace(config.Font) != "" {
 		return config, nil
 	}
 	fontPath, err := DefaultFontPath()
 	if err != nil {
 		return config, err
 	}
-	config.TextSetting.Font = fontPath
+	config.Font = fontPath
 	return config, nil
 }
 

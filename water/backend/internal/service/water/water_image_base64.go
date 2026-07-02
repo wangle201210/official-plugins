@@ -46,6 +46,18 @@ func encodePNGDataURL(img []byte) string {
 	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(img)
 }
 
+// normalizeWatermarkBase64 strips a data URL prefix for the provided watermark
+// renderer, whose Base64 option expects only encoded image bytes.
+func normalizeWatermarkBase64(value string) string {
+	clean := strings.TrimSpace(value)
+	if strings.HasPrefix(clean, "data:image/") {
+		if comma := strings.Index(clean, ","); comma >= 0 {
+			return clean[comma+1:]
+		}
+	}
+	return clean
+}
+
 // ensurePNGDataURL converts image bytes to PNG data URL.
 func ensurePNGDataURL(input []byte) (string, error) {
 	img, _, err := image.Decode(bytes.NewReader(input))

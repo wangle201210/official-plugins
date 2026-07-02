@@ -12,7 +12,6 @@ import (
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
 	"lina-core/pkg/plugin/capability/cachecap"
-	"lina-plugin-water/backend/internal/library/watermark"
 )
 
 // strategyYAML is a projection of media strategy YAML for snapshot watermark rules.
@@ -252,31 +251,5 @@ func normalizedAlignment(align watermarkAlignment) string {
 		return "bottomright"
 	default:
 		return "topleft"
-	}
-}
-
-// ToHotGoAlignment converts named or numeric Lina strategy values to the migrated HotGo enum.
-func (a watermarkAlignment) ToHotGoAlignment() watermark.Alignment {
-	switch normalizedAlignment(a) {
-	case "left":
-		return watermark.AlignmentLeft
-	case "center":
-		return watermark.AlignmentCenter
-	case "right":
-		return watermark.AlignmentRight
-	case "top":
-		return watermark.AlignmentTop
-	case "bottom":
-		return watermark.AlignmentBottom
-	case "topleft":
-		return watermark.AlignmentTopLeft
-	case "topright":
-		return watermark.AlignmentTopRight
-	case "bottomleft":
-		return watermark.AlignmentBottomLeft
-	case "bottomright":
-		return watermark.AlignmentBottomRight
-	default:
-		return watermark.AlignmentNothing
 	}
 }

@@ -1,0 +1,4 @@
+# Water plugin build hooks.
+build:
+  commands:
+    - go run ./hack/tools/watermarklib
