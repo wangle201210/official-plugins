@@ -29,7 +29,7 @@ LinaPro 将`apps/lina-core`定位为稳定的全栈框架宿主。宿主保留�
 | 路径 | 用途 |
 |------|------|
 | `<plugin-id>/hack/config.yaml` | 插件本地工具配置入口，包含代码生成、自定义构建和其他插件自有工具配置 |
-| `<plugin-id>/plugin.yaml` | 插件清单，包含元数据、菜单、安装模式、`i18n`、资产、依赖和宿主服务声明 |
+| `<plugin-id>/plugin.yaml` | 插件清单，包含元数据、分发治理、菜单、安装模式、`i18n`、资产、依赖和宿主服务声明 |
 | `<plugin-id>/Makefile` | 插件本地代码生成包装入口，会引入根目录共享的`hack/makefiles/plugin.codegen.mk`目标片段 |
 | `<plugin-id>/README.md` | 插件级英文说明 |
 | `<plugin-id>/README.zh-CN.md` | 插件级中文说明 |
@@ -108,6 +108,17 @@ build:
 `$(PLUGIN_ROOT)`会展开为插件目录，`$(REPO_ROOT)`会展开为仓库根目录。构建指令从插件根目录执行。
 
 `backend/internal/service/`是插件业务服务的唯一合法目录，禁止创建`backend/service/`。动态插件保持同样的`backend/api/`、`backend/plugin.go`、`backend/internal/controller/`和`backend/internal/service/`结构；桥接文件只负责适配`WASM`与`pluginbridge`协议。`guest`业务能力 client 必须来自`lina-core/pkg/plugin/pluginbridge`，不得从`pluginbridge`根包获取。
+
+## 分发治理
+
+`plugin.yaml`可以声明`distribution`，用于描述宿主如何治理插件生命周期。
+
+| 取值 | 语义 | 生命周期 |
+|------|------|----------|
+| `managed` | 普通可管理插件。省略`distribution`时默认使用该值。 | 在插件管理中可见，可安装、启用、禁用、升级、卸载，也可通过`plugin.autoEnable`托管启用。 |
+| `builtin` | 随宿主编译交付的项目内建源码插件。 | 宿主启动时自动安装、启用和安全升级；普通插件管理写操作会被拒绝。 |
+
+`distribution: builtin`只允许`type: source`插件使用，并且插件必须以相同 ID 注册到源码插件注册表。动态插件不得声明`distribution: builtin`。
 
 ## 源码插件
 
