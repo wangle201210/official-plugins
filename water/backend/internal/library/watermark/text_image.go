@@ -1,6 +1,7 @@
 package watermark
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
@@ -115,6 +117,18 @@ func loadFontFaceFromFile(fontPath string, fontSize float64) (font.Face, error) 
 		return nil, err
 	}
 
+	face, openTypeErr := loadOpenTypeFontFace(fontData, fontSize)
+	if openTypeErr == nil {
+		return face, nil
+	}
+	face, trueTypeErr := loadTrueTypeFontFace(fontData, fontSize)
+	if trueTypeErr == nil {
+		return face, nil
+	}
+	return nil, errors.Join(openTypeErr, trueTypeErr)
+}
+
+func loadOpenTypeFontFace(fontData []byte, fontSize float64) (font.Face, error) {
 	var otFont *opentype.Font
 	if collection, err := opentype.ParseCollection(fontData); err == nil {
 		otFont, err = collection.Font(0)
@@ -133,6 +147,18 @@ func loadFontFaceFromFile(fontPath string, fontSize float64) (font.Face, error) 
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
+}
+
+func loadTrueTypeFontFace(fontData []byte, fontSize float64) (font.Face, error) {
+	ttFont, err := truetype.Parse(fontData)
+	if err != nil {
+		return nil, err
+	}
+	return truetype.NewFace(ttFont, &truetype.Options{
+		Size:    fontSize,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	}), nil
 }
 
 func discoverLinuxFonts() []string {
@@ -221,6 +247,7 @@ func loadFontFace(fontPath string, fontSize float64) (font.Face, error) {
 		if err == nil {
 			return face, nil
 		}
+		return nil, fmt.Errorf("load configured font %q: %w", fontPath, err)
 	}
 	return loadDefaultFontFace(fontSize)
 }
@@ -374,7 +401,7 @@ func generateTiledTextImage(text, fontPath string, fontSize int, colorStr string
 
 	face, err := loadFontFace(fontPath, float64(fontSize))
 	if err != nil {
-		return fmt.Errorf("load default font: %w", err)
+		return fmt.Errorf("load watermark font: %w", err)
 	}
 	defer face.Close()
 
