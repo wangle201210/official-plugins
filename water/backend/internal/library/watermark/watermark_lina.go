@@ -37,10 +37,6 @@ func DrawWatermarkJpeg(_ context.Context, input []byte, config WatermarkConfig) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode input image: %v", err)
 	}
-	config, err = withDefaultFont(config)
-	if err != nil {
-		return nil, err
-	}
 	bounds := img.Bounds()
 	inputSize := len(input)
 	filterDescr := makeFilterDescr(bounds, config, nil)
