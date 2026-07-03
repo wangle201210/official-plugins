@@ -13,11 +13,11 @@ func TestProcessSnapshotRendersWithoutInnerEnabled(t *testing.T) {
 	service := &serviceImpl{
 		strategyResolver: fakeStrategyResolver{
 			strategy: `snapshot_watermark:
-  text: LinaPro Water
-  fontSize: 18
+  order: LinaPro Water
+  font_size: 18
   color: "#ffffff"
-  align: bottomRight
-  opacity: 0.8`,
+  opacity: 0.8
+  rotate: -30`,
 		},
 	}
 

@@ -125,16 +125,15 @@ type resolvedStrategy struct {
 
 // watermarkConfig defines the normalized snapshot watermark rendering configuration.
 type watermarkConfig struct {
-	Text     string             `json:"text" yaml:"text"`         // Text is the watermark text.
-	Font     string             `json:"font" yaml:"font"`         // Font is an optional font file path.
-	FontSize int                `json:"fontSize" yaml:"fontSize"` // FontSize is the text size in pixels.
-	Color    string             `json:"color" yaml:"color"`       // Color is a hex color such as #ffffff.
-	PosX     int                `json:"posX" yaml:"posX"`         // PosX is an optional absolute x coordinate.
-	PosY     int                `json:"posY" yaml:"posY"`         // PosY is an optional absolute y coordinate.
-	Align    watermarkAlignment `json:"align" yaml:"align"`       // Align is the named or numeric alignment value.
-	Image    string             `json:"image" yaml:"image"`       // Image is an optional watermark image path.
-	Opacity  float64            `json:"opacity" yaml:"opacity"`   // Opacity controls text and image alpha.
-	Base64   string             `json:"base64" yaml:"base64"`     // Base64 is an optional watermark image data URL.
+	Order    string  `json:"order" yaml:"order"`         // Order is the tiled watermark text template.
+	Font     string  `json:"font" yaml:"font"`           // Font is an optional font file path.
+	FontSize int     `json:"font_size" yaml:"font_size"` // FontSize is the text size in pixels.
+	Color    string  `json:"color" yaml:"color"`         // Color is a hex color such as #ffffff.
+	Opacity  float64 `json:"opacity" yaml:"opacity"`     // Opacity controls text and image alpha.
+	Width    int     `json:"width" yaml:"width"`         // Width is the target render width for direct library calls.
+	Height   int     `json:"height" yaml:"height"`       // Height is the target render height for direct library calls.
+	Base64   string  `json:"base64" yaml:"base64"`       // Base64 is an optional watermark image data URL.
+	Rotate   int     `json:"rotate" yaml:"rotate"`       // Rotate is the tiled text rotation angle in degrees.
 }
 
 // ToWatermarkConfig converts parsed strategy YAML into the migrated HotGo watermark library config.
@@ -143,11 +142,14 @@ func (c *watermarkConfig) ToWatermarkConfig() watermark.WatermarkConfig {
 		return watermark.WatermarkConfig{}
 	}
 	return watermark.WatermarkConfig{
-		Order:    c.Text,
+		Order:    c.Order,
 		Font:     c.Font,
 		FontSize: c.FontSize,
 		Color:    c.Color,
 		Opacity:  c.Opacity,
+		Width:    c.Width,
+		Height:   c.Height,
 		Base64:   normalizeWatermarkBase64(c.Base64),
+		Rotate:   c.Rotate,
 	}
 }

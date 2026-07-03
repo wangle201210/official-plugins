@@ -10,11 +10,11 @@
 
 ```yaml
 snapshot_watermark:
-  text: LinaPro Water
-  fontSize: 40
+  order: LinaPro Water
+  font_size: 40
   color: "#ffffff"
-  align: bottomRight
   opacity: 0.7
+  rotate: -30
 ```
 
 `media_strategy.enable`是策略是否参与水印渲染的唯一开关。未配置`opacity`时，插件默认使用`0.15`。
@@ -37,6 +37,6 @@ water:
   consumerCount: 1
 ```
 
-`consumerCount` 控制异步水印任务消费者并发数。小于 `1` 时回退为 `1`，大于 `32` 时按 `32` 封顶。
+`consumerCount`控制异步水印任务消费者并发数。小于`1`时回退为`1`，大于`32`时按`32`封顶。
 
 异步任务状态快照复用宿主 `pluginhost.HostServices.Cache()` 服务，默认保留 12 小时。插件不定义专属 Redis 配置命名空间，也不维护插件自有缓存后端。

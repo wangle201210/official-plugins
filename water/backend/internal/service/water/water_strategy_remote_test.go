@@ -37,7 +37,7 @@ func TestRemoteStrategyResolverCallsMediaOpenAPI(t *testing.T) {
 				"sourceLabel": "设备策略",
 				"strategyId": 17,
 				"strategyName": "remote strategy",
-				"strategy": "snapshot_watermark:\n  text: Remote"
+				"strategy": "snapshot_watermark:\n  order: Remote"
 			}
 		}`)); err != nil {
 			t.Fatalf("write response: %v", err)
@@ -66,7 +66,7 @@ func TestRemoteStrategyResolverCallsMediaOpenAPI(t *testing.T) {
 	if out.StrategyId != 17 || out.Source != string(StrategySourceDevice) {
 		t.Fatalf("expected remote strategy metadata, got %#v", out)
 	}
-	if out.Strategy != "snapshot_watermark:\n  text: Remote" {
+	if out.Strategy != "snapshot_watermark:\n  order: Remote" {
 		t.Fatalf("expected strategy body to roundtrip, got %q", out.Strategy)
 	}
 }

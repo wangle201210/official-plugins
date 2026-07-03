@@ -49,7 +49,7 @@ const (
 	defaultStrategyResolverTimeout = 10 * time.Second
 	// defaultTaskStatusTTL limits how long asynchronous task snapshots remain queryable.
 	defaultTaskStatusTTL = 12 * time.Hour
-	// defaultFontSize is used when a strategy omits fontSize.
+	// defaultFontSize is used when a strategy omits font_size.
 	defaultFontSize = 32
 	// defaultWatermarkOpacity is used when a strategy omits opacity.
 	defaultWatermarkOpacity = 0.15

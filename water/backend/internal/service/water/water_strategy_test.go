@@ -12,53 +12,68 @@ func TestParseWatermarkStrategySnapshotNode(t *testing.T) {
 	cfg, err := parseWatermarkStrategy(`record:
   enabled: true
 snapshot_watermark:
-  text: 园区安防
-  fontSize: 48
+  order: 园区安防
+  font_size: 48
   color: "#00ff88"
-  align: bottomRight
-  opacity: 0.5`)
+  opacity: 0.5
+  width: 1280
+  height: 720
+  rotate: -30`)
 	if err != nil {
 		t.Fatalf("parse watermark strategy failed: %v", err)
 	}
 	if cfg == nil {
 		t.Fatal("expected watermark config")
 	}
-	if cfg.Text != "园区安防" {
-		t.Fatalf("expected text to roundtrip, got %q", cfg.Text)
+	if cfg.Order != "园区安防" {
+		t.Fatalf("expected order to roundtrip, got %q", cfg.Order)
 	}
 	if cfg.FontSize != 48 {
 		t.Fatalf("expected font size 48, got %d", cfg.FontSize)
 	}
-	if normalizedAlignment(cfg.Align) != "bottomright" {
-		t.Fatalf("expected bottomright alignment, got %q", normalizedAlignment(cfg.Align))
+	if cfg.Width != 1280 || cfg.Height != 720 {
+		t.Fatalf("expected dimensions 1280x720, got %dx%d", cfg.Width, cfg.Height)
+	}
+	if cfg.Rotate != -30 {
+		t.Fatalf("expected rotate -30, got %d", cfg.Rotate)
 	}
 }
 
-// TestParseWatermarkStrategyNumericAlign verifies numeric alignment inside snapshot watermark YAML.
-func TestParseWatermarkStrategyNumericAlign(t *testing.T) {
+// TestParseWatermarkStrategyConvertsLibraryConfig verifies service config maps to the renderer config.
+func TestParseWatermarkStrategyConvertsLibraryConfig(t *testing.T) {
 	cfg, err := parseWatermarkStrategy(`snapshot_watermark:
-  text: 热点水印
-  fontSize: 64
-  align: 9
-  opacity: 0.15`)
+  order: 热点水印
+  font_size: 64
+  opacity: 0.15
+  width: 640
+  height: 360
+  base64: "data:image/png;base64,aGVsbG8="
+  rotate: 15`)
 	if err != nil {
 		t.Fatalf("parse watermark strategy failed: %v", err)
 	}
 	if cfg == nil {
 		t.Fatal("expected snapshot watermark config")
 	}
-	if normalizedAlignment(cfg.Align) != "bottomright" {
-		t.Fatalf("expected numeric alignment to map to bottomright, got %q", normalizedAlignment(cfg.Align))
-	}
 	if cfg.Opacity != 0.15 {
 		t.Fatalf("expected opacity 0.15, got %f", cfg.Opacity)
+	}
+	rendererCfg := cfg.ToWatermarkConfig()
+	if rendererCfg.Order != "热点水印" || rendererCfg.FontSize != 64 {
+		t.Fatalf("expected renderer text config to roundtrip, got %+v", rendererCfg)
+	}
+	if rendererCfg.Width != 640 || rendererCfg.Height != 360 || rendererCfg.Rotate != 15 {
+		t.Fatalf("expected renderer dimensions and rotation to roundtrip, got %+v", rendererCfg)
+	}
+	if rendererCfg.Base64 != "aGVsbG8=" {
+		t.Fatalf("expected renderer base64 without data URL prefix, got %q", rendererCfg.Base64)
 	}
 }
 
 // TestParseWatermarkStrategyDefaultOpacity verifies omitted opacity uses the snapshot watermark default.
 func TestParseWatermarkStrategyDefaultOpacity(t *testing.T) {
 	cfg, err := parseWatermarkStrategy(`snapshot_watermark:
-  text: 默认透明度`)
+  order: 默认透明度`)
 	if err != nil {
 		t.Fatalf("parse watermark strategy failed: %v", err)
 	}
@@ -86,7 +101,7 @@ func TestParseWatermarkStrategyMissing(t *testing.T) {
 func TestParseWatermarkStrategyIgnoresGenericWatermark(t *testing.T) {
 	cfg, err := parseWatermarkStrategy(`watermark:
   enabled: true
-  text: 通用水印`)
+  order: 通用水印`)
 	if err != nil {
 		t.Fatalf("parse watermark strategy failed: %v", err)
 	}
@@ -106,7 +121,7 @@ func TestResolveStrategyCachesTenantDeviceResult(t *testing.T) {
 			SourceLabel:  strategySourceLabel(StrategySourceTenantDevice),
 			StrategyId:   17,
 			StrategyName: "租户设备策略",
-			Strategy:     "snapshot_watermark:\n  text: cached\n",
+			Strategy:     "snapshot_watermark:\n  order: cached\n",
 		},
 	}
 	service := &serviceImpl{strategyCache: cacheSvc, strategyResolver: resolver}
@@ -121,7 +136,7 @@ func TestResolveStrategyCachesTenantDeviceResult(t *testing.T) {
 		SourceLabel:  strategySourceLabel(StrategySourceDevice),
 		StrategyId:   23,
 		StrategyName: "设备策略",
-		Strategy:     "snapshot_watermark:\n  text: changed\n",
+		Strategy:     "snapshot_watermark:\n  order: changed\n",
 	}
 	second, err := service.resolveStrategy(ctx, "tenant-a", "device-a")
 	if err != nil {

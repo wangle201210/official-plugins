@@ -183,19 +183,10 @@ func strategySourceLabel(source StrategySource) string {
 
 // normalizeWatermarkConfig fills defaults and normalizes bounded fields.
 func normalizeWatermarkConfig(cfg watermarkConfig) (watermarkConfig, error) {
-	cfg.Text = strings.TrimSpace(cfg.Text)
+	cfg.Order = strings.TrimSpace(cfg.Order)
 	cfg.Font = strings.TrimSpace(cfg.Font)
 	cfg.Color = strings.TrimSpace(cfg.Color)
-	cfg.Image = strings.TrimSpace(cfg.Image)
 	cfg.Base64 = strings.TrimSpace(cfg.Base64)
-	cfg.Align = watermarkAlignment(strings.TrimSpace(string(cfg.Align)))
-	if cfg.Base64 != "" && cfg.Image == "" {
-		imagePath, err := base64ToMD5Pic(cfg.Base64, "")
-		if err != nil {
-			return cfg, err
-		}
-		cfg.Image = imagePath
-	}
 	if cfg.FontSize <= 0 {
 		cfg.FontSize = defaultFontSize
 	}
@@ -209,47 +200,4 @@ func normalizeWatermarkConfig(cfg watermarkConfig) (watermarkConfig, error) {
 		cfg.Opacity = 1
 	}
 	return cfg, nil
-}
-
-// watermarkAlignment accepts both hotgo numeric and Lina named alignment values.
-type watermarkAlignment string
-
-// UnmarshalYAML decodes alignment from YAML strings or integers.
-func (a *watermarkAlignment) UnmarshalYAML(value *yaml.Node) error {
-	switch value.Kind {
-	case yaml.ScalarNode:
-		*a = watermarkAlignment(strings.TrimSpace(value.Value))
-		return nil
-	default:
-		*a = ""
-		return nil
-	}
-}
-
-// normalizedAlignment converts named or HotGo numeric alignment values.
-func normalizedAlignment(align watermarkAlignment) string {
-	value := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(string(align)), "_", ""))
-	value = strings.ReplaceAll(value, "-", "")
-	switch value {
-	case "1", "left":
-		return "left"
-	case "2", "center", "centre":
-		return "center"
-	case "3", "right":
-		return "right"
-	case "4", "top":
-		return "top"
-	case "5", "bottom":
-		return "bottom"
-	case "6", "topleft":
-		return "topleft"
-	case "7", "topright":
-		return "topright"
-	case "8", "bottomleft":
-		return "bottomleft"
-	case "9", "bottomright":
-		return "bottomright"
-	default:
-		return "topleft"
-	}
 }
