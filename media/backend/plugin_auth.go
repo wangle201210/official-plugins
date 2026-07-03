@@ -141,7 +141,7 @@ func mediaExpectedInnerAPIKey(ctx context.Context, configSvc plugincap.ConfigSer
 	if configSvc == nil {
 		return mediaInnerAPIKeyDefault, nil
 	}
-	value, err := configSvc.Get(ctx, mediaInnerAPIKeyConfig)
+	value, err := configSvc.Get(ctx, mediaInnerAPIKeyConfig, nil)
 	if err != nil {
 		return "", bizerr.WrapCode(err, mediasvc.CodeMediaInnerAPIKeyConfigFailed)
 	}

@@ -121,7 +121,7 @@ func LoadConfig(ctx context.Context, reader plugincap.ConfigService) (*Config, e
 	}
 	cfg.Enabled = enabled
 
-	addrValue, err := reader.Get(ctx, configKeyCollectionServerAddr)
+	addrValue, err := reader.Get(ctx, configKeyCollectionServerAddr, nil)
 	if err != nil {
 		return nil, gerror.Wrap(err, "read media collection addr config failed")
 	}
@@ -219,7 +219,7 @@ func readStringConfig(
 	defaultValue string,
 	allowBlank bool,
 ) (string, error) {
-	value, err := reader.Get(ctx, key)
+	value, err := reader.Get(ctx, key, nil)
 	if err != nil {
 		return "", gerror.Wrapf(err, "read media collection config %s failed", key)
 	}

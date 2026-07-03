@@ -6,15 +6,13 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"lina-core/pkg/plugin/capability/bizctxcap"
 )
 
 // TestRouteMemoryUsesDeviceChannelKeyAndTwelveHourTTL verifies route memory lifecycle behavior.
 func TestRouteMemoryUsesDeviceChannelKeyAndTwelveHourTTL(t *testing.T) {
 	ctx := context.Background()
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(bizctxcap.New(nil), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 
 	"lina-core/pkg/logger"
+	"lina-core/pkg/plugin/capability"
 	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-core/pkg/plugin/pluginhost"
 	pluginsicauniu "lina-plugin-sicau-niu"
@@ -474,7 +475,7 @@ func refreshIronLocations(ctx context.Context, primaryNode bool, refresher feedi
 
 // pluginConfigFromServices extracts the plugin-scoped ConfigService from host
 // callback services and returns explicit setup errors for invalid callback wiring.
-func pluginConfigFromServices(services pluginhost.Services, purpose string) (plugincap.ConfigService, error) {
+func pluginConfigFromServices(services capability.Services, purpose string) (plugincap.ConfigService, error) {
 	if services == nil {
 		return nil, gerror.New(purpose + " requires plugin config service")
 	}

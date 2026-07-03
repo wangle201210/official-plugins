@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )
@@ -17,7 +16,7 @@ func TestResolveStrategyCachesTenantDeviceResult(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(bizctxcap.New(nil), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}
@@ -68,7 +67,7 @@ func TestResolveStrategyInvalidatesCacheAfterBindingMutation(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(bizctxcap.New(nil), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}

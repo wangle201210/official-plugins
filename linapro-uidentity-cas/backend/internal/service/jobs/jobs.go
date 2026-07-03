@@ -10,7 +10,7 @@ import (
 
 	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-core/pkg/plugin/capability/plugincap"
-	"lina-core/pkg/plugin/capability/tenantcap/tenantspi"
+	"lina-core/pkg/plugin/capability/tenantcap"
 	"lina-core/pkg/plugin/pluginhost"
 )
 
@@ -29,7 +29,7 @@ type Service interface {
 type serviceImpl struct {
 	bizCtxSvc    bizctxcap.Service
 	configSvc    plugincap.ConfigService
-	tenantFilter tenantspi.PluginTableFilterService
+	tenantFilter tenantcap.FilterService
 
 	// running tracks per-job in-process execution so a slow run is never
 	// overlapped by the next trigger on this node, mirroring the old per-job
@@ -45,7 +45,7 @@ var _ Service = (*serviceImpl)(nil)
 func New(
 	bizCtxSvc bizctxcap.Service,
 	configSvc plugincap.ConfigService,
-	tenantFilter tenantspi.PluginTableFilterService,
+	tenantFilter tenantcap.FilterService,
 ) Service {
 	return &serviceImpl{
 		bizCtxSvc:    bizCtxSvc,

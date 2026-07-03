@@ -118,9 +118,12 @@ type staticConfigService struct {
 }
 
 // Get returns the raw test config value.
-func (s staticConfigService) Get(_ context.Context, key string) (*gvar.Var, error) {
+func (s staticConfigService) Get(_ context.Context, key string, defaultValue any) (*gvar.Var, error) {
 	value, ok := s.values[key]
 	if !ok {
+		if defaultValue != nil {
+			return gvar.New(defaultValue), nil
+		}
 		return nil, nil
 	}
 	return gvar.New(value), nil
@@ -128,7 +131,7 @@ func (s staticConfigService) Get(_ context.Context, key string) (*gvar.Var, erro
 
 // Exists reports whether the test config key exists.
 func (s staticConfigService) Exists(ctx context.Context, key string) (bool, error) {
-	value, err := s.Get(ctx, key)
+	value, err := s.Get(ctx, key, nil)
 	return value != nil, err
 }
 

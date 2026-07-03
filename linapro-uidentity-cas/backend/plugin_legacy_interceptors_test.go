@@ -264,9 +264,7 @@ func startLegacyInterceptorServer(
 	server.SetDumpRouterMap(false)
 	server.SetPort(0)
 	server.Group("/api/v1", register)
-	registrar := pluginhost.NewGlobalMiddlewareRegistrar(server, pluginID, func(_ context.Context, _ string) bool {
-		return enabled
-	})
+	registrar := &legacyInterceptorGlobalMiddlewares{server: server, enabled: enabled}
 	controller := uidentitycontroller.NewLegacy(service)
 	if err := registerLegacyRouteInterceptors(registrar, middlewares, controller); err != nil {
 		t.Fatalf("register legacy interceptor: %v", err)
@@ -277,6 +275,28 @@ func startLegacyInterceptorServer(
 	})
 	time.Sleep(100 * time.Millisecond)
 	return fmt.Sprintf("http://127.0.0.1:%d", server.GetListenedPort())
+}
+
+type legacyInterceptorGlobalMiddlewares struct {
+	server  *ghttp.Server
+	enabled bool
+}
+
+func (r *legacyInterceptorGlobalMiddlewares) Bind(
+	scope pluginhost.MiddlewareScope,
+	handler pluginhost.MiddlewareHandler,
+) error {
+	if r == nil || r.server == nil || handler == nil {
+		return nil
+	}
+	r.server.BindMiddleware(string(scope), func(req *ghttp.Request) {
+		if !r.enabled {
+			req.Middleware.Next()
+			return
+		}
+		handler(req)
+	})
+	return nil
 }
 
 type legacyInterceptorFakeHostMiddlewares struct {

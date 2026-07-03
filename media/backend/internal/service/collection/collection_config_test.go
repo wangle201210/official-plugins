@@ -6,9 +6,12 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/gogf/gf/v2/container/gvar"
+
+	"gopkg.in/yaml.v3"
 	"lina-core/pkg/plugin/capability/plugincap"
-	configsvc "lina-core/pkg/plugin/capability/plugincap"
 )
 
 // TestLoadConfigUsesDefaultsWhenUnset verifies collection defaults when config is absent.
@@ -132,7 +135,115 @@ collectionServer:
 func newTestConfigService(t *testing.T, content string) plugincap.ConfigService {
 	t.Helper()
 
-	return configsvc.NewConfigFactory(t.TempDir(), t.TempDir()).
-		WithArtifactConfig("media", []byte(content)).
-		ForPlugin("media")
+	var values map[string]any
+	if err := yaml.Unmarshal([]byte(content), &values); err != nil {
+		t.Fatalf("parse collection config test data: %v", err)
+	}
+	return collectionConfigTestService{values: values}
+}
+
+type collectionConfigTestService struct {
+	values map[string]any
+}
+
+func (s collectionConfigTestService) Get(_ context.Context, key string, defaultValue any) (*gvar.Var, error) {
+	value, ok := lookupCollectionConfigTestValue(s.values, key)
+	if !ok {
+		if defaultValue == nil {
+			return nil, nil
+		}
+		return gvar.New(defaultValue), nil
+	}
+	return gvar.New(value), nil
+}
+
+func (s collectionConfigTestService) Exists(_ context.Context, key string) (bool, error) {
+	_, ok := lookupCollectionConfigTestValue(s.values, key)
+	return ok, nil
+}
+
+func (s collectionConfigTestService) Scan(_ context.Context, key string, target any) error {
+	value, ok := lookupCollectionConfigTestValue(s.values, key)
+	if !ok {
+		return nil
+	}
+	payload, err := yaml.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return yaml.Unmarshal(payload, target)
+}
+
+func (s collectionConfigTestService) String(ctx context.Context, key string, defaultValue string) (string, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return "", err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	raw := value.String()
+	if strings.TrimSpace(raw) == "" {
+		return defaultValue, nil
+	}
+	return raw, nil
+}
+
+func (s collectionConfigTestService) Bool(ctx context.Context, key string, defaultValue bool) (bool, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return false, err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	return value.Bool(), nil
+}
+
+func (s collectionConfigTestService) Int(ctx context.Context, key string, defaultValue int) (int, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return 0, err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	return value.Int(), nil
+}
+
+func (s collectionConfigTestService) Duration(ctx context.Context, key string, defaultValue time.Duration) (time.Duration, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return 0, err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	raw := strings.TrimSpace(value.String())
+	if raw == "" {
+		return defaultValue, nil
+	}
+	duration, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, err
+	}
+	return duration, nil
+}
+
+func lookupCollectionConfigTestValue(values map[string]any, key string) (any, bool) {
+	if values == nil {
+		return nil, false
+	}
+	current := any(values)
+	for _, part := range strings.Split(key, ".") {
+		mapped, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = mapped[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
 }

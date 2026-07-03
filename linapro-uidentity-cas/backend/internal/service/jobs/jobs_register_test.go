@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"lina-core/pkg/plugin/capability"
 	"lina-core/pkg/plugin/pluginhost"
 )
 
@@ -34,7 +35,7 @@ func (r *fakeJobsRegistrar) IsPrimaryNode() bool {
 	return !r.notPrimary
 }
 
-func (r *fakeJobsRegistrar) Services() pluginhost.Services {
+func (r *fakeJobsRegistrar) Services() capability.Services {
 	return nil
 }
 

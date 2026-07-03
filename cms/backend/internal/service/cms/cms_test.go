@@ -26,7 +26,7 @@ import (
 
 // newTestCMSService creates a CMS service with an explicit test bizctx adapter.
 func newTestCMSService() Service {
-	svc, err := New(bizctxcap.New(nil))
+	svc, err := New(cmsTestBizCtx{})
 	if err != nil {
 		panic(err)
 	}
@@ -36,7 +36,7 @@ func newTestCMSService() Service {
 // newTestCMSServiceForUser creates a CMS service that sees a fixed user ID in
 // plugin business context, matching authenticated management requests.
 func newTestCMSServiceForUser(userID int) Service {
-	svc, err := New(bizctxcap.New(cmsTestBizCtx{userID: userID}))
+	svc, err := New(cmsTestBizCtx{userID: userID})
 	if err != nil {
 		panic(err)
 	}

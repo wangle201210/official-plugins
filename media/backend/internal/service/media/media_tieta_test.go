@@ -40,10 +40,22 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+// newTestMediaBizCtx returns an empty plugin business-context service for media tests.
+func newTestMediaBizCtx() bizctxcap.Service {
+	return mediaTestBizCtx{}
+}
+
+type mediaTestBizCtx struct{}
+
+// Current returns the static business context configured for media tests.
+func (mediaTestBizCtx) Current(context.Context) bizctxcap.CurrentContext {
+	return bizctxcap.CurrentContext{}
+}
+
 // newTestMediaService creates a media service with an explicit test bizctx adapter.
 func newTestMediaService(t *testing.T) Service {
 	t.Helper()
-	svc, err := newWithRouteMemoryCache(bizctxcap.New(nil), newMemoryRouteMemoryCache())
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), newMemoryRouteMemoryCache())
 	if err != nil {
 		t.Fatalf("create test media service: %v", err)
 	}
@@ -96,7 +108,7 @@ func TestParseTietaTokenUsesMediaClient(t *testing.T) {
 func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 	ctx := context.Background()
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(bizctxcap.New(nil), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}

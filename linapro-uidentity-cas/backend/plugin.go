@@ -9,7 +9,6 @@ import (
 
 	"github.com/gogf/gf/v2/errors/gerror"
 
-	"lina-core/pkg/plugin/capability"
 	"lina-core/pkg/plugin/pluginhost"
 	uidentitycas "lina-plugin-linapro-uidentity-cas"
 	uidentitycontroller "lina-plugin-linapro-uidentity-cas/backend/internal/controller/uidentity"
@@ -52,14 +51,14 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		middlewares = routes.Middlewares()
 		services    = registrar.Services()
 	)
-	if services == nil || services.BizCtx() == nil || services.TenantFilter() == nil {
+	if services == nil || services.BizCtx() == nil || services.Tenant() == nil {
 		return gerror.New("linapro-uidentity-cas routes require host bizctx and tenant-filter services")
 	}
-	scopedServices := capability.ServicesForPlugin(services, pluginID)
-	if scopedServices == nil {
-		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
+	tenantFilter := services.Tenant().Filter()
+	if tenantFilter == nil {
+		return gerror.New("linapro-uidentity-cas routes require host tenant-filter service")
 	}
-	plugins := scopedServices.Plugins()
+	plugins := services.Plugins()
 	if plugins == nil {
 		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
 	}
@@ -68,9 +67,9 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return gerror.New("linapro-uidentity-cas routes require plugin-scoped config service")
 	}
 	uidentitySvc := uidentitysvc.New(
-		scopedServices.BizCtx(),
+		services.BizCtx(),
 		configSvc,
-		services.TenantFilter(),
+		tenantFilter,
 	)
 	legacyController := uidentitycontroller.NewLegacy(uidentitySvc)
 	registerLegacyRoutes(routes, middlewares, legacyController)
@@ -90,8 +89,12 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 // trigger control stay in the host task-management module.
 func registerManagedJobs(ctx context.Context, registrar pluginhost.JobsRegistrar) error {
 	services := registrar.Services()
-	if services == nil || services.BizCtx() == nil || services.TenantFilter() == nil {
+	if services == nil || services.BizCtx() == nil || services.Tenant() == nil {
 		return gerror.New("linapro-uidentity-cas jobs require host bizctx and tenant-filter services")
+	}
+	tenantFilter := services.Tenant().Filter()
+	if tenantFilter == nil {
+		return gerror.New("linapro-uidentity-cas jobs require host tenant-filter service")
 	}
 	plugins := services.Plugins()
 	if plugins == nil {
@@ -101,6 +104,6 @@ func registerManagedJobs(ctx context.Context, registrar pluginhost.JobsRegistrar
 	if configSvc == nil {
 		return gerror.New("linapro-uidentity-cas jobs require plugin-scoped config service")
 	}
-	jobSvc := uidentityjobs.New(services.BizCtx(), configSvc, services.TenantFilter())
+	jobSvc := uidentityjobs.New(services.BizCtx(), configSvc, tenantFilter)
 	return jobSvc.Register(ctx, registrar)
 }

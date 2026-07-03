@@ -1,9 +1,12 @@
+// This file builds FFmpeg watermark filter descriptions and declares cgo
+// linkage for the migrated HotGo watermark static library.
+
 package watermark
 
 /*
 #cgo CFLAGS: -I.
-#cgo LDFLAGS: -L. -lwatermark -lx264
-#cgo pkg-config: libavformat libavcodec libavutil libavfilter libswscale
+#cgo LDFLAGS: -L. -lwatermark
+#cgo pkg-config: libavformat libavcodec libavutil libavfilter libswscale x264
 
 #include <stdlib.h>
 #include <string.h>

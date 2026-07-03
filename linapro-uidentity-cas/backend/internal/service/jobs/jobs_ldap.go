@@ -146,7 +146,7 @@ func (s *serviceImpl) ldapObjectClass(ctx context.Context) ([]string, error) {
 	if s == nil || s.configSvc == nil {
 		return defaults, nil
 	}
-	value, err := s.configSvc.Get(ctx, configKeyLDAPObjectClass)
+	value, err := s.configSvc.Get(ctx, configKeyLDAPObjectClass, nil)
 	if err != nil {
 		return nil, err
 	}

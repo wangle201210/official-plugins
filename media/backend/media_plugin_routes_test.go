@@ -15,11 +15,14 @@ import (
 	"time"
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
+	"github.com/gogf/gf/v2/container/gvar"
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcfg"
 
+	"gopkg.in/yaml.v3"
+	"lina-core/pkg/plugin/capability"
 	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-core/pkg/plugin/capability/cachecap"
 	"lina-core/pkg/plugin/capability/plugincap"
@@ -31,7 +34,7 @@ import (
 
 // mediaRouteHostServices publishes only the host services required by media route registration.
 type mediaRouteHostServices struct {
-	pluginhost.Services
+	capability.Services
 	bizCtx  bizctxcap.Service
 	cache   cachecap.Service
 	plugins plugincap.Service
@@ -67,7 +70,7 @@ func (s mediaRoutePluginServices) Config() plugincap.ConfigService {
 type mediaRouteHTTPRegistrar struct {
 	routes            pluginhost.RouteRegistrar
 	globalMiddlewares pluginhost.GlobalMiddlewareRegistrar
-	services          pluginhost.Services
+	services          capability.Services
 }
 
 // Routes returns the test route registrar.
@@ -81,8 +84,126 @@ func (r *mediaRouteHTTPRegistrar) GlobalMiddlewares() pluginhost.GlobalMiddlewar
 }
 
 // Services returns the test host services.
-func (r *mediaRouteHTTPRegistrar) Services() pluginhost.Services {
+func (r *mediaRouteHTTPRegistrar) Services() capability.Services {
 	return r.services
+}
+
+type mediaRouteBizCtx struct{}
+
+func (mediaRouteBizCtx) Current(context.Context) bizctxcap.CurrentContext {
+	return bizctxcap.CurrentContext{}
+}
+
+type mediaRouteRegistrar struct {
+	group       *ghttp.RouterGroup
+	middlewares pluginhost.RouteMiddlewares
+}
+
+func newMediaRouteRegistrar(group *ghttp.RouterGroup, middlewares pluginhost.RouteMiddlewares) pluginhost.RouteRegistrar {
+	return &mediaRouteRegistrar{group: group, middlewares: middlewares}
+}
+
+func (r *mediaRouteRegistrar) APIPrefix() string {
+	return "/api/v1"
+}
+
+func (r *mediaRouteRegistrar) Err() error {
+	return nil
+}
+
+func (r *mediaRouteRegistrar) Group(prefix string, register func(group pluginhost.RouteGroup)) {
+	if r == nil || r.group == nil || register == nil {
+		return
+	}
+	r.group.Group(prefix, func(group *ghttp.RouterGroup) {
+		group.Middleware(func(req *ghttp.Request) {
+			pluginhost.SetSourcePluginIDForRequest(req, pluginID)
+			req.Middleware.Next()
+		})
+		register(&mediaRouteGroup{group: group})
+	})
+}
+
+func (r *mediaRouteRegistrar) Middlewares() pluginhost.RouteMiddlewares {
+	if r == nil {
+		return nil
+	}
+	return r.middlewares
+}
+
+func (r *mediaRouteRegistrar) RouteBindings() []pluginhost.SourceRouteBinding {
+	return nil
+}
+
+type mediaRouteGroup struct {
+	group *ghttp.RouterGroup
+}
+
+func (g *mediaRouteGroup) Err() error {
+	return nil
+}
+
+func (g *mediaRouteGroup) Group(prefix string, register func(group pluginhost.RouteGroup)) {
+	if g == nil || g.group == nil || register == nil {
+		return
+	}
+	g.group.Group(prefix, func(group *ghttp.RouterGroup) {
+		register(&mediaRouteGroup{group: group})
+	})
+}
+
+func (g *mediaRouteGroup) Middleware(handlers ...pluginhost.RouteMiddleware) {
+	if g == nil || g.group == nil {
+		return
+	}
+	g.group.Middleware(handlers...)
+}
+
+func (g *mediaRouteGroup) Bind(handlerOrObject ...interface{}) {
+	if g == nil || g.group == nil {
+		return
+	}
+	g.group.Bind(handlerOrObject...)
+}
+
+func (g *mediaRouteGroup) ALL(pattern string, object interface{}, params ...interface{}) {
+	g.group.ALL(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) GET(pattern string, object interface{}, params ...interface{}) {
+	g.group.GET(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) PUT(pattern string, object interface{}, params ...interface{}) {
+	g.group.PUT(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) POST(pattern string, object interface{}, params ...interface{}) {
+	g.group.POST(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) DELETE(pattern string, object interface{}, params ...interface{}) {
+	g.group.DELETE(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) PATCH(pattern string, object interface{}, params ...interface{}) {
+	g.group.PATCH(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) HEAD(pattern string, object interface{}, params ...interface{}) {
+	g.group.HEAD(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) CONNECT(pattern string, object interface{}, params ...interface{}) {
+	g.group.CONNECT(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) OPTIONS(pattern string, object interface{}, params ...interface{}) {
+	g.group.OPTIONS(pattern, object, params...)
+}
+
+func (g *mediaRouteGroup) TRACE(pattern string, object interface{}, params ...interface{}) {
+	g.group.TRACE(pattern, object, params...)
 }
 
 // mediaRouteCountingGlobalMiddlewares counts global middleware registration calls.
@@ -1083,25 +1204,19 @@ func TestMediaPluginDoesNotRegisterGlobalAPIDocsBlock(t *testing.T) {
 	server := g.Server(fmt.Sprintf("media-route-registration-test-%d", time.Now().UnixNano()))
 	server.SetDumpRouterMap(false)
 
-	configFactory := plugincap.NewConfigFactory(t.TempDir(), t.TempDir())
-	if content, _ := mediaRouteConfigContent.Load().(string); strings.TrimSpace(content) != "" {
-		configFactory = configFactory.WithArtifactConfig(pluginID, []byte(content))
-	}
 	hostServices := &mediaRouteHostServices{
-		bizCtx: bizctxcap.New(nil),
+		bizCtx: mediaRouteBizCtx{},
 		cache:  newMediaRouteCache(),
 		plugins: mediaRoutePluginServices{
-			config: configFactory.ForPlugin(pluginID),
+			config: newMediaRoutePluginConfigService(t),
 		},
 	}
 	globalMiddlewares := &mediaRouteCountingGlobalMiddlewares{}
 
 	server.Group("/", func(group *ghttp.RouterGroup) {
 		registrar := &mediaRouteHTTPRegistrar{
-			routes: pluginhost.NewRouteRegistrar(
+			routes: newMediaRouteRegistrar(
 				group,
-				pluginID,
-				func(context.Context, string) bool { return true },
 				pluginhost.NewRouteMiddlewares(
 					mediaRouteNoOpMiddleware,
 					mediaRouteTestResponse,
@@ -1479,6 +1594,123 @@ innerapi:
 	})
 }
 
+func newMediaRoutePluginConfigService(t *testing.T) plugincap.ConfigService {
+	t.Helper()
+
+	content, _ := mediaRouteConfigContent.Load().(string)
+	var values map[string]any
+	if err := yaml.Unmarshal([]byte(content), &values); err != nil {
+		t.Fatalf("parse media route config test data: %v", err)
+	}
+	return mediaRoutePluginConfigService{values: values}
+}
+
+type mediaRoutePluginConfigService struct {
+	values map[string]any
+}
+
+func (s mediaRoutePluginConfigService) Get(_ context.Context, key string, defaultValue any) (*gvar.Var, error) {
+	value, ok := lookupMediaRouteConfigValue(s.values, key)
+	if !ok {
+		if defaultValue == nil {
+			return nil, nil
+		}
+		return gvar.New(defaultValue), nil
+	}
+	return gvar.New(value), nil
+}
+
+func (s mediaRoutePluginConfigService) Exists(_ context.Context, key string) (bool, error) {
+	_, ok := lookupMediaRouteConfigValue(s.values, key)
+	return ok, nil
+}
+
+func (s mediaRoutePluginConfigService) Scan(_ context.Context, key string, target any) error {
+	value, ok := lookupMediaRouteConfigValue(s.values, key)
+	if !ok {
+		return nil
+	}
+	payload, err := yaml.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return yaml.Unmarshal(payload, target)
+}
+
+func (s mediaRoutePluginConfigService) String(ctx context.Context, key string, defaultValue string) (string, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return "", err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	raw := value.String()
+	if strings.TrimSpace(raw) == "" {
+		return defaultValue, nil
+	}
+	return raw, nil
+}
+
+func (s mediaRoutePluginConfigService) Bool(ctx context.Context, key string, defaultValue bool) (bool, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return false, err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	return value.Bool(), nil
+}
+
+func (s mediaRoutePluginConfigService) Int(ctx context.Context, key string, defaultValue int) (int, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return 0, err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	return value.Int(), nil
+}
+
+func (s mediaRoutePluginConfigService) Duration(ctx context.Context, key string, defaultValue time.Duration) (time.Duration, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil {
+		return 0, err
+	}
+	if value == nil || value.IsNil() {
+		return defaultValue, nil
+	}
+	raw := strings.TrimSpace(value.String())
+	if raw == "" {
+		return defaultValue, nil
+	}
+	duration, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, err
+	}
+	return duration, nil
+}
+
+func lookupMediaRouteConfigValue(values map[string]any, key string) (any, bool) {
+	if values == nil {
+		return nil, false
+	}
+	current := any(values)
+	for _, part := range strings.Split(key, ".") {
+		mapped, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = mapped[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
 // mediaRouteNoOpMiddleware continues the route middleware chain in tests.
 func mediaRouteNoOpMiddleware(r *ghttp.Request) {
 	r.Middleware.Next()
@@ -1491,26 +1723,19 @@ func startMediaRouteTestServer(t *testing.T, middlewares pluginhost.RouteMiddlew
 	server := g.Server(fmt.Sprintf("media-route-test-%d", time.Now().UnixNano()))
 	server.SetDumpRouterMap(false)
 	server.SetPort(0)
-	configFactory := plugincap.NewConfigFactory(t.TempDir(), t.TempDir())
-	if content, _ := mediaRouteConfigContent.Load().(string); strings.TrimSpace(content) != "" {
-		configFactory = configFactory.WithArtifactConfig(pluginID, []byte(content))
-	}
 	hostServices := &mediaRouteHostServices{
-		bizCtx: bizctxcap.New(nil),
+		bizCtx: mediaRouteBizCtx{},
 		cache:  newMediaRouteCache(),
 		plugins: mediaRoutePluginServices{
-			config: configFactory.ForPlugin(pluginID),
+			config: newMediaRoutePluginConfigService(t),
 		},
 	}
 	server.Group("/", func(group *ghttp.RouterGroup) {
-		registrar := pluginhost.NewHTTPRegistrar(
-			server,
-			group,
-			pluginID,
-			func(context.Context, string) bool { return true },
-			middlewares,
-			hostServices,
-		)
+		registrar := &mediaRouteHTTPRegistrar{
+			routes:            newMediaRouteRegistrar(group, middlewares),
+			globalMiddlewares: &mediaRouteCountingGlobalMiddlewares{},
+			services:          hostServices,
+		}
 		if err := registerRoutes(context.Background(), registrar); err != nil {
 			t.Fatalf("register media routes: %v", err)
 		}
