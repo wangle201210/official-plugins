@@ -17,6 +17,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 	"unsafe"
 )
 
@@ -52,6 +53,8 @@ func makeFilterDescr(bounds image.Rectangle, config WatermarkConfig, variables m
 		filterParts = append(filterParts, fmt.Sprintf("%s[%s]", imageFilter, currentLabel))
 	} else {
 		text := config.Order
+		text = strings.ReplaceAll(text, "{{date-1}}", time.Now().Format("2006-01-02"))
+		text = strings.ReplaceAll(text, "{{date-2}}", time.Now().Format("2006-01-02 15:04:05"))
 		for k, v := range variables {
 			text = strings.ReplaceAll(text, "{{"+k+"}}", v)
 		}
