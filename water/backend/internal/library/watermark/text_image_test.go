@@ -1,9 +1,29 @@
 package watermark
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
+
+// TestLoadTrueTypeFontSelectsCJKCollectionFace verifies TTC collections choose
+// a sub-font with real Chinese glyph mappings instead of the first face.
+func TestLoadTrueTypeFontSelectsCJKCollectionFace(t *testing.T) {
+	fontData, err := os.ReadFile(filepath.Join("fonts", "STHeiti Medium.ttc"))
+	if err != nil {
+		t.Fatalf("read embedded STHeiti font: %v", err)
+	}
+	if offsets, ok := trueTypeCollectionOffsets(fontData); !ok || len(offsets) == 0 {
+		t.Fatalf("expected embedded STHeiti to be a TTC collection, ok=%t offsets=%v", ok, offsets)
+	}
+	ttFont, err := loadTrueTypeFont(fontData)
+	if err != nil {
+		t.Fatalf("load embedded STHeiti TrueType font: %v", err)
+	}
+	if score := trueTypeGlyphCoverageScore(ttFont, cjkGlyphProbeText); score != len([]rune(cjkGlyphProbeText)) {
+		t.Fatalf("expected selected STHeiti face to cover probe glyphs, score=%d", score)
+	}
+}
 
 // TestLoadFontFaceFromFileSupportsEmbeddedSTHeitiChineseGlyph verifies the
 // embedded STHeiti TTC can render CJK glyphs on Linux containers without

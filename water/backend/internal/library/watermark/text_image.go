@@ -1,6 +1,7 @@
 package watermark
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"image"
@@ -20,6 +21,9 @@ import (
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 )
+
+// cjkGlyphProbeText is used to select a TTC sub-font that actually covers Chinese glyphs.
+const cjkGlyphProbeText = "中文测试汉字"
 
 var darwinFontPaths = []string{
 	"/System/Library/Fonts/PingFang.ttc",
@@ -117,25 +121,27 @@ func loadFontFaceFromFile(fontPath string, fontSize float64) (font.Face, error) 
 		return nil, err
 	}
 
-	face, openTypeErr := loadOpenTypeFontFace(fontData, fontSize)
-	if openTypeErr == nil {
-		return face, nil
-	}
 	face, trueTypeErr := loadTrueTypeFontFace(fontData, fontSize)
 	if trueTypeErr == nil {
 		return face, nil
 	}
-	return nil, errors.Join(openTypeErr, trueTypeErr)
+	face, openTypeErr := loadOpenTypeFontFace(fontData, fontSize)
+	if openTypeErr == nil {
+		return face, nil
+	}
+	return nil, errors.Join(trueTypeErr, openTypeErr)
 }
 
 func loadOpenTypeFontFace(fontData []byte, fontSize float64) (font.Face, error) {
 	var otFont *opentype.Font
 	if collection, err := opentype.ParseCollection(fontData); err == nil {
+		var err error
 		otFont, err = collection.Font(0)
 		if err != nil {
 			return nil, err
 		}
 	} else {
+		var err error
 		otFont, err = opentype.Parse(fontData)
 		if err != nil {
 			return nil, err
@@ -150,7 +156,7 @@ func loadOpenTypeFontFace(fontData []byte, fontSize float64) (font.Face, error) 
 }
 
 func loadTrueTypeFontFace(fontData []byte, fontSize float64) (font.Face, error) {
-	ttFont, err := truetype.Parse(fontData)
+	ttFont, err := loadTrueTypeFont(fontData)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +165,132 @@ func loadTrueTypeFontFace(fontData []byte, fontSize float64) (font.Face, error) 
 		DPI:     72,
 		Hinting: font.HintingFull,
 	}), nil
+}
+
+// loadTrueTypeFont loads a single TTF or selects a CJK-capable face from a TTC.
+func loadTrueTypeFont(fontData []byte) (*truetype.Font, error) {
+	offsets, ok := trueTypeCollectionOffsets(fontData)
+	if !ok {
+		return truetype.Parse(fontData)
+	}
+
+	var (
+		bestFont  *truetype.Font
+		bestScore = -1
+		firstErr  error
+	)
+	for _, offset := range offsets {
+		if int(offset) >= len(fontData) {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("trueType collection font offset %d out of range", offset)
+			}
+			continue
+		}
+		extractedFont, err := extractTrueTypeCollectionFont(fontData, offset)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		candidate, err := truetype.Parse(extractedFont)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		score := trueTypeGlyphCoverageScore(candidate, cjkGlyphProbeText)
+		if score > bestScore {
+			bestFont = candidate
+			bestScore = score
+		}
+		if score == len([]rune(cjkGlyphProbeText)) {
+			return candidate, nil
+		}
+	}
+	if bestFont != nil {
+		return bestFont, nil
+	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return nil, fmt.Errorf("trueType collection has no fonts")
+}
+
+// trueTypeCollectionOffsets returns embedded font offsets from a TTC header.
+func trueTypeCollectionOffsets(fontData []byte) ([]uint32, bool) {
+	const ttcHeaderSize = 12
+	if len(fontData) < ttcHeaderSize || string(fontData[:4]) != "ttcf" {
+		return nil, false
+	}
+	fontCount := binary.BigEndian.Uint32(fontData[8:12])
+	offsetTableEnd := ttcHeaderSize + int(fontCount)*4
+	if fontCount == 0 || offsetTableEnd > len(fontData) {
+		return nil, false
+	}
+	offsets := make([]uint32, 0, fontCount)
+	for offsetPos := ttcHeaderSize; offsetPos < offsetTableEnd; offsetPos += 4 {
+		offsets = append(offsets, binary.BigEndian.Uint32(fontData[offsetPos:offsetPos+4]))
+	}
+	return offsets, true
+}
+
+// extractTrueTypeCollectionFont rewrites one TTC sub-font into standalone TTF bytes.
+func extractTrueTypeCollectionFont(fontData []byte, fontOffset uint32) ([]byte, error) {
+	const tableDirectorySize = 12
+	start := int(fontOffset)
+	if start < 0 || start+tableDirectorySize > len(fontData) {
+		return nil, fmt.Errorf("trueType collection font offset %d out of range", fontOffset)
+	}
+
+	numTables := int(binary.BigEndian.Uint16(fontData[start+4 : start+6]))
+	if numTables == 0 {
+		return nil, fmt.Errorf("trueType collection font at offset %d has no tables", fontOffset)
+	}
+	directoryLen := tableDirectorySize + numTables*16
+	if start+directoryLen > len(fontData) {
+		return nil, fmt.Errorf("trueType collection font directory at offset %d out of range", fontOffset)
+	}
+
+	tableDataOffset := align4(directoryLen)
+	tableData := make([]byte, tableDataOffset)
+	copy(tableData[:directoryLen], fontData[start:start+directoryLen])
+
+	for i := 0; i < numTables; i++ {
+		recordPos := tableDirectorySize + i*16
+		sourceOffset := binary.BigEndian.Uint32(tableData[recordPos+8 : recordPos+12])
+		length := binary.BigEndian.Uint32(tableData[recordPos+12 : recordPos+16])
+		sourceStart := int(sourceOffset)
+		sourceEnd := sourceStart + int(length)
+		if sourceStart < 0 || sourceEnd < sourceStart || sourceEnd > len(fontData) {
+			return nil, fmt.Errorf("trueType table %d range out of collection bounds", i)
+		}
+
+		destinationOffset := align4(len(tableData))
+		if destinationOffset > len(tableData) {
+			tableData = append(tableData, make([]byte, destinationOffset-len(tableData))...)
+		}
+		binary.BigEndian.PutUint32(tableData[recordPos+8:recordPos+12], uint32(destinationOffset))
+		tableData = append(tableData, fontData[sourceStart:sourceEnd]...)
+	}
+
+	return tableData, nil
+}
+
+func align4(value int) int {
+	return (value + 3) &^ 3
+}
+
+// trueTypeGlyphCoverageScore counts how many probe runes resolve to real glyphs.
+func trueTypeGlyphCoverageScore(ttFont *truetype.Font, probe string) int {
+	score := 0
+	for _, r := range probe {
+		if ttFont.Index(r) != 0 {
+			score++
+		}
+	}
+	return score
 }
 
 func discoverLinuxFonts() []string {

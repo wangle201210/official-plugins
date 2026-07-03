@@ -61,6 +61,7 @@ func makeFilterDescr(bounds image.Rectangle, config WatermarkConfig, variables m
 		for k, v := range variables {
 			text = strings.ReplaceAll(text, "{{"+k+"}}", v)
 		}
+		log.Printf("generate text: %v\n", text)
 		if text != "" && width > 0 && height > 0 {
 			os.MkdirAll("./img", 0755)
 			filename := "./img/" + MD5(text+config.Font+fmt.Sprint(config.FontSize)+config.Color+fmt.Sprint(config.Rotate)) + ".png"
