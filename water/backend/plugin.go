@@ -48,17 +48,21 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if configSvc == nil {
 		return gerror.New("water routes require host plugin config service")
 	}
-	config, err := watersvc.LoadRemoteStrategyResolverConfig(ctx, configSvc)
+	strategyConfig, err := watersvc.LoadRemoteStrategyResolverConfig(ctx, configSvc)
 	if err != nil {
 		return err
 	}
-	strategyResolver, err := watersvc.NewRemoteStrategyResolver(config)
+	runtimeConfig, err := watersvc.LoadRuntimeConfig(ctx, configSvc)
+	if err != nil {
+		return err
+	}
+	strategyResolver, err := watersvc.NewRemoteStrategyResolver(strategyConfig)
 	if err != nil {
 		return err
 	}
 	routes := registrar.Routes()
 	middlewares := routes.Middlewares()
-	waterSvc, err := watersvc.New(hostServices.Cache(), strategyResolver)
+	waterSvc, err := watersvc.New(hostServices.Cache(), strategyResolver, runtimeConfig)
 	if err != nil {
 		return err
 	}

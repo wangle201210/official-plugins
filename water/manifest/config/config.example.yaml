@@ -7,3 +7,7 @@ mediaStrategy:
   apiKey: "media"
   # Timeout for one remote strategy lookup.
   timeout: 10s
+
+water:
+  # Asynchronous watermark task consumers per LinaPro process.
+  consumerCount: 1

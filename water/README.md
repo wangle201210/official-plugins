@@ -19,23 +19,18 @@ snapshot_watermark:
 
 `media_strategy.enable` is the only switch for whether a strategy participates in watermark rendering. When `opacity` is omitted, the plugin uses `0.15`.
 
-Remote strategy lookup is configured through the water plugin runtime config:
+Remote strategy lookup and service concurrency are configured through the water plugin runtime config:
 
 ```yaml
 mediaStrategy:
   baseUrl: "http://media-linapro.example.com"
   apiKey: "media"
   timeout: 10s
-```
-
-`baseUrl` points to the LinaPro cluster where the `media` plugin is installed. The resolver calls `GET /api/v1/strategies/resolve` and sends `apiKey` as `X-Inner-Api-Key`.
-
-The service runtime concurrency is configured in the host backend config:
-
-```yaml
 water:
   consumerCount: 1
 ```
+
+`baseUrl` points to the LinaPro cluster where the `media` plugin is installed. The resolver calls `GET /api/v1/strategies/resolve` and sends `apiKey` as `X-Inner-Api-Key`.
 
 `consumerCount` controls asynchronous watermark task consumers. Values below `1` fall back to `1`; values above `32` are capped at `32`.
 

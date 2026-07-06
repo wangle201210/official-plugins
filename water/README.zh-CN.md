@@ -19,23 +19,18 @@ snapshot_watermark:
 
 `media_strategy.enable`是策略是否参与水印渲染的唯一开关。未配置`opacity`时，插件默认使用`0.15`。
 
-远端策略查询通过`water`插件运行时配置指定：
+远端策略查询和服务端运行并发通过`water`插件运行时配置指定：
 
 ```yaml
 mediaStrategy:
   baseUrl: "http://media-linapro.example.com"
   apiKey: "media"
   timeout: 10s
-```
-
-`baseUrl`指向部署了`media`插件的 LinaPro 集群。解析器调用`GET /api/v1/strategies/resolve`，并将`apiKey`作为`X-Inner-Api-Key`请求头发送。
-
-服务端运行并发配置在宿主后端配置文件中：
-
-```yaml
 water:
   consumerCount: 1
 ```
+
+`baseUrl`指向部署了`media`插件的 LinaPro 集群。解析器调用`GET /api/v1/strategies/resolve`，并将`apiKey`作为`X-Inner-Api-Key`请求头发送。
 
 `consumerCount`控制异步水印任务消费者并发数。小于`1`时回退为`1`，大于`32`时按`32`封顶。
 

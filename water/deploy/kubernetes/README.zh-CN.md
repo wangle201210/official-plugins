@@ -48,7 +48,7 @@
 | `linapro-water-data.resources.requests.storage` | `10Gi` | `/app/data`共享存储，用于上传文件、动态插件产物和本地运行时文件。 |
 | `resources.requests.storage` | `20Gi` | 内置 PostgreSQL 数据卷容量。 |
 
-`water`插件会从`/app/config/plugins/water/config.yaml`读取插件作用域运行时配置。该清单通过`linapro-water-plugin-config` Secret 挂载该文件。`manifest/config/config.example.yaml`只是配置模板，不会作为运行时默认值读取。
+`water`插件会从`/app/config/plugins/water/config.yaml`读取`mediaStrategy.*`和`water.consumerCount`。该清单通过`linapro-water-plugin-config` Secret 挂载这份插件作用域运行时配置。`manifest/config/config.example.yaml`只是配置模板，不会作为运行时默认值读取。
 
 跨集群访问时，将`mediaStrategy.baseUrl`设置为`media`集群的`Ingress`、负载均衡、专线地址、VPN 地址或`NodePort`地址。如果`media`使用同级清单部署在同一个 Kubernetes 集群内，集群内地址通常是`http://linapro.linapro.svc.cluster.local:9120`。`mediaStrategy.apiKey`必须与`media`集群的`innerapi.apiKey`配置一致；`media`插件未显式配置`innerapi.apiKey`时，默认值是`media`。
 
@@ -119,7 +119,7 @@ kubectl -n linapro-water logs -f -l app=linapro-water -c linapro --max-log-reque
 kubectl -n linapro-water logs job/linapro-water-init-database
 ```
 
-修改`config.yaml`后如需手工重跑宿主数据库初始化，删除已完成的 Job，重新应用清单，然后重启 LinaPro Pod：
+修改宿主`linapro-water-config`的`config.yaml`后如需手工重跑宿主数据库初始化，删除已完成的 Job，重新应用清单，然后重启 LinaPro Pod：
 
 ```bash
 kubectl -n linapro-water delete job linapro-water-init-database
@@ -127,7 +127,7 @@ kubectl apply -f linapro-k8s.yaml
 kubectl -n linapro-water rollout restart deploy/linapro-water
 ```
 
-修改`mediaStrategy`配置后，更新`linapro-water-plugin-config` Secret 并重启部署：
+修改`mediaStrategy`或`water.consumerCount`等插件运行配置后，更新`linapro-water-plugin-config` Secret 并重启部署：
 
 ```bash
 kubectl -n linapro-water rollout restart deploy/linapro-water

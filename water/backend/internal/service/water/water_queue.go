@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogf/gf/v2/frame/g"
-
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
 )
@@ -25,18 +23,24 @@ type watermarkTask struct {
 
 // localTaskQueue owns process-local worker startup and queued task delivery.
 type localTaskQueue struct {
-	store     *taskStore
-	processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)
-	tasks     chan *watermarkTask
-	startOnce sync.Once
+	store         *taskStore
+	processor     func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)
+	tasks         chan *watermarkTask
+	consumerCount int
+	startOnce     sync.Once
 }
 
 // newLocalTaskQueue creates one process-local task queue with lazy workers.
-func newLocalTaskQueue(store *taskStore, processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error)) *localTaskQueue {
+func newLocalTaskQueue(
+	store *taskStore,
+	processor func(ctx context.Context, in SubmitSnapInput) (*ProcessOutput, error),
+	consumerCount int,
+) *localTaskQueue {
 	return &localTaskQueue{
-		store:     store,
-		processor: processor,
-		tasks:     make(chan *watermarkTask, defaultTaskQueueCapacity),
+		store:         store,
+		processor:     processor,
+		tasks:         make(chan *watermarkTask, defaultTaskQueueCapacity),
+		consumerCount: normalizeConsumerCount(consumerCount),
 	}
 }
 
@@ -54,13 +58,7 @@ func (q *localTaskQueue) submit(ctx context.Context, task *watermarkTask) error 
 // start lazily starts workers.
 func (q *localTaskQueue) start(ctx context.Context) {
 	q.startOnce.Do(func() {
-		consumerCount := g.Cfg().MustGet(ctx, "water.consumerCount", defaultConsumerCount).Int()
-		if consumerCount < 1 {
-			consumerCount = defaultConsumerCount
-		}
-		if consumerCount > maxConsumerCount {
-			consumerCount = maxConsumerCount
-		}
+		consumerCount := q.consumerCount
 		logger.Infof(ctx, "启动 %d 个水印消费者", consumerCount)
 		for i := 0; i < consumerCount; i++ {
 			go q.consume(ctx, i+1)

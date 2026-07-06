@@ -16,7 +16,7 @@ import (
 // the in-process channel and does not persist task payloads to host cache or Redis.
 func TestLocalTaskQueueSubmitStaysProcessLocal(t *testing.T) {
 	ctx := context.Background()
-	queue := newLocalTaskQueue(nil, nil)
+	queue := newLocalTaskQueue(nil, nil, defaultConsumerCount)
 	queue.startOnce.Do(func() {})
 
 	task := &watermarkTask{
@@ -77,7 +77,7 @@ func TestTaskQueueDoesNotCacheLargeImageResult(t *testing.T) {
 			Source:      StrategySourceGlobal,
 			SourceLabel: strategySourceLabel(StrategySourceGlobal),
 		}, nil
-	})
+	}, defaultConsumerCount)
 	queue.processTask(1, &watermarkTask{
 		id:  "task-large-image",
 		ctx: ctx,

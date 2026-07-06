@@ -77,9 +77,6 @@ stringData:
 
     workspace:
       basePath: "/admin"
-
-    water:
-      consumerCount: 2
 ---
 apiVersion: v1
 kind: Secret
@@ -93,6 +90,8 @@ stringData:
       baseUrl: "http://media-linapro.example.com"
       apiKey: "media"
       timeout: 10s
+    water:
+      consumerCount: 2
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

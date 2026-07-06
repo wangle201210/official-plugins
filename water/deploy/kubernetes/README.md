@@ -48,7 +48,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `linapro-water-data.resources.requests.storage` | `10Gi` | Shared `/app/data` storage for uploads, dynamic plugin artifacts, and local runtime files. |
 | `resources.requests.storage` | `20Gi` | Storage size for the bundled PostgreSQL data volume. |
 
-The `water` plugin reads its plugin-scoped runtime config from `/app/config/plugins/water/config.yaml`. The manifest mounts this file from the `linapro-water-plugin-config` Secret. The template `manifest/config/config.example.yaml` is documentation only and is not read as a runtime default.
+The `water` plugin reads `mediaStrategy.*` and `water.consumerCount` from `/app/config/plugins/water/config.yaml`. The manifest mounts this plugin-scoped runtime config from the `linapro-water-plugin-config` Secret. The template `manifest/config/config.example.yaml` is documentation only and is not read as a runtime default.
 
 For cross-cluster access, set `mediaStrategy.baseUrl` to the `media` cluster `Ingress`, load balancer, VPN address, or `NodePort` URL. If `media` is deployed from the sibling manifest in the same Kubernetes cluster, the cluster-local URL is usually `http://linapro.linapro.svc.cluster.local:9120`. The configured `mediaStrategy.apiKey` must match the `media` cluster `innerapi.apiKey` value; when the `media` plugin does not explicitly set `innerapi.apiKey`, its default is `media`.
 
@@ -119,7 +119,7 @@ If database initialization fails, inspect the init container logs:
 kubectl -n linapro-water logs job/linapro-water-init-database
 ```
 
-To manually rerun the host database initialization after changing `config.yaml`, delete the completed Job, apply the manifest again, and restart the LinaPro pods:
+To manually rerun the host database initialization after changing the host `linapro-water-config` `config.yaml`, delete the completed Job, apply the manifest again, and restart the LinaPro pods:
 
 ```bash
 kubectl -n linapro-water delete job linapro-water-init-database
@@ -127,7 +127,7 @@ kubectl apply -f linapro-k8s.yaml
 kubectl -n linapro-water rollout restart deploy/linapro-water
 ```
 
-After changing `mediaStrategy` values, update the `linapro-water-plugin-config` Secret and restart the deployment:
+After changing plugin runtime config values such as `mediaStrategy` or `water.consumerCount`, update the `linapro-water-plugin-config` Secret and restart the deployment:
 
 ```bash
 kubectl -n linapro-water rollout restart deploy/linapro-water

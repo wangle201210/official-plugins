@@ -17,6 +17,11 @@ type RemoteStrategyResolverConfig struct {
 	Timeout time.Duration // Timeout bounds one remote strategy lookup request.
 }
 
+// RuntimeConfig defines water plugin runtime execution settings.
+type RuntimeConfig struct {
+	ConsumerCount int // ConsumerCount controls asynchronous watermark task workers per process.
+}
+
 // LoadRemoteStrategyResolverConfig reads water plugin-scoped runtime configuration.
 func LoadRemoteStrategyResolverConfig(
 	ctx context.Context,
@@ -45,4 +50,29 @@ func LoadRemoteStrategyResolverConfig(
 		APIKey:  strings.TrimSpace(apiKey),
 		Timeout: timeout,
 	}, nil
+}
+
+// LoadRuntimeConfig reads water plugin-scoped service execution configuration.
+func LoadRuntimeConfig(ctx context.Context, configSvc plugincap.ConfigService) (RuntimeConfig, error) {
+	if configSvc == nil {
+		return RuntimeConfig{ConsumerCount: defaultConsumerCount}, nil
+	}
+	consumerCount, err := configSvc.Int(ctx, "water.consumerCount", defaultConsumerCount)
+	if err != nil {
+		return RuntimeConfig{}, err
+	}
+	return RuntimeConfig{
+		ConsumerCount: normalizeConsumerCount(consumerCount),
+	}, nil
+}
+
+// normalizeConsumerCount keeps worker count within the supported process-local range.
+func normalizeConsumerCount(consumerCount int) int {
+	if consumerCount < 1 {
+		return defaultConsumerCount
+	}
+	if consumerCount > maxConsumerCount {
+		return maxConsumerCount
+	}
+	return consumerCount
 }

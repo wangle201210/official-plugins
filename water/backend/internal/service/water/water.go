@@ -40,7 +40,7 @@ type taskCache interface {
 }
 
 // New creates and returns the shared water service instance.
-func New(cacheSvc cachecap.Service, strategyResolver StrategyResolver) (Service, error) {
+func New(cacheSvc cachecap.Service, strategyResolver StrategyResolver, config RuntimeConfig) (Service, error) {
 	if cacheSvc == nil {
 		return nil, gerror.New("water service requires host cache service")
 	}
@@ -53,6 +53,6 @@ func New(cacheSvc cachecap.Service, strategyResolver StrategyResolver) (Service,
 		strategyCache:    cacheSvc,
 		strategyResolver: strategyResolver,
 	}
-	service.queue = newLocalTaskQueue(store, service.processSnapshot)
+	service.queue = newLocalTaskQueue(store, service.processSnapshot, config.ConsumerCount)
 	return service, nil
 }
