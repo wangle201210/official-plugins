@@ -4,7 +4,9 @@ package water
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,5 +80,52 @@ func TestTaskStoreUsesHostCache(t *testing.T) {
 	}
 	if task.Tenant != "tenant-a" || task.Status != TaskStatusSuccess || !task.Success {
 		t.Fatalf("unexpected task snapshot: %+v", task)
+	}
+}
+
+// TestTaskStoreUpdateStripsLegacyCachedImage verifies updates can recover
+// status records created by older code that cached a large image payload.
+func TestTaskStoreUpdateStripsLegacyCachedImage(t *testing.T) {
+	ctx := context.Background()
+	cacheSvc := newTaskStoreCache()
+	cacheSvc.maxValueBytes = 4096
+	store := newTaskStore(cacheSvc)
+	legacyRecord := &taskRecord{
+		TaskSnapshot: TaskSnapshot{
+			TaskId:    "task-legacy-image",
+			Status:    TaskStatusProcessing,
+			Message:   "处理中",
+			Tenant:    "tenant-a",
+			DeviceId:  "device-a",
+			Image:     "data:image/png;base64," + strings.Repeat("a", 8192),
+			CreatedAt: time.Now().UnixMilli(),
+			UpdatedAt: time.Now().UnixMilli(),
+		},
+	}
+	payload, err := json.Marshal(legacyRecord)
+	if err != nil {
+		t.Fatalf("marshal legacy task snapshot: %v", err)
+	}
+	cacheKey := taskStatusCacheNamespace + "\x00" + taskStatusCacheKey("task-legacy-image")
+	cacheSvc.items[cacheKey] = string(payload)
+
+	if err = store.update(ctx, "task-legacy-image", func(record *taskRecord) {
+		record.Status = TaskStatusSuccess
+		record.Success = true
+		record.Message = "处理完成"
+		record.Source = StrategySourceGlobal
+		record.SourceLabel = strategySourceLabel(StrategySourceGlobal)
+	}); err != nil {
+		t.Fatalf("update legacy task snapshot: %v", err)
+	}
+	task, err := store.get(ctx, "task-legacy-image")
+	if err != nil {
+		t.Fatalf("get task snapshot: %v", err)
+	}
+	if task.Image != "" {
+		t.Fatalf("expected cached image to be stripped, got %d bytes", len(task.Image))
+	}
+	if len(cacheSvc.items[cacheKey]) > 4096 {
+		t.Fatalf("expected compact cached task status, got %d bytes", len(cacheSvc.items[cacheKey]))
 	}
 }

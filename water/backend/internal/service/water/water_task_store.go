@@ -89,6 +89,7 @@ func (s *taskStore) save(ctx context.Context, record *taskRecord) error {
 	if s == nil || s.cache == nil || record == nil {
 		return bizerr.NewCode(CodeWaterTaskCacheFailed)
 	}
+	sanitizeTaskRecordForCache(record)
 	payload, err := json.Marshal(record)
 	if err != nil {
 		return bizerr.WrapCode(err, CodeWaterTaskCacheFailed)
@@ -97,6 +98,14 @@ func (s *taskStore) save(ctx context.Context, record *taskRecord) error {
 		return bizerr.WrapCode(err, CodeWaterTaskCacheFailed)
 	}
 	return nil
+}
+
+// sanitizeTaskRecordForCache removes large transient fields from task status.
+func sanitizeTaskRecordForCache(record *taskRecord) {
+	if record == nil {
+		return
+	}
+	record.Image = ""
 }
 
 // taskStatusCacheKey builds the host cache key for one water task snapshot.
