@@ -157,7 +157,7 @@ The manifest creates one database initialization `Job`:
 | -------- | ------- |
 | `Job/linapro-db-init` | Runs `./lina init --confirm=init` once with the mounted `/app/config.yaml`. This creates or upgrades the host schema and required seed data. |
 
-The `linapro` pods then wait for PostgreSQL, Redis, and the initialized host schema before starting the server. The startup wait checks the required plugin and cache tables, including `sys_plugin`, `sys_kv_cache`, and `sys_cache_revision`, to avoid starting before the database initialization `Job` has finished the host runtime schema.
+The `linapro` pods then wait for PostgreSQL, Redis, and the initialized host schema before starting the server. The startup wait checks the final distributed-cache revision index `idx_sys_cache_revision_domain_updated_at` created by the last host SQL file to avoid starting before the database initialization `Job` has finished the host runtime schema.
 
 After the server starts, `plugin.autoEnable` automatically installs and enables the `media` source plugin. The plugin install phase executes the `media` install SQL. Mock data is not loaded unless `withMockData` is changed to `true`. The `media` plugin starts its collection TCP server on port `1911` and uses `linapro-nacos:8848` for discovery.
 

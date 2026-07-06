@@ -153,7 +153,7 @@ kubectl apply -f linapro-k8s-external-pgsql.yaml
 | ---- | ---- |
 | `Job/linapro-db-init` | 使用挂载的`/app/config.yaml`执行一次`./lina init --confirm=init`，创建或升级宿主表结构和必需 Seed 数据。 |
 
-随后`linapro` Pod 会等待 PostgreSQL、Redis 和已初始化的宿主表结构就绪，再启动服务。启动等待会检查插件和缓存必需表，包括`sys_plugin`、`sys_kv_cache`和`sys_cache_revision`，避免数据库初始化`Job`尚未完成宿主运行时表结构时应用提前启动。
+随后`linapro` Pod 会等待 PostgreSQL、Redis 和已初始化的宿主表结构就绪，再启动服务。启动等待会检查最后一个宿主 SQL 文件创建的分布式缓存修订索引`idx_sys_cache_revision_domain_updated_at`，避免数据库初始化`Job`尚未完成宿主运行时表结构时应用提前启动。
 
 服务启动后，`plugin.autoEnable`会自动安装并启用`media`源码插件。插件安装阶段会执行`media`插件自己的安装 SQL。除非把`withMockData`改成`true`，否则不会加载演示数据。`media`插件会在`1911`端口启动采集 TCP 服务，并使用`linapro-nacos:8848`作为发现服务。
 

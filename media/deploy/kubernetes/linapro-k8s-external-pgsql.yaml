@@ -438,7 +438,7 @@ spec:
             - sh
             - -c
             - |
-              until psql -h "$PGSQL_HOST" -p "$PGSQL_PORT" -U "$PGSQL_USER" -d "$PGSQL_DATABASE" -Atqc "SELECT bool_and(to_regclass(table_name) IS NOT NULL) FROM (VALUES ('public.sys_plugin'), ('public.sys_kv_cache'), ('public.sys_cache_revision')) AS required(table_name)" | grep -q t; do
+              until [ "$(psql -h "$PGSQL_HOST" -p "$PGSQL_PORT" -U "$PGSQL_USER" -d "$PGSQL_DATABASE" -tAc "select count(*) from pg_indexes where schemaname = 'public' and tablename = 'sys_cache_revision' and indexname = 'idx_sys_cache_revision_domain_updated_at';")" = "1" ]; do
                 echo "waiting for database initialization"
                 sleep 2
               done

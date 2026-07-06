@@ -501,7 +501,7 @@ spec:
             - sh
             - -c
             - |
-              until psql -h linapro-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT bool_and(to_regclass(table_name) IS NOT NULL) FROM (VALUES ('public.sys_plugin'), ('public.sys_kv_cache'), ('public.sys_cache_revision')) AS required(table_name)" | grep -q t; do
+              until [ "$(psql -h linapro-postgres -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from pg_indexes where schemaname = 'public' and tablename = 'sys_cache_revision' and indexname = 'idx_sys_cache_revision_domain_updated_at';")" = "1" ]; do
                 echo "waiting for database initialization"
                 sleep 2
               done
