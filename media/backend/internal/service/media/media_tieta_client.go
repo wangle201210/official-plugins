@@ -19,6 +19,7 @@ import (
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/logger"
+	"lina-core/pkg/plugin/capability/plugincap"
 )
 
 // Tieta configuration keys and response constants.
@@ -47,13 +48,18 @@ var (
 
 // parseTietaToken mirrors HotGo's Tieta-token fallback parsing inside the
 // media plugin boundary instead of extending host authentication contracts.
-func parseTietaToken(ctx context.Context, header string) (*TietaUser, error) {
-	return mediaTietaClient.UserInfoByToken(ctx, header)
+func parseTietaToken(ctx context.Context, configSvc plugincap.ConfigService, header string) (*TietaUser, error) {
+	return mediaTietaClient.UserInfoByToken(ctx, configSvc, header)
 }
 
 // authenticateCachedTietaToken validates a Tieta token and caches successful
 // user-info responses for one minute through the host-published cache backend.
-func authenticateCachedTietaToken(ctx context.Context, cacheSvc mediaCache, token string) (*TietaUser, error) {
+func authenticateCachedTietaToken(
+	ctx context.Context,
+	cacheSvc mediaCache,
+	configSvc plugincap.ConfigService,
+	token string,
+) (*TietaUser, error) {
 	normalizedToken := normalizeTietaToken(token)
 	if normalizedToken == "" {
 		return nil, bizerr.NewCode(CodeMediaTietaTokenRequired)
@@ -62,7 +68,7 @@ func authenticateCachedTietaToken(ctx context.Context, cacheSvc mediaCache, toke
 		return user, nil
 	}
 
-	user, err := parseTietaToken(ctx, normalizedToken)
+	user, err := parseTietaToken(ctx, configSvc, normalizedToken)
 	if err != nil {
 		return nil, err
 	}
@@ -122,24 +128,28 @@ func tietaUserCacheKey(token string) string {
 
 // tietaClient defines the Tieta operations used by media services.
 type tietaClient interface {
-	UserInfoByToken(ctx context.Context, token string) (*TietaUser, error)
-	CheckTenantHasDevice(ctx context.Context, token string, tenantID string, deviceID string) (bool, error)
+	UserInfoByToken(ctx context.Context, configSvc plugincap.ConfigService, token string) (*TietaUser, error)
+	CheckTenantHasDevice(ctx context.Context, configSvc plugincap.ConfigService, token string, tenantID string, deviceID string) (bool, error)
 }
 
 // httpTietaClient implements tietaClient with GoFrame HTTP client.
 type httpTietaClient struct{}
 
 // UserInfoByToken validates one Tieta token and returns the corresponding user identity.
-func (c *httpTietaClient) UserInfoByToken(ctx context.Context, token string) (*TietaUser, error) {
+func (c *httpTietaClient) UserInfoByToken(
+	ctx context.Context,
+	configSvc plugincap.ConfigService,
+	token string,
+) (*TietaUser, error) {
 	normalizedToken := normalizeTietaToken(token)
 	if normalizedToken == "" {
 		return nil, bizerr.NewCode(CodeMediaTietaTokenRequired)
 	}
-	if isTietaMock(ctx) {
+	if isTietaMock(ctx, configSvc) {
 		return mockTietaUser(normalizedToken), nil
 	}
 
-	result, err := c.call(ctx, normalizedToken, tietaHTTPMethodPost, tietaUserInfoEndpoint, nil)
+	result, err := c.call(ctx, configSvc, normalizedToken, tietaHTTPMethodPost, tietaUserInfoEndpoint, nil)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaTietaUserInfoFailed)
 	}
@@ -164,6 +174,7 @@ func (c *httpTietaClient) UserInfoByToken(ctx context.Context, token string) (*T
 // CheckTenantHasDevice checks whether one Tieta tenant can access a device.
 func (c *httpTietaClient) CheckTenantHasDevice(
 	ctx context.Context,
+	configSvc plugincap.ConfigService,
 	token string,
 	tenantID string,
 	deviceID string,
@@ -180,14 +191,14 @@ func (c *httpTietaClient) CheckTenantHasDevice(
 	if normalizedToken == "" {
 		return false, bizerr.NewCode(CodeMediaTietaTokenRequired)
 	}
-	if isTietaMock(ctx) {
+	if isTietaMock(ctx, configSvc) {
 		logger.Infof(ctx, "铁塔 mock 模式: 租户设备权限通过 tenant=%s device=%s", normalizedTenantID, normalizedDeviceID)
 		return true, nil
 	}
 
 	deviceType, upstreamDeviceID := splitTietaDeviceID(normalizedDeviceID)
 	endpoint := fmt.Sprintf(tietaTenantDeviceEndpointTemplate, deviceType, upstreamDeviceID)
-	result, err := c.call(ctx, normalizedToken, tietaHTTPMethodPost, endpoint, nil)
+	result, err := c.call(ctx, configSvc, normalizedToken, tietaHTTPMethodPost, endpoint, nil)
 	if err != nil {
 		return false, bizerr.WrapCode(err, CodeMediaTietaDevicePermissionFailed)
 	}
@@ -206,19 +217,20 @@ func (c *httpTietaClient) CheckTenantHasDevice(
 // call invokes one Tieta HTTP endpoint and parses the JSON response.
 func (c *httpTietaClient) call(
 	ctx context.Context,
+	configSvc plugincap.ConfigService,
 	token string,
 	method string,
 	endpoint string,
 	requestBody any,
 ) (*gjson.Json, error) {
-	baseURL, err := tietaBaseURL(ctx)
+	baseURL, err := tietaBaseURL(ctx, configSvc)
 	if err != nil {
 		return nil, err
 	}
 	requestURL := strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(endpoint, "/")
 
 	client := g.Client()
-	client.SetTimeout(tietaTimeout(ctx))
+	client.SetTimeout(tietaTimeout(ctx, configSvc))
 	client.SetHeader("Authorization", tietaAuthorizationPrefix+token)
 
 	var response *gclient.Response
@@ -269,8 +281,15 @@ func buildTietaUser(info *tietaUserInfo) *TietaUser {
 }
 
 // tietaBaseURL returns the configured upstream Tieta base URL.
-func tietaBaseURL(ctx context.Context) (string, error) {
-	baseURL := strings.TrimSpace(g.Cfg().MustGet(ctx, tietaConfigBaseURLKey).String())
+func tietaBaseURL(ctx context.Context, configSvc plugincap.ConfigService) (string, error) {
+	if configSvc == nil {
+		return "", bizerr.NewCode(CodeMediaTietaBaseURLMissing)
+	}
+	baseURL, err := configSvc.String(ctx, tietaConfigBaseURLKey, "")
+	if err != nil {
+		return "", gerror.Wrap(err, "read Tieta base URL config failed")
+	}
+	baseURL = strings.TrimSpace(baseURL)
 	if baseURL == "" {
 		return "", bizerr.NewCode(CodeMediaTietaBaseURLMissing)
 	}
@@ -278,8 +297,11 @@ func tietaBaseURL(ctx context.Context) (string, error) {
 }
 
 // tietaTimeout returns the configured Tieta HTTP timeout.
-func tietaTimeout(ctx context.Context) time.Duration {
-	value, err := g.Cfg().Get(ctx, tietaConfigTimeoutKey)
+func tietaTimeout(ctx context.Context, configSvc plugincap.ConfigService) time.Duration {
+	if configSvc == nil {
+		return tietaDefaultTimeout
+	}
+	value, err := configSvc.Get(ctx, tietaConfigTimeoutKey, nil)
 	if err != nil {
 		logger.Warningf(ctx, "读取铁塔 timeout 配置失败，使用默认值: %v", err)
 		return tietaDefaultTimeout
@@ -300,8 +322,16 @@ func tietaTimeout(ctx context.Context) time.Duration {
 }
 
 // isTietaMock reports whether Tieta mock mode is enabled.
-func isTietaMock(ctx context.Context) bool {
-	return g.Cfg().MustGet(ctx, tietaConfigMockKey).Bool()
+func isTietaMock(ctx context.Context, configSvc plugincap.ConfigService) bool {
+	if configSvc == nil {
+		return false
+	}
+	enabled, err := configSvc.Bool(ctx, tietaConfigMockKey, false)
+	if err != nil {
+		logger.Warningf(ctx, "读取铁塔 mock 配置失败，按关闭处理: %v", err)
+		return false
+	}
+	return enabled
 }
 
 // normalizeTietaToken removes the optional Bearer prefix from a Tieta token.

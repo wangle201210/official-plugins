@@ -86,6 +86,12 @@ metadata:
 type: Opaque
 stringData:
   media-config.yaml: |
+    tieta:
+      baseUrl: "https://tieta.example.com"
+      mock: false
+      timeout: "3s"
+    innerapi:
+      apiKey: "media"
     collectionServer:
       enabled: true
       addr: ":1911"

@@ -74,7 +74,7 @@ func startCollectionServer(ctx context.Context, payload pluginhost.HookPayload) 
 	if err := sharedCollectionSvc.Start(ctx, configSvc, cacheSvc); err != nil {
 		return err
 	}
-	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(payload.Services().BizCtx()), cacheSvc)
+	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(payload.Services().BizCtx()), cacheSvc, configSvc)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if configSvc == nil {
 		return gerror.New("media routes require host plugin config service")
 	}
-	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(hostServices.BizCtx()), cacheSvc)
+	mediaSvc, err := mediasvc.New(mediaBizCtxWithTietaOverlay(hostServices.BizCtx()), cacheSvc, configSvc)
 	if err != nil {
 		return err
 	}

@@ -363,7 +363,7 @@ func (s *serviceImpl) DeleteTenantDeviceBinding(ctx context.Context, tenantID st
 
 // AuthenticateTietaToken validates one Tieta token and returns the Tieta user identity.
 func (s *serviceImpl) AuthenticateTietaToken(ctx context.Context, token string) (*TietaUser, error) {
-	return authenticateCachedTietaToken(ctx, s.cacheSvc, token)
+	return authenticateCachedTietaToken(ctx, s.cacheSvc, s.configSvc, token)
 }
 
 // ResolveStrategyByToken validates a Tieta token and resolves the effective strategy for its tenant/device pair.
@@ -387,7 +387,7 @@ func (s *serviceImpl) ResolveStrategyByToken(
 	if err != nil {
 		return nil, err
 	}
-	hasAccess, err := mediaTietaClient.CheckTenantHasDevice(ctx, token, tenantID, deviceID)
+	hasAccess, err := mediaTietaClient.CheckTenantHasDevice(ctx, s.configSvc, token, tenantID, deviceID)
 	if err != nil {
 		return nil, err
 	}

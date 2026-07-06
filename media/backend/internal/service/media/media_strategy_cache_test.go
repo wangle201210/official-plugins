@@ -16,7 +16,7 @@ func TestResolveStrategyCachesTenantDeviceResult(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc, newTestMediaConfig())
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestResolveStrategyInvalidatesCacheAfterBindingMutation(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc, newTestMediaConfig())
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}

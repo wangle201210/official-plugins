@@ -46,7 +46,7 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | `jwt.expire` | `24h` | JWT Token 有效期。 |
 | `logger.level` | `info` | 运行日志级别。多副本部署保持`info`；仅在短时间排障时改为`all`。 |
 | `i18n.default` | `zh-CN` | 宿主运行时必需的默认语言配置，不要删除该配置块。 |
-| `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: true` | `media`源码插件运行配置。默认采集 TCP 端口为`1911`，发现服务指向`linapro-nacos:8848`。 |
+| `linapro-source-plugin-configs/media-config.yaml` | `tieta.baseUrl`、`innerapi.apiKey` | `media`源码插件运行配置。使用前替换 Tieta 地址。 |
 | `PersistentVolumeClaim/linapro-nacos-data.resources.requests.storage` | `5Gi` | Nacos 单机模式数据卷容量。 |
 | `resources.requests.storage` | `20Gi` | PostgreSQL 和 LinaPro 数据卷容量。 |
 | `plugin.autoEnable[0].withMockData` | `false` | 启动自动安装`media`插件时是否加载演示数据。生产环境保持`false`。 |
@@ -71,7 +71,7 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | `jwt.expire` | `24h` | JWT Token 有效期。 |
 | `logger.level` | `info` | 运行日志级别。多副本部署保持`info`；仅在短时间排障时改为`all`。 |
 | `i18n.default` | `zh-CN` | 宿主运行时必需的默认语言配置，不要删除该配置块。 |
-| `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: true` | `media`源码插件运行配置。默认采集 TCP 端口为`1911`，发现服务指向`linapro-nacos:8848`。 |
+| `linapro-source-plugin-configs/media-config.yaml` | `tieta.baseUrl`、`innerapi.apiKey` | `media`源码插件运行配置。使用前替换 Tieta 地址。 |
 | `PersistentVolumeClaim/linapro-nacos-data.resources.requests.storage` | `5Gi` | Nacos 单机模式数据卷容量。 |
 | `spec.replicas` | `3` | LinaPro 应用副本数。 |
 | `PersistentVolumeClaim/linapro-data.spec.storageClassName` | 未设置 | 可选。集群默认`StorageClass`不支持`ReadWriteMany`时需要设置。 |
@@ -88,6 +88,10 @@ export KUBECONFIG=/etc/kubernetes/admin.conf
 | `Secret/linapro-source-plugin-configs` | `/app/config/plugins/media/config.yaml` | `media`源码插件运行配置。 |
 
 内置`Service/linapro-nacos`会在集群内暴露 Nacos 的`8848`、`9848`、`9849`和`7848`端口。`media`插件只需要配置`collectionServer.discovery.host: "linapro-nacos"`和`collectionServer.discovery.port: 8848`；其他 Nacos 服务端口用于 Nacos 2.x 内部协议，请保持可用。
+
+将`Secret/linapro-source-plugin-configs`中的`tieta.baseUrl`设置为 LinaPro Pod 可访问的 Tieta OpenAPI 基础地址。该值缺失或为空时，基于 token 的媒体鉴权接口会返回`MEDIA_TIETA_BASE_URL_MISSING`。生产环境保持`tieta.mock: false`；`tieta.mock: true`只用于本地确定性验证。
+
+将`innerapi.apiKey`设置为内部`mediaopen`调用方通过`X-Inner-Api-Key`携带的值。该配置缺失时默认使用`media`；显式配置为空字符串时，为兼容旧部署会关闭该校验。
 
 为了便于从 Kubernetes 集群外临时验证 Nacos 控制台，清单也会通过`Service/linapro-nacos-external`把管理端暴露到节点端口`30088`：
 

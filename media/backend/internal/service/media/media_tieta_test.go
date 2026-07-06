@@ -10,11 +10,14 @@ import (
 	"time"
 
 	_ "github.com/gogf/gf/contrib/drivers/sqlite/v2"
+	"github.com/gogf/gf/v2/container/gvar"
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/plugin/capability/bizctxcap"
+	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )
@@ -55,11 +58,98 @@ func (mediaTestBizCtx) Current(context.Context) bizctxcap.CurrentContext {
 // newTestMediaService creates a media service with an explicit test bizctx adapter.
 func newTestMediaService(t *testing.T) Service {
 	t.Helper()
-	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), newMemoryRouteMemoryCache())
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), newMemoryRouteMemoryCache(), newTestMediaConfig())
 	if err != nil {
 		t.Fatalf("create test media service: %v", err)
 	}
 	return svc
+}
+
+// newTestMediaConfig returns a deterministic plugin config service for media tests.
+func newTestMediaConfig() plugincap.ConfigService {
+	return mediaTestConfig{
+		values: map[string]any{
+			"tieta": map[string]any{
+				"baseUrl": "http://tieta.invalid",
+				"mock":    false,
+				"timeout": "3s",
+			},
+			"innerapi": map[string]any{
+				"apiKey": "media",
+			},
+		},
+	}
+}
+
+type mediaTestConfig struct {
+	values map[string]any
+}
+
+// Get returns one raw plugin config value.
+func (s mediaTestConfig) Get(_ context.Context, key string, defaultValue any) (*gvar.Var, error) {
+	value := gjson.New(s.values).Get(key)
+	if value == nil || value.IsNil() {
+		if defaultValue == nil {
+			return nil, nil
+		}
+		return gvar.New(defaultValue), nil
+	}
+	return value, nil
+}
+
+// Exists reports whether one plugin config key is present.
+func (s mediaTestConfig) Exists(ctx context.Context, key string) (bool, error) {
+	value, err := s.Get(ctx, key, nil)
+	return value != nil && !value.IsNil(), err
+}
+
+// Scan scans one plugin config section into target.
+func (s mediaTestConfig) Scan(ctx context.Context, key string, target any) error {
+	value, err := s.Get(ctx, key, nil)
+	if err != nil || value == nil || value.IsNil() {
+		return err
+	}
+	return value.Scan(target)
+}
+
+// String reads one string plugin config value.
+func (s mediaTestConfig) String(ctx context.Context, key string, defaultValue string) (string, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil || value == nil || value.IsNil() {
+		return defaultValue, err
+	}
+	return value.String(), nil
+}
+
+// Bool reads one bool plugin config value.
+func (s mediaTestConfig) Bool(ctx context.Context, key string, defaultValue bool) (bool, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil || value == nil || value.IsNil() {
+		return defaultValue, err
+	}
+	return value.Bool(), nil
+}
+
+// Int reads one int plugin config value.
+func (s mediaTestConfig) Int(ctx context.Context, key string, defaultValue int) (int, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil || value == nil || value.IsNil() {
+		return defaultValue, err
+	}
+	return value.Int(), nil
+}
+
+// Duration reads one duration plugin config value.
+func (s mediaTestConfig) Duration(ctx context.Context, key string, defaultValue time.Duration) (time.Duration, error) {
+	value, err := s.Get(ctx, key, defaultValue)
+	if err != nil || value == nil || value.IsNil() {
+		return defaultValue, err
+	}
+	duration, err := time.ParseDuration(value.String())
+	if err != nil {
+		return 0, err
+	}
+	return duration, nil
 }
 
 // fakeTietaClient provides deterministic token and device-permission responses for unit tests.
@@ -70,7 +160,7 @@ type fakeTietaClient struct {
 }
 
 // UserInfoByToken returns the configured test user.
-func (c *fakeTietaClient) UserInfoByToken(ctx context.Context, token string) (*TietaUser, error) {
+func (c *fakeTietaClient) UserInfoByToken(ctx context.Context, _ plugincap.ConfigService, token string) (*TietaUser, error) {
 	c.tokens = append(c.tokens, token)
 	return c.user, nil
 }
@@ -78,6 +168,7 @@ func (c *fakeTietaClient) UserInfoByToken(ctx context.Context, token string) (*T
 // CheckTenantHasDevice returns the configured device permission result.
 func (c *fakeTietaClient) CheckTenantHasDevice(
 	ctx context.Context,
+	_ plugincap.ConfigService,
 	token string,
 	tenantID string,
 	deviceID string,
@@ -92,7 +183,7 @@ func TestParseTietaTokenUsesMediaClient(t *testing.T) {
 	restoreTietaClient := replaceMediaTietaClient(t, client)
 	defer restoreTietaClient()
 
-	user, err := parseTietaToken(ctx, "Bearer token-value")
+	user, err := parseTietaToken(ctx, newTestMediaConfig(), "Bearer token-value")
 	if err != nil {
 		t.Fatalf("parse tieta token: %v", err)
 	}
@@ -108,7 +199,7 @@ func TestParseTietaTokenUsesMediaClient(t *testing.T) {
 func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 	ctx := context.Background()
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc, newTestMediaConfig())
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}
@@ -139,6 +230,47 @@ func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 	}
 	if cacheSvc.lastTTL != time.Minute {
 		t.Fatalf("expected one-minute Tieta user cache TTL, got %s", cacheSvc.lastTTL)
+	}
+}
+
+// TestTietaConfigReadsPluginConfig verifies Tieta HTTP settings come from the media plugin config service.
+func TestTietaConfigReadsPluginConfig(t *testing.T) {
+	ctx := context.Background()
+	configSvc := mediaTestConfig{values: map[string]any{
+		"tieta": map[string]any{
+			"baseUrl": " http://tieta.example.internal ",
+			"mock":    true,
+			"timeout": "5s",
+		},
+	}}
+
+	baseURL, err := tietaBaseURL(ctx, configSvc)
+	if err != nil {
+		t.Fatalf("read Tieta base URL: %v", err)
+	}
+	if baseURL != "http://tieta.example.internal" {
+		t.Fatalf("expected trimmed plugin config base URL, got %q", baseURL)
+	}
+	if !isTietaMock(ctx, configSvc) {
+		t.Fatal("expected Tieta mock flag from plugin config")
+	}
+	if timeout := tietaTimeout(ctx, configSvc); timeout != 5*time.Second {
+		t.Fatalf("expected Tieta timeout from plugin config, got %s", timeout)
+	}
+}
+
+// TestTietaBaseURLRejectsMissingPluginConfig verifies missing plugin config still fails before outbound calls.
+func TestTietaBaseURLRejectsMissingPluginConfig(t *testing.T) {
+	_, err := tietaBaseURL(context.Background(), mediaTestConfig{})
+	if err == nil {
+		t.Fatal("expected missing Tieta base URL error")
+	}
+	structured, ok := bizerr.As(err)
+	if !ok {
+		t.Fatalf("expected bizerr, got %T", err)
+	}
+	if structured.RuntimeCode() != "MEDIA_TIETA_BASE_URL_MISSING" {
+		t.Fatalf("expected missing base URL code, got %s", structured.RuntimeCode())
 	}
 }
 

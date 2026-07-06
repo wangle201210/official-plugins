@@ -49,7 +49,7 @@ Before applying the manifest, edit `linapro-k8s.yaml` and replace these default 
 | `jwt.expire` | `24h` | JWT token validity duration. |
 | `logger.level` | `info` | Runtime log level. Keep `info` for multi-replica deployments; use `all` only for short-lived debugging. |
 | `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
-| `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: true` | Runtime config for the `media` source plugin. The default collection TCP port is `1911`, and discovery points to `linapro-nacos:8848`. |
+| `linapro-source-plugin-configs/media-config.yaml` | `tieta.baseUrl`, `innerapi.apiKey` | Runtime config for the `media` source plugin. Replace the Tieta URL before use. |
 | `PersistentVolumeClaim/linapro-nacos-data.resources.requests.storage` | `5Gi` | Nacos standalone data volume capacity. |
 | `resources.requests.storage` | `20Gi` | Storage size for PostgreSQL and LinaPro data. |
 | `plugin.autoEnable[0].withMockData` | `false` | Whether to load `media` mock demo data during startup auto-install. Keep `false` for production. |
@@ -74,7 +74,7 @@ When using `linapro-k8s-external-pgsql.yaml`, first update the external database
 | `jwt.expire` | `24h` | JWT token validity duration. |
 | `logger.level` | `info` | Runtime log level. Keep `info` for multi-replica deployments; use `all` only for short-lived debugging. |
 | `i18n.default` | `zh-CN` | Required host runtime default locale. Do not remove this block. |
-| `linapro-source-plugin-configs/media-config.yaml` | `collectionServer.enabled: true` | Runtime config for the `media` source plugin. The default collection TCP port is `1911`, and discovery points to `linapro-nacos:8848`. |
+| `linapro-source-plugin-configs/media-config.yaml` | `tieta.baseUrl`, `innerapi.apiKey` | Runtime config for the `media` source plugin. Replace the Tieta URL before use. |
 | `PersistentVolumeClaim/linapro-nacos-data.resources.requests.storage` | `5Gi` | Nacos standalone data volume capacity. |
 | `spec.replicas` | `3` | LinaPro application replica count. |
 | `PersistentVolumeClaim/linapro-data.spec.storageClassName` | unset | Optional. Set this when the cluster default `StorageClass` does not support `ReadWriteMany`. |
@@ -92,6 +92,10 @@ plugin runtime configs as separate `Secret` resources:
 | `Secret/linapro-source-plugin-configs` | `/app/config/plugins/media/config.yaml` | `media` source plugin runtime config. |
 
 The bundled `Service/linapro-nacos` exposes Nacos ports `8848`, `9848`, `9849`, and `7848` inside the cluster. The `media` plugin only needs `collectionServer.discovery.host: "linapro-nacos"` and `collectionServer.discovery.port: 8848`; keep the other Nacos service ports available for Nacos 2.x internal protocols.
+
+Set `tieta.baseUrl` in `Secret/linapro-source-plugin-configs` to the Tieta OpenAPI base URL reachable from LinaPro pods. The token-based media authorization endpoints return `MEDIA_TIETA_BASE_URL_MISSING` when this value is absent or blank. Keep `tieta.mock: false` in production; `tieta.mock: true` is only for local deterministic validation.
+
+Set `innerapi.apiKey` to the value accepted by internal `mediaopen` callers through `X-Inner-Api-Key`. The default is `media` when the key is absent; an explicitly blank value disables this check for legacy compatibility.
 
 For temporary validation of the Nacos console from outside the Kubernetes cluster, the manifest also exposes `Service/linapro-nacos-external` on node port `30088`:
 

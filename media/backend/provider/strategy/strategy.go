@@ -8,6 +8,7 @@ import (
 
 	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-core/pkg/plugin/capability/cachecap"
+	"lina-core/pkg/plugin/capability/plugincap"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
@@ -39,8 +40,12 @@ type resolver struct {
 }
 
 // NewResolver creates a media strategy resolver backed by the media service.
-func NewResolver(bizCtxSvc bizctxcap.Service, cacheSvc cachecap.Service) (Resolver, error) {
-	mediaSvc, err := mediasvc.New(bizCtxSvc, cacheSvc)
+func NewResolver(
+	bizCtxSvc bizctxcap.Service,
+	cacheSvc cachecap.Service,
+	configSvc plugincap.ConfigService,
+) (Resolver, error) {
+	mediaSvc, err := mediasvc.New(bizCtxSvc, cacheSvc, configSvc)
 	if err != nil {
 		return nil, err
 	}

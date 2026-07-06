@@ -20,7 +20,9 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 
 ## Configuration
 
-Mediaopen and HotGo-compatible APIs use a HotGo-style inner API key gate. Requests must send `X-Inner-Api-Key`, and the plugin compares it with `innerapi.apiKey`. When `innerapi.apiKey` is absent, the HotGo-compatible default is `media`; when it is explicitly blank, the key check is disabled for compatibility.
+Mediaopen and HotGo-compatible APIs use a HotGo-style inner API key gate. Requests must send `X-Inner-Api-Key`, and the plugin compares it with `innerapi.apiKey` from the `media` plugin runtime config. When `innerapi.apiKey` is absent, the HotGo-compatible default is `media`; when it is explicitly blank, the key check is disabled for compatibility.
+
+Token-based media authorization calls the upstream Tieta OpenAPI service. Configure `tieta.baseUrl` in the `media` plugin runtime config before enabling Tieta-backed token APIs. `tieta.timeout` defaults to `3s` when omitted or invalid, and `tieta.mock: true` is only for deterministic local development.
 
 Route memory reuses the host `pluginhost.HostServices.Cache()` service and keeps entries for 12 hours with HotGo-compatible logical keys in the form `route_data:<deviceCode>:<channelCode>`.
 

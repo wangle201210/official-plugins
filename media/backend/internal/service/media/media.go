@@ -9,6 +9,7 @@ import (
 
 	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-core/pkg/plugin/capability/cachecap"
+	"lina-core/pkg/plugin/capability/plugincap"
 )
 
 // Service defines the media plugin service contract.
@@ -136,28 +137,39 @@ var _ Service = (*serviceImpl)(nil)
 
 // serviceImpl implements Service.
 type serviceImpl struct {
-	bizCtxSvc bizctxcap.Service // bizCtxSvc reads current user and tenant metadata.
-	cacheSvc  mediaCache        // cacheSvc stores plugin-scoped transient cache values.
+	bizCtxSvc bizctxcap.Service       // bizCtxSvc reads current user and tenant metadata.
+	cacheSvc  mediaCache              // cacheSvc stores plugin-scoped transient cache values.
+	configSvc plugincap.ConfigService // configSvc reads media plugin runtime configuration.
 }
 
 // New creates and returns a new media service instance with host context.
-func New(bizCtxSvc bizctxcap.Service, cacheSvc cachecap.Service) (Service, error) {
+func New(bizCtxSvc bizctxcap.Service, cacheSvc cachecap.Service, configSvc plugincap.ConfigService) (Service, error) {
 	if bizCtxSvc == nil {
 		return nil, gerror.New("media service requires host bizctx service")
 	}
 	if cacheSvc == nil {
 		return nil, gerror.New("media service requires host cache service")
 	}
-	return newWithRouteMemoryCache(bizCtxSvc, cacheSvc)
+	if configSvc == nil {
+		return nil, gerror.New("media service requires host plugin config service")
+	}
+	return newWithRouteMemoryCache(bizCtxSvc, cacheSvc, configSvc)
 }
 
 // newWithRouteMemoryCache creates a media service with an explicit host cache for tests.
-func newWithRouteMemoryCache(bizCtxSvc bizctxcap.Service, cacheSvc mediaCache) (Service, error) {
+func newWithRouteMemoryCache(
+	bizCtxSvc bizctxcap.Service,
+	cacheSvc mediaCache,
+	configSvc plugincap.ConfigService,
+) (Service, error) {
 	if bizCtxSvc == nil {
 		return nil, gerror.New("media service requires host bizctx service")
 	}
 	if cacheSvc == nil {
 		return nil, gerror.New("media service requires host cache service")
 	}
-	return &serviceImpl{bizCtxSvc: bizCtxSvc, cacheSvc: cacheSvc}, nil
+	if configSvc == nil {
+		return nil, gerror.New("media service requires host plugin config service")
+	}
+	return &serviceImpl{bizCtxSvc: bizCtxSvc, cacheSvc: cacheSvc, configSvc: configSvc}, nil
 }

@@ -12,7 +12,7 @@ import (
 func TestRouteMemoryUsesDeviceChannelKeyAndTwelveHourTTL(t *testing.T) {
 	ctx := context.Background()
 	cacheSvc := newMemoryRouteMemoryCache()
-	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc)
+	svc, err := newWithRouteMemoryCache(newTestMediaBizCtx(), cacheSvc, newTestMediaConfig())
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}

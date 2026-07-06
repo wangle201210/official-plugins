@@ -1,4 +1,16 @@
 # Runtime configuration template for the media source plugin.
+tieta:
+  # Base URL of the upstream Tieta OpenAPI service used by token-based media authorization.
+  baseUrl: "https://tieta.example.com"
+  # Enables deterministic local Tieta responses for development and isolated tests.
+  mock: false
+  # Timeout for one upstream Tieta HTTP request.
+  timeout: "3s"
+
+innerapi:
+  # API key required by mediaopen internal APIs through the X-Inner-Api-Key header.
+  apiKey: "media"
+
 collectionServer:
   # Enables the net-flux compatible TCP data collection server.
   enabled: false
