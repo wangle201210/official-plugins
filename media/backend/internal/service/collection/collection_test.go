@@ -235,11 +235,14 @@ func (c *memoryCollectionCache) Set(
 	namespace string,
 	key string,
 	value string,
-	_ time.Duration,
+	ttl time.Duration,
 ) (*cachecap.CacheItem, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if ttl <= 0 {
+		return nil, fmt.Errorf("cache expiration seconds must be greater than 0")
+	}
 	item := &cachecap.CacheItem{Key: key, ValueKind: cachecap.CacheValueKindString, Value: value}
 	c.values[c.cacheKey(namespace, key)] = item
 	return item, nil
@@ -292,11 +295,14 @@ func (c *memoryCollectionCache) Incr(
 	namespace string,
 	key string,
 	delta int64,
-	_ time.Duration,
+	ttl time.Duration,
 ) (*cachecap.CacheItem, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if ttl <= 0 {
+		return nil, fmt.Errorf("cache expiration seconds must be greater than 0")
+	}
 	cacheKey := c.cacheKey(namespace, key)
 	var current int64
 	if item, ok := c.values[cacheKey]; ok {

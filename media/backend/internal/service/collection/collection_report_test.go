@@ -5,11 +5,39 @@ package collection
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
+
+	"lina-core/pkg/plugin/capability/cachecap"
 )
+
+// errPositiveTTLSetCacheStop stops the owner write test before DB-backed counter updates.
+var errPositiveTTLSetCacheStop = errors.New("positive ttl set cache stop")
+
+// positiveTTLSetCache verifies owner cache Set calls without reaching database-dependent flow.
+type positiveTTLSetCache struct {
+	*memoryCollectionCache
+}
+
+// Set verifies the owner cache write uses a positive TTL before stopping DB-backed flow.
+func (c positiveTTLSetCache) Set(
+	ctx context.Context,
+	namespace string,
+	key string,
+	value string,
+	ttl time.Duration,
+) (*cachecap.CacheItem, error) {
+	if ttl <= 0 {
+		return nil, errors.New("cache expiration seconds must be greater than 0")
+	}
+	if _, err := c.memoryCollectionCache.Set(ctx, namespace, key, value, ttl); err != nil {
+		return nil, err
+	}
+	return nil, errPositiveTTLSetCacheStop
+}
 
 // TestNormalizeMachineMetricBuildsInstanceReport verifies machine metrics become instance projections.
 func TestNormalizeMachineMetricBuildsInstanceReport(t *testing.T) {
@@ -117,6 +145,23 @@ func TestIncrementCounterValueKeepsSharedCacheNonNegative(t *testing.T) {
 	}
 	if got != 0 {
 		t.Fatalf("expected shared cache counter to be clamped to 0, got %d", got)
+	}
+}
+
+// TestSharedCounterOwnerUsesPositiveCacheTTL verifies owner cache writes satisfy the host cache contract.
+func TestSharedCounterOwnerUsesPositiveCacheTTL(t *testing.T) {
+	ctx := context.Background()
+	runtime := &reportRuntime{cache: positiveTTLSetCache{memoryCollectionCache: newMemoryCollectionCache()}}
+
+	_, err := runtime.applySharedCounterEvent(ctx, counterEvent{
+		kind:       counterEventKindStream,
+		add:        true,
+		resourceID: "stream-a",
+		instanceID: "instance-a",
+		reportTime: 1_780_000_000,
+	})
+	if !errors.Is(err, errPositiveTTLSetCacheStop) {
+		t.Fatalf("expected owner Set to use positive TTL and stop before DB access, got %v", err)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
 	"github.com/gogf/gf/v2/database/gdb"
@@ -25,12 +26,14 @@ type reportWriter interface {
 	HandleSessionMetric(ctx context.Context, subcmd uint8, metric *gen.SessionMetric) error
 }
 
+// Report counter cache constants define shared cache keys and positive TTLs for lifecycle state.
 const (
 	reportCounterCacheNamespace  = "collection-report-counters"
 	reportCounterStreamOwnerKey  = "stream-owner:"
 	reportCounterSessionOwnerKey = "session-owner:"
 	reportCounterLiveStreamsKey  = "instance-live-streams:"
 	reportCounterSessionsKey     = "instance-sessions:"
+	reportCounterCacheTTL        = 365 * 24 * time.Hour
 )
 
 // reportRuntime implements reportWriter using media plugin DAO projections and host shared cache.
@@ -283,7 +286,7 @@ func (w *reportRuntime) applySharedCounterEvent(ctx context.Context, event count
 			counters, err := w.readCounterSnapshots(ctx, []string{event.instanceID}, event.reportTime)
 			return counterEventResult{counters: counters}, err
 		}
-		if _, err = w.cache.Set(ctx, reportCounterCacheNamespace, ownerKey, event.instanceID, 0); err != nil {
+		if _, err = w.cache.Set(ctx, reportCounterCacheNamespace, ownerKey, event.instanceID, reportCounterCacheTTL); err != nil {
 			return counterEventResult{}, err
 		}
 		deltas = event.addDeltas(current, exists)
@@ -399,12 +402,12 @@ func (w *reportRuntime) applyCounterDeltas(
 
 // incrementCounterValue applies one delta and keeps the shared cache value non-negative.
 func (w *reportRuntime) incrementCounterValue(ctx context.Context, key string, delta int64) error {
-	item, err := w.cache.Incr(ctx, reportCounterCacheNamespace, key, delta, 0)
+	item, err := w.cache.Incr(ctx, reportCounterCacheNamespace, key, delta, reportCounterCacheTTL)
 	if err != nil {
 		return err
 	}
 	if item != nil && item.ValueKind == cachecap.CacheValueKindInt && item.IntValue < 0 {
-		_, err = w.cache.Incr(ctx, reportCounterCacheNamespace, key, -item.IntValue, 0)
+		_, err = w.cache.Incr(ctx, reportCounterCacheNamespace, key, -item.IntValue, reportCounterCacheTTL)
 		return err
 	}
 	return nil
