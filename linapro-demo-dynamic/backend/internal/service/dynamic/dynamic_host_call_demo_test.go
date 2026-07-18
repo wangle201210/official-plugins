@@ -24,6 +24,10 @@ import (
 	"lina-core/pkg/plugin/capability/plugincap"
 	"lina-core/pkg/plugin/capability/storagecap"
 	"lina-core/pkg/plugin/capability/tenantcap"
+	"lina-plugin-linapro-ai-core/backend/cap/aicap"
+	"lina-plugin-linapro-ai-core/backend/cap/aicap/aitext"
+	"lina-plugin-linapro-ai-core/backend/cap/aicap/aitypes"
+	"lina-plugin-linapro-ai-core/backend/cap/aicap/spi"
 )
 
 // fakePluginHostService exposes plugin-domain capabilities used by host-call demo tests.
@@ -187,8 +191,13 @@ func (*fakeHostConfigSysConfigService) List(context.Context, hostconfigcap.ListS
 }
 
 // SetValue fails because demo host config tests are read-only.
-func (*fakeHostConfigSysConfigService) SetValue(context.Context, hostconfigcap.SysConfigKey, string) error {
+func (*fakeHostConfigSysConfigService) SetValue(context.Context, hostconfigcap.SysConfigKey, string, *hostconfigcap.SetSysConfigValueOptions) error {
 	return errors.New("unexpected sys_config write in host config demo test")
+}
+
+// BatchSetValue fails because demo host config tests are read-only.
+func (*fakeHostConfigSysConfigService) BatchSetValue(context.Context, []hostconfigcap.SetSysConfigValueItem, *hostconfigcap.SetSysConfigValueOptions) error {
+	return errors.New("unexpected sys_config batch write in host config demo test")
 }
 
 // Reset fails because demo host config tests are read-only.
@@ -373,6 +382,64 @@ func (s *fakeStorageHostService) BatchStat(_ context.Context, in storagecap.Batc
 // ProviderStatuses returns no fake provider statuses.
 func (s *fakeStorageHostService) ProviderStatuses(context.Context) ([]*storagecap.ProviderStatus, error) {
 	return nil, nil
+}
+
+// CreateDirectPut returns proxy mode for fake storage tests.
+func (s *fakeStorageHostService) CreateDirectPut(_ context.Context, in storagecap.DirectPutInput) (*storagecap.DirectPutOutput, error) {
+	return &storagecap.DirectPutOutput{
+		Access: &storagecap.DirectAccess{Mode: storagecap.DirectAccessModeProxy, Operation: storagecap.DirectAccessOpPut},
+		Path:   in.Path,
+	}, nil
+}
+
+// ConfirmDirectPut confirms via Stat for fake storage tests.
+func (s *fakeStorageHostService) ConfirmDirectPut(ctx context.Context, in storagecap.ConfirmDirectPutInput) (*storagecap.ConfirmDirectPutOutput, error) {
+	stat, err := s.Stat(ctx, storagecap.StatInput{Path: in.Path})
+	if err != nil {
+		return nil, err
+	}
+	if stat == nil || !stat.Found {
+		return nil, nil
+	}
+	return &storagecap.ConfirmDirectPutOutput{Object: stat.Object}, nil
+}
+
+// CreateDirectGet returns proxy mode for fake storage tests.
+func (s *fakeStorageHostService) CreateDirectGet(_ context.Context, in storagecap.DirectGetInput) (*storagecap.DirectGetOutput, error) {
+	return &storagecap.DirectGetOutput{
+		Access: &storagecap.DirectAccess{Mode: storagecap.DirectAccessModeProxy, Operation: storagecap.DirectAccessOpGet},
+		Path:   in.Path,
+	}, nil
+}
+
+// SupportsMultipart reports that the fake host storage has no multipart backend.
+func (s *fakeStorageHostService) SupportsMultipart(context.Context) (bool, error) {
+	return false, nil
+}
+
+// CreateMultipart is unsupported on the fake host storage.
+func (s *fakeStorageHostService) CreateMultipart(context.Context, storagecap.MultipartCreateInput) (*storagecap.MultipartCreateOutput, error) {
+	return nil, storagecap.NewMultipartUnsupportedError()
+}
+
+// UploadPart is unsupported on the fake host storage.
+func (s *fakeStorageHostService) UploadPart(context.Context, storagecap.MultipartPartInput) (*storagecap.MultipartPartOutput, error) {
+	return nil, storagecap.NewMultipartUnsupportedError()
+}
+
+// CompleteMultipart is unsupported on the fake host storage.
+func (s *fakeStorageHostService) CompleteMultipart(context.Context, storagecap.MultipartCompleteInput) (*storagecap.MultipartCompleteOutput, error) {
+	return nil, storagecap.NewMultipartUnsupportedError()
+}
+
+// AbortMultipart is unsupported on the fake host storage.
+func (s *fakeStorageHostService) AbortMultipart(context.Context, storagecap.MultipartAbortInput) error {
+	return storagecap.NewMultipartUnsupportedError()
+}
+
+// CreateMultipartPartAccess is unsupported on the fake host storage.
+func (s *fakeStorageHostService) CreateMultipartPartAccess(context.Context, storagecap.MultipartPartAccessInput) (*storagecap.MultipartPartAccessOutput, error) {
+	return nil, storagecap.NewMultipartUnsupportedError()
 }
 
 func (s *fakeStorageHostService) listObjects(prefix string, limit int) []*storagecap.Object {
@@ -986,6 +1053,29 @@ func TestRunHostCallDemoOrgTenantReadsCapabilityServices(t *testing.T) {
 		tenantPayload.UserTenantCount != 1 ||
 		!tenantPayload.Visible {
 		t.Fatalf("unexpected tenant projection payload: %#v", tenantPayload)
+	}
+}
+
+// TestRunHostCallDemoAIReadsOwnerMethodStatus verifies the dynamic demo uses
+// the linapro-ai-core owner contract for AI method status reads.
+func TestRunHostCallDemoAIReadsOwnerMethodStatus(t *testing.T) {
+	service := &serviceImpl{
+		aiSvc: aicap.New(aitext.NewUnavailable()),
+	}
+
+	payload, err := service.runHostCallDemoAI(context.Background())
+	if err != nil {
+		t.Fatalf("expected AI demo to succeed, got error: %v", err)
+	}
+	if payload.Owner != spi.OwnerPluginID || payload.Service != spi.ServiceAI || payload.Version != spi.VersionV1 {
+		t.Fatalf("unexpected owner identity payload: %#v", payload)
+	}
+	if payload.CapabilityType != string(aitypes.CapabilityTypeText) ||
+		payload.CapabilityMethod != string(aitypes.CapabilityMethodTextGenerate) {
+		t.Fatalf("unexpected AI method payload: %#v", payload)
+	}
+	if payload.Available || payload.CapabilityID != aitext.CapabilityTextV1 || payload.Reason == "" {
+		t.Fatalf("unexpected AI method status payload: %#v", payload)
 	}
 }
 

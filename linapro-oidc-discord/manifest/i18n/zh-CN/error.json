@@ -1,0 +1,56 @@
+{
+  "error": {
+    "plugin": {
+      "oidc": {
+        "discord": {
+          "config": {
+            "missing": "Discord OIDC 客户端配置缺失"
+          },
+          "state": {
+            "generate": {
+              "failed": "生成 OIDC 状态值失败"
+            }
+          },
+          "callback": {
+            "code": {
+              "required": "缺少授权码"
+            },
+            "state": {
+              "mismatch": "OIDC 状态值不匹配"
+            }
+          },
+          "identity": {
+            "verify": {
+              "failed": "校验 Discord 身份失败"
+            }
+          },
+          "email": {
+            "not": {
+              "verified": "Discord 账号邮箱未通过验证"
+            }
+          },
+          "external": {
+            "login": {
+              "unavailable": "外部登录服务不可用",
+              "failed": "Discord 外部登录失败"
+            }
+          },
+          "settings": {
+            "storage": {
+              "unavailable": "设置存储服务不可用"
+            },
+            "read": {
+              "failed": "读取 Discord OIDC 设置失败"
+            },
+            "save": {
+              "failed": "保存 Discord OIDC 设置失败"
+            },
+            "rules": {
+              "invalid": "后端跳转规则必须是 state 键到接收 URL 的 JSON 对象"
+            }
+          }
+        }
+      }
+    }
+  }
+}

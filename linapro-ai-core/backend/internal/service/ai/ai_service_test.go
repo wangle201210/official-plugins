@@ -18,12 +18,13 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gcfg"
+	"github.com/gogf/gf/v2/util/gconv"
 
 	"lina-core/pkg/bizerr"
 	_ "lina-core/pkg/dbdriver"
-	"lina-core/pkg/plugin/capability/aicap/aitext"
 	"lina-core/pkg/plugin/capability/bizctxcap"
 	"lina-core/pkg/plugin/capability/cachecap"
+	"lina-plugin-linapro-ai-core/backend/cap/aicap/aitext"
 	"lina-plugin-linapro-ai-core/backend/internal/dao"
 	"lina-plugin-linapro-ai-core/backend/internal/model/do"
 	"lina-plugin-linapro-ai-core/backend/internal/model/entity"
@@ -117,7 +118,7 @@ func TestProviderModelTierAndInvocationFlow(t *testing.T) {
 		ProviderId: providerID,
 		PageNum:    1,
 		PageSize:   10,
-		Enabled:    intPtr(enabledYes),
+		Enabled:    gconv.PtrInt(enabledYes),
 	})
 	if err != nil {
 		t.Fatalf("list models after model update: %v", err)
@@ -448,7 +449,7 @@ func TestSyncModelsAggregatesEnabledEndpoints(t *testing.T) {
 		ProviderId: providerID,
 		PageNum:    1,
 		PageSize:   10,
-		Enabled:    intPtr(enabledYes),
+		Enabled:    gconv.PtrInt(enabledYes),
 	})
 	if err != nil {
 		t.Fatalf("list text models after sync: %v", err)
@@ -460,7 +461,7 @@ func TestSyncModelsAggregatesEnabledEndpoints(t *testing.T) {
 		ProviderId: providerID,
 		PageNum:    1,
 		PageSize:   10,
-		Enabled:    intPtr(enabledYes),
+		Enabled:    gconv.PtrInt(enabledYes),
 	})
 	if err != nil {
 		t.Fatalf("list unfiltered provider models after sync: %v", err)
@@ -1180,7 +1181,7 @@ func TestMultimodalMetadataManagementFlow(t *testing.T) {
 		ProviderId: providerID,
 		PageNum:    1,
 		PageSize:   10,
-		Enabled:    intPtr(enabledYes),
+		Enabled:    gconv.PtrInt(enabledYes),
 	})
 	if err != nil {
 		t.Fatalf("list image models: %v", err)
@@ -1570,10 +1571,6 @@ func defaultTestEndpointID(t *testing.T, ctx context.Context, svc *serviceImpl, 
 		t.Fatalf("load default test endpoint: %v", err)
 	}
 	return endpoint.Id
-}
-
-func intPtr(value int) *int {
-	return &value
 }
 
 func deleteProviderFixture(t *testing.T, ctx context.Context, providerID int64) {

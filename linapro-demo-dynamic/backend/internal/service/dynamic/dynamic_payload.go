@@ -108,6 +108,7 @@ type hostCallDemoPayload struct {
 	Lock       hostCallDemoLockPayload     `json:"lock"`
 	Org        hostCallDemoOrgPayload      `json:"org"`
 	Tenant     hostCallDemoTenantPayload   `json:"tenant"`
+	AI         hostCallDemoAIPayload       `json:"ai"`
 	Message    string                      `json:"message"`
 }
 
@@ -262,14 +263,17 @@ type hostCallDemoTenantPayload struct {
 	Visible         bool   `json:"visible"`
 }
 
-// boolPointer allocates one boolean pointer for optional JSON response fields.
-func boolPointer(value bool) *bool {
-	return &value
-}
-
-// stringPointer allocates one string pointer for optional JSON response fields.
-func stringPointer(value string) *string {
-	return &value
+// hostCallDemoAIPayload summarizes owner-aware linapro-ai-core bridge reads.
+type hostCallDemoAIPayload struct {
+	Owner            string `json:"owner"`
+	Service          string `json:"service"`
+	Version          string `json:"version"`
+	CapabilityType   string `json:"capabilityType"`
+	CapabilityMethod string `json:"capabilityMethod"`
+	Available        bool   `json:"available"`
+	CapabilityID     string `json:"capabilityId"`
+	ActiveProvider   string `json:"activeProvider"`
+	Reason           string `json:"reason"`
 }
 
 // buildRecordMap marshals one typed record into a generic map used by the

@@ -1,0 +1,143 @@
+{
+  "plugins": {
+    "linapro_extlogin_core": {
+      "api": {
+        "handoff": {
+          "v1": {
+            "ExchangeLoginHandoffReq": {
+              "meta": {
+                "dc": "消费第三方身份登录成功后签发的一次性 handoff 码，返回令牌对，或预登录令牌与租户候选列表。无效、过期或已使用的码会被拒绝。该接口为公开接口（无需会话），是外部登录对 SPA 的交付面；JWT 不得出现在 OAuth 回调 URL 中。",
+                "summary": "兑换外部登录 handoff",
+                "tags": "授权登录/外部身份"
+              },
+              "schema": {
+                "dc": "消费第三方身份登录成功后签发的一次性 handoff 码，返回令牌对，或预登录令牌与租户候选列表。无效、过期或已使用的码会被拒绝。该接口为公开接口（无需会话），是外部登录对 SPA 的交付面；JWT 不得出现在 OAuth 回调 URL 中。"
+              },
+              "fields": {
+                "handoff": {
+                  "dc": "来自协议插件 SPA 回跳的一次性 handoff 码"
+                }
+              }
+            },
+            "ExchangeLoginHandoffRes": {
+              "fields": {
+                "accessToken": {
+                  "dc": "无需选择租户时返回的 JWT 访问令牌"
+                },
+                "refreshToken": {
+                  "dc": "无需选择租户时返回的 JWT 刷新令牌"
+                },
+                "preToken": {
+                  "dc": "需要选择租户时返回的短期预登录令牌"
+                },
+                "tenants": {
+                  "dc": "需要选择租户时返回的租户候选列表"
+                }
+              }
+            },
+            "HandoffTenantEntity": {
+              "fields": {
+                "id": {
+                  "dc": "租户 ID"
+                },
+                "code": {
+                  "dc": "租户编码"
+                },
+                "name": {
+                  "dc": "租户显示名称"
+                },
+                "status": {
+                  "dc": "租户状态"
+                }
+              }
+            }
+          }
+        },
+        "identity": {
+          "v1": {
+            "BindIdentityReq": {
+              "fields": {
+                "ticketId": {
+                  "dc": "协议插件完成身份验证后，由 linapro-extlogin-core 签发的一次性已验证身份票据"
+                }
+              },
+              "meta": {
+                "dc": "消费 OAuth/OIDC 验证完成后签发的一次性已验证身份票据，并将该身份绑定到当前会话用户。不接受裸 provider 与 subject。若 (provider, subject) 已被其他账号占用则返回冲突错误；重复绑定当前用户已拥有的身份幂等成功。",
+                "summary": "绑定已验证的外部身份票据",
+                "tags": "授权登录/外部身份"
+              },
+              "schema": {
+                "dc": "消费 OAuth/OIDC 验证完成后签发的一次性已验证身份票据，并将该身份绑定到当前会话用户。不接受裸 provider 与 subject。若 (provider, subject) 已被其他账号占用则返回冲突错误；重复绑定当前用户已拥有的身份幂等成功。"
+              }
+            },
+            "BindIdentityRes": {},
+            "IdentityItem": {
+              "fields": {
+                "provider": {
+                  "dc": "稳定的外部 provider 标识"
+                },
+                "subject": {
+                  "dc": "由 provider 签发的不可变 subject 标识"
+                },
+                "subjectKind": {
+                  "dc": "subject 分类"
+                },
+                "appContext": {
+                  "dc": "可选的多应用上下文"
+                },
+                "email": {
+                  "dc": "邮箱快照"
+                },
+                "phone": {
+                  "dc": "手机号快照"
+                },
+                "displayName": {
+                  "dc": "显示名称快照"
+                },
+                "avatarUrl": {
+                  "dc": "头像 URL 快照"
+                }
+              }
+            },
+            "ListIdentitiesReq": {
+              "meta": {
+                "dc": "仅返回当前会话用户已绑定的外部身份。",
+                "summary": "列出已绑定的外部身份",
+                "tags": "授权登录/外部身份"
+              },
+              "schema": {
+                "dc": "仅返回当前会话用户已绑定的外部身份。"
+              }
+            },
+            "ListIdentitiesRes": {
+              "fields": {
+                "list": {
+                  "dc": "已绑定的外部身份列表"
+                }
+              }
+            },
+            "UnbindIdentityReq": {
+              "fields": {
+                "provider": {
+                  "dc": "稳定的外部 provider 标识"
+                },
+                "subject": {
+                  "dc": "由 provider 签发的不可变 subject 标识"
+                }
+              },
+              "meta": {
+                "dc": "从当前会话用户移除一条外部身份链接。跨用户目标按不存在处理，不泄露其他账号的链接存在性。",
+                "summary": "解绑外部身份",
+                "tags": "授权登录/外部身份"
+              },
+              "schema": {
+                "dc": "从当前会话用户移除一条外部身份链接。跨用户目标按不存在处理，不泄露其他账号的链接存在性。"
+              }
+            },
+            "UnbindIdentityRes": {}
+          }
+        }
+      }
+    }
+  }
+}

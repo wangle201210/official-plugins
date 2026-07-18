@@ -18,6 +18,18 @@ The workspace currently contains source plugins compiled into the host, plus one
 | `linapro-monitor-operlog` | `source` | `tenant_aware` | `tenant_scoped` | Operation log persistence and governance pages |
 | `linapro-monitor-loginlog` | `source` | `tenant_aware` | `tenant_scoped` | Login log persistence and governance pages |
 | `linapro-ops-demo-guard` | `source` | `tenant_aware` | `global` | Demo-environment read-only protection and global write-operation interception |
+| `linapro-extlogin-core` | `source` | `platform_only` | `global` | External identity linkage storage, resolve/provision engine behind the host external-login seam, and current-user identity bind/unbind/list |
+| `linapro-oidc-google` | `source` | `platform_only` | `global` | Official Google sign-in on the login page (OAuth settings, optional auto-provisioning, One Tap); depends on `linapro-extlogin-core` |
+| `linapro-oidc-discord` | `source` | `platform_only` | `global` | Official Discord sign-in on the login page (OAuth settings, optional auto-provisioning); depends on `linapro-extlogin-core` |
+| `linapro-oidc-generic` | `source` | `platform_only` | `global` | Configurable enterprise OIDC sign-in on the login page (Discovery/PKCE, auto-provision default off); depends on `linapro-extlogin-core` |
+| `linapro-auth-ldap` | `source` | `platform_only` | `global` | Directory (LDAP/AD) sign-in on the login page (form bind, auto-provision default off); depends on `linapro-extlogin-core` |
+| `linapro-storage-cos` | `source` | `platform_only` | `global` | Tencent COS backend for host `Storage()` (`storagecap.Provider`) with admin settings under host `storage` catalog |
+| `linapro-storage-oss` | `source` | `platform_only` | `global` | Alibaba Cloud OSS backend for host `Storage()` with admin settings under host `storage` catalog |
+| `linapro-storage-obs` | `source` | `platform_only` | `global` | Huawei Cloud OBS backend for host `Storage()` with admin settings under host `storage` catalog |
+| `linapro-storage-qiniu` | `source` | `platform_only` | `global` | Qiniu Kodo backend for host `Storage()` with admin settings under host `storage` catalog |
+| `linapro-storage-aws` | `source` | `platform_only` | `global` | Official AWS S3 backend for host `Storage()` with admin settings under host `storage` catalog |
+| `linapro-storage-azure` | `source` | `platform_only` | `global` | Azure Blob Storage backend for host `Storage()` with admin settings under host `storage` catalog |
+| `linapro-storage-s3` | `source` | `platform_only` | `global` | S3 protocol backend (MinIO/R2/etc.) for host `Storage()` with admin settings under host `storage` catalog |
 | `linapro-demo-source` | `source` | `tenant_aware` | `tenant_scoped` | Source plugin example for menu pages, public routes, and protected routes |
 | `linapro-demo-dynamic` | `dynamic` | `tenant_aware` | `tenant_scoped` | Dynamic `WASM` plugin example for embedded menu pages, plugin-owned `SQL` table `CRUD`, and standalone static pages |
 | `sicau-niu` | `source` | `tenant_aware` | `tenant_scoped` | Minimal source-plugin example for a menu page, public route, and protected route with no database or `i18n` assets |
@@ -163,7 +175,7 @@ Dynamic plugins must declare `type: dynamic` in `plugin.yaml`, keep `main.go` an
 
 ## Host and Plugin Boundary
 
-The host owns stable framework surfaces and top-level catalogs such as `dashboard`, `platform`, `org`, `content`, `monitor`, `setting`, `scheduler`, `extension`, and `developer`. Plugins choose their own mount points through `plugin.yaml` `parent_key`; the host only resolves declared parents during sync and rejects missing parents to avoid orphaned menu trees.
+The host owns stable framework surfaces and top-level catalogs such as `dashboard`, `platform`, `org`, `content`, `monitor`, `setting`, `scheduler`, `extension`, `storage`, and `developer`. Plugins choose their own mount points through `plugin.yaml` `parent_key`; the host only resolves declared parents during sync and rejects missing parents to avoid orphaned menu trees. Cloud object-storage provider plugins (`linapro-storage-cos`, `linapro-storage-oss`, `linapro-storage-aws`, `linapro-storage-s3`) mount settings pages under `storage`.
 
 Plugin-owned tables, menus, pages, hooks, scheduled jobs, public assets, and lifecycle resources stay in the plugin directory. Host code should depend on stable plugin service seams and published packages rather than hard-coding plugin-specific page structures or menu composition details.
 
@@ -194,6 +206,63 @@ pnpm -C hack/tests test:module -- plugin:<plugin-id>
 ```
 
 Use plugin-local `api_contract_test.go` and Go package tests for backend contract checks where applicable.
+
+### Continuous Integration (this repository)
+
+`official-plugins` runs its own GitHub Actions workflow (`.github/workflows/ci.yml`) so plugin PRs get feedback without waiting for a host monorepo submodule pin update:
+
+| Check | Scope |
+|-------|--------|
+| Plugin manifest check | Every `*/plugin.yaml` package contract (`id` matches directory, `version`/`type`, `go.mod`, embed/main entry) |
+| Go unit tests | Every plugin module against `linaproai/linapro` `apps/lina-core` (default host ref `main`) |
+| Auth Go unit tests | Explicit gate for `linapro-extlogin-core`, `linapro-auth-ldap`, `linapro-oidc-*` |
+| Auth integration (LDAP + OIDC) | Live OpenLDAP bind login + live OIDC code/PKCE/id_token login via `hack/ci` |
+
+The workflow checks out the host monorepo with sparse `apps/lina-core`, overlays this repository at `apps/lina-plugins`, generates a temporary `go.work`, and runs `go test ./...` per plugin. Go unit-test jobs start a `postgres:14-alpine` service (`postgres`/`postgres`@`linapro` on `127.0.0.1:5432`) for DB-backed plugin tests.
+
+**Host ref resolution** (push / pull_request):
+
+1. If `.github/ci-host-ref` exists, use its single-line branch/tag/sha (for host+plugin co-development PRs).
+2. Otherwise default to `main`.
+
+`workflow_dispatch` always uses the form input (`host_ref`, default `main`) and ignores the pin file. Remove `.github/ci-host-ref` before merging to this repository's `main` once the host APIs are available on `linaproai/linapro@main`.
+
+Auth integration starts two in-repo mock services (no Docker required in CI):
+
+1. **LDAP mock** (`hack/ci/ldap-mock`) with seed user `cn=alice,ou=users,dc=example,dc=com` / `alice-secret`
+2. **OIDC mock** (`hack/ci/oidc-mock`) with PKCE S256 + RS256 `id_token`
+
+Then runs:
+
+```bash
+go test ./backend/internal/service/ldapauth/ -tags=integration -count=1 -v
+go test ./backend/internal/service/oauth/ -tags=integration -count=1 -v
+```
+
+Those tests auto-configure plugin settings, perform real directory bind / OIDC authorize+token exchange, and assert the plugin login path returns a handoff. Host session minting uses a test stub; protocol and directory I/O are real. Browser E2E and full host session integration remain on the main `linapro` repository.
+
+Local auth integration (optional):
+
+```bash
+export GOWORK=off
+go run ./hack/ci/ldap-mock -listen 127.0.0.1:1389 &
+go run ./hack/ci/oidc-mock -listen 127.0.0.1:18080 &
+# in monorepo layout with lina-core available:
+go test ./linapro-auth-ldap/backend/internal/service/ldapauth/ -tags=integration -count=1 -v
+go test ./linapro-oidc-generic/backend/internal/service/oauth/ -tags=integration -count=1 -v
+```
+
+Manual re-run against another host ref:
+
+```text
+Actions → Official Plugins CI → Run workflow → host_ref=<branch|tag|sha>
+```
+
+Feature-branch pin (push/PR CI only):
+
+```text
+echo 'review/pr-54-plugin-auth' > .github/ci-host-ref
+```
 
 ## Version Upgrades
 

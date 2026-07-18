@@ -25,7 +25,7 @@ const apiBaseURL = config.apiBaseURL;
 const demoControlPluginID = "linapro-ops-demo-guard";
 const dynamicDependentPluginID = "linapro-demo-dynamic";
 const pluginID = "linapro-demo-source";
-const pluginMenuName = "源码插件示例";
+const pluginMenuName = "示例插件-源码插件";
 const pluginSummaryMessage =
   "这是一条来自 linapro-demo-source 接口的简要介绍，用于验证源码插件菜单页可读取插件后端数据。";
 const pluginRecordSeedTitle = "源码插件 SQL 示例记录";
@@ -139,8 +139,17 @@ async function installAndEnablePlugin(
 
 async function listPlugins(
   adminApi: APIRequestContext,
+  options?: { id?: string },
 ): Promise<PluginListItem[]> {
-  const response = await adminApi.get("plugins");
+  // pageSize + optional id keep lookups reliable once multi-cloud storage
+  // plugins push the official workspace past the default page size of 20.
+  const response = await adminApi.get("plugins", {
+    params: {
+      pageNum: 1,
+      pageSize: 100,
+      ...(options?.id ? { id: options.id } : {}),
+    },
+  });
   assertOk(response, "查询插件列表失败");
   const payload = unwrapApiData(await response.json());
   return payload?.list ?? [];
@@ -165,7 +174,7 @@ async function fetchCurrentUserRoutes(
 }
 
 async function fetchPluginSummary(adminApi: APIRequestContext) {
-  return await adminApi.get(pluginApiPath(pluginID, `plugins/${pluginID}/summary`));
+  return await adminApi.get(pluginApiPath(pluginID, `summary`));
 }
 
 async function waitForPluginSummaryReady(adminApi: APIRequestContext) {
@@ -186,14 +195,14 @@ async function waitForPluginSummaryReady(adminApi: APIRequestContext) {
 }
 
 async function fetchPluginPing(apiContext: APIRequestContext) {
-  return await apiContext.get(pluginApiPath(pluginID, `plugins/${pluginID}/ping`));
+  return await apiContext.get(pluginApiPath(pluginID, `ping`));
 }
 
 async function listDemoRecords(adminApi: APIRequestContext) {
   const response = await adminApi.get(
-    pluginApiPath(pluginID, `plugins/${pluginID}/records`),
+    pluginApiPath(pluginID, `records`),
   );
-  assertOk(response, "查询源码插件示例记录失败");
+  assertOk(response, "查询示例插件-源码插件记录失败");
   const payload = unwrapApiData(await response.json());
   return (payload?.list ?? []) as DemoRecordListItem[];
 }
@@ -216,14 +225,14 @@ async function createDemoRecord(
     };
   }
   const response = await adminApi.post(
-    pluginApiPath(pluginID, `plugins/${pluginID}/records`),
+    pluginApiPath(pluginID, `records`),
     {
       multipart,
     },
   );
-  assertOk(response, `创建源码插件示例记录失败: ${title}`);
+  assertOk(response, `创建示例插件-源码插件记录失败: ${title}`);
   const payload = unwrapApiData(await response.json());
-  expect(payload?.id, "创建源码插件示例记录成功后应返回记录ID").toBeTruthy();
+  expect(payload?.id, "创建示例插件-源码插件记录成功后应返回记录ID").toBeTruthy();
   return payload.id as number;
 }
 
@@ -255,7 +264,7 @@ function hasRouteTitle(list: UserRouteNode[], title: string): boolean {
 }
 
 async function findPlugin(adminApi: APIRequestContext, id = pluginID) {
-  const list = await listPlugins(adminApi);
+  const list = await listPlugins(adminApi, { id });
   return list.find((item) => item.id === id) ?? null;
 }
 
@@ -347,7 +356,7 @@ async function downloadPluginDemoSourceAttachmentByTitle(
   ).toBe(true);
 
   const response = await adminApi.get(
-    pluginApiPath(pluginID, `plugins/${pluginID}/records/${record!.id}/attachment`),
+    pluginApiPath(pluginID, `records/${record!.id}/attachment`),
   );
   assertOk(response, `下载源码插件记录附件失败: ${title}`);
   return await response.text();

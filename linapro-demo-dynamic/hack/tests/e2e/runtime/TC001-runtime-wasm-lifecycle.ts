@@ -32,6 +32,7 @@ import {
   queryPgScalar,
 } from "@host-tests/support/postgres";
 import { waitForUploadReady } from "@host-tests/support/ui";
+import { ensureDemoDynamicDependenciesInstalled } from "../../support/plugin-dependencies";
 
 const apiBaseURL = config.apiBaseURL;
 const publicBaseURL = config.publicBaseURL;
@@ -47,7 +48,6 @@ const iframeMenuName = "运行时 iframe 示例";
 const embeddedMenuName = "运行时内嵌示例";
 const newWindowMenuName = "运行时新标签页示例";
 const bundledRuntimePluginID = "linapro-demo-dynamic";
-const bundledRuntimeDependencyPluginID = "linapro-demo-source";
 const bundledRuntimeRecordTable = "plugin_linapro_demo_dynamic_record";
 const bundledRuntimeAttachmentPath = "demo-record-files/";
 const bundledRuntimeLegacyArtifactPath = path.join(
@@ -58,7 +58,7 @@ const bundledRuntimeLegacyArtifactPath = path.join(
   "runtime",
   `${bundledRuntimePluginID}.wasm`,
 );
-const bundledRuntimeMenuName = "动态插件示例";
+const bundledRuntimeMenuName = "示例插件-动态插件";
 const bundledRuntimeStandalonePath =
   "/x-assets/linapro-demo-dynamic/v0.1.0/standalone.html";
 const bytesPerMegabyte = 1024 * 1024;
@@ -173,15 +173,24 @@ async function updateConfigValue(
 
 async function listPlugins(
   adminApi: APIRequestContext,
+  options?: { id?: string },
 ): Promise<PluginListItem[]> {
-  const response = await adminApi.get("plugins");
+  // pageSize + optional id keep lookups reliable once multi-cloud storage
+  // plugins push the official workspace past the default page size of 20.
+  const response = await adminApi.get("plugins", {
+    params: {
+      pageNum: 1,
+      pageSize: 100,
+      ...(options?.id ? { id: options.id } : {}),
+    },
+  });
   assertOk(response, "查询插件列表失败");
   const payload = unwrapApiData(await response.json());
   return payload?.list ?? [];
 }
 
 async function findPlugin(adminApi: APIRequestContext, id = pluginID) {
-  const list = await listPlugins(adminApi);
+  const list = await listPlugins(adminApi, { id });
   return list.find((item) => item.id === id) ?? null;
 }
 
@@ -826,24 +835,9 @@ async function setPluginEnabled(
 async function ensureBundledRuntimeDependencyInstalled(
   adminApi: APIRequestContext,
 ) {
-  const dependency = await findPlugin(
-    adminApi,
-    bundledRuntimeDependencyPluginID,
-  );
-  if (dependency?.installed === 1) {
-    return;
-  }
-  await installPlugin(adminApi, bundledRuntimeDependencyPluginID);
-  await expect
-    .poll(
-      async () =>
-        (await findPlugin(adminApi, bundledRuntimeDependencyPluginID))
-          ?.installed ?? 0,
-      {
-        message: `${bundledRuntimeDependencyPluginID} should be installed before ${bundledRuntimePluginID}`,
-      },
-    )
-    .toBe(1);
+  // linapro-demo-dynamic hard-depends on linapro-ai-core and linapro-demo-source.
+  // Host dependency checks never auto-install declared plugins.
+  await ensureDemoDynamicDependenciesInstalled(adminApi);
 }
 
 async function installPlugin(adminApi: APIRequestContext, id = pluginID) {

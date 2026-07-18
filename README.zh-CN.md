@@ -18,6 +18,18 @@ LinaPro 将`apps/lina-core`定位为稳定的全栈框架宿主。宿主保留�
 | `linapro-monitor-operlog` | `source` | `tenant_aware` | `tenant_scoped` | 操作日志持久化与治理页面 |
 | `linapro-monitor-loginlog` | `source` | `tenant_aware` | `tenant_scoped` | 登录日志持久化与治理页面 |
 | `linapro-ops-demo-guard` | `source` | `tenant_aware` | `global` | 演示环境只读保护与全局写操作拦截 |
+| `linapro-extlogin-core` | `source` | `platform_only` | `global` | 外部身份链接存储、宿主外部登录 seam 背后的解析/开户引擎，以及当前用户身份绑定/解绑/列举 |
+| `linapro-oidc-google` | `source` | `platform_only` | `global` | 登录页 Google 账号登录（OAuth 配置、可选自动注册、One Tap）；依赖 `linapro-extlogin-core` |
+| `linapro-oidc-discord` | `source` | `platform_only` | `global` | 登录页 Discord 账号登录（OAuth 配置、可选自动注册）；依赖 `linapro-extlogin-core` |
+| `linapro-oidc-generic` | `source` | `platform_only` | `global` | 登录页可配置企业 OIDC 登录（Discovery/PKCE、可选自动开户默认关）；依赖 `linapro-extlogin-core` |
+| `linapro-auth-ldap` | `source` | `platform_only` | `global` | 登录页 LDAP/AD 目录登录（弹层 bind、自动开户默认关）；依赖 `linapro-extlogin-core` |
+| `linapro-storage-cos` | `source` | `platform_only` | `global` | 腾讯云 COS 作为宿主 `Storage()` 后端（`storagecap.Provider`），配置页挂载在宿主 `storage` 目录 |
+| `linapro-storage-oss` | `source` | `platform_only` | `global` | 阿里云 OSS 作为宿主 `Storage()` 后端，配置页挂载在宿主 `storage` 目录 |
+| `linapro-storage-obs` | `source` | `platform_only` | `global` | 华为云 OBS 作为宿主 `Storage()` 后端，配置页挂载在宿主 `storage` 目录 |
+| `linapro-storage-qiniu` | `source` | `platform_only` | `global` | 七牛云 Kodo 作为宿主 `Storage()` 后端，配置页挂载在宿主 `storage` 目录 |
+| `linapro-storage-aws` | `source` | `platform_only` | `global` | 官方 AWS S3 作为宿主 `Storage()` 后端，配置页挂载在宿主 `storage` 目录 |
+| `linapro-storage-azure` | `source` | `platform_only` | `global` | Azure Blob 作为宿主 `Storage()` 后端，配置页挂载在宿主 `storage` 目录 |
+| `linapro-storage-s3` | `source` | `platform_only` | `global` | S3 协议（MinIO/R2 等）作为宿主 `Storage()` 后端，配置页挂载在宿主 `storage` 目录 |
 | `linapro-demo-source` | `source` | `tenant_aware` | `tenant_scoped` | 源码插件菜单页面、公开路由和受保护路由示例 |
 | `linapro-demo-dynamic` | `dynamic` | `tenant_aware` | `tenant_scoped` | 动态`WASM`插件示例，演示菜单内嵌页面、插件自有`SQL`表`CRUD`和独立静态页面 |
 | `sicau-niu` | `source` | `tenant_aware` | `tenant_scoped` | 最小源码插件示例，演示菜单页面、公开路由和受保护路由，不含数据库或`i18n`资源 |
@@ -147,7 +159,7 @@ make wasm p=linapro-demo-dynamic
 
 ## 宿主与插件边界
 
-宿主拥有稳定的框架表面和一级目录骨架，例如`dashboard`、`platform`、`org`、`content`、`monitor`、`setting`、`scheduler`、`extension`和`developer`。插件通过`plugin.yaml`的`parent_key`自主选择挂载点；宿主只在同步时解析声明的父级，并拒绝缺失父级以避免孤儿菜单树。
+宿主拥有稳定的框架表面和一级目录骨架，例如`dashboard`、`platform`、`org`、`content`、`monitor`、`setting`、`scheduler`、`extension`、`storage`和`developer`。插件通过`plugin.yaml`的`parent_key`自主选择挂载点；宿主只在同步时解析声明的父级，并拒绝缺失父级以避免孤儿菜单树。云对象存储 provider 插件（`linapro-storage-cos`、`linapro-storage-oss`、`linapro-storage-aws`、`linapro-storage-s3`）的配置页挂载在`storage`（存储管理）下。
 
 插件自有的数据表、菜单、页面、Hook、定时任务、公开资产和生命周期资源都保留在插件目录内。宿主代码应依赖稳定的插件服务接缝和公开包，而不是硬编码插件专属页面结构或菜单装配细节。
 
@@ -178,6 +190,64 @@ pnpm -C hack/tests test:module -- plugin:<plugin-id>
 ```
 
 适用时使用插件本地`api_contract_test.go`和`Go package`测试完成后端契约检查。
+
+### 持续集成（本仓库）
+
+`official-plugins`自带 GitHub Actions 工作流（`.github/workflows/ci.yml`），插件 PR 无需等待宿主 monorepo 更新 submodule 指针即可获得反馈：
+
+| 检查项 | 范围 |
+|--------|------|
+| Plugin manifest check | 每个`*/plugin.yaml`包契约（`id`与目录一致、`version`/`type`、`go.mod`、embed/main 入口） |
+| Go unit tests | 每个插件模块对照`linaproai/linapro`的`apps/lina-core`（默认宿主 ref 为`main`） |
+| Auth Go unit tests | 针对`linapro-extlogin-core`、`linapro-auth-ldap`、`linapro-oidc-*`的显式门禁 |
+| Auth integration (LDAP + OIDC) | 真实 OpenLDAP 绑定登录 + 真实 OIDC code/PKCE/id_token 登录（`hack/ci`） |
+
+工作流会稀疏检出宿主 monorepo 的`apps/lina-core`，将本仓库覆盖到`apps/lina-plugins`，生成临时`go.work`，并对每个插件执行`go test ./...`。Go 单测任务会启动`postgres:14-alpine`服务（`postgres`/`postgres`@`linapro`，`127.0.0.1:5432`），供依赖数据库的插件测试使用。
+
+认证集成会启动两个仓库内 mock 服务（CI 不依赖 Docker）：
+
+1. **LDAP mock**（`hack/ci/ldap-mock`），种子用户`cn=alice,ou=users,dc=example,dc=com` / `alice-secret`
+2. **OIDC mock**（`hack/ci/oidc-mock`），支持 PKCE S256 与 RS256`id_token`
+
+然后执行：
+
+```bash
+go test ./backend/internal/service/ldapauth/ -tags=integration -count=1 -v
+go test ./backend/internal/service/oauth/ -tags=integration -count=1 -v
+```
+
+这些测试会自动配置插件设置，执行真实目录绑定 / OIDC authorize+token 交换，并断言插件登录路径返回 handoff。宿主会话签发使用测试桩；协议与目录 I/O 为真实交互。浏览器 E2E 与完整宿主会话集成仍由主仓库`linapro`承担。
+
+本地可选联调：
+
+```bash
+export GOWORK=off
+go run ./hack/ci/ldap-mock -listen 127.0.0.1:1389 &
+go run ./hack/ci/oidc-mock -listen 127.0.0.1:18080 &
+# 在具备 lina-core 的 monorepo 布局下：
+go test ./linapro-auth-ldap/backend/internal/service/ldapauth/ -tags=integration -count=1 -v
+go test ./linapro-oidc-generic/backend/internal/service/oauth/ -tags=integration -count=1 -v
+```
+
+手动指定宿主 ref 重跑：
+
+```text
+Actions → Official Plugins CI → Run workflow → host_ref=<branch|tag|sha>
+```
+
+**宿主 ref 解析**（push / pull_request）：
+
+1. 若存在 `.github/ci-host-ref`，使用其中单行 branch/tag/sha（用于宿主与插件协同 PR）。
+2. 否则默认 `main`。
+
+`workflow_dispatch` 始终使用表单输入 `host_ref`（默认 `main`），忽略针定文件。当 `linaproai/linapro@main` 已具备所需宿主 API 后，合并到本仓库 `main` 前应删除 `.github/ci-host-ref`。
+
+特性分支针定（仅 push/PR CI）：
+
+```text
+echo 'review/pr-54-plugin-auth' > .github/ci-host-ref
+```
+
 
 ## 版本升级
 

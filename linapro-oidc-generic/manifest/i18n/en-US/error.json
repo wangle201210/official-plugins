@@ -1,0 +1,54 @@
+{
+  "error": {
+    "plugin": {
+      "oidc": {
+        "generic": {
+          "config": {
+            "missing": "OIDC login is not configured yet. Enter Issuer, Client ID, and Client Secret in the plugin settings first"
+          },
+          "state": {
+            "generate": {
+              "failed": "Failed to generate OIDC state value"
+            }
+          },
+          "callback": {
+            "code": {
+              "required": "Authorization code is required"
+            },
+            "state": {
+              "mismatch": "OIDC state value mismatch"
+            }
+          },
+          "identity": {
+            "verify": {
+              "failed": "Failed to verify OIDC identity"
+            }
+          },
+          "discovery": {
+            "failed": "Could not reach the identity provider. Check that the Issuer URL is correct and reachable from the application server"
+          },
+          "external": {
+            "login": {
+              "unavailable": "External-login service is unavailable",
+              "failed": "Generic OIDC external login failed"
+            }
+          },
+          "settings": {
+            "storage": {
+              "unavailable": "Settings storage service is unavailable"
+            },
+            "read": {
+              "failed": "Failed to read Generic OIDC settings"
+            },
+            "save": {
+              "failed": "Failed to save Generic OIDC settings"
+            },
+            "issuer": {
+              "invalid": "Issuer must be an absolute https URL (http allowed only for localhost)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

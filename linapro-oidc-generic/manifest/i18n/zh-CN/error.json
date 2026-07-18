@@ -1,0 +1,54 @@
+{
+  "error": {
+    "plugin": {
+      "oidc": {
+        "generic": {
+          "config": {
+            "missing": "OIDC 登录尚未完成配置，请先在插件设置中填写 Issuer、Client ID 与 Client Secret"
+          },
+          "state": {
+            "generate": {
+              "failed": "生成 OIDC state 失败"
+            }
+          },
+          "callback": {
+            "code": {
+              "required": "缺少授权码"
+            },
+            "state": {
+              "mismatch": "OIDC state 校验失败"
+            }
+          },
+          "identity": {
+            "verify": {
+              "failed": "验证 OIDC 身份失败"
+            }
+          },
+          "discovery": {
+            "failed": "无法连接身份认证服务。请检查 Issuer 地址是否正确，以及应用服务器能否访问该地址"
+          },
+          "external": {
+            "login": {
+              "unavailable": "外部登录服务不可用",
+              "failed": "通用 OIDC 外部登录失败"
+            }
+          },
+          "settings": {
+            "storage": {
+              "unavailable": "设置存储服务不可用"
+            },
+            "read": {
+              "failed": "读取通用 OIDC 设置失败"
+            },
+            "save": {
+              "failed": "保存通用 OIDC 设置失败"
+            },
+            "issuer": {
+              "invalid": "Issuer 必须为绝对 https URL（localhost 允许 http）"
+            }
+          }
+        }
+      }
+    }
+  }
+}

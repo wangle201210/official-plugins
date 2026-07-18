@@ -23,10 +23,15 @@ import {
   pgIdentifier,
 } from '@host-tests/support/postgres';
 import { waitForRouteReady } from '@host-tests/support/ui';
+import {
+  captureDemoDynamicDependencyStates,
+  ensureDemoDynamicDependenciesInstalled,
+  restoreDemoDynamicDependencyStates,
+  type DependencyPluginState,
+} from "../../support/plugin-dependencies";
 
 const pluginID = "linapro-demo-dynamic";
-const sourcePluginID = "linapro-demo-source";
-const pluginMenuNamePattern = /Dynamic Plugin Demo|动态插件示例/u;
+const pluginMenuNamePattern = /Sample Plugin - Dynamic|示例插件-动态插件/u;
 const recordTable = "plugin_linapro_demo_dynamic_record";
 const publicBaseURL = config.publicBaseURL;
 const repoRoot = path.resolve(process.cwd(), "../..");
@@ -42,8 +47,7 @@ const legacyRuntimeArtifactPath = path.join(
 let adminApi: APIRequestContext;
 let originalInstalled = 0;
 let originalEnabled = 0;
-let originalSourceInstalled = 0;
-let originalSourceEnabled = 0;
+let originalDependencyStates: DependencyPluginState[] = [];
 
 type DemoRecordListPayload = {
   list?: Array<{ title?: string }>;
@@ -86,19 +90,8 @@ function cleanupRuntimePluginRows() {
   ]);
 }
 
-async function ensureSourcePluginInstalledAndEnabled() {
-  let sourcePlugin = await getPlugin(adminApi, sourcePluginID);
-  if (sourcePlugin.installed !== 1) {
-    await installPlugin(adminApi, sourcePluginID, { installMode: "global" });
-    sourcePlugin = await getPlugin(adminApi, sourcePluginID);
-  }
-  if (sourcePlugin.enabled !== 1) {
-    await enablePlugin(adminApi, sourcePluginID);
-  }
-}
-
 async function ensurePluginInstalledAndEnabled() {
-  await ensureSourcePluginInstalledAndEnabled();
+  await ensureDemoDynamicDependenciesInstalled(adminApi, { enable: true });
   const plugin = await getPlugin(adminApi, pluginID);
   if (plugin.installed !== 1) {
     await installPlugin(adminApi, pluginID, { installMode: "global" });
@@ -179,6 +172,7 @@ async function restorePluginState() {
     } catch (error) {
       cleanupRuntimePluginRows();
       await syncPlugins(adminApi);
+      await ensureDemoDynamicDependenciesInstalled(adminApi, { enable: true });
       await installPlugin(adminApi, pluginID, { installMode: "global" });
     }
   }
@@ -200,40 +194,13 @@ async function removePluginForCleanState() {
   }
 }
 
-async function restoreSourcePluginState() {
-  let sourcePlugin = await getPlugin(adminApi, sourcePluginID);
-
-  if (originalSourceInstalled !== 1) {
-    if (sourcePlugin.enabled === 1) {
-      await disablePlugin(adminApi, sourcePluginID);
-      sourcePlugin = await getPlugin(adminApi, sourcePluginID);
-    }
-    if (sourcePlugin.installed === 1) {
-      await uninstallPlugin(adminApi, sourcePluginID);
-    }
-    return;
-  }
-
-  if (sourcePlugin.installed !== 1) {
-    await installPlugin(adminApi, sourcePluginID, { installMode: "global" });
-    sourcePlugin = await getPlugin(adminApi, sourcePluginID);
-  }
-  if (originalSourceEnabled === 1 && sourcePlugin.enabled !== 1) {
-    await enablePlugin(adminApi, sourcePluginID);
-  } else if (originalSourceEnabled !== 1 && sourcePlugin.enabled === 1) {
-    await disablePlugin(adminApi, sourcePluginID);
-  }
-}
-
 test.describe("TC003 英文运行时页面巡检", () => {
   test.beforeAll(async () => {
     ensureRuntimePluginArtifact();
     adminApi = await createAdminApiContext();
     await syncPlugins(adminApi);
-    const sourcePlugin = await getPlugin(adminApi, sourcePluginID);
+    originalDependencyStates = await captureDemoDynamicDependencyStates(adminApi);
     const plugin = await getPlugin(adminApi, pluginID);
-    originalSourceInstalled = sourcePlugin.installed;
-    originalSourceEnabled = sourcePlugin.enabled;
     originalInstalled = plugin.installed;
     originalEnabled = plugin.enabled;
   });
@@ -246,7 +213,10 @@ test.describe("TC003 英文运行时页面巡检", () => {
   test.afterAll(async () => {
     try {
       await restorePluginState();
-      await restoreSourcePluginState();
+      await restoreDemoDynamicDependencyStates(
+        adminApi,
+        originalDependencyStates,
+      );
     } finally {
       if (originalInstalled !== 1) {
         cleanupRuntimePluginData();
@@ -269,13 +239,13 @@ test.describe("TC003 英文运行时页面巡检", () => {
     await pluginPage.searchByPluginId(pluginID);
 
     await expect(pluginPage.pluginRow(pluginID)).toContainText(
-      "Dynamic Plugin Demo",
+      "Sample Plugin - Dynamic",
     );
     await expect(pluginPage.pluginDescriptionCell(pluginID)).toContainText(
       "Dynamic wasm sample that demonstrates a host-embedded menu page, plugin-owned SQL CRUD, and a hosted standalone page.",
     );
     const rowText = await pluginPage.pluginRow(pluginID).innerText();
-    expect(rowText).not.toContain("动态插件示例");
+    expect(rowText).not.toContain("示例插件-动态插件");
     expect(rowText).not.toContain("提供独立的 dynamic wasm 插件样例");
   });
 
@@ -291,7 +261,7 @@ test.describe("TC003 英文运行时页面巡检", () => {
     const apiPlugin = apiList.list.find((item) => item.id === pluginID);
     expect(apiPlugin).toBeTruthy();
     expect(apiPlugin?.installed).toBe(0);
-    expect(apiPlugin?.name).toBe("Dynamic Plugin Demo");
+    expect(apiPlugin?.name).toBe("Sample Plugin - Dynamic");
     expect(apiPlugin?.description).toBe(
       "Dynamic wasm sample that demonstrates a host-embedded menu page, plugin-owned SQL CRUD, and a hosted standalone page.",
     );
@@ -301,13 +271,13 @@ test.describe("TC003 英文运行时页面巡检", () => {
     await pluginPage.searchByPluginId(pluginID);
 
     await expect(pluginPage.pluginRow(pluginID)).toContainText(
-      "Dynamic Plugin Demo",
+      "Sample Plugin - Dynamic",
     );
     await expect(pluginPage.pluginDescriptionCell(pluginID)).toContainText(
       "Dynamic wasm sample that demonstrates a host-embedded menu page, plugin-owned SQL CRUD, and a hosted standalone page.",
     );
     const rowText = await pluginPage.pluginRow(pluginID).innerText();
-    expect(rowText).not.toContain("动态插件示例");
+    expect(rowText).not.toContain("示例插件-动态插件");
     expect(rowText).not.toContain("提供独立的 dynamic wasm 插件样例");
   });
 
