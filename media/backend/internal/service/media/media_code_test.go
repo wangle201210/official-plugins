@@ -107,6 +107,18 @@ func TestMediaBusinessErrorMetadata(t *testing.T) {
 			messageKey:  "error.media.dashboard.stream.required",
 		},
 		{
+			name:        "dashboard tenant required",
+			code:        CodeMediaDashboardTenantRequired,
+			runtimeCode: "MEDIA_DASHBOARD_TENANT_REQUIRED",
+			messageKey:  "error.media.dashboard.tenant.required",
+		},
+		{
+			name:        "dashboard tenant too long",
+			code:        CodeMediaDashboardTenantTooLong,
+			runtimeCode: "MEDIA_DASHBOARD_TENANT_TOO_LONG",
+			messageKey:  "error.media.dashboard.tenant.too.long",
+		},
+		{
 			name:        "dashboard query failed",
 			code:        CodeMediaDashboardQueryFailed,
 			runtimeCode: "MEDIA_DASHBOARD_QUERY_FAILED",

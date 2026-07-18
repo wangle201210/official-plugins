@@ -20,6 +20,7 @@ type IMediaV1 interface {
 	GetDashboardNodeOverview(ctx context.Context, req *v1.GetDashboardNodeOverviewReq) (res *v1.GetDashboardNodeOverviewRes, err error)
 	ListDashboardSessions(ctx context.Context, req *v1.ListDashboardSessionsReq) (res *v1.ListDashboardSessionsRes, err error)
 	ListDashboardStreams(ctx context.Context, req *v1.ListDashboardStreamsReq) (res *v1.ListDashboardStreamsRes, err error)
+	GetDashboardTenantTopology(ctx context.Context, req *v1.GetDashboardTenantTopologyReq) (res *v1.GetDashboardTenantTopologyRes, err error)
 	GetDashboardTopology(ctx context.Context, req *v1.GetDashboardTopologyReq) (res *v1.GetDashboardTopologyRes, err error)
 	DeleteDeviceBinding(ctx context.Context, req *v1.DeleteDeviceBindingReq) (res *v1.DeleteDeviceBindingRes, err error)
 	ListDeviceBindings(ctx context.Context, req *v1.ListDeviceBindingsReq) (res *v1.ListDeviceBindingsRes, err error)

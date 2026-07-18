@@ -240,6 +240,10 @@ CREATE INDEX IF NOT EXISTS idx_media_report_stream_active_device
     ON media_report_stream ("device_id", "report_time" DESC, "stream_id")
     WHERE "close_time" IS NULL;
 
+CREATE INDEX IF NOT EXISTS idx_media_report_stream_active_tenant_node_protocol
+    ON media_report_stream ("tenant_id", "node_id", "protocol_type")
+    WHERE "close_time" IS NULL;
+
 COMMENT ON TABLE media_report_stream IS '媒体看板流表，保存流列表和协议摘要的最新上报投影';
 COMMENT ON COLUMN media_report_stream."stream_id" IS '流业务标识，不依赖流配置外键';
 COMMENT ON COLUMN media_report_stream."source_type" IS '来源类型，例如节点或实例';

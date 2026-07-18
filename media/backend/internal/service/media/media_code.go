@@ -213,6 +213,10 @@ var (
 	CodeMediaTenantStreamLimitExceeded = bizerr.MustDefine("MEDIA_TENANT_STREAM_LIMIT_EXCEEDED", "租户在该节点的流数量已达到限制", gcode.CodeInvalidOperation)
 	// CodeMediaDashboardStreamRequired reports that dashboard session query is missing stream ID.
 	CodeMediaDashboardStreamRequired = bizerr.MustDefine("MEDIA_DASHBOARD_STREAM_REQUIRED", "流ID不能为空", gcode.CodeInvalidParameter)
+	// CodeMediaDashboardTenantRequired reports that a dashboard topology query is missing tenant ID.
+	CodeMediaDashboardTenantRequired = bizerr.MustDefine("MEDIA_DASHBOARD_TENANT_REQUIRED", "Tenant ID is required", gcode.CodeInvalidParameter)
+	// CodeMediaDashboardTenantTooLong reports that a dashboard topology tenant ID exceeds its storage width.
+	CodeMediaDashboardTenantTooLong = bizerr.MustDefine("MEDIA_DASHBOARD_TENANT_TOO_LONG", "Tenant ID must not exceed 64 characters", gcode.CodeInvalidParameter)
 	// CodeMediaDashboardQueryFailed reports that dashboard projection query failed.
 	CodeMediaDashboardQueryFailed = bizerr.MustDefine("MEDIA_DASHBOARD_QUERY_FAILED", "查询媒体数据看板失败", gcode.CodeInternalError)
 )

@@ -194,6 +194,60 @@ func dashboardTopologyUsersToDTO(items []*mediasvc.DashboardTopologyUser) []*v1.
 	return list
 }
 
+func dashboardTenantTopologyToDTO(item *mediasvc.DashboardTenantTopologyOutput) *v1.GetDashboardTenantTopologyRes {
+	if item == nil {
+		return &v1.GetDashboardTenantTopologyRes{
+			Protocols: []*v1.DashboardTenantTopologyProtocol{},
+			Nodes:     []*v1.DashboardTenantTopologyNode{},
+		}
+	}
+	return &v1.GetDashboardTenantTopologyRes{
+		TenantId:           item.TenantId,
+		ConcurrentSessions: item.ConcurrentSessions,
+		LiveStreamCount:    item.LiveStreamCount,
+		ProtocolCount:      item.ProtocolCount,
+		Protocols:          dashboardTenantTopologyProtocolsToDTO(item.Protocols),
+		NodeCount:          item.NodeCount,
+		NodeDetailLimited:  item.NodeDetailLimited,
+		GeneratedAt:        item.GeneratedAt,
+		Nodes:              dashboardTenantTopologyNodesToDTO(item.Nodes),
+	}
+}
+
+func dashboardTenantTopologyProtocolsToDTO(items []*mediasvc.DashboardTenantTopologyProtocol) []*v1.DashboardTenantTopologyProtocol {
+	list := make([]*v1.DashboardTenantTopologyProtocol, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			list = append(list, &v1.DashboardTenantTopologyProtocol{})
+			continue
+		}
+		list = append(list, &v1.DashboardTenantTopologyProtocol{
+			ProtocolType:    item.ProtocolType,
+			LiveStreamCount: item.LiveStreamCount,
+		})
+	}
+	return list
+}
+
+func dashboardTenantTopologyNodesToDTO(items []*mediasvc.DashboardTenantTopologyNode) []*v1.DashboardTenantTopologyNode {
+	list := make([]*v1.DashboardTenantTopologyNode, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			list = append(list, &v1.DashboardTenantTopologyNode{Protocols: []*v1.DashboardTenantTopologyProtocol{}})
+			continue
+		}
+		list = append(list, &v1.DashboardTenantTopologyNode{
+			NodeId:             item.NodeId,
+			NodeName:           item.NodeName,
+			ConcurrentSessions: item.ConcurrentSessions,
+			LiveStreamCount:    item.LiveStreamCount,
+			ProtocolCount:      item.ProtocolCount,
+			Protocols:          dashboardTenantTopologyProtocolsToDTO(item.Protocols),
+		})
+	}
+	return list
+}
+
 func dashboardInstanceListToDTO(items []*mediasvc.DashboardInstanceItem) []*v1.DashboardInstanceItem {
 	list := make([]*v1.DashboardInstanceItem, 0, len(items))
 	for _, item := range items {

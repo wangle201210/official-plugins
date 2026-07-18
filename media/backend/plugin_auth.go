@@ -213,6 +213,7 @@ func mediaBindTietaContext(r *ghttp.Request, user *mediasvc.TietaUser) {
 		TenantID: 0,
 	}
 	ctx := bizctxcap.WithCurrentContext(r.Context(), current)
+	ctx = mediasvc.WithDashboardTietaTenantContext(ctx, user.TenantId)
 	ctx = context.WithValue(ctx, mediaTietaCurrentContextKey{}, bizctxcap.CurrentFromContext(ctx))
 	r.SetCtx(ctx)
 	r.SetCtxVar(mediaTietaAuthenticatedKey, true)
