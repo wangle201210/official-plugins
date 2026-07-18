@@ -242,6 +242,102 @@ func TestDashboardListQueriesUseFixedUpperBound(t *testing.T) {
 	}
 }
 
+// TestDashboardTopologyAggregatesGatewayPage verifies topology data is assembled by bounded batch queries.
+func TestDashboardTopologyAggregatesGatewayPage(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	insertDashboardReportFixtures(t, ctx)
+
+	svc := newTestMediaService(t)
+	topology, err := svc.GetDashboardTopology(ctx, DashboardTopologyInput{
+		DeviceId: " device-a ",
+	})
+	if err != nil {
+		t.Fatalf("get dashboard topology: %v", err)
+	}
+	if topology.NodeId != "node-a" || topology.NodeName != "Node A" {
+		t.Fatalf("expected node-a topology header, got %#v", topology)
+	}
+	if topology.DeviceId != "device-a" {
+		t.Fatalf("expected normalized device id, got %#v", topology.DeviceId)
+	}
+	if topology.StreamCount != 1 || topology.SessionCount != 3 || topology.SessionDetailLimited {
+		t.Fatalf("expected one active stream and three active sessions, got %#v", topology)
+	}
+	if topology.GeneratedAt <= 0 {
+		t.Fatalf("expected response generation time, got %#v", topology)
+	}
+	if len(topology.Devices) != 1 || topology.Devices[0].DeviceId != "device-a" {
+		t.Fatalf("expected one device subtree, got %#v", topology.Devices)
+	}
+	device := topology.Devices[0]
+	if device.StreamCount != 1 || device.SessionCount != 3 {
+		t.Fatalf("expected device aggregate fields, got %#v", device)
+	}
+	if len(device.Streams) != 1 {
+		t.Fatalf("expected one stream under device-a, got %#v", device.Streams)
+	}
+	stream := device.Streams[0]
+	if stream.StreamId != "stream-a" || stream.StreamName != "Camera A" || stream.Status != "playing" {
+		t.Fatalf("expected stream projection fields, got %#v", stream)
+	}
+	if stream.BasePlatform.Bitrate != 4000 || stream.BasePlatform.Resolution != "1920x1080" ||
+		stream.BasePlatform.StreamProtocol != "HLS" || stream.BasePlatform.DeviceCode != "device-a" ||
+		stream.BasePlatform.SourceUrl != "https://example.test/stream-a.flv" {
+		t.Fatalf("expected base platform stream fields, got %#v", stream.BasePlatform)
+	}
+	if stream.Gateway.StreamProtocol != "HLS" || stream.Gateway.Resolution != "1920x1080" ||
+		stream.Gateway.Bitrate != 4000 || stream.Gateway.Fps != 25 || stream.Gateway.AvgDelay != 40 ||
+		stream.Gateway.NodeId != "node-a" || stream.Gateway.NodeName != "Node A" ||
+		stream.Gateway.InstanceId != "inst-a" || stream.Gateway.InstanceName != "Transcoder A" {
+		t.Fatalf("expected gateway fields, got %#v", stream.Gateway)
+	}
+	if len(stream.Protocols) != 2 {
+		t.Fatalf("expected HLS and RTMP protocols, got %#v", stream.Protocols)
+	}
+	assertDashboardTopologyProtocol(t, stream.Protocols[0], "HLS", 2, "tenant-a", 2, "session-a", "session-b")
+	assertDashboardTopologyProtocol(t, stream.Protocols[1], "RTMP", 1, "tenant-a", 1, "session-c")
+	user := stream.Protocols[0].Tenants[0].Users[0]
+	if user.SessionId != "session-a" || user.UserName != "viewer-a" || user.ClientId != "client-a" ||
+		user.ClientIp != "192.0.2.11" || user.ClientType != int(SessionClientTypePC) ||
+		user.ProtocolType != "HLS" || user.TenantId != "tenant-a" || user.NodeId != "node-a" ||
+		user.InstanceId != "inst-a" || user.StartTime == nil || user.PlayDuration < 1200 {
+		t.Fatalf("expected user fields from the session projection, got %#v", user)
+	}
+
+	empty, err := svc.GetDashboardTopology(ctx, DashboardTopologyInput{DeviceId: "missing-device"})
+	if err != nil {
+		t.Fatalf("get empty topology: %v", err)
+	}
+	if len(empty.Devices) != 0 || empty.StreamCount != 0 || empty.SessionCount != 0 {
+		t.Fatalf("expected empty topology for missing device, got %#v", empty)
+	}
+
+	impl, ok := svc.(*serviceImpl)
+	if !ok {
+		t.Fatalf("expected *serviceImpl test service, got %T", svc)
+	}
+	fallbackNode, err := impl.dashboardTopologyNodeInfo(ctx, []*dashboardStreamEntity{{NodeId: "node-missing"}})
+	if err != nil {
+		t.Fatalf("resolve topology fallback node: %v", err)
+	}
+	if fallbackNode == nil || fallbackNode.NodeId != "node-missing" || fallbackNode.NodeName != "" {
+		t.Fatalf("expected node id fallback when node name is missing, got %#v", fallbackNode)
+	}
+}
+
+// TestDashboardTopologyRejectsMissingDeviceID verifies the page entry is a required single device ID.
+func TestDashboardTopologyRejectsMissingDeviceID(t *testing.T) {
+	ctx := context.Background()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+
+	if _, err := newTestMediaService(t).GetDashboardTopology(ctx, DashboardTopologyInput{}); err == nil {
+		t.Fatal("expected missing device id to be rejected")
+	}
+}
+
 // TestBuildDashboardStreamItemUsesActiveSessionCounts verifies stream counters are recalculated.
 func TestBuildDashboardStreamItemUsesActiveSessionCounts(t *testing.T) {
 	item := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
@@ -953,7 +1049,53 @@ func assertDashboardProtocolGroup(t *testing.T, protocol *DashboardSessionProtoc
 	}
 }
 
+func assertDashboardTopologyProtocol(
+	t *testing.T,
+	protocol *DashboardTopologyProtocol,
+	protocolType string,
+	reuseCount int,
+	tenantID string,
+	concurrentSessions int,
+	sessionIDs ...string,
+) {
+	t.Helper()
+
+	if protocol == nil {
+		t.Fatalf("expected topology protocol %s, got nil", protocolType)
+	}
+	if protocol.ProtocolType != protocolType || protocol.ReuseCount != reuseCount {
+		t.Fatalf("expected topology protocol %s reuse %d, got %#v", protocolType, reuseCount, protocol)
+	}
+	if len(protocol.Tenants) != 1 {
+		t.Fatalf("expected one tenant under protocol %s, got %#v", protocolType, protocol.Tenants)
+	}
+	tenant := protocol.Tenants[0]
+	if tenant.TenantId != tenantID || tenant.ConcurrentSessions != concurrentSessions {
+		t.Fatalf("expected tenant %s sessions %d, got %#v", tenantID, concurrentSessions, tenant)
+	}
+	if len(tenant.Users) != len(sessionIDs) {
+		t.Fatalf("expected topology users %v, got %#v", sessionIDs, dashboardTopologySessionIDs(tenant.Users))
+	}
+	for i, id := range sessionIDs {
+		if tenant.Users[i].SessionId != id {
+			t.Fatalf("expected topology users %v, got %#v", sessionIDs, dashboardTopologySessionIDs(tenant.Users))
+		}
+	}
+}
+
 func dashboardSessionIDs(items []*DashboardSessionItem) []string {
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			ids = append(ids, "")
+			continue
+		}
+		ids = append(ids, item.SessionId)
+	}
+	return ids
+}
+
+func dashboardTopologySessionIDs(items []*DashboardTopologyUser) []string {
 	ids := make([]string, 0, len(items))
 	for _, item := range items {
 		if item == nil {

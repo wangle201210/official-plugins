@@ -70,6 +70,24 @@ func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 	if sessions.StreamInfo.DeviceId != "device-a" || sessions.ProtocolList[0].ActiveSessionList[0].DeviceId != "device-a" {
 		t.Fatalf("expected session device id projection, got %#v", sessions)
 	}
+
+	topology, err := controller.GetDashboardTopology(ctx, &v1.GetDashboardTopologyReq{DeviceId: "device-a"})
+	if err != nil {
+		t.Fatalf("get dashboard topology: %v", err)
+	}
+	topologyPayload := mustMarshalDashboardControllerShape(t, topology)
+	assertDashboardControllerExactKeys(t, topologyPayload,
+		"node_id", "node_name", "device_id", "stream_count", "session_count",
+		"session_detail_limited", "generated_at", "devices",
+	)
+	assertDashboardControllerMissingKey(t, topologyPayload, "total")
+	if len(topology.Devices) != 1 || len(topology.Devices[0].Streams) != 1 {
+		t.Fatalf("unexpected topology response %#v", topology)
+	}
+	if topology.Devices[0].Streams[0].Gateway.InstanceId != "inst-a" ||
+		topology.Devices[0].Streams[0].Protocols[0].Tenants[0].Users[0].ClientIp != "192.0.2.11" {
+		t.Fatalf("expected topology fields backed by report projections, got %#v", topology.Devices[0].Streams[0])
+	}
 }
 
 type dashboardControllerService struct {
@@ -106,6 +124,49 @@ func (s *dashboardControllerService) ListDashboardInstances(context.Context, med
 		List: []*mediasvc.DashboardInstanceItem{
 			{InstanceId: "inst-a", InstanceName: "Transcoder A", Status: "running", StartTime: &startTime, LiveStreams: 3, Sessions: 8, Version: "v1.0.0"},
 			{InstanceId: "inst-b", InstanceName: "Recorder B", Status: "stopped", StartTime: &startTime, Version: "v1.0.1"},
+		},
+	}, nil
+}
+
+func (s *dashboardControllerService) GetDashboardTopology(context.Context, mediasvc.DashboardTopologyInput) (*mediasvc.DashboardTopologyOutput, error) {
+	startTime := int64(1780000000000)
+	return &mediasvc.DashboardTopologyOutput{
+		NodeId:       "node-a",
+		NodeName:     "Node A",
+		DeviceId:     "device-a",
+		StreamCount:  1,
+		SessionCount: 2,
+		GeneratedAt:  1780000000000,
+		Devices: []*mediasvc.DashboardTopologyDevice{
+			{
+				DeviceId:     "device-a",
+				StreamCount:  1,
+				SessionCount: 2,
+				Streams: []*mediasvc.DashboardTopologyStream{
+					{
+						StreamId:     "stream-a",
+						StreamName:   "Camera A",
+						Status:       "playing",
+						BasePlatform: &mediasvc.DashboardTopologyBasePlatform{Bitrate: 4000, Resolution: "1920x1080", StreamProtocol: "RTSP", DeviceCode: "device-a"},
+						Gateway:      &mediasvc.DashboardTopologyGateway{StreamProtocol: "HLS", Resolution: "1920x1080", Bitrate: 4000, Fps: 25, NodeId: "node-a", InstanceId: "inst-a"},
+						Protocols: []*mediasvc.DashboardTopologyProtocol{
+							{
+								ProtocolType: "HLS",
+								ReuseCount:   2,
+								Tenants: []*mediasvc.DashboardTopologyTenant{
+									{
+										TenantId:           "tenant-a",
+										ConcurrentSessions: 2,
+										Users: []*mediasvc.DashboardTopologyUser{
+											{SessionId: "session-a", UserName: "viewer-a", ClientId: "client-a", ClientIp: "192.0.2.11", ClientType: 2, ProtocolType: "HLS", TenantId: "tenant-a", NodeId: "node-a", InstanceId: "inst-a", StartTime: &startTime, PlayDuration: 60},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}, nil
 }

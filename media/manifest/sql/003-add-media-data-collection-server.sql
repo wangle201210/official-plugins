@@ -236,6 +236,10 @@ CREATE INDEX IF NOT EXISTS idx_media_report_stream_node_instance
 CREATE INDEX IF NOT EXISTS idx_media_report_stream_close_time
     ON media_report_stream ("close_time");
 
+CREATE INDEX IF NOT EXISTS idx_media_report_stream_active_device
+    ON media_report_stream ("device_id", "report_time" DESC, "stream_id")
+    WHERE "close_time" IS NULL;
+
 COMMENT ON TABLE media_report_stream IS '媒体看板流表，保存流列表和协议摘要的最新上报投影';
 COMMENT ON COLUMN media_report_stream."stream_id" IS '流业务标识，不依赖流配置外键';
 COMMENT ON COLUMN media_report_stream."source_type" IS '来源类型，例如节点或实例';
@@ -334,6 +338,17 @@ CREATE INDEX IF NOT EXISTS idx_media_report_session_active_tenant_node
 
 CREATE INDEX IF NOT EXISTS idx_media_report_session_close_time
     ON media_report_session ("close_time");
+
+CREATE INDEX IF NOT EXISTS idx_media_report_session_active_device_stream
+    ON media_report_session (
+        "device_id",
+        "stream_id",
+        "protocol_type",
+        "tenant_id",
+        "report_time" DESC,
+        "session_id"
+    )
+    WHERE "close_time" IS NULL;
 
 COMMENT ON TABLE media_report_session IS '媒体看板会话表，保存会话列表和链路跳点的最新上报投影';
 COMMENT ON COLUMN media_report_session."session_id" IS '会话业务标识';

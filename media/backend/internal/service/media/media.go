@@ -122,6 +122,8 @@ type Service interface {
 	DeleteTenantStreamConfig(ctx context.Context, tenantID string, nodeNum int) (*TenantStreamConfigMutationOutput, error)
 	// GetDashboardNodeOverview returns a bounded dashboard node tree built from latest report projections.
 	GetDashboardNodeOverview(ctx context.Context, in DashboardNodeOverviewInput) (*DashboardNodeOverviewOutput, error)
+	// GetDashboardTopology returns a bounded topology projection for one required device ID; empty device IDs return CodeMediaDeviceIDRequired.
+	GetDashboardTopology(ctx context.Context, in DashboardTopologyInput) (*DashboardTopologyOutput, error)
 	// ListDashboardInstances returns a bounded dashboard instance result set and its node summary.
 	ListDashboardInstances(ctx context.Context, in ListDashboardInstancesInput) (*ListDashboardInstancesOutput, error)
 	// ListDashboardStreams returns a bounded dashboard stream result set.

@@ -4,6 +4,8 @@ package v1
 
 import (
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -47,6 +49,42 @@ func TestDashboardResponseJSONShapeMatchesFrontendData(t *testing.T) {
 		})
 		assertDashboardExactKeys(t, payload, "stream_info", "protocol_list")
 	})
+
+	t.Run("topology match gateway monitor data object", func(t *testing.T) {
+		payload := mustMarshalDashboardShape(t, &GetDashboardTopologyRes{
+			NodeId:   "node-a",
+			DeviceId: "device-a",
+			Devices: []*DashboardTopologyDevice{
+				{
+					DeviceId: "device-a",
+					Streams: []*DashboardTopologyStream{
+						{
+							StreamId:     "stream-a",
+							BasePlatform: &DashboardTopologyBasePlatform{},
+							Gateway:      &DashboardTopologyGateway{},
+							Protocols:    []*DashboardTopologyProtocol{},
+						},
+					},
+				},
+			},
+		})
+		assertDashboardExactKeys(t, payload,
+			"node_id", "node_name", "device_id", "stream_count", "session_count",
+			"session_detail_limited", "generated_at", "devices",
+		)
+		assertDashboardMissingKey(t, payload, "total")
+	})
+
+	t.Run("topology omits fields without report projections", func(t *testing.T) {
+		assertDashboardMissingKey(t, mustMarshalDashboardShape(t, &DashboardTopologyDevice{}), "device_name")
+		assertDashboardMissingKey(t, mustMarshalDashboardShape(t, &DashboardTopologyBasePlatform{}), "device_name")
+		assertDashboardMissingKey(t, mustMarshalDashboardShape(t, &DashboardTopologyGateway{}), "video_code")
+
+		user := mustMarshalDashboardShape(t, &DashboardTopologyUser{})
+		assertDashboardMissingKey(t, user, "server_ip")
+		assertDashboardMissingKey(t, user, "browser")
+		assertDashboardMissingKey(t, user, "operating_system")
+	})
 }
 
 // TestDashboardListRequestsDoNotExposePagination verifies fixed-shape list APIs are unpaged.
@@ -57,6 +95,27 @@ func TestDashboardListRequestsDoNotExposePagination(t *testing.T) {
 	assertDashboardRequestMissingJSONField(t, ListDashboardStreamsReq{}, "pageSize")
 	assertDashboardRequestMissingJSONField(t, ListDashboardSessionsReq{}, "pageNum")
 	assertDashboardRequestMissingJSONField(t, ListDashboardSessionsReq{}, "pageSize")
+	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "pageNum")
+	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "pageSize")
+	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "nodeId")
+	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "deviceIds")
+	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "tenantId")
+	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "protocolType")
+	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "status")
+}
+
+// TestDashboardTopologyRequestContract verifies the topology entry accepts one required device ID.
+func TestDashboardTopologyRequestContract(t *testing.T) {
+	payload := mustMarshalDashboardShape(t, GetDashboardTopologyReq{DeviceId: "device-a"})
+	assertDashboardExactKeys(t, payload, "deviceId")
+
+	field, ok := reflect.TypeOf(GetDashboardTopologyReq{}).FieldByName("DeviceId")
+	if !ok {
+		t.Fatal("expected topology request device ID field")
+	}
+	if validation := field.Tag.Get("v"); !strings.Contains(validation, "required") {
+		t.Fatalf("expected topology device ID required validation, got %q", validation)
+	}
 }
 
 func mustMarshalDashboardShape(t *testing.T, value any) map[string]any {
