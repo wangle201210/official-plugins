@@ -212,6 +212,7 @@ func TestNormalizeStreamMetricBuildsStreamReport(t *testing.T) {
 		Height:                1080,
 		StreamPath:            "rtmp://example/live/stream-a",
 		StreamAlias:           "camera-a",
+		Extra:                 map[string]string{"device_id": "device-a"},
 		TenantId:              "tenant-a",
 		NodeName:              "node-a-name",
 		InstanceId:            "instance-a",
@@ -231,7 +232,8 @@ func TestNormalizeStreamMetricBuildsStreamReport(t *testing.T) {
 	if report.streamID != "stream-a" || report.nodeID != "node-a" || report.instanceID != "instance-a" {
 		t.Fatalf("unexpected stream keys: %#v", report)
 	}
-	if report.sourceType != reportSourceTypeInstance || report.tenantID != "tenant-a" || report.instanceName != "media-server-a" {
+	if report.sourceType != reportSourceTypeInstance || report.tenantID != "tenant-a" || report.deviceID != "device-a" ||
+		report.instanceName != "media-server-a" {
 		t.Fatalf("unexpected stream ownership: %#v", report)
 	}
 	if report.status != reportStreamStatusRunning {
@@ -287,6 +289,7 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 		StreamId:       "stream-a",
 		StreamName:     "camera-a",
 		TenantId:       "tenant-a",
+		Extra:          map[string]string{"deviceId": "device-a"},
 		ClientId:       "client-a",
 		ClientIp:       "192.0.2.10",
 		ClientType:     "mobile",
@@ -317,7 +320,8 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 	if !ok {
 		t.Fatal("expected session metric to normalize")
 	}
-	if report.sessionID != "session-a" || report.tenantID != "tenant-a" || report.protocolType != "HLS" {
+	if report.sessionID != "session-a" || report.tenantID != "tenant-a" || report.deviceID != "device-a" ||
+		report.protocolType != "HLS" {
 		t.Fatalf("unexpected session fields: %#v", report)
 	}
 	if report.clientType != sessionClientTypeMobile {

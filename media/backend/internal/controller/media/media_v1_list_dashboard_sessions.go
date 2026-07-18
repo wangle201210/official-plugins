@@ -12,6 +12,7 @@ func (c *ControllerV1) ListDashboardSessions(ctx context.Context, req *v1.ListDa
 	out, err := c.mediaSvc.ListDashboardSessions(ctx, mediasvc.ListDashboardSessionsInput{
 		StreamId:     req.StreamId,
 		TenantId:     req.TenantId,
+		DeviceId:     req.DeviceId,
 		ProtocolType: req.ProtocolType,
 		NodeId:       req.NodeId,
 		InstanceId:   req.InstanceId,

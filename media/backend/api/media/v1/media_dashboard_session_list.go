@@ -9,10 +9,11 @@ type ListDashboardSessionsReq struct {
 	g.Meta       `path:"/media/dashboard/sessions" method:"get" tags:"媒体数据看板" summary:"查询会话列表" dc:"查询媒体数据看板会话列表，按流和可选维度组装协议分组；最多返回10000条会话明细。" permission:"media:management:query"`
 	StreamId     string `json:"streamId" v:"required#流ID不能为空" dc:"按流ID查询会话" eg:"stream12345"`
 	TenantId     string `json:"tenantId" dc:"按租户ID筛选" eg:"tenant-a"`
+	DeviceId     string `json:"deviceId" dc:"按设备国标ID筛选" eg:"34020000001320000001"`
 	ProtocolType string `json:"protocolType" dc:"按协议类型筛选，例如RTMP、HLS、FLV、DASH" eg:"RTMP"`
 	NodeId       string `json:"nodeId" dc:"按节点ID筛选" eg:"node-01"`
 	InstanceId   string `json:"instanceId" dc:"按实例ID筛选" eg:"inst-001"`
-	Keyword      string `json:"keyword" dc:"按会话ID、客户端ID、客户端IP、用户名或协议类型模糊筛选" eg:"sess"`
+	Keyword      string `json:"keyword" dc:"按会话ID、设备ID、客户端ID、客户端IP、用户名或协议类型模糊筛选" eg:"sess"`
 }
 
 // ListDashboardSessionsRes defines the dashboard session-list response.
@@ -25,6 +26,7 @@ type ListDashboardSessionsRes struct {
 type DashboardSessionStreamInfo struct {
 	StreamId   string `json:"stream_id" dc:"流唯一标识" eg:"stream12345"`
 	StreamName string `json:"stream_name" dc:"流名称" eg:"XX摄像头流"`
+	DeviceId   string `json:"device_id" dc:"设备国标ID" eg:"34020000001320000001"`
 }
 
 // DashboardSessionProtocol defines one protocol group and its active sessions.
@@ -38,6 +40,7 @@ type DashboardSessionProtocol struct {
 // DashboardSessionItem defines one dashboard session row.
 type DashboardSessionItem struct {
 	SessionId         string                  `json:"session_id" dc:"全局唯一会话ID" eg:"sess-9f3a1c8e"`
+	DeviceId          string                  `json:"device_id" dc:"设备国标ID" eg:"34020000001320000001"`
 	ClientId          string                  `json:"client_id" dc:"客户端身份" eg:"user-88721"`
 	ClientIp          string                  `json:"client_ip" dc:"客户端IP" eg:"1.202.33.41"`
 	ClientType        int                     `json:"client_type" dc:"客户端类型枚举：1-mobile，2-pc，0-未知" eg:"1"`

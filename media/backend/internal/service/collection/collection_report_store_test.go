@@ -32,8 +32,10 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		streamID   = "collection-test-stream"
 		sessionID  = "collection-test-session"
 		tenantID   = "collection-test-tenant"
+		deviceID   = "collection-test-device"
 		reportTime = int64(1_780_000_000)
 	)
+	reportExtra := map[string]string{"device_id": deviceID}
 	cleanupCollectionReportRows(t, ctx, nodeID, instanceID, streamID, sessionID)
 	t.Cleanup(func() {
 		cleanupCollectionReportRows(t, ctx, nodeID, instanceID, streamID, sessionID)
@@ -117,6 +119,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		TotalSessionsLifetime: 10,
 		WatermarkEnabled:      true,
 		StreamPath:            "https://example.test/hls/stream.m3u8",
+		Extra:                 reportExtra,
 		Timestamp:             reportTime,
 	}); err != nil {
 		t.Fatalf("handle stream metric: %v", err)
@@ -144,6 +147,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		InstanceName:     "media-server-a",
 		LinkHops:         []*gen.LinkHop{{HopId: "hop-a", NodeId: nodeID, NodeName: "edge-a", Latency: 12}},
 		TotalLinkLatency: 12,
+		Extra:            reportExtra,
 		Timestamp:        reportTime,
 	}); err != nil {
 		t.Fatalf("handle session metric: %v", err)
@@ -184,7 +188,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if stream == nil {
 		t.Fatal("expected stream report row")
 	}
-	if stream.TenantId != tenantID || stream.NodeId != nodeID || stream.InstanceId != instanceID ||
+	if stream.TenantId != tenantID || stream.DeviceId != deviceID || stream.NodeId != nodeID || stream.InstanceId != instanceID ||
 		stream.ProtocolType != "HLS" || stream.Resolution != "1280x720" || stream.Status != string(reportStreamStatusRunning) {
 		t.Fatalf("unexpected stream projection: %#v", stream)
 	}
@@ -200,7 +204,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if session == nil {
 		t.Fatal("expected session report row")
 	}
-	if session.StreamId != streamID || session.TenantId != tenantID || session.InstanceId != instanceID ||
+	if session.StreamId != streamID || session.TenantId != tenantID || session.DeviceId != deviceID || session.InstanceId != instanceID ||
 		session.ProtocolType != "HLS" || session.ClientType != int(sessionClientTypePC) || session.TotalLinkLatency != 12 {
 		t.Fatalf("unexpected session projection: %#v", session)
 	}

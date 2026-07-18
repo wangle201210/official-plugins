@@ -32,7 +32,8 @@ func runServer(ctx context.Context, cfg *Config, cacheSvc cachecap.Service) erro
 		return gerror.New("media collection server requires host cache service")
 	}
 
-	listener, err := net.Listen("tcp", cfg.Addr)
+	var listenConfig net.ListenConfig
+	listener, err := listenConfig.Listen(ctx, "tcp", cfg.Addr)
 	if err != nil {
 		return gerror.Wrap(err, "listen media collection server failed")
 	}

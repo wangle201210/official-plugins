@@ -15,25 +15,36 @@ import (
 
 // eventHandler accepts media collection packets from net-flux clients.
 type eventHandler struct {
-	ctx       context.Context   // ctx carries the host startup context for project logging.
-	discovery *discoveryRuntime // discovery handles optional Nacos-backed service discovery.
-	reports   reportWriter      // reports handles dashboard read-model writes for metric packets.
+	contextProvider func() context.Context // contextProvider returns the host startup context for logs and writes.
+	discovery       *discoveryRuntime      // discovery handles optional Nacos-backed service discovery.
+	reports         reportWriter           // reports handles dashboard read-model writes for metric packets.
 }
 
 // newEventHandler creates one collection server event handler.
 func newEventHandler(ctx context.Context, discovery *discoveryRuntime, reports reportWriter) network.EventHandler {
-	return &eventHandler{ctx: ctx, discovery: discovery, reports: reports}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return &eventHandler{contextProvider: func() context.Context { return ctx }, discovery: discovery, reports: reports}
+}
+
+// context returns the current callback context used for logs and report writes.
+func (h *eventHandler) context() context.Context {
+	if h == nil || h.contextProvider == nil {
+		return context.Background()
+	}
+	return h.contextProvider()
 }
 
 // OnConnect records accepted TCP clients.
 func (h *eventHandler) OnConnect(conn network.TCPConn) error {
-	logger.Infof(h.ctx, "media collection client connected remote=%s", conn.RemoteAddr().String())
+	logger.Infof(h.context(), "media collection client connected remote=%s", conn.RemoteAddr().String())
 	return nil
 }
 
 // OnClose records closed TCP clients.
 func (h *eventHandler) OnClose(conn network.TCPConn) {
-	logger.Infof(h.ctx, "media collection client closed remote=%s", conn.RemoteAddr().String())
+	logger.Infof(h.context(), "media collection client closed remote=%s", conn.RemoteAddr().String())
 }
 
 // OnCmdSystem handles basic system commands such as Ping.
@@ -55,7 +66,7 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 	switch pkt := pkt.(type) {
 	case *gen.Instance:
 		logger.Infof(
-			h.ctx,
+			h.context(),
 			"media collection discovery register instanceName=%s node=%d privateIp=%s privatePort=%d",
 			pkt.GetInstanceName(),
 			pkt.GetNode(),
@@ -65,7 +76,7 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 		return h.discovery.Register(pkt)
 	case *gen.Deregister:
 		logger.Infof(
-			h.ctx,
+			h.context(),
 			"media collection discovery deregister instanceName=%s node=%d ip=%s port=%d",
 			pkt.GetInstanceName(),
 			pkt.GetNode(),
@@ -75,7 +86,7 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 		return h.discovery.Deregister(pkt)
 	case *gen.Lookup:
 		logger.Infof(
-			h.ctx,
+			h.context(),
 			"media collection discovery lookup serviceName=%s node=%d healthy=%v",
 			pkt.GetServiceName(),
 			pkt.GetNode(),
@@ -97,10 +108,11 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 
 // OnCmdDataReport accepts metric reports from net-flux clients.
 func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt proto.Message) error {
+	ctx := h.context()
 	switch pkt := pkt.(type) {
 	case *gen.MachineMetric:
 		logger.Infof(
-			h.ctx,
+			ctx,
 			"media collection instance metric instanceId=%s machineId=%s status=%s cpuUsage=%f memUsed=%d memTotal=%d timestamp=%d",
 			pkt.GetInstanceId(),
 			pkt.GetMachineId(),
@@ -111,11 +123,11 @@ func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt prot
 			pkt.GetTimestamp(),
 		)
 		if h.reports != nil {
-			return h.reports.HandleMachineMetric(h.ctx, pkt)
+			return h.reports.HandleMachineMetric(ctx, pkt)
 		}
 	case *gen.NetworkMetric:
 		logger.Infof(
-			h.ctx,
+			ctx,
 			"media collection network metric machineId=%s sourceIp=%s destinationIp=%s rtt=%d throughput=%d timestamp=%d",
 			pkt.GetMachineId(),
 			pkt.GetSourceIp(),
@@ -125,11 +137,11 @@ func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt prot
 			pkt.GetTimestamp(),
 		)
 		if h.reports != nil {
-			return h.reports.HandleNetworkMetric(h.ctx, pkt)
+			return h.reports.HandleNetworkMetric(ctx, pkt)
 		}
 	case *gen.StreamMetric:
 		logger.Infof(
-			h.ctx,
+			ctx,
 			"media collection stream metric subcmd=%d machineId=%s streamId=%s status=%s protocol=%s bitrate=%d width=%d height=%d timestamp=%d",
 			subcmd,
 			pkt.GetMachineId(),
@@ -142,11 +154,11 @@ func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt prot
 			pkt.GetTimestamp(),
 		)
 		if h.reports != nil {
-			return h.reports.HandleStreamMetric(h.ctx, subcmd, pkt)
+			return h.reports.HandleStreamMetric(ctx, subcmd, pkt)
 		}
 	case *gen.SessionMetric:
 		logger.Infof(
-			h.ctx,
+			ctx,
 			"media collection session metric subcmd=%d sessionId=%s streamId=%s tenantId=%s protocol=%s timestamp=%d",
 			subcmd,
 			pkt.GetSessionId(),
@@ -156,28 +168,28 @@ func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt prot
 			pkt.GetTimestamp(),
 		)
 		if h.reports != nil {
-			return h.reports.HandleSessionMetric(h.ctx, subcmd, pkt)
+			return h.reports.HandleSessionMetric(ctx, subcmd, pkt)
 		}
 	default:
-		logger.Infof(h.ctx, "media collection data report ignored packet=%T", pkt)
+		logger.Infof(ctx, "media collection data report ignored packet=%T", pkt)
 	}
 	return nil
 }
 
 // OnCmdConfig accepts config notifications without applying local state changes.
 func (h *eventHandler) OnCmdConfig(_ network.TCPConn, pkt proto.Message) error {
-	logger.Infof(h.ctx, "media collection config command ignored packet=%T", pkt)
+	logger.Infof(h.context(), "media collection config command ignored packet=%T", pkt)
 	return nil
 }
 
 // OnCmdEvent accepts event notifications without applying local state changes.
 func (h *eventHandler) OnCmdEvent(_ network.TCPConn, pkt proto.Message) error {
-	logger.Infof(h.ctx, "media collection event command ignored packet=%T", pkt)
+	logger.Infof(h.context(), "media collection event command ignored packet=%T", pkt)
 	return nil
 }
 
 // OnCmdControl accepts control commands without applying local state changes.
 func (h *eventHandler) OnCmdControl(_ network.TCPConn, pkt proto.Message) error {
-	logger.Infof(h.ctx, "media collection control command ignored packet=%T", pkt)
+	logger.Infof(h.context(), "media collection control command ignored packet=%T", pkt)
 	return nil
 }

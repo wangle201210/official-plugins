@@ -103,6 +103,7 @@ func dashboardStreamToDTO(item *mediasvc.DashboardStreamItem) *v1.DashboardStrea
 		SourceUrl:             item.SourceUrl,
 		StreamId:              item.StreamId,
 		StreamName:            item.StreamName,
+		DeviceId:              item.DeviceId,
 		Resolution:            item.Resolution,
 		Fps:                   item.Fps,
 		Bitrate:               item.Bitrate,
@@ -142,6 +143,7 @@ func dashboardSessionStreamInfoToDTO(item *mediasvc.DashboardSessionStreamInfo) 
 	return &v1.DashboardSessionStreamInfo{
 		StreamId:   item.StreamId,
 		StreamName: item.StreamName,
+		DeviceId:   item.DeviceId,
 	}
 }
 
@@ -179,6 +181,7 @@ func dashboardSessionToDTO(item *mediasvc.DashboardSessionItem) *v1.DashboardSes
 	}
 	return &v1.DashboardSessionItem{
 		SessionId:         item.SessionId,
+		DeviceId:          item.DeviceId,
 		ClientId:          item.ClientId,
 		ClientIp:          item.ClientIp,
 		ClientType:        item.ClientType,

@@ -25,6 +25,7 @@ type MediaReportSessionColumns struct {
 	StreamId          string // 会话所属流业务标识
 	StreamName        string // 会话所属流展示名称，按上报时间点冗余
 	TenantId          string // 租户标识，用于数据权限过滤和租户统计
+	DeviceId          string // 会话所属设备业务标识，用于设备维度统计
 	ClientId          string // 客户端标识
 	ClientIp          string // 客户端IP地址
 	ClientType        string // 客户端类型枚举：1-mobile，2-pc，0-未知
@@ -32,6 +33,7 @@ type MediaReportSessionColumns struct {
 	ProtocolType      string // 播放协议类型
 	StartTime         string // 会话开始时间
 	PlayDuration      string // 上报端播放持续时间，接口返回时优先通过start_time和close_time动态计算
+	CloseTime         string // 会话关闭时间，未关闭时为空
 	CurrentFps        string // 当前播放帧率
 	CurrentBitrate    string // 当前播放码率，单位Kbps
 	CurrentResolution string // 当前播放分辨率
@@ -43,7 +45,6 @@ type MediaReportSessionColumns struct {
 	TotalLinkLatency  string // 会话链路总延迟，单位毫秒
 	ReportTime        string // 上报端采样时间
 	UpdatedAt         string // 记录更新时间
-	CloseTime         string // 会话关闭时间，未关闭时为空
 }
 
 // mediaReportSessionColumns holds the columns for the table media_report_session.
@@ -52,6 +53,7 @@ var mediaReportSessionColumns = MediaReportSessionColumns{
 	StreamId:          "stream_id",
 	StreamName:        "stream_name",
 	TenantId:          "tenant_id",
+	DeviceId:          "device_id",
 	ClientId:          "client_id",
 	ClientIp:          "client_ip",
 	ClientType:        "client_type",
@@ -59,6 +61,7 @@ var mediaReportSessionColumns = MediaReportSessionColumns{
 	ProtocolType:      "protocol_type",
 	StartTime:         "start_time",
 	PlayDuration:      "play_duration",
+	CloseTime:         "close_time",
 	CurrentFps:        "current_fps",
 	CurrentBitrate:    "current_bitrate",
 	CurrentResolution: "current_resolution",
@@ -70,7 +73,6 @@ var mediaReportSessionColumns = MediaReportSessionColumns{
 	TotalLinkLatency:  "total_link_latency",
 	ReportTime:        "report_time",
 	UpdatedAt:         "updated_at",
-	CloseTime:         "close_time",
 }
 
 // NewMediaReportSessionDao creates and returns a new DAO object for table data access.

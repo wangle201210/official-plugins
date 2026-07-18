@@ -93,6 +93,9 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("list streams: %v", err)
 	}
 	assertDashboardStreamIDs(t, streams.List, "stream-a", "stream-b")
+	if streams.List[0].DeviceId != "device-a" {
+		t.Fatalf("expected stream device id, got %#v", streams.List[0])
+	}
 	if len(streams.List[0].ProtocolSummary) != 2 || streams.List[0].ProtocolSummary[0].ProtocolType != "HLS" {
 		t.Fatalf("expected decoded protocol summary, got %#v", streams.List[0].ProtocolSummary)
 	}
@@ -113,6 +116,15 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("list instance streams: %v", err)
 	}
 	assertDashboardStreamIDs(t, instanceStreams.List, "stream-c")
+
+	deviceStreams, err := svc.ListDashboardStreams(ctx, ListDashboardStreamsInput{
+		TenantId: "tenant-a",
+		DeviceId: "device-a",
+	})
+	if err != nil {
+		t.Fatalf("list device streams: %v", err)
+	}
+	assertDashboardStreamIDs(t, deviceStreams.List, "stream-a", "stream-b")
 
 	pausedStreams, err := svc.ListDashboardStreams(ctx, ListDashboardStreamsInput{
 		Status:  "paused",
@@ -136,6 +148,9 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if sessions.StreamInfo == nil || sessions.StreamInfo.StreamName != "Camera A" {
 		t.Fatalf("expected stream info, got %#v", sessions.StreamInfo)
 	}
+	if sessions.StreamInfo.DeviceId != "device-a" {
+		t.Fatalf("expected stream info device id, got %#v", sessions.StreamInfo)
+	}
 	if len(sessions.Protocols) != 2 {
 		t.Fatalf("expected HLS and RTMP protocol groups, got %#v", sessions.Protocols)
 	}
@@ -154,6 +169,16 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("expected one RTMP group, got %#v", rtmpSessions.Protocols)
 	}
 	assertDashboardProtocolGroup(t, rtmpSessions.Protocols[0], "RTMP", 1, "session-c")
+
+	deviceSessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{
+		StreamId: "stream-a",
+		DeviceId: "device-a",
+	})
+	if err != nil {
+		t.Fatalf("list device sessions: %v", err)
+	}
+	assertDashboardProtocolGroup(t, deviceSessions.Protocols[0], "HLS", 2, "session-a", "session-b")
+	assertDashboardProtocolGroup(t, deviceSessions.Protocols[1], "RTMP", 1, "session-c")
 
 	keywordSessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{
 		StreamId: "stream-a",
@@ -182,6 +207,9 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 
 	if len(sessions.Protocols[0].Sessions[0].LinkHops) != 1 || sessions.Protocols[0].Sessions[0].LinkHops[0].HopIndex != 1 {
 		t.Fatalf("expected decoded link hops, got %#v", sessions.Protocols[0].Sessions[0].LinkHops)
+	}
+	if sessions.Protocols[0].Sessions[0].DeviceId != "device-a" {
+		t.Fatalf("expected session device id, got %#v", sessions.Protocols[0].Sessions[0])
 	}
 	if sessions.Protocols[0].Sessions[0].PlayDuration < 1200 ||
 		sessions.Protocols[0].Sessions[0].PlayDuration > 1230 ||
@@ -414,6 +442,7 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			stream_id TEXT PRIMARY KEY,
 			source_type TEXT NOT NULL DEFAULT '',
 			tenant_id TEXT NOT NULL DEFAULT '',
+			device_id TEXT NOT NULL DEFAULT '',
 			node_id TEXT NOT NULL DEFAULT '',
 			node_name TEXT NOT NULL DEFAULT '',
 			instance_id TEXT NOT NULL DEFAULT '',
@@ -443,6 +472,7 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			stream_id TEXT NOT NULL DEFAULT '',
 			stream_name TEXT NOT NULL DEFAULT '',
 			tenant_id TEXT NOT NULL DEFAULT '',
+			device_id TEXT NOT NULL DEFAULT '',
 			client_id TEXT NOT NULL DEFAULT '',
 			client_ip TEXT,
 			client_type INTEGER NOT NULL DEFAULT 0,
@@ -582,6 +612,7 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 			StreamId:              "stream-a",
 			SourceType:            "node",
 			TenantId:              "tenant-a",
+			DeviceId:              "device-a",
 			NodeId:                "node-a",
 			NodeName:              "Node A",
 			InstanceId:            "inst-a",
@@ -608,6 +639,7 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 			StreamId:              "stream-b",
 			SourceType:            "node",
 			TenantId:              "tenant-a",
+			DeviceId:              "device-a",
 			NodeId:                "node-a",
 			NodeName:              "Node A",
 			InstanceId:            "inst-b",
@@ -635,6 +667,7 @@ func insertDashboardReportFixtures(t *testing.T, ctx context.Context) {
 			StreamId:              "stream-c",
 			SourceType:            "instance",
 			TenantId:              "tenant-b",
+			DeviceId:              "device-c",
 			NodeId:                "node-b",
 			NodeName:              "Node B",
 			InstanceId:            "inst-c",
@@ -808,6 +841,7 @@ func dashboardSessionDO(
 		StreamId:          streamID,
 		StreamName:        streamName,
 		TenantId:          tenantID,
+		DeviceId:          dashboardTestDeviceID(streamID),
 		ClientId:          clientID,
 		ClientIp:          dashboardTestSessionIP(sessionID),
 		ClientType:        int(SessionClientTypePC),
@@ -825,6 +859,15 @@ func dashboardSessionDO(
 		LinkHops:          `[{"hop_index":1,"node_id":"node-a","latency_ms":12}]`,
 		TotalLinkLatency:  999,
 		ReportTime:        reportTime,
+	}
+}
+
+func dashboardTestDeviceID(streamID string) string {
+	switch streamID {
+	case "stream-c":
+		return "device-c"
+	default:
+		return "device-a"
 	}
 }
 

@@ -53,6 +53,9 @@ func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 	if len(streams.StreamList) != 2 || len(streams.StreamList[0].ProtocolSummary) != 2 {
 		t.Fatalf("unexpected stream response %#v", streams)
 	}
+	if streams.StreamList[0].DeviceId != "device-a" {
+		t.Fatalf("expected stream device id, got %#v", streams.StreamList[0])
+	}
 
 	sessions, err := controller.ListDashboardSessions(ctx, &v1.ListDashboardSessionsReq{StreamId: "stream-a"})
 	if err != nil {
@@ -63,6 +66,9 @@ func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 	assertDashboardControllerMissingKey(t, sessionPayload, "total")
 	if len(sessions.ProtocolList) != 2 || len(sessions.ProtocolList[0].ActiveSessionList) != 2 {
 		t.Fatalf("unexpected session response %#v", sessions)
+	}
+	if sessions.StreamInfo.DeviceId != "device-a" || sessions.ProtocolList[0].ActiveSessionList[0].DeviceId != "device-a" {
+		t.Fatalf("expected session device id projection, got %#v", sessions)
 	}
 }
 
@@ -113,6 +119,7 @@ func (s *dashboardControllerService) ListDashboardStreams(context.Context, media
 			{
 				StreamId:              "stream-a",
 				StreamName:            "Camera A",
+				DeviceId:              "device-a",
 				SourceUrl:             "https://example.test/a.flv",
 				Status:                "playing",
 				StartTime:             &startTime,
@@ -124,7 +131,7 @@ func (s *dashboardControllerService) ListDashboardStreams(context.Context, media
 					{ProtocolType: "RTMP", TotalSessions: 10, CurrentSessions: 1},
 				},
 			},
-			{StreamId: "stream-b", StreamName: "Camera B", Status: "paused", ProtocolSummary: []*mediasvc.DashboardProtocolItem{}},
+			{StreamId: "stream-b", StreamName: "Camera B", DeviceId: "device-b", Status: "paused", ProtocolSummary: []*mediasvc.DashboardProtocolItem{}},
 		},
 	}, nil
 }
@@ -132,15 +139,15 @@ func (s *dashboardControllerService) ListDashboardStreams(context.Context, media
 func (s *dashboardControllerService) ListDashboardSessions(context.Context, mediasvc.ListDashboardSessionsInput) (*mediasvc.ListDashboardSessionsOutput, error) {
 	startTime := int64(1780000000000)
 	return &mediasvc.ListDashboardSessionsOutput{
-		StreamInfo: &mediasvc.DashboardSessionStreamInfo{StreamId: "stream-a", StreamName: "Camera A"},
+		StreamInfo: &mediasvc.DashboardSessionStreamInfo{StreamId: "stream-a", StreamName: "Camera A", DeviceId: "device-a"},
 		Protocols: []*mediasvc.DashboardSessionProtocol{
 			{
 				ProtocolType: "HLS",
 				Status:       "active",
 				SessionCount: 2,
 				Sessions: []*mediasvc.DashboardSessionItem{
-					{SessionId: "session-a", ClientId: "client-a", TenantId: "tenant-a", ProtocolType: "HLS", StartTime: &startTime, LinkHops: []*mediasvc.DashboardLinkHopItem{{HopIndex: 1, NodeId: "node-a", LatencyMs: 12}}},
-					{SessionId: "session-b", ClientId: "client-b", TenantId: "tenant-a", ProtocolType: "HLS", StartTime: &startTime, LinkHops: []*mediasvc.DashboardLinkHopItem{{HopIndex: 1, NodeId: "node-b", LatencyMs: 20}}},
+					{SessionId: "session-a", DeviceId: "device-a", ClientId: "client-a", TenantId: "tenant-a", ProtocolType: "HLS", StartTime: &startTime, LinkHops: []*mediasvc.DashboardLinkHopItem{{HopIndex: 1, NodeId: "node-a", LatencyMs: 12}}},
+					{SessionId: "session-b", DeviceId: "device-a", ClientId: "client-b", TenantId: "tenant-a", ProtocolType: "HLS", StartTime: &startTime, LinkHops: []*mediasvc.DashboardLinkHopItem{{HopIndex: 1, NodeId: "node-b", LatencyMs: 20}}},
 				},
 			},
 			{ProtocolType: "RTMP", Status: "active", SessionCount: 1, Sessions: []*mediasvc.DashboardSessionItem{{SessionId: "session-c", ProtocolType: "RTMP", StartTime: &startTime}}},

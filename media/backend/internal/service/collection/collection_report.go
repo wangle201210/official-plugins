@@ -77,6 +77,7 @@ type streamReport struct {
 	streamID              string
 	sourceType            reportSourceType
 	tenantID              string
+	deviceID              string
 	nodeID                string
 	nodeName              string
 	instanceID            string
@@ -90,7 +91,6 @@ type streamReport struct {
 	packetLoss            float64
 	status                reportStreamStatus
 	startTime             *gtime.Time
-	closeTime             *gtime.Time
 	duration              int32
 	avgDelay              int32
 	protocolCount         int
@@ -130,13 +130,13 @@ type sessionReport struct {
 	streamID          string
 	streamName        string
 	tenantID          string
+	deviceID          string
 	clientID          string
 	clientIP          string
 	clientType        sessionClientType
 	userName          string
 	protocolType      string
 	startTime         *gtime.Time
-	closeTime         *gtime.Time
 	playDuration      int32
 	currentFPS        float64
 	currentBitrate    int32
@@ -338,6 +338,7 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 		streamID:              streamID,
 		sourceType:            sourceType,
 		tenantID:              strings.TrimSpace(metric.GetTenantId()),
+		deviceID:              normalizeReportDeviceID(metric.GetExtra()),
 		nodeID:                nodeID,
 		nodeName:              firstNonBlank(metric.GetNodeName(), metric.GetExtra()["node_name"]),
 		instanceID:            instanceID,
@@ -390,6 +391,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		streamID:          strings.TrimSpace(metric.GetStreamId()),
 		streamName:        streamName,
 		tenantID:          strings.TrimSpace(metric.GetTenantId()),
+		deviceID:          normalizeReportDeviceID(metric.GetExtra()),
 		clientID:          strings.TrimSpace(metric.GetClientId()),
 		clientIP:          strings.TrimSpace(metric.GetClientIp()),
 		clientType:        normalizeSessionClientType(metric.GetClientType()),
@@ -408,6 +410,14 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		totalLinkLatency:  totalLinkLatency,
 		reportTime:        reportTime,
 	}, true
+}
+
+// normalizeReportDeviceID returns the explicit device dimension carried by report extra metadata.
+func normalizeReportDeviceID(extra map[string]string) string {
+	if len(extra) == 0 {
+		return ""
+	}
+	return firstNonBlank(extra["device_id"], extra["deviceId"])
 }
 
 // normalizeSessionClientType maps the protocol text field to the stored numeric enum.

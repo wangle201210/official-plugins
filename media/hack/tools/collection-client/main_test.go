@@ -49,7 +49,8 @@ func TestNormalizeConfigFillsReportDefaults(t *testing.T) {
 	if cfg.instanceID != "media-test" || cfg.nodeID != "node-2" {
 		t.Fatalf("unexpected derived instance/node ids: %#v", cfg)
 	}
-	if cfg.streamID != "stream-media-test" || cfg.sessionID != "session-media-test" {
+	if cfg.streamID != "stream-media-test" || cfg.sessionID != "session-media-test" ||
+		cfg.deviceID != "device-media-test" {
 		t.Fatalf("unexpected derived report ids: %#v", cfg)
 	}
 	if cfg.streamPath != "rtmp://127.0.0.1/live/stream-media-test" {

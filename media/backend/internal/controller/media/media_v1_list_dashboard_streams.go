@@ -13,6 +13,7 @@ func (c *ControllerV1) ListDashboardStreams(ctx context.Context, req *v1.ListDas
 		SourceType: req.SourceType,
 		SourceId:   req.SourceId,
 		TenantId:   req.TenantId,
+		DeviceId:   req.DeviceId,
 		NodeId:     req.NodeId,
 		InstanceId: req.InstanceId,
 		Status:     req.Status,

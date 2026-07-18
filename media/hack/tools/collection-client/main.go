@@ -53,6 +53,7 @@ type clientConfig struct {
 	ephemeral   bool          // ephemeral is sent in the net-flux instance packet.
 	extra       string        // extra is comma-separated key=value metadata.
 	tenantID    string        // tenantID is written into stream and session report packets.
+	deviceID    string        // deviceID is written into stream and session report metadata.
 	nodeID      string        // nodeID is written into report packets.
 	nodeName    string        // nodeName is written into report packets.
 	region      string        // region is written into machine report packets.
@@ -112,6 +113,7 @@ func parseFlags() clientConfig {
 	flag.BoolVar(&cfg.ephemeral, "ephemeral", false, "instance ephemeral flag; server-side Nacos registration stays persistent")
 	flag.StringVar(&cfg.extra, "extra", "", "extra metadata, comma-separated key=value pairs")
 	flag.StringVar(&cfg.tenantID, "tenant-id", "tenant-demo", "tenant id used by report packets")
+	flag.StringVar(&cfg.deviceID, "device-id", "", "device id used by stream and session reports; defaults to device-<instance-id>")
 	flag.StringVar(&cfg.nodeID, "node-id", "", "media node id used by report packets; defaults to node-<node>")
 	flag.StringVar(&cfg.nodeName, "node-name", "", "media node name used by report packets; defaults to -node-id")
 	flag.StringVar(&cfg.region, "region", "local", "media node region used by machine reports")
@@ -232,6 +234,7 @@ func normalizeConfig(cfg clientConfig) (clientConfig, error) {
 	cfg.publicIP = strings.TrimSpace(cfg.publicIP)
 	cfg.innerIP = strings.TrimSpace(cfg.innerIP)
 	cfg.tenantID = strings.TrimSpace(cfg.tenantID)
+	cfg.deviceID = strings.TrimSpace(cfg.deviceID)
 	cfg.nodeID = strings.TrimSpace(cfg.nodeID)
 	cfg.nodeName = strings.TrimSpace(cfg.nodeName)
 	cfg.region = strings.TrimSpace(cfg.region)
@@ -259,6 +262,9 @@ func normalizeConfig(cfg clientConfig) (clientConfig, error) {
 	}
 	if cfg.nodeName == "" {
 		cfg.nodeName = cfg.nodeID
+	}
+	if cfg.deviceID == "" {
+		cfg.deviceID = "device-" + cfg.instanceID
 	}
 	if cfg.streamID == "" {
 		cfg.streamID = "stream-" + cfg.instanceID
@@ -298,6 +304,9 @@ func normalizeConfig(cfg clientConfig) (clientConfig, error) {
 	case actionReport, actionReportClose, actionReportCycle, actionSmoke:
 		if cfg.tenantID == "" {
 			return cfg, errors.New("tenant-id cannot be empty for report actions")
+		}
+		if cfg.deviceID == "" {
+			return cfg, errors.New("device-id cannot be empty for report actions")
 		}
 		if cfg.nodeID == "" {
 			return cfg, errors.New("node-id cannot be empty for report actions")
@@ -412,6 +421,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 	if err != nil {
 		return err
 	}
+	reportExtra := map[string]string{"device_id": cfg.deviceID}
 	if err := writeReportPacket(client, gen.SCMDDataReport_MACHINE_METRIC, &gen.MachineMetric{
 		MachineId:      cfg.instanceID,
 		InstanceId:     cfg.instanceID,
@@ -468,6 +478,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		CurrentActiveSessions: 1,
 		WatermarkEnabled:      true,
 		NodeId:                cfg.nodeID,
+		Extra:                 reportExtra,
 	}); err != nil {
 		return err
 	}
@@ -492,6 +503,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		InstanceName:     cfg.instanceID,
 		TotalLinkLatency: 18,
 		Timestamp:        now,
+		Extra:            reportExtra,
 		LinkHops: []*gen.LinkHop{{
 			HopId:   "hop-" + cfg.nodeID,
 			HopName: cfg.nodeName,
@@ -536,6 +548,7 @@ func sendCloseReports(client *network.TcpClient, cfg clientConfig) error {
 		InstanceName: cfg.instanceID,
 		Timestamp:    now,
 		NodeId:       cfg.nodeID,
+		Extra:        map[string]string{"device_id": cfg.deviceID},
 	}); err != nil {
 		return err
 	}
@@ -552,6 +565,7 @@ func sendCloseReports(client *network.TcpClient, cfg clientConfig) error {
 		InstanceId:   cfg.instanceID,
 		InstanceName: cfg.instanceID,
 		NodeId:       cfg.nodeID,
+		Extra:        map[string]string{"device_id": cfg.deviceID},
 	}); err != nil {
 		return err
 	}

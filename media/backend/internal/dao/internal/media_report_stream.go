@@ -24,11 +24,13 @@ type MediaReportStreamColumns struct {
 	StreamId              string // 流业务标识，不依赖流配置外键
 	SourceType            string // 来源类型，例如节点或实例
 	TenantId              string // 租户标识，用于数据权限过滤和租户统计
+	DeviceId              string // 流所属设备业务标识，用于设备维度统计
 	NodeId                string // 流所属节点业务标识
 	NodeName              string // 流所属节点展示名称，按上报时间点冗余
 	InstanceId            string // 流所属实例业务标识
 	InstanceName          string // 流所属实例展示名称，按上报时间点冗余
 	SourceUrl             string // 流源地址
+	ProtocolType          string // 源流协议类型
 	StreamName            string // 流展示名称
 	Resolution            string // 当前分辨率
 	Fps                   string // 当前帧率
@@ -37,6 +39,7 @@ type MediaReportStreamColumns struct {
 	Status                string // 流运行状态，保存上报原始枚举值
 	StartTime             string // 流开始时间
 	Duration              string // 上报端流持续时间，接口返回时优先通过start_time和close_time动态计算
+	CloseTime             string // 流关闭时间，未关闭时为空
 	AvgDelay              string // 流平均延迟，单位毫秒
 	ProtocolCount         string // 支持的协议数量
 	TotalSessionsLifetime string // 流历史累计会话数量
@@ -45,8 +48,6 @@ type MediaReportStreamColumns struct {
 	ProtocolSummary       string // 协议摘要JSON数组，结构来自接口protocol_summary
 	ReportTime            string // 上报端采样时间
 	UpdatedAt             string // 记录更新时间
-	ProtocolType          string // 源流协议类型
-	CloseTime             string // 流关闭时间，未关闭时为空
 }
 
 // mediaReportStreamColumns holds the columns for the table media_report_stream.
@@ -54,11 +55,13 @@ var mediaReportStreamColumns = MediaReportStreamColumns{
 	StreamId:              "stream_id",
 	SourceType:            "source_type",
 	TenantId:              "tenant_id",
+	DeviceId:              "device_id",
 	NodeId:                "node_id",
 	NodeName:              "node_name",
 	InstanceId:            "instance_id",
 	InstanceName:          "instance_name",
 	SourceUrl:             "source_url",
+	ProtocolType:          "protocol_type",
 	StreamName:            "stream_name",
 	Resolution:            "resolution",
 	Fps:                   "fps",
@@ -67,6 +70,7 @@ var mediaReportStreamColumns = MediaReportStreamColumns{
 	Status:                "status",
 	StartTime:             "start_time",
 	Duration:              "duration",
+	CloseTime:             "close_time",
 	AvgDelay:              "avg_delay",
 	ProtocolCount:         "protocol_count",
 	TotalSessionsLifetime: "total_sessions_lifetime",
@@ -75,8 +79,6 @@ var mediaReportStreamColumns = MediaReportStreamColumns{
 	ProtocolSummary:       "protocol_summary",
 	ReportTime:            "report_time",
 	UpdatedAt:             "updated_at",
-	ProtocolType:          "protocol_type",
-	CloseTime:             "close_time",
 }
 
 // NewMediaReportStreamDao creates and returns a new DAO object for table data access.

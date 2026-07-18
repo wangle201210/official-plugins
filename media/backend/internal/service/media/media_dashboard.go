@@ -110,6 +110,7 @@ type ListDashboardStreamsInput struct {
 	SourceType string
 	SourceId   string
 	TenantId   string
+	DeviceId   string
 	NodeId     string
 	InstanceId string
 	Status     string
@@ -128,6 +129,7 @@ type DashboardStreamItem struct {
 	SourceUrl             string
 	StreamId              string
 	StreamName            string
+	DeviceId              string
 	Resolution            string
 	Fps                   float64
 	Bitrate               int
@@ -159,6 +161,7 @@ type dashboardStreamActiveSessionCounts struct {
 type ListDashboardSessionsInput struct {
 	StreamId     string
 	TenantId     string
+	DeviceId     string
 	ProtocolType string
 	NodeId       string
 	InstanceId   string
@@ -175,6 +178,7 @@ type ListDashboardSessionsOutput struct {
 type DashboardSessionStreamInfo struct {
 	StreamId   string
 	StreamName string
+	DeviceId   string
 }
 
 // DashboardSessionProtocol defines one protocol group and its active sessions.
@@ -188,6 +192,7 @@ type DashboardSessionProtocol struct {
 // DashboardSessionItem defines one dashboard session row.
 type DashboardSessionItem struct {
 	SessionId         string
+	DeviceId          string
 	ClientId          string
 	ClientIp          string
 	ClientType        int
@@ -362,13 +367,15 @@ func (s *serviceImpl) ListDashboardStreams(ctx context.Context, in ListDashboard
 	model = dashboardWhereEq(model, columns.SourceType, in.SourceType)
 	model = dashboardWhereSourceID(model, in.SourceType, in.SourceId)
 	model = dashboardWhereEq(model, columns.TenantId, in.TenantId)
+	model = dashboardWhereEq(model, columns.DeviceId, in.DeviceId)
 	model = dashboardWhereEq(model, columns.NodeId, in.NodeId)
 	model = dashboardWhereEq(model, columns.InstanceId, in.InstanceId)
 	model = dashboardWhereEq(model, columns.Status, in.Status)
 	if keyword := strings.TrimSpace(in.Keyword); keyword != "" {
 		likeKeyword := "%" + keyword + "%"
 		model = model.Where(
-			"("+columns.StreamId+" LIKE ? OR "+columns.StreamName+" LIKE ? OR "+columns.SourceUrl+" LIKE ? OR "+columns.NodeName+" LIKE ? OR "+columns.InstanceName+" LIKE ?)",
+			"("+columns.StreamId+" LIKE ? OR "+columns.StreamName+" LIKE ? OR "+columns.SourceUrl+" LIKE ? OR "+columns.DeviceId+" LIKE ? OR "+columns.NodeName+" LIKE ? OR "+columns.InstanceName+" LIKE ?)",
+			likeKeyword,
 			likeKeyword,
 			likeKeyword,
 			likeKeyword,
@@ -445,6 +452,7 @@ func dashboardSessionModel(ctx context.Context, in ListDashboardSessionsInput) *
 	model := dao.MediaReportSession.Ctx(ctx)
 	model = dashboardWhereEq(model, columns.StreamId, in.StreamId)
 	model = dashboardWhereEq(model, columns.TenantId, in.TenantId)
+	model = dashboardWhereEq(model, columns.DeviceId, in.DeviceId)
 	model = dashboardWhereEq(model, columns.ProtocolType, in.ProtocolType)
 	model = dashboardWhereEq(model, columns.NodeId, in.NodeId)
 	model = dashboardWhereEq(model, columns.InstanceId, in.InstanceId)
@@ -452,7 +460,8 @@ func dashboardSessionModel(ctx context.Context, in ListDashboardSessionsInput) *
 	if keyword := strings.TrimSpace(in.Keyword); keyword != "" {
 		likeKeyword := "%" + keyword + "%"
 		model = model.Where(
-			"("+columns.SessionId+" LIKE ? OR "+columns.ClientId+" LIKE ? OR "+dashboardTextField(columns.ClientIp)+" LIKE ? OR "+columns.UserName+" LIKE ? OR "+columns.ProtocolType+" LIKE ?)",
+			"("+columns.SessionId+" LIKE ? OR "+columns.DeviceId+" LIKE ? OR "+columns.ClientId+" LIKE ? OR "+dashboardTextField(columns.ClientIp)+" LIKE ? OR "+columns.UserName+" LIKE ? OR "+columns.ProtocolType+" LIKE ?)",
+			likeKeyword,
 			likeKeyword,
 			likeKeyword,
 			likeKeyword,
@@ -664,14 +673,6 @@ func buildDashboardInstanceItem(item *dashboardInstanceEntity) *DashboardInstanc
 	}
 }
 
-// buildDashboardStreamItem converts one stream entity to dashboard output.
-func buildDashboardStreamItem(item *dashboardStreamEntity) *DashboardStreamItem {
-	if item == nil {
-		return &DashboardStreamItem{ProtocolSummary: []*DashboardProtocolItem{}}
-	}
-	return buildDashboardStreamItemWithCounts(item, dashboardStreamActiveSessionCounts{})
-}
-
 // buildDashboardStreamItemWithCounts converts one stream entity and active session counts to dashboard output.
 func buildDashboardStreamItemWithCounts(
 	item *dashboardStreamEntity,
@@ -692,6 +693,7 @@ func buildDashboardStreamItemWithCounts(
 		SourceUrl:             item.SourceUrl,
 		StreamId:              item.StreamId,
 		StreamName:            item.StreamName,
+		DeviceId:              item.DeviceId,
 		Resolution:            item.Resolution,
 		Fps:                   item.Fps,
 		Bitrate:               item.Bitrate,
@@ -824,11 +826,11 @@ func buildDashboardSessionStreamInfo(
 	streamID string,
 ) *DashboardSessionStreamInfo {
 	if stream != nil {
-		return &DashboardSessionStreamInfo{StreamId: stream.StreamId, StreamName: stream.StreamName}
+		return &DashboardSessionStreamInfo{StreamId: stream.StreamId, StreamName: stream.StreamName, DeviceId: stream.DeviceId}
 	}
 	for _, session := range sessions {
 		if session != nil && strings.TrimSpace(session.StreamName) != "" {
-			return &DashboardSessionStreamInfo{StreamId: streamID, StreamName: session.StreamName}
+			return &DashboardSessionStreamInfo{StreamId: streamID, StreamName: session.StreamName, DeviceId: session.DeviceId}
 		}
 	}
 	return &DashboardSessionStreamInfo{StreamId: streamID}
@@ -913,6 +915,7 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) *DashboardSessionIt
 	linkHops := decodeDashboardLinkHops(item.LinkHops)
 	return &DashboardSessionItem{
 		SessionId:         item.SessionId,
+		DeviceId:          item.DeviceId,
 		ClientId:          item.ClientId,
 		ClientIp:          item.ClientIp,
 		ClientType:        item.ClientType,

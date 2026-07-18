@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS media_report_stream (
     "stream_id" VARCHAR(128) PRIMARY KEY,
     "source_type" VARCHAR(32) NOT NULL DEFAULT '',
     "tenant_id" VARCHAR(64) NOT NULL DEFAULT '',
+    "device_id" VARCHAR(128) NOT NULL DEFAULT '',
     "node_id" VARCHAR(64) NOT NULL DEFAULT '',
     "node_name" VARCHAR(128) NOT NULL DEFAULT '',
     "instance_id" VARCHAR(128) NOT NULL DEFAULT '',
@@ -213,6 +214,9 @@ ALTER TABLE media_report_stream
     ADD COLUMN IF NOT EXISTS "protocol_type" VARCHAR(32) NOT NULL DEFAULT '';
 
 ALTER TABLE media_report_stream
+    ADD COLUMN IF NOT EXISTS "device_id" VARCHAR(128) NOT NULL DEFAULT '';
+
+ALTER TABLE media_report_stream
     ADD COLUMN IF NOT EXISTS "close_time" TIMESTAMP;
 
 DROP INDEX IF EXISTS idx_media_report_stream_source;
@@ -222,6 +226,9 @@ CREATE INDEX IF NOT EXISTS idx_media_report_stream_source
 
 CREATE INDEX IF NOT EXISTS idx_media_report_stream_tenant
     ON media_report_stream ("tenant_id", "status");
+
+CREATE INDEX IF NOT EXISTS idx_media_report_stream_device
+    ON media_report_stream ("tenant_id", "device_id", "status");
 
 CREATE INDEX IF NOT EXISTS idx_media_report_stream_node_instance
     ON media_report_stream ("node_id", "instance_id");
@@ -233,6 +240,7 @@ COMMENT ON TABLE media_report_stream IS '媒体看板流表，保存流列表和
 COMMENT ON COLUMN media_report_stream."stream_id" IS '流业务标识，不依赖流配置外键';
 COMMENT ON COLUMN media_report_stream."source_type" IS '来源类型，例如节点或实例';
 COMMENT ON COLUMN media_report_stream."tenant_id" IS '租户标识，用于数据权限过滤和租户统计';
+COMMENT ON COLUMN media_report_stream."device_id" IS '流所属设备业务标识，用于设备维度统计';
 COMMENT ON COLUMN media_report_stream."node_id" IS '流所属节点业务标识';
 COMMENT ON COLUMN media_report_stream."node_name" IS '流所属节点展示名称，按上报时间点冗余';
 COMMENT ON COLUMN media_report_stream."instance_id" IS '流所属实例业务标识';
@@ -264,6 +272,7 @@ CREATE TABLE IF NOT EXISTS media_report_session (
     "stream_id" VARCHAR(128) NOT NULL DEFAULT '',
     "stream_name" VARCHAR(255) NOT NULL DEFAULT '',
     "tenant_id" VARCHAR(64) NOT NULL DEFAULT '',
+    "device_id" VARCHAR(128) NOT NULL DEFAULT '',
     "client_id" VARCHAR(128) NOT NULL DEFAULT '',
     "client_ip" INET,
     "client_type" INTEGER NOT NULL DEFAULT 0,
@@ -289,6 +298,9 @@ ALTER TABLE media_report_session
     ADD COLUMN IF NOT EXISTS "close_time" TIMESTAMP;
 
 ALTER TABLE media_report_session
+    ADD COLUMN IF NOT EXISTS "device_id" VARCHAR(128) NOT NULL DEFAULT '';
+
+ALTER TABLE media_report_session
     ALTER COLUMN "client_type" DROP DEFAULT;
 
 ALTER TABLE media_report_session
@@ -310,6 +322,9 @@ CREATE INDEX IF NOT EXISTS idx_media_report_session_stream
 CREATE INDEX IF NOT EXISTS idx_media_report_session_tenant
     ON media_report_session ("tenant_id", "protocol_type");
 
+CREATE INDEX IF NOT EXISTS idx_media_report_session_device
+    ON media_report_session ("tenant_id", "device_id", "protocol_type");
+
 CREATE INDEX IF NOT EXISTS idx_media_report_session_node_instance
     ON media_report_session ("node_id", "instance_id");
 
@@ -325,6 +340,7 @@ COMMENT ON COLUMN media_report_session."session_id" IS '会话业务标识';
 COMMENT ON COLUMN media_report_session."stream_id" IS '会话所属流业务标识';
 COMMENT ON COLUMN media_report_session."stream_name" IS '会话所属流展示名称，按上报时间点冗余';
 COMMENT ON COLUMN media_report_session."tenant_id" IS '租户标识，用于数据权限过滤和租户统计';
+COMMENT ON COLUMN media_report_session."device_id" IS '会话所属设备业务标识，用于设备维度统计';
 COMMENT ON COLUMN media_report_session."client_id" IS '客户端标识';
 COMMENT ON COLUMN media_report_session."client_ip" IS '客户端IP地址';
 COMMENT ON COLUMN media_report_session."client_type" IS '客户端类型枚举：1-mobile，2-pc，0-未知';

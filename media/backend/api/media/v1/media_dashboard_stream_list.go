@@ -10,10 +10,11 @@ type ListDashboardStreamsReq struct {
 	SourceType string `json:"sourceType" dc:"数据来源：node节点或instance实例" eg:"node"`
 	SourceId   string `json:"sourceId" dc:"来源ID，节点ID或实例ID" eg:"node-01"`
 	TenantId   string `json:"tenantId" dc:"按租户ID筛选" eg:"tenant-a"`
+	DeviceId   string `json:"deviceId" dc:"按设备国标ID筛选" eg:"34020000001320000001"`
 	NodeId     string `json:"nodeId" dc:"按节点ID筛选" eg:"node-01"`
 	InstanceId string `json:"instanceId" dc:"按实例ID筛选" eg:"inst-001"`
 	Status     string `json:"status" dc:"按流状态筛选，例如playing、paused、error" eg:"playing"`
-	Keyword    string `json:"keyword" dc:"按流ID、流名称、源地址、节点名称或实例名称模糊筛选" eg:"camera"`
+	Keyword    string `json:"keyword" dc:"按流ID、流名称、源地址、设备ID、节点名称或实例名称模糊筛选" eg:"camera"`
 }
 
 // ListDashboardStreamsRes defines the dashboard stream-list response.
@@ -28,6 +29,7 @@ type DashboardStreamItem struct {
 	SourceUrl             string                   `json:"source_url" dc:"基础平台流地址" eg:"xit1Ic2K9MnGd.flv"`
 	StreamId              string                   `json:"stream_id" dc:"流唯一标识" eg:"stream12345"`
 	StreamName            string                   `json:"stream_name" dc:"流名称" eg:"XX摄像头流"`
+	DeviceId              string                   `json:"device_id" dc:"设备国标ID" eg:"34020000001320000001"`
 	Resolution            string                   `json:"resolution" dc:"原始分辨率" eg:"1920x1080"`
 	Fps                   float64                  `json:"fps" dc:"原始帧率" eg:"25"`
 	Bitrate               int                      `json:"bitrate" dc:"原始码率，单位kbps" eg:"4000"`
