@@ -1,41 +1,41 @@
-# Runtime configuration template for the media source plugin.
+# media 源码插件运行时配置模板。
 tieta:
-  # Base URL of the upstream Tieta OpenAPI service used by token-based media authorization.
+  # 上游 Tieta OpenAPI 服务基础地址，用于基于 token 的媒体授权。
   baseUrl: "https://tieta.example.com"
-  # Enables deterministic local Tieta responses for development and isolated tests.
+  # 是否启用本地 Tieta 模拟响应，用于开发和隔离测试。
   mock: false
-  # Timeout for one upstream Tieta HTTP request.
+  # 单次上游 Tieta HTTP 请求超时时间。
   timeout: "3s"
 
 innerapi:
-  # API key required by mediaopen internal APIs through the X-Inner-Api-Key header.
+  # mediaopen 内部 API 通过 X-Inner-Api-Key 请求头校验所需的 API key。
   apiKey: "media"
 
 collectionServer:
-  # Enables the net-flux compatible TCP data collection server.
+  # 是否启用兼容 net-flux 的 TCP 数据采集服务。
   enabled: false
-  # TCP listen address used by client-side reporters.
+  # 客户端上报器使用的 TCP 监听地址。
   addr: ":1911"
   discovery:
-    # Enables Nacos-backed net-flux discovery commands.
+    # 是否启用基于 Nacos 的 net-flux 发现命令。
     enabled: false
-    # Nacos server host.
+    # Nacos 服务地址。
     host: "127.0.0.1"
-    # Nacos server port.
+    # Nacos 服务端口。
     port: 8848
-    # Nacos namespace.
+    # Nacos 命名空间。
     namespace: "public"
-    # Nacos SDK log directory.
+    # Nacos SDK 日志目录。
     logDir: "./logs"
-    # Nacos SDK local cache directory.
+    # Nacos SDK 本地缓存目录。
     cacheDir: "./cache"
-    # Whether the Nacos SDK skips loading local cache at client startup.
+    # Nacos SDK 启动时是否跳过加载本地缓存。
     notLoadCacheAtStart: true
-    # Nacos SDK request timeout in milliseconds.
+    # Nacos SDK 请求超时时间，单位为毫秒。
     timeout: 5000
-    # Nacos username.
+    # Nacos 用户名。
     username: "nacos"
-    # Nacos password.
+    # Nacos 密码。
     password: "nacos"
-    # Default node ID used when discovery packets omit node.
+    # 发现数据包未携带节点编号时使用的默认节点 ID。
     node: 1

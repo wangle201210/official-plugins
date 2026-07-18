@@ -1,13 +1,13 @@
-# Runtime configuration template for the water source plugin.
+# water 源码插件运行时配置模板。
 mediaStrategy:
-  # Remote LinaPro media cluster base URL. The resolver calls
-  # <baseUrl>/api/v1/strategies/resolve.
+  # 远程 LinaPro media 集群基础地址，解析器会调用
+  # <baseUrl>/api/v1/strategies/resolve。
   baseUrl: "http://media-linapro.example.com"
-  # Inner API key sent as X-Inner-Api-Key. The media plugin default is "media".
+  # 通过 X-Inner-Api-Key 发送的内部 API key，media 插件默认值为 "media"。
   apiKey: "media"
-  # Timeout for one remote strategy lookup.
+  # 单次远程策略查询超时时间。
   timeout: 10s
 
 water:
-  # Asynchronous watermark task consumers per LinaPro process.
+  # 每个 LinaPro 进程内的异步水印任务消费者数量。
   consumerCount: 1
