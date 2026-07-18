@@ -128,12 +128,15 @@ func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt prot
 	case *gen.NetworkMetric:
 		logger.Infof(
 			ctx,
-			"media collection network metric machineId=%s sourceIp=%s destinationIp=%s rtt=%d throughput=%d timestamp=%d",
+			"media collection network metric nodeId=%s machineId=%s sourceIp=%s destinationIp=%s rtt=%d jitter=%d packetLoss=%.4f statusCode=%d timestamp=%d",
+			pkt.GetNodeId(),
 			pkt.GetMachineId(),
 			pkt.GetSourceIp(),
 			pkt.GetDestinationIp(),
 			pkt.GetRtt(),
-			pkt.GetThroughput(),
+			pkt.GetJitter(),
+			pkt.GetPacketLoss(),
+			pkt.GetStatusCode(),
 			pkt.GetTimestamp(),
 		)
 		if h.reports != nil {

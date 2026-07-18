@@ -35,7 +35,6 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		deviceID   = "collection-test-device"
 		reportTime = int64(1_780_000_000)
 	)
-	reportExtra := map[string]string{"device_id": deviceID}
 	cleanupCollectionReportRows(t, ctx, nodeID, instanceID, streamID, sessionID)
 	t.Cleanup(func() {
 		cleanupCollectionReportRows(t, ctx, nodeID, instanceID, streamID, sessionID)
@@ -93,7 +92,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		MachineId:     nodeID,
 		DestinationIp: "10.0.0.2",
 		Rtt:           33,
-		Throughput:    3 * bitsPerByte * bytesPerKilobyte,
+		Extra:         map[string]string{"throughput_bps": "24576"},
 		Timestamp:     reportTime,
 	}); err != nil {
 		t.Fatalf("handle network metric: %v", err)
@@ -103,6 +102,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		NodeId:                nodeID,
 		StreamId:              streamID,
 		TenantId:              tenantID,
+		DeviceId:              deviceID,
 		NodeName:              "edge-a",
 		InstanceId:            instanceID,
 		InstanceName:          "media-server-a",
@@ -119,7 +119,6 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		TotalSessionsLifetime: 10,
 		WatermarkEnabled:      true,
 		StreamPath:            "https://example.test/hls/stream.m3u8",
-		Extra:                 reportExtra,
 		Timestamp:             reportTime,
 	}); err != nil {
 		t.Fatalf("handle stream metric: %v", err)
@@ -129,6 +128,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		StreamId:         streamID,
 		StreamName:       "camera-a",
 		TenantId:         tenantID,
+		DeviceId:         deviceID,
 		ClientId:         "client-a",
 		ClientIp:         "192.0.2.10",
 		ClientType:       "web",
@@ -147,7 +147,6 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		InstanceName:     "media-server-a",
 		LinkHops:         []*gen.LinkHop{{HopId: "hop-a", NodeId: nodeID, NodeName: "edge-a", Latency: 12}},
 		TotalLinkLatency: 12,
-		Extra:            reportExtra,
 		Timestamp:        reportTime,
 	}); err != nil {
 		t.Fatalf("handle session metric: %v", err)
@@ -216,6 +215,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		MachineId:  instanceID,
 		NodeId:     nodeID,
 		StreamId:   streamID,
+		DeviceId:   deviceID,
 		InstanceId: instanceID,
 		Timestamp:  reportTime,
 	}); err != nil {
@@ -242,6 +242,9 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if closedSession == nil || closedSession.CloseTime == nil {
 		t.Fatalf("expected session delete event to mark close_time, got %#v", closedSession)
 	}
+	if closedSession.DeviceId != deviceID {
+		t.Fatalf("expected session close to preserve device id %q, got %#v", deviceID, closedSession)
+	}
 	if err := writer.HandleStreamMetric(ctx, uint8(gen.SCMDDataReport_STREAM_DELETE), &gen.StreamMetric{
 		StreamId:  streamID,
 		Timestamp: reportTime,
@@ -263,6 +266,9 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	}
 	if closedStream.Status != string(reportStreamStatusClosed) || closedStream.CurrentActiveSessions != 0 {
 		t.Fatalf("expected stream delete event to close projection counters, got %#v", closedStream)
+	}
+	if closedStream.DeviceId != deviceID {
+		t.Fatalf("expected stream close to preserve device id %q, got %#v", deviceID, closedStream)
 	}
 	if err := writer.HandleMachineMetric(ctx, &gen.MachineMetric{
 		InstanceId:   instanceID,
@@ -470,7 +476,7 @@ func TestReportRuntimeMergesNetworkLatencyConcurrently(t *testing.T) {
 				MachineId:     nodeID,
 				DestinationIp: destination,
 				Rtt:           rtt,
-				Throughput:    bitsPerByte * bytesPerKilobyte,
+				Extra:         map[string]string{"throughput_bps": "8192"},
 				Timestamp:     1_780_000_101,
 			})
 		}(destination, rtt)

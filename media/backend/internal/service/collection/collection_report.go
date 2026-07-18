@@ -268,10 +268,7 @@ func normalizeNetworkMetric(metric *gen.NetworkMetric) (networkReport, bool) {
 	if metric == nil {
 		return networkReport{}, false
 	}
-	nodeID := strings.TrimSpace(metric.GetMachineId())
-	if nodeID == "" {
-		nodeID = strings.TrimSpace(metric.GetSourceIp())
-	}
+	nodeID := firstNonBlank(metric.GetNodeId(), metric.GetMachineId(), metric.GetSourceIp())
 	if nodeID == "" {
 		return networkReport{}, false
 	}
@@ -287,7 +284,7 @@ func normalizeNetworkMetric(metric *gen.NetworkMetric) (networkReport, bool) {
 		nodeID:          nodeID,
 		destinationID:   destinationID,
 		rtt:             metric.GetRtt(),
-		networkOut:      bitsToKilobytesPerSecond(metric.GetThroughput()),
+		networkOut:      normalizeNetworkThroughput(metric.GetExtra()),
 		lastHeartbeat:   reportTimeToGTime(reportTime),
 		nodeLatencyMap:  latencyMap,
 		reportTime:      reportTime,
@@ -338,7 +335,7 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 		streamID:              streamID,
 		sourceType:            sourceType,
 		tenantID:              strings.TrimSpace(metric.GetTenantId()),
-		deviceID:              normalizeReportDeviceID(metric.GetExtra()),
+		deviceID:              strings.TrimSpace(metric.GetDeviceId()),
 		nodeID:                nodeID,
 		nodeName:              firstNonBlank(metric.GetNodeName(), metric.GetExtra()["node_name"]),
 		instanceID:            instanceID,
@@ -391,7 +388,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		streamID:          strings.TrimSpace(metric.GetStreamId()),
 		streamName:        streamName,
 		tenantID:          strings.TrimSpace(metric.GetTenantId()),
-		deviceID:          normalizeReportDeviceID(metric.GetExtra()),
+		deviceID:          strings.TrimSpace(metric.GetDeviceId()),
 		clientID:          strings.TrimSpace(metric.GetClientId()),
 		clientIP:          strings.TrimSpace(metric.GetClientIp()),
 		clientType:        normalizeSessionClientType(metric.GetClientType()),
@@ -410,14 +407,6 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		totalLinkLatency:  totalLinkLatency,
 		reportTime:        reportTime,
 	}, true
-}
-
-// normalizeReportDeviceID returns the explicit device dimension carried by report extra metadata.
-func normalizeReportDeviceID(extra map[string]string) string {
-	if len(extra) == 0 {
-		return ""
-	}
-	return firstNonBlank(extra["device_id"], extra["deviceId"])
 }
 
 // normalizeSessionClientType maps the protocol text field to the stored numeric enum.
@@ -498,6 +487,22 @@ func bitsToKilobytesPerSecond(value int32) float64 {
 		return 0
 	}
 	return float64(value) / bitsPerByte / bytesPerKilobyte
+}
+
+// normalizeNetworkThroughput converts optional network throughput metadata into KB/S.
+func normalizeNetworkThroughput(extra map[string]string) float64 {
+	if len(extra) == 0 {
+		return 0
+	}
+	value := firstNonBlank(extra["throughput_bps"], extra["throughput"], extra["network_out"], extra["networkOut"])
+	if value == "" {
+		return 0
+	}
+	bps, err := strconv.ParseFloat(value, 64)
+	if err != nil || bps <= 0 {
+		return 0
+	}
+	return bps / bitsPerByte / bytesPerKilobyte
 }
 
 // normalizeStreamStatus maps net-flux stream statuses into stable report values.

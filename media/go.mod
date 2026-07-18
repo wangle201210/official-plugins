@@ -3,7 +3,7 @@ module lina-plugin-media
 go 1.25.0
 
 require (
-	github.com/dellinger2023/net-flux v0.0.7-0.20260616072335-d053ddfd45ae
+	github.com/dellinger2023/net-flux v0.0.8-0.20260718061636-316ef59c9e05
 	github.com/gogf/gf/contrib/drivers/sqlite/v2 v2.10.0
 	github.com/gogf/gf/v2 v2.10.1
 	google.golang.org/protobuf v1.36.11

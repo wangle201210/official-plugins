@@ -53,7 +53,7 @@ type clientConfig struct {
 	ephemeral   bool          // ephemeral is sent in the net-flux instance packet.
 	extra       string        // extra is comma-separated key=value metadata.
 	tenantID    string        // tenantID is written into stream and session report packets.
-	deviceID    string        // deviceID is written into stream and session report metadata.
+	deviceID    string        // deviceID is written into stream and session report packets.
 	nodeID      string        // nodeID is written into report packets.
 	nodeName    string        // nodeName is written into report packets.
 	region      string        // region is written into machine report packets.
@@ -421,7 +421,6 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 	if err != nil {
 		return err
 	}
-	reportExtra := map[string]string{"device_id": cfg.deviceID}
 	if err := writeReportPacket(client, gen.SCMDDataReport_MACHINE_METRIC, &gen.MachineMetric{
 		MachineId:      cfg.instanceID,
 		InstanceId:     cfg.instanceID,
@@ -447,10 +446,14 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 	}
 	if err := writeReportPacket(client, gen.SCMDDataReport_NETWORK_METRIC, &gen.NetworkMetric{
 		MachineId:     cfg.nodeID,
+		NodeId:        cfg.nodeID,
 		SourceIp:      cfg.privateIP,
 		DestinationIp: cfg.clientIP,
 		Rtt:           18,
-		Throughput:    8 * 8 * 1024,
+		Jitter:        3,
+		PacketLoss:    0.001,
+		StatusCode:    200,
+		Extra:         map[string]string{"throughput_bps": "65536"},
 		Timestamp:     now,
 	}); err != nil {
 		return err
@@ -467,6 +470,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		StreamAlias:           cfg.streamName,
 		Timestamp:             now,
 		TenantId:              cfg.tenantID,
+		DeviceId:              cfg.deviceID,
 		NodeName:              cfg.nodeName,
 		InstanceId:            cfg.instanceID,
 		InstanceName:          cfg.instanceID,
@@ -478,7 +482,6 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		CurrentActiveSessions: 1,
 		WatermarkEnabled:      true,
 		NodeId:                cfg.nodeID,
-		Extra:                 reportExtra,
 	}); err != nil {
 		return err
 	}
@@ -487,6 +490,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		StreamId:         cfg.streamID,
 		StreamName:       cfg.streamName,
 		TenantId:         cfg.tenantID,
+		DeviceId:         cfg.deviceID,
 		ClientId:         cfg.clientID,
 		ClientIp:         cfg.clientIP,
 		ClientType:       cfg.clientType,
@@ -503,7 +507,6 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		InstanceName:     cfg.instanceID,
 		TotalLinkLatency: 18,
 		Timestamp:        now,
-		Extra:            reportExtra,
 		LinkHops: []*gen.LinkHop{{
 			HopId:   "hop-" + cfg.nodeID,
 			HopName: cfg.nodeName,
@@ -516,8 +519,9 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		return err
 	}
 	fmt.Printf(
-		"report sent tenant=%s node=%s instance=%s stream=%s session=%s\n",
+		"report sent tenant=%s device=%s node=%s instance=%s stream=%s session=%s\n",
 		cfg.tenantID,
+		cfg.deviceID,
 		cfg.nodeID,
 		cfg.instanceID,
 		cfg.streamID,
@@ -538,6 +542,7 @@ func sendCloseReports(client *network.TcpClient, cfg clientConfig) error {
 		StreamId:     cfg.streamID,
 		StreamName:   cfg.streamName,
 		TenantId:     cfg.tenantID,
+		DeviceId:     cfg.deviceID,
 		ClientId:     cfg.clientID,
 		ClientIp:     cfg.clientIP,
 		ClientType:   cfg.clientType,
@@ -548,7 +553,6 @@ func sendCloseReports(client *network.TcpClient, cfg clientConfig) error {
 		InstanceName: cfg.instanceID,
 		Timestamp:    now,
 		NodeId:       cfg.nodeID,
-		Extra:        map[string]string{"device_id": cfg.deviceID},
 	}); err != nil {
 		return err
 	}
@@ -561,11 +565,11 @@ func sendCloseReports(client *network.TcpClient, cfg clientConfig) error {
 		StreamAlias:  cfg.streamName,
 		Timestamp:    now,
 		TenantId:     cfg.tenantID,
+		DeviceId:     cfg.deviceID,
 		NodeName:     cfg.nodeName,
 		InstanceId:   cfg.instanceID,
 		InstanceName: cfg.instanceID,
 		NodeId:       cfg.nodeID,
-		Extra:        map[string]string{"device_id": cfg.deviceID},
 	}); err != nil {
 		return err
 	}

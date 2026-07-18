@@ -172,7 +172,7 @@ func TestNormalizeNetworkMetricBuildsLatencyUpdate(t *testing.T) {
 		SourceIp:      "10.0.0.1",
 		DestinationIp: "10.0.0.2",
 		Rtt:           28,
-		Throughput:    5 * bitsPerByte * bytesPerKilobyte,
+		Extra:         map[string]string{"throughput_bps": "40960"},
 		Timestamp:     1_780_000_000_123,
 	})
 	if !ok {
@@ -212,7 +212,8 @@ func TestNormalizeStreamMetricBuildsStreamReport(t *testing.T) {
 		Height:                1080,
 		StreamPath:            "rtmp://example/live/stream-a",
 		StreamAlias:           "camera-a",
-		Extra:                 map[string]string{"device_id": "device-a"},
+		DeviceId:              " device-a ",
+		Extra:                 map[string]string{"device_id": "extra-device-a"},
 		TenantId:              "tenant-a",
 		NodeName:              "node-a-name",
 		InstanceId:            "instance-a",
@@ -289,7 +290,8 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 		StreamId:       "stream-a",
 		StreamName:     "camera-a",
 		TenantId:       "tenant-a",
-		Extra:          map[string]string{"deviceId": "device-a"},
+		DeviceId:       " device-a ",
+		Extra:          map[string]string{"deviceId": "extra-device-a"},
 		ClientId:       "client-a",
 		ClientIp:       "192.0.2.10",
 		ClientType:     "mobile",
@@ -336,6 +338,31 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 	}
 	if len(hops) != 1 || hops[0].HopIndex != 1 || hops[0].NodeID != "node-a" || hops[0].LatencyMs != 12 {
 		t.Fatalf("unexpected link hops: %#v", hops)
+	}
+}
+
+// TestNormalizeMetricsIgnoreExtraDeviceID verifies device IDs only come from typed protocol fields.
+func TestNormalizeMetricsIgnoreExtraDeviceID(t *testing.T) {
+	stream, ok := normalizeStreamMetric(&gen.StreamMetric{
+		StreamId: "stream-a",
+		Extra:    map[string]string{"device_id": "extra-device-a", "deviceId": "extra-device-b"},
+	})
+	if !ok {
+		t.Fatal("expected stream metric to normalize")
+	}
+	if stream.deviceID != "" {
+		t.Fatalf("expected stream to ignore extra device id, got %#v", stream)
+	}
+
+	session, ok := normalizeSessionMetric(&gen.SessionMetric{
+		SessionId: "session-a",
+		Extra:     map[string]string{"device_id": "extra-device-a", "deviceId": "extra-device-b"},
+	})
+	if !ok {
+		t.Fatal("expected session metric to normalize")
+	}
+	if session.deviceID != "" {
+		t.Fatalf("expected session to ignore extra device id, got %#v", session)
 	}
 }
 
