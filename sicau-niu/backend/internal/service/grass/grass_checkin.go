@@ -8,6 +8,7 @@ package grass
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/util/grand"
@@ -16,6 +17,7 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/activityday"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
+	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
 )
 
 // CheckinResult is the outcome of a successful daily check-in.
@@ -27,12 +29,19 @@ type CheckinResult struct {
 }
 
 // Checkin grants the player a random daily check-in amount once per natural day.
-func (s *serviceImpl) Checkin(ctx context.Context, playerID int64) (*CheckinResult, error) {
+func (s *serviceImpl) Checkin(ctx context.Context, playerID int64, requestIDs ...string) (*CheckinResult, error) {
 	if playerID <= 0 {
 		return nil, bizerr.NewCode(CodeQueryFailed)
 	}
 
 	today := activityday.Today()
+	requestID := ""
+	if len(requestIDs) > 0 {
+		requestID = strings.TrimSpace(requestIDs[0])
+	}
+	if len(requestID) > 64 {
+		return nil, bizerr.NewCode(CodeQueryFailed)
+	}
 	checkinMin, checkinMax, err := s.checkinRange(ctx)
 	if err != nil {
 		return nil, err
@@ -41,6 +50,23 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64) (*CheckinResu
 
 	var result *CheckinResult
 	err = dao.Checkin.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		var player *entitymodel.User
+		if txErr := dao.User.Ctx(ctx).Where(dao.User.Columns().Id, playerID).LockUpdate().Scan(&player); txErr != nil {
+			return bizerr.WrapCode(txErr, CodeQueryFailed)
+		}
+		if player == nil {
+			return bizerr.NewCode(CodeQueryFailed)
+		}
+		if requestID != "" {
+			var replay *entitymodel.Checkin
+			if txErr := dao.Checkin.Ctx(ctx).Where(do.Checkin{UserId: playerID, RequestId: requestID}).Scan(&replay); txErr != nil {
+				return bizerr.WrapCode(txErr, CodeQueryFailed)
+			}
+			if replay != nil {
+				result = &CheckinResult{Amount: replay.Amount, Balance: replay.ResultBalance}
+				return nil
+			}
+		}
 		alreadyCheckedIn, txErr := dao.Checkin.Ctx(ctx).
 			Where(dao.Checkin.Columns().UserId, playerID).
 			Where(dao.Checkin.Columns().CheckinDate, today).
@@ -56,6 +82,7 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64) (*CheckinResu
 			UserId:      playerID,
 			CheckinDate: today,
 			Amount:      amount,
+			RequestId:   requestID,
 		}).InsertAndGetId()
 		if txErr != nil {
 			return bizerr.WrapCode(txErr, CodeWriteFailed)
@@ -64,6 +91,9 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64) (*CheckinResu
 		newBalance, applyErr := s.ApplyDelta(ctx, tx, playerID, int64(amount), TxnTypeCheckin, checkinID)
 		if applyErr != nil {
 			return applyErr
+		}
+		if _, txErr = dao.Checkin.Ctx(ctx).Where(do.Checkin{Id: checkinID}).Data(do.Checkin{ResultBalance: newBalance}).Update(); txErr != nil {
+			return bizerr.WrapCode(txErr, CodeWriteFailed)
 		}
 
 		result = &CheckinResult{Amount: amount, Balance: newBalance}
@@ -87,12 +117,12 @@ func (s *serviceImpl) checkinRange(ctx context.Context) (int, int, error) {
 // normalizeCheckinRange clamps the configured check-in grant range so the random
 // grant is always well-defined: both bounds become at least 1 and the lower
 // bound never exceeds the upper bound regardless of configuration order.
-func normalizeCheckinRange(min, max int) (int, int) {
-	if min < 1 {
-		min = 1
+func normalizeCheckinRange(minimum, maximum int) (int, int) {
+	if minimum < 1 {
+		minimum = 1
 	}
-	if max < min {
-		max = min
+	if maximum < minimum {
+		maximum = minimum
 	}
-	return min, max
+	return minimum, maximum
 }

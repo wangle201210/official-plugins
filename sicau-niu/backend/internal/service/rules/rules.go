@@ -108,7 +108,7 @@ type Service interface {
 	// PosterCampusBadge returns the poster/certificate campus badge text.
 	PosterCampusBadge(ctx context.Context) (badge string, err error)
 	// CheckinRange returns the normalized daily check-in grant range.
-	CheckinRange(ctx context.Context) (min int, max int, err error)
+	CheckinRange(ctx context.Context) (minimum int, maximum int, err error)
 	// SocialRules returns the steal/gift runtime-rule subset.
 	SocialRules(ctx context.Context) (out SocialRules, err error)
 	// IronBonusThresholdMeters returns the feeding iron-cow proximity threshold.

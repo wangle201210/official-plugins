@@ -1,5 +1,5 @@
 // Package record implements the sicau-niu activity-record read-only query
-// capability: operator-facing paged queries over the C3/C4 behaviour tables
+// capability: operator-facing paged queries over the C3/C4 behavior tables
 // (feeding, steal, gift, check-in, activation and the grass-account ledger). Every
 // query filters and paginates on the database side and never loads the full set
 // into memory; the player nicknames and cattle names shown on each page are
@@ -48,7 +48,7 @@ type Service interface {
 // Interface compliance assertion for the default record service implementation.
 var _ Service = (*serviceImpl)(nil)
 
-// serviceImpl implements Service against the plugin-owned behaviour tables. It
+// serviceImpl implements Service against the plugin-owned behavior tables. It
 // holds no runtime dependency: every query reads the plugin's own tables through
 // the generated DAO and the page size is fixed-capped.
 type serviceImpl struct{}

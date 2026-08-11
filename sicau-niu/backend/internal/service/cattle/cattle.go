@@ -34,6 +34,9 @@ type Service interface {
 	// college-existence validation. Status defaults to inactive. It returns the
 	// relevant validation bizerr or the new ID on success.
 	CreateNiu(ctx context.Context, in *NiuMutateInput) (id int64, err error)
+	// ImportNiu validates a bounded batch with set-based relation/code lookups and
+	// creates or updates all accepted rows in one transaction.
+	ImportNiu(ctx context.Context, in *ImportNiuInput) (out *ImportNiuOutput, err error)
 	// UpdateNiu modifies one cattle after existence, code-uniqueness, enum and
 	// college-existence validation. Status is not changed here. It returns
 	// CodeNiuNotFound for a missing ID, the relevant validation bizerr, or nil on

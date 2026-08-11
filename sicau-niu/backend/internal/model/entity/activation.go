@@ -21,4 +21,6 @@ type Activation struct {
 	CreatedAt    *time.Time `json:"createdAt"    orm:"created_at"    description:"Creation time"`
 	UpdatedAt    *time.Time `json:"updatedAt"    orm:"updated_at"    description:"Update time"`
 	DeletedAt    *time.Time `json:"deletedAt"    orm:"deleted_at"    description:"Soft-delete time, NULL means active"`
+	RequestId    string     `json:"requestId"    orm:"request_id"    description:"Player-scoped idempotency key"`
+	ResponseJson string     `json:"responseJson" orm:"response_json" description:"Stable successful activation response for idempotent replay"`
 }

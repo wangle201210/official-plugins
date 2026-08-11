@@ -286,10 +286,23 @@ func (r *iotRefresher) token(ctx context.Context) (string, error) {
 		return r.cachedToken, nil
 	}
 
+	token, err := requestIOTToken(ctx, r.cfg, r.client)
+	if err != nil {
+		return "", err
+	}
+	r.cachedToken = token
+	r.tokenExpiry = time.Now().Add(r.cfg.TokenTTL - tokenRefreshBuffer)
+	return token, nil
+}
+
+// requestIOTToken obtains a fresh platform token. The background refresher wraps
+// this helper with its in-process cache, while low-frequency operator commands
+// deliberately call it directly so they do not introduce a second cache graph.
+func requestIOTToken(ctx context.Context, cfg Config, client HTTPClient) (string, error) {
 	var response tokenResponse
-	if err := r.postJSON(ctx, "/open/device/getToken", "", tokenRequest{
-		Key:    r.cfg.Key,
-		Secret: r.cfg.Secret,
+	if err := postIOTJSON(ctx, cfg, client, "/open/device/getToken", "", tokenRequest{
+		Key:    cfg.Key,
+		Secret: cfg.Secret,
 	}, &response); err != nil {
 		return "", err
 	}
@@ -303,9 +316,6 @@ func (r *iotRefresher) token(ctx context.Context) (string, error) {
 	if token == "" {
 		return "", bizerr.NewCode(CodeIOTResponseInvalid)
 	}
-
-	r.cachedToken = token
-	r.tokenExpiry = time.Now().Add(r.cfg.TokenTTL - tokenRefreshBuffer)
 	return token, nil
 }
 
@@ -316,13 +326,26 @@ func (r *iotRefresher) postJSON(
 	token string,
 	payload any,
 	target any,
+) error {
+	return postIOTJSON(ctx, r.cfg, r.client, path, token, payload, target)
+}
+
+// postIOTJSON posts one bounded JSON request to the configured platform.
+func postIOTJSON(
+	ctx context.Context,
+	cfg Config,
+	client HTTPClient,
+	path string,
+	token string,
+	payload any,
+	target any,
 ) (err error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return bizerr.WrapCode(err, CodeIOTResponseInvalid)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, r.endpoint(path), bytes.NewReader(data))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, iotEndpoint(cfg.BaseURL, path), bytes.NewReader(data))
 	if err != nil {
 		return bizerr.WrapCode(err, CodeIOTRequestFailed)
 	}
@@ -331,7 +354,7 @@ func (r *iotRefresher) postJSON(
 		request.Header.Set("Authorization", strings.TrimSpace(token))
 	}
 
-	response, err := r.client.Do(request)
+	response, err := client.Do(request) //nolint:bodyclose // closeutil.Close below records close failures.
 	if err != nil {
 		return bizerr.WrapCode(err, CodeIOTRequestFailed)
 	}
@@ -353,9 +376,9 @@ func (r *iotRefresher) postJSON(
 	return nil
 }
 
-// endpoint joins the configured base URL with one documented endpoint path.
-func (r *iotRefresher) endpoint(path string) string {
-	base := strings.TrimRight(r.cfg.BaseURL, "/")
+// iotEndpoint joins the configured base URL with one documented endpoint path.
+func iotEndpoint(baseURL string, path string) string {
+	base := strings.TrimRight(baseURL, "/")
 	suffix := "/" + strings.TrimLeft(path, "/")
 	return base + suffix
 }
@@ -465,9 +488,9 @@ func (i locatorItem) location() (locatorLocation, bool) {
 }
 
 // parseCoordinate parses and bounds one decimal-degree coordinate.
-func parseCoordinate(raw string, min float64, max float64) (float64, bool) {
+func parseCoordinate(raw string, minimum float64, maximum float64) (float64, bool) {
 	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < min || value > max {
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < minimum || value > maximum {
 		return 0, false
 	}
 	return value, true

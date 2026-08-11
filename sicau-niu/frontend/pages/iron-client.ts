@@ -55,6 +55,13 @@ export async function updateIron(id: number, values: IronSaveInput) {
   );
 }
 
+export async function setIronReportingCycleToTenSeconds(code: string) {
+  return requestClient.put(
+    sicauNiuApi("plugins/sicau-niu/admin/iron/reporting-cycle"),
+    { code },
+  );
+}
+
 export async function deleteIron(id: number) {
   return requestClient.delete(
     sicauNiuApi(`plugins/sicau-niu/admin/iron/${id}`),

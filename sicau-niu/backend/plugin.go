@@ -29,6 +29,7 @@ import (
 	wallctrl "lina-plugin-sicau-niu/backend/internal/controller/wall"
 	"lina-plugin-sicau-niu/backend/internal/middleware"
 	activationsvc "lina-plugin-sicau-niu/backend/internal/service/activation"
+	activationphotosvc "lina-plugin-sicau-niu/backend/internal/service/activationphoto"
 	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
@@ -37,6 +38,8 @@ import (
 	grasssocialsvc "lina-plugin-sicau-niu/backend/internal/service/grasssocial"
 	honorsvc "lina-plugin-sicau-niu/backend/internal/service/honor"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
+	irontransportsvc "lina-plugin-sicau-niu/backend/internal/service/irontransport"
+	miniappconfigsvc "lina-plugin-sicau-niu/backend/internal/service/miniappconfig"
 	rankingsvc "lina-plugin-sicau-niu/backend/internal/service/ranking"
 	recordsvc "lina-plugin-sicau-niu/backend/internal/service/record"
 	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
@@ -125,7 +128,17 @@ const (
 	defaultRankingTopN = 100
 	// configKeyMiniappURL is the plugin config key for the H5 wall's return-to-
 	// mini-program URL.
-	configKeyMiniappURL = "miniapp.url"
+	configKeyMiniappURL           = "miniapp.url"
+	configKeyMiniappDefaultCampus = "miniapp.defaultCampus"
+	configKeyMiniappAnniversary   = "miniapp.anniversary"
+	configKeyMiniappAnniversaryAt = "miniapp.anniversaryAt"
+	configKeyMiniappDebug         = "miniapp.debug"
+	configKeyTransportIdleTimeout = "ironTransport.idleTimeout"
+	configKeyTransportMinTeamSize = "ironTransport.minTeamSize"
+	configKeyTransportMaxTeamSize = "ironTransport.maxTeamSize"
+	defaultTransportIdleTimeout   = 5 * time.Minute
+	defaultTransportMinTeamSize   = 3
+	defaultTransportMaxTeamSize   = 6
 	// configKeyAnomalyFeedDaily, configKeyAnomalyStealDaily and configKeyAnomalyLimit
 	// are the plugin config keys for the settlement anomaly alert thresholds and cap.
 	configKeyAnomalyFeedDaily  = "anomaly.feedDailyThreshold"
@@ -215,8 +228,20 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if err != nil {
 		return err
 	}
+	reportingCycleUpdater, err := buildIronReportingCycleUpdater(ctx, configSvc)
+	if err != nil {
+		return err
+	}
 
 	activationConfig, err := buildActivationConfig(ctx, configSvc)
+	if err != nil {
+		return err
+	}
+	miniappConfig, err := buildMiniappConfig(ctx, configSvc, int(activationConfig.LBSThresholdMeters))
+	if err != nil {
+		return err
+	}
+	transportConfig, err := buildTransportConfig(ctx, configSvc)
 	if err != nil {
 		return err
 	}
@@ -272,10 +297,21 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	identityService := identitysvc.New(gateway, tokenService, collegeService)
 	cattleService := cattlesvc.New(collegeService)
 	cardService := cardsvc.New(cattleService)
+	storageService := services.Storage()
+	if storageService == nil {
+		return gerror.New("sicau-niu routes require plugin-scoped storage service")
+	}
+	photoService, err := activationphotosvc.New(storageService)
+	if err != nil {
+		return err
+	}
+	miniappConfigService := miniappconfigsvc.New(rulesService, miniappConfig)
+	ironTransportService := irontransportsvc.New(transportConfig)
 	activationService := activationsvc.New(
 		identityService,
 		activationsvc.NewBasicPosterRenderer(),
 		rulesService,
+		photoService,
 		activationConfig,
 	)
 	grassService := grasssvc.New(rulesService, grassConfig)
@@ -291,7 +327,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	settlementService := settlementsvc.New(rulesService, settlementConfig)
 	recordService := recordsvc.New()
 	playerAuth := middleware.NewPlayerAuth(tokenService)
-	playerController := playerctrl.NewV1(
+	playerController, err := playerctrl.NewV1(
 		identityService,
 		collegeService,
 		activationService,
@@ -300,8 +336,27 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		grassSocialService,
 		rankingService,
 		honorService,
+		miniappConfigService,
+		photoService,
+		ironTransportService,
 	)
-	adminController := adminctrl.NewV1(collegeService, identityService, cattleService, cardService, honorService)
+	if err != nil {
+		return err
+	}
+	adminController, err := adminctrl.NewV1(
+		collegeService,
+		identityService,
+		cattleService,
+		reportingCycleUpdater,
+		cardService,
+		honorService,
+		miniappConfigService,
+		photoService,
+		activationService,
+	)
+	if err != nil {
+		return err
+	}
 	wallController := wallctrl.NewV1(wallService)
 	settlementController := settlementctrl.NewV1(settlementService, rankingService, rulesService)
 	recordController := recordctrl.NewV1(recordService)
@@ -320,7 +375,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 			// no authentication. The wall endpoints expose only nicknames and
 			// activity information and never return privacy fields.
 			group.Group("/", func(group pluginhost.RouteGroup) {
-				group.Bind(playerController.Login)
+				group.Bind(playerController.Login, playerController.Config)
 				group.Bind(
 					wallController.FirstActivators,
 					wallController.Highlights,
@@ -339,6 +394,9 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					playerController.UpdateProfile,
 					playerController.CollegeOptions,
 					playerController.VisibleNiu,
+					playerController.NiuDetail,
+					playerController.UploadPhoto,
+					playerController.PhotoContent,
 					playerController.Activate,
 					playerController.Collection,
 					playerController.Poster,
@@ -351,6 +409,14 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					playerController.Gift,
 					playerController.Messages,
 					playerController.MarkMessageRead,
+					playerController.Activities,
+					playerController.IronTransportState,
+					playerController.CreateTransportTeam,
+					playerController.JoinTransportTeam,
+					playerController.LeaveTransportTeam,
+					playerController.StartTransport,
+					playerController.HeartbeatTransport,
+					playerController.EndTransport,
 					playerController.FeedRanking,
 					playerController.CollegeRanking,
 					playerController.FriendRanking,
@@ -368,6 +434,8 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					middlewares.Permission(),
 				)
 				group.Bind(
+					adminController.GetMiniappConfig,
+					adminController.UpdateMiniappConfig,
 					adminController.ListColleges,
 					adminController.CreateCollege,
 					adminController.UpdateCollege,
@@ -376,10 +444,12 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					adminController.ListNiu,
 					adminController.GetNiu,
 					adminController.CreateNiu,
+					adminController.ImportNiu,
 					adminController.UpdateNiu,
 					adminController.DeleteNiu,
 					adminController.ListIron,
 					adminController.CreateIron,
+					adminController.UpdateIronReportingCycle,
 					adminController.UpdateIron,
 					adminController.DeleteIron,
 					adminController.ListCard,
@@ -396,6 +466,9 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					adminController.CreateHonor,
 					adminController.UpdateHonor,
 					adminController.DeleteHonor,
+					adminController.ListPhotoAudit,
+					adminController.AuditPhotoContent,
+					adminController.RevokeActivation,
 				)
 				group.Bind(
 					settlementController.Dashboard,
@@ -541,6 +614,40 @@ func buildIronLocationRefresh(
 	return true, refresher, interval, nil
 }
 
+// buildIronReportingCycleUpdater constructs the request-path IOT command
+// dependency. Missing credentials use a deferred-failure implementation so
+// unrelated plugin routes remain available; partial or invalid configuration is
+// rejected during route assembly.
+func buildIronReportingCycleUpdater(
+	ctx context.Context,
+	config plugincap.ConfigService,
+) (feedingsvc.IronReportingCycleUpdater, error) {
+	key, err := config.String(ctx, configKeyIOTLocatorKey, "")
+	if err != nil {
+		return nil, gerror.Wrap(err, "sicau-niu read IOT locator key failed")
+	}
+	secret, err := config.String(ctx, configKeyIOTLocatorSecret, "")
+	if err != nil {
+		return nil, gerror.Wrap(err, "sicau-niu read IOT locator secret failed")
+	}
+	if key == "" && secret == "" {
+		return feedingsvc.NewUnconfiguredIronReportingCycleUpdater(), nil
+	}
+
+	baseURL, err := config.String(ctx, configKeyIOTLocatorBaseURL, "")
+	if err != nil {
+		return nil, gerror.Wrap(err, "sicau-niu read IOT locator baseUrl failed")
+	}
+	return feedingsvc.NewIOTIronReportingCycleUpdater(
+		feedingsvc.IronLocationConfig{
+			BaseURL: baseURL,
+			Key:     key,
+			Secret:  secret,
+		},
+		&http.Client{Timeout: defaultIOTLocatorHTTPTimeout},
+	)
+}
+
 // buildAuthDependencies constructs the player token service and WeChat gateway
 // from the plugin-scoped configuration. Missing token.secret is allowed so
 // unrelated source-plugin deployments can still start; player-token operations
@@ -613,6 +720,42 @@ func buildActivationConfig(
 		LBSThresholdMeters: float64(thresholdMeters),
 		CampusBadge:        campusBadge,
 	}, nil
+}
+
+func buildMiniappConfig(ctx context.Context, config plugincap.ConfigService, activateRadius int) (miniappconfigsvc.Config, error) {
+	defaultCampus, err := config.String(ctx, configKeyMiniappDefaultCampus, miniappconfigsvc.CampusChengdu)
+	if err != nil {
+		return miniappconfigsvc.Config{}, gerror.Wrap(err, "sicau-niu read miniapp default campus failed")
+	}
+	anniversary, err := config.String(ctx, configKeyMiniappAnniversary, "120 周年校庆")
+	if err != nil {
+		return miniappconfigsvc.Config{}, gerror.Wrap(err, "sicau-niu read miniapp anniversary failed")
+	}
+	anniversaryAt, err := config.String(ctx, configKeyMiniappAnniversaryAt, "2026-10-06")
+	if err != nil {
+		return miniappconfigsvc.Config{}, gerror.Wrap(err, "sicau-niu read miniapp anniversary date failed")
+	}
+	debug, err := config.Bool(ctx, configKeyMiniappDebug, false)
+	if err != nil {
+		return miniappconfigsvc.Config{}, gerror.Wrap(err, "sicau-niu read miniapp debug switch failed")
+	}
+	return miniappconfigsvc.Config{DefaultCampus: defaultCampus, Anniversary: anniversary, AnniversaryAt: anniversaryAt, Debug: debug, ActivateRadiusMeters: activateRadius}, nil
+}
+
+func buildTransportConfig(ctx context.Context, config plugincap.ConfigService) (irontransportsvc.Config, error) {
+	idleTimeout, err := config.Duration(ctx, configKeyTransportIdleTimeout, defaultTransportIdleTimeout)
+	if err != nil {
+		return irontransportsvc.Config{}, gerror.Wrap(err, "sicau-niu read transport idle timeout failed")
+	}
+	minTeamSize, err := config.Int(ctx, configKeyTransportMinTeamSize, defaultTransportMinTeamSize)
+	if err != nil {
+		return irontransportsvc.Config{}, gerror.Wrap(err, "sicau-niu read transport minimum team size failed")
+	}
+	maxTeamSize, err := config.Int(ctx, configKeyTransportMaxTeamSize, defaultTransportMaxTeamSize)
+	if err != nil {
+		return irontransportsvc.Config{}, gerror.Wrap(err, "sicau-niu read transport maximum team size failed")
+	}
+	return irontransportsvc.Config{IdleTimeout: idleTimeout, MinTeamSize: minTeamSize, MaxTeamSize: maxTeamSize}, nil
 }
 
 // buildRankingConfig reads the plain-value C5 leaderboard configuration (the

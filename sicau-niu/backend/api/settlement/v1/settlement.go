@@ -135,7 +135,7 @@ type RetentionStat struct {
 
 // RiskAnomaliesReq is the request for the risk anomaly alert view.
 type RiskAnomaliesReq struct {
-	g.Meta `path:"/plugins/sicau-niu/settlement/risk/anomalies" method:"get" tags:"Sicau Niu Settlement" summary:"查询风控异常告警" dc:"Return the M13 risk anomaly alerts: players whose single-day feeding or steal count exceeds the configured threshold, with player, nickname, behaviour type, day, that day's count and the threshold, for manual review. Read-only, aggregated on the database side and bounded. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/settlement/risk/anomalies" method:"get" tags:"Sicau Niu Settlement" summary:"查询风控异常告警" dc:"Return the M13 risk anomaly alerts: players whose single-day feeding or steal count exceeds the configured threshold, with player, nickname, behavior type, day, that day's count and the threshold, for manual review. Read-only, aggregated on the database side and bounded. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 // RiskAnomaliesRes is the response for the risk anomaly alert view.
@@ -228,13 +228,13 @@ type CollegeRankItem struct {
 	Total       int64  `json:"total" dc:"Total feeding effect of enrolled students" eg:"180000"`
 }
 
-// AnomalyAlert is one single-day over-threshold behaviour record.
+// AnomalyAlert is one single-day over-threshold behavior record.
 type AnomalyAlert struct {
 	UserId    int64  `json:"userId" dc:"Player ID" eg:"1"`
 	Nickname  string `json:"nickname" dc:"Player nickname; empty when unset" eg:"川农牛仔"`
-	Type      string `json:"type" dc:"Behaviour type: feed=喂草, steal=偷草" eg:"feed"`
+	Type      string `json:"type" dc:"Behavior type: feed=喂草, steal=偷草" eg:"feed"`
 	Date      string `json:"date" dc:"Natural day, yyyy-mm-dd" eg:"2026-06-01"`
-	Count     int64  `json:"count" dc:"The player's behaviour count that day" eg:"260"`
+	Count     int64  `json:"count" dc:"The player's behavior count that day" eg:"260"`
 	Threshold int64  `json:"threshold" dc:"The configured threshold the count exceeded" eg:"100"`
 }
 

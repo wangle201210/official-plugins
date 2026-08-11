@@ -25,6 +25,7 @@ func (c *ControllerV1) Collection(ctx context.Context, req *v1.CollectionReq) (r
 			NiuId:     item.NiuId,
 			NiuCode:   item.NiuCode,
 			Category:  item.Category,
+			Owned:     item.Owned,
 			Title:     item.Title,
 			Content:   item.Content,
 			ImagePath: item.ImagePath,

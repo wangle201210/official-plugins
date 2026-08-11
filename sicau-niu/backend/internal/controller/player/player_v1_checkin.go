@@ -15,7 +15,7 @@ func (c *ControllerV1) Checkin(ctx context.Context, req *v1.CheckinReq) (res *v1
 	if err != nil {
 		return nil, err
 	}
-	out, err := c.grassSvc.Checkin(ctx, playerID)
+	out, err := c.grassSvc.Checkin(ctx, playerID, req.RequestId)
 	if err != nil {
 		return nil, err
 	}

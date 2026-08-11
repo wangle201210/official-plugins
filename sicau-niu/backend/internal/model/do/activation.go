@@ -24,4 +24,6 @@ type Activation struct {
 	CreatedAt    *time.Time // Creation time
 	UpdatedAt    *time.Time // Update time
 	DeletedAt    *time.Time // Soft-delete time, NULL means active
+	RequestId    any        // Player-scoped idempotency key
+	ResponseJson any        // Stable successful activation response for idempotent replay
 }

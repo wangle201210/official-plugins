@@ -18,7 +18,7 @@ import (
 	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
-// Anomaly behaviour type labels reported by the alert view.
+// Anomaly behavior type labels reported by the alert view.
 const (
 	anomalyTypeFeed  = "feed"
 	anomalyTypeSteal = "steal"
@@ -30,17 +30,17 @@ type AnomalyAlerts struct {
 	List []*AnomalyAlert
 }
 
-// AnomalyAlert is one single-day over-threshold behaviour record.
+// AnomalyAlert is one single-day over-threshold behavior record.
 type AnomalyAlert struct {
 	// UserId is the player ID.
 	UserId int64
 	// Nickname is the player nickname; empty when unset.
 	Nickname string
-	// Type is the behaviour type: feed or steal.
+	// Type is the behavior type: feed or steal.
 	Type string
 	// Date is the natural day, yyyy-mm-dd.
 	Date string
-	// Count is the player's behaviour count that day.
+	// Count is the player's behavior count that day.
 	Count int64
 	// Threshold is the configured threshold the count exceeded.
 	Threshold int64

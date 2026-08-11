@@ -21,24 +21,28 @@ type CheckinDao struct {
 
 // CheckinColumns defines and stores column names for the table plugin_sicau_niu_checkin.
 type CheckinColumns struct {
-	Id          string //
-	UserId      string //
-	CheckinDate string // Check-in date YYYY-MM-DD
-	Amount      string // Granted grass amount (20-50)
-	CreatedAt   string //
-	UpdatedAt   string //
-	DeletedAt   string //
+	Id            string //
+	UserId        string //
+	CheckinDate   string // Check-in date YYYY-MM-DD
+	Amount        string // Granted grass amount (20-50)
+	CreatedAt     string //
+	UpdatedAt     string //
+	DeletedAt     string //
+	RequestId     string // Player-scoped idempotency key
+	ResultBalance string // Stable account balance returned by the first successful request
 }
 
 // checkinColumns holds the columns for the table plugin_sicau_niu_checkin.
 var checkinColumns = CheckinColumns{
-	Id:          "id",
-	UserId:      "user_id",
-	CheckinDate: "checkin_date",
-	Amount:      "amount",
-	CreatedAt:   "created_at",
-	UpdatedAt:   "updated_at",
-	DeletedAt:   "deleted_at",
+	Id:            "id",
+	UserId:        "user_id",
+	CheckinDate:   "checkin_date",
+	Amount:        "amount",
+	CreatedAt:     "created_at",
+	UpdatedAt:     "updated_at",
+	DeletedAt:     "deleted_at",
+	RequestId:     "request_id",
+	ResultBalance: "result_balance",
 }
 
 // NewCheckinDao creates and returns a new DAO object for table data access.

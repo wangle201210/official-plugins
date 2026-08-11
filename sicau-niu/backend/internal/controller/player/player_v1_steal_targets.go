@@ -22,8 +22,10 @@ func (c *ControllerV1) StealTargets(ctx context.Context, req *v1.StealTargetsReq
 	list := make([]*v1.StealTargetItem, 0, len(targets))
 	for _, target := range targets {
 		list = append(list, &v1.StealTargetItem{
-			UserId:   target.UserId,
-			Nickname: target.Nickname,
+			UserId:      target.UserId,
+			Nickname:    target.Nickname,
+			Avatar:      target.Avatar,
+			StolenToday: target.StolenToday,
 		})
 	}
 	return &v1.StealTargetsRes{List: list}, nil

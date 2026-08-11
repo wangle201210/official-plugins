@@ -153,3 +153,35 @@ func TestVisibleNiuActivatedByMeFlag(t *testing.T) {
 		t.Fatalf("expected activatedByMe false for non-activated cattle")
 	}
 }
+
+// TestVisibleNiuHidesInactiveAnchor verifies an inactive cattle exposes only a
+// stable fuzzy area while an active cattle exposes the exact anchor.
+func TestVisibleNiuHidesInactiveAnchor(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	past := time.Now().Add(-time.Hour)
+	inactiveID := insertNiuRow(t, ctx, do.Niu{Code: "NIU-SAFE-INACTIVE", NiuType: cattlesvc.NiuTypeCommon.String(), Lat: 30.7058, Lng: 103.8318, OnlineAt: &past, Status: cattlesvc.NiuStatusInactive.String()})
+	activeID := insertNiuRow(t, ctx, do.Niu{Code: "NIU-SAFE-ACTIVE", NiuType: cattlesvc.NiuTypeSpecial.String(), Lat: 30.706, Lng: 103.832, OnlineAt: &past, Status: cattlesvc.NiuStatusActive.String()})
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-safe-map"})
+
+	items, err := svc.VisibleNiu(ctx, playerID)
+	if err != nil {
+		t.Fatalf("visible niu failed: %v", err)
+	}
+	byID := make(map[int64]*VisibleNiuItem, len(items))
+	for _, item := range items {
+		byID[item.Id] = item
+	}
+	inactive := byID[inactiveID]
+	if inactive == nil || inactive.Lat != nil || inactive.Lng != nil || inactive.Area == nil {
+		t.Fatalf("inactive cattle leaked exact anchor or omitted fuzzy area: %+v", inactive)
+	}
+	if inactive.Area.Lat == 30.7058 && inactive.Area.Lng == 103.8318 {
+		t.Fatalf("inactive fuzzy center must differ from true anchor: %+v", inactive.Area)
+	}
+	active := byID[activeID]
+	if active == nil || active.Lat == nil || active.Lng == nil || active.Area != nil {
+		t.Fatalf("active cattle did not expose exact anchor: %+v", active)
+	}
+}

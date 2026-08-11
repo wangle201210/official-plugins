@@ -18,6 +18,10 @@ func (c *ControllerV1) GetProfile(ctx context.Context, req *v1.GetProfileReq) (r
 	if err != nil {
 		return nil, err
 	}
+	progress, err := c.grassSvc.Progress(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
 	return &v1.GetProfileRes{
 		PlayerId:       out.Id,
 		Phone:          out.Phone,
@@ -27,6 +31,8 @@ func (c *ControllerV1) GetProfile(ctx context.Context, req *v1.GetProfileReq) (r
 		CollegeId:      out.CollegeId,
 		Grade:          out.Grade,
 		GraduationYear: out.GraduationYear,
+		Level:          progress.Level,
+		Exp:            progress.Exp,
 		CreatedAt:      out.CreatedAt,
 		UpdatedAt:      out.UpdatedAt,
 	}, nil

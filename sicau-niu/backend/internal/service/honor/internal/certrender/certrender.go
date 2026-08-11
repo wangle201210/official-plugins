@@ -37,7 +37,7 @@ type CertData struct {
 type CertRenderer interface {
 	// Render encodes data into a PNG byte slice. It returns CodeCertRenderFailed
 	// when encoding fails. The default implementation produces a field-bearing
-	// certificate image whose accent colour is derived from the holder's data.
+	// certificate image whose accent color is derived from the holder's data.
 	Render(ctx context.Context, data *CertData) (png []byte, err error)
 }
 
@@ -112,7 +112,7 @@ func (r *basicRenderer) Render(ctx context.Context, data *CertData) ([]byte, err
 	return buf.Bytes(), nil
 }
 
-// holderAccent derives a stable accent colour from the holder nickname and honor
+// holderAccent derives a stable accent color from the holder nickname and honor
 // code so each holder's certificate is visually distinct. The seed is an inline
 // FNV-1a hash over the holder identity; the hue spread keeps the band readable
 // against the dark background.

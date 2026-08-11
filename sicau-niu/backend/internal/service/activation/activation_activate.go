@@ -11,7 +11,9 @@ package activation
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -55,47 +57,65 @@ type activationMatch struct {
 
 // ActivateInput defines the LBS activation request.
 type ActivateInput struct {
+	// RequestID is the player-scoped idempotency key supplied by the mini program.
+	RequestID string
 	// Lat is the player reported GPS latitude.
 	Lat float64
 	// Lng is the player reported GPS longitude.
 	Lng float64
-	// PhotoPath is the optional activation photo storage path (evidence only).
+	// PhotoPath is the opaque player-owned activation photo identifier.
 	PhotoPath string
 }
 
 // ActivateOutput defines the result of a successful activation.
 type ActivateOutput struct {
+	// Seq is the stable global activation sequence identifier.
+	Seq int64 `json:"seq"`
 	// NiuId is the server matched and activated cattle ID.
-	NiuId int64
+	NiuId int64 `json:"niuId"`
+	// NiuName is the display name, falling back to the cattle code.
+	NiuName string `json:"niuName"`
+	// Skin is the deterministic mini-program cattle skin.
+	Skin string `json:"skin"`
+	// Quote is one enabled school-history quote selected at first execution.
+	Quote string `json:"quote"`
 	// IsFirst reports whether the player is the cattle first-activator.
-	IsFirst bool
+	IsFirst bool `json:"isFirst"`
 	// OrderNo is the player's arrival order for this cattle, starting at 1.
-	OrderNo int
+	OrderNo int `json:"orderNo"`
 	// ActivatedAt is the activation time as a Unix timestamp in milliseconds.
-	ActivatedAt *int64
+	ActivatedAt *int64 `json:"activatedAt"`
 	// Card is the cattle main card issued on activation; nil when none exists.
-	Card *IssuedCard
+	Card *IssuedCard `json:"card"`
 }
 
 // IssuedCard defines the cattle main card returned on activation.
 type IssuedCard struct {
 	// Category is the card category string.
-	Category string
+	Category string `json:"category"`
 	// Title is the card title.
-	Title string
+	Title string `json:"title"`
 	// Content is the card content text.
-	Content string
+	Content string `json:"content"`
 	// ImagePath is the card image storage path; empty when none.
-	ImagePath string
+	ImagePath string `json:"imagePath"`
 }
 
 // Activate runs the validated, transactional LBS activation for playerID.
 func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *ActivateInput) (*ActivateOutput, error) {
-	if in == nil {
-		return nil, bizerr.NewCode(CodeNoNearbyNiu)
+	requestID, err := activationRequestID(playerID, in)
+	if err != nil {
+		return nil, err
 	}
-	if playerID <= 0 {
-		return nil, bizerr.NewCode(CodeActivationNotFound)
+	if requestID != "" {
+		if replay, replayErr := s.activationByRequest(ctx, playerID, requestID); replayErr != nil || replay != nil {
+			return replay, replayErr
+		}
+	}
+	if s.photoSvc != nil {
+		if err := s.photoSvc.Validate(ctx, playerID, in.PhotoPath); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.guardDailyLimit(ctx, playerID); err != nil {
@@ -118,12 +138,35 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 
 	var output *ActivateOutput
 	var activationErr error
-	err = dao.Niu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err = dao.Niu.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
+		var player *entitymodel.User
+		if txErr := dao.User.Ctx(ctx).Where(dao.User.Columns().Id, playerID).LockUpdate().Scan(&player); txErr != nil {
+			return bizerr.WrapCode(txErr, CodeQueryFailed)
+		}
+		if player == nil {
+			return bizerr.NewCode(CodeActivationNotFound)
+		}
+		if requestID != "" {
+			replay, txErr := s.activationByRequest(ctx, playerID, requestID)
+			if txErr != nil {
+				return txErr
+			}
+			if replay != nil {
+				output = replay
+				return nil
+			}
+		}
+		// The user row lock serializes distinct request IDs from the same player.
+		// Recheck the daily guard here so a concurrent loser receives the stable
+		// business error instead of leaking the backing unique-index error.
+		if txErr := s.guardDailyLimit(ctx, playerID); txErr != nil {
+			return txErr
+		}
 		threshold, txErr := s.activationLBSThreshold(ctx)
 		if txErr != nil {
 			return txErr
 		}
-		match, txErr := matchAndLockNearbyInactiveNiu(ctx, in.Lat, in.Lng, activatedAt, threshold)
+		match, txErr := matchAndLockNearbyNiu(ctx, playerID, in.Lat, in.Lng, activatedAt, threshold)
 		if txErr != nil {
 			return txErr
 		}
@@ -159,7 +202,7 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		if isFirst {
 			isFirstFlag = firstActivatorFlag
 		}
-		if _, txErr = dao.Activation.Ctx(ctx).Data(do.Activation{
+		activationID, txErr := dao.Activation.Ctx(ctx).Data(do.Activation{
 			UserId:       playerID,
 			NiuId:        niuID,
 			ActivityDate: activityDate,
@@ -167,18 +210,35 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 			IsFirst:      isFirstFlag,
 			OrderNo:      orderNo,
 			PhotoPath:    in.PhotoPath,
-		}).Insert(); txErr != nil {
+			RequestId:    requestID,
+		}).InsertAndGetId()
+		if txErr != nil {
 			return bizerr.WrapCode(txErr, CodeWriteFailed)
+		}
+		if s.photoSvc != nil {
+			if txErr = s.photoSvc.Consume(ctx, playerID, in.PhotoPath, activatedAt); txErr != nil {
+				return txErr
+			}
 		}
 		if txErr = insertActivationAttempt(ctx, playerID, in, niuID, niuID, activationAttemptSuccess, match.distance, threshold, activatedAt); txErr != nil {
 			return txErr
 		}
 
-		output = &ActivateOutput{
-			NiuId:       niuID,
-			IsFirst:     isFirst,
-			OrderNo:     orderNo,
-			ActivatedAt: apitime.MilliFromTime(activatedAt),
+		output, txErr = s.buildActivationOutput(ctx, &entitymodel.Activation{
+			Id: activationID, UserId: playerID, NiuId: niuID, IsFirst: isFirstFlag,
+			OrderNo: orderNo, ActivatedAt: &activatedAt, RequestId: requestID,
+		})
+		if txErr != nil {
+			return txErr
+		}
+		responseJSON, txErr := json.Marshal(output)
+		if txErr != nil {
+			return bizerr.WrapCode(txErr, CodeWriteFailed)
+		}
+		if _, txErr = dao.Activation.Ctx(ctx).Where(do.Activation{Id: activationID}).Data(do.Activation{
+			ResponseJson: string(responseJSON),
+		}).Update(); txErr != nil {
+			return bizerr.WrapCode(txErr, CodeWriteFailed)
 		}
 		return nil
 	})
@@ -189,12 +249,66 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		return nil, activationErr
 	}
 
-	card, err := s.loadMainCard(ctx, output.NiuId)
+	return output, nil
+}
+
+func activationRequestID(playerID int64, in *ActivateInput) (string, error) {
+	if in == nil {
+		return "", bizerr.NewCode(CodeNoNearbyNiu)
+	}
+	if playerID <= 0 {
+		return "", bizerr.NewCode(CodeActivationNotFound)
+	}
+	requestID := strings.TrimSpace(in.RequestID)
+	if len(requestID) > 64 {
+		return "", bizerr.NewCode(CodeActivationNotFound)
+	}
+	return requestID, nil
+}
+
+func (s *serviceImpl) activationByRequest(ctx context.Context, playerID int64, requestID string) (*ActivateOutput, error) {
+	var record *entitymodel.Activation
+	if err := dao.Activation.Ctx(ctx).Where(do.Activation{UserId: playerID, RequestId: requestID}).Scan(&record); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	if record == nil {
+		return nil, nil
+	}
+	if strings.TrimSpace(record.ResponseJson) != "" {
+		var out ActivateOutput
+		if err := json.Unmarshal([]byte(record.ResponseJson), &out); err != nil {
+			return nil, bizerr.WrapCode(err, CodeQueryFailed)
+		}
+		return &out, nil
+	}
+	return s.buildActivationOutput(ctx, record)
+}
+
+func (s *serviceImpl) buildActivationOutput(ctx context.Context, record *entitymodel.Activation) (*ActivateOutput, error) {
+	var niu *entitymodel.Niu
+	if err := dao.Niu.Ctx(ctx).Where(do.Niu{Id: record.NiuId}).Scan(&niu); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	if niu == nil {
+		return nil, bizerr.NewCode(CodeNiuNotFound)
+	}
+	quote, err := s.randomEnabledQuote(ctx)
 	if err != nil {
 		return nil, err
 	}
-	output.Card = card
-	return output, nil
+	card, err := s.loadMainCard(ctx, record.NiuId)
+	if err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(niu.Name)
+	if name == "" {
+		name = niu.Code
+	}
+	return &ActivateOutput{
+		Seq: record.Id, NiuId: record.NiuId, NiuName: name, Skin: niuSkin(niu), Quote: quote,
+		IsFirst: record.IsFirst == firstActivatorFlag, OrderNo: record.OrderNo,
+		ActivatedAt: apitime.Milli(record.ActivatedAt), Card: card,
+	}, nil
 }
 
 // activationLBSThreshold returns the operator-maintained LBS threshold when the
@@ -256,17 +370,17 @@ func insertActivationAttempt(
 	return nil
 }
 
-// matchAndLockNearbyInactiveNiu finds the nearest currently visible inactive
-// cattle within threshold and returns it locked. Concurrent activations may flip a
-// candidate before this transaction locks it, so each locked row is rechecked and
-// the matcher continues to the next candidate when that happens.
-func matchAndLockNearbyInactiveNiu(
+// matchAndLockNearbyNiu finds the nearest visible cattle the player has not
+// activated. Active cattle remain eligible for later visitors; the row lock
+// serializes arrival-order assignment across concurrent players.
+func matchAndLockNearbyNiu(
 	ctx context.Context,
+	playerID int64,
 	lat, lng float64,
 	now time.Time,
 	threshold float64,
 ) (*activationMatch, error) {
-	candidates, err := nearbyInactiveCandidates(ctx, now)
+	candidates, err := nearbyCandidates(ctx, playerID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +424,17 @@ func matchAndLockNearbyInactiveNiu(
 		if err != nil {
 			return nil, err
 		}
-		if niuRow.Status != cattlesvc.NiuStatusInactive.String() {
+		if niuRow.Status != cattlesvc.NiuStatusInactive.String() && niuRow.Status != cattlesvc.NiuStatusActive.String() {
+			continue
+		}
+		alreadyActivated, queryErr := dao.Activation.Ctx(ctx).
+			Where(dao.Activation.Columns().UserId, playerID).
+			Where(dao.Activation.Columns().NiuId, candidate.id).
+			Count()
+		if queryErr != nil {
+			return nil, bizerr.WrapCode(queryErr, CodeQueryFailed)
+		}
+		if alreadyActivated > 0 {
 			continue
 		}
 		if !niuCurrentlyVisible(niuRow, now) {
@@ -334,10 +458,9 @@ func matchAndLockNearbyInactiveNiu(
 	}, nil
 }
 
-// nearbyInactiveCandidates returns a bounded, projected candidate set for GPS
-// matching. Online time and inactive status are pushed to the database; optional
-// weekday/time windows and exact Haversine distance are checked in memory.
-func nearbyInactiveCandidates(ctx context.Context, now time.Time) ([]*entitymodel.Niu, error) {
+// nearbyCandidates returns a bounded visible candidate set, excluding cattle the
+// current player already activated in one batch query.
+func nearbyCandidates(ctx context.Context, playerID int64, now time.Time) ([]*entitymodel.Niu, error) {
 	rows := make([]*entitymodel.Niu, 0)
 	columns := dao.Niu.Columns()
 	err := dao.Niu.Ctx(ctx).
@@ -353,14 +476,39 @@ func nearbyInactiveCandidates(ctx context.Context, now time.Time) ([]*entitymode
 		).
 		Where(columns.OnlineAt+" IS NOT NULL").
 		WhereLTE(columns.OnlineAt, now).
-		Where(columns.Status, cattlesvc.NiuStatusInactive.String()).
+		WhereIn(columns.Status, []string{cattlesvc.NiuStatusInactive.String(), cattlesvc.NiuStatusActive.String()}).
 		OrderAsc(columns.Id).
 		Limit(activationCandidateCap).
 		Scan(&rows)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	return rows, nil
+	if playerID <= 0 || len(rows) == 0 {
+		return rows, nil
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.Id)
+	}
+	activatedRows := make([]*entitymodel.Activation, 0)
+	if err = dao.Activation.Ctx(ctx).
+		Fields(dao.Activation.Columns().NiuId).
+		Where(dao.Activation.Columns().UserId, playerID).
+		WhereIn(dao.Activation.Columns().NiuId, ids).
+		Scan(&activatedRows); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	activated := make(map[int64]struct{}, len(activatedRows))
+	for _, row := range activatedRows {
+		activated[row.NiuId] = struct{}{}
+	}
+	filtered := make([]*entitymodel.Niu, 0, len(rows))
+	for _, row := range rows {
+		if _, exists := activated[row.Id]; !exists {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered, nil
 }
 
 // lockNiu loads the target cattle row under a row lock (SELECT ... FOR UPDATE)

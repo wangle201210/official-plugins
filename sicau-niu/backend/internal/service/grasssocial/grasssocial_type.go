@@ -49,15 +49,15 @@ func normalizePositive(value, fallback int) int {
 // normalizeStealRange clamps the configured per-steal amount range so the random
 // steal amount is always well-defined: both bounds become at least 1 and the
 // lower bound never exceeds the upper bound regardless of configuration order.
-func normalizeStealRange(min, max int) (int, int) {
-	if min <= 0 {
-		min = defaultStealMinAmount
+func normalizeStealRange(minimum, maximum int) (int, int) {
+	if minimum <= 0 {
+		minimum = defaultStealMinAmount
 	}
-	if max <= 0 {
-		max = defaultStealMaxAmount
+	if maximum <= 0 {
+		maximum = defaultStealMaxAmount
 	}
-	if max < min {
-		max = min
+	if maximum < minimum {
+		maximum = minimum
 	}
-	return min, max
+	return minimum, maximum
 }

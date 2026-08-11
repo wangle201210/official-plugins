@@ -8,6 +8,7 @@ package activation
 
 import (
 	"context"
+	"reflect"
 	"strconv"
 	"sync"
 	"testing"
@@ -263,28 +264,37 @@ func TestActivateNearestNearbyInactiveNiuMatched(t *testing.T) {
 	}
 }
 
-// TestActivateActiveNiuNotMatched verifies an already-active cattle is no longer
-// matched by a GPS check-in that only targets unactivated cattle.
-func TestActivateActiveNiuNotMatched(t *testing.T) {
+// TestActivateActiveNiuAllowsLaterVisitor verifies shared active state records a
+// later player's own visit and issues the same cattle main card.
+func TestActivateActiveNiuAllowsLaterVisitor(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
 	niuID := stageActivatableNiu(t, ctx)
+	insertCardRow(t, ctx, do.Card{NiuId: niuID, Category: "event", Title: "后来者卡片", Content: "同行者也能获得"})
 	firstPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-active-a"})
 	secondPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-active-b"})
 
 	if _, err := svc.Activate(ctx, firstPlayer, &ActivateInput{Lat: 30.0, Lng: 103.0}); err != nil {
 		t.Fatalf("first activation failed: %v", err)
 	}
-	_, err := svc.Activate(ctx, secondPlayer, &ActivateInput{Lat: 30.0, Lng: 103.0})
-	assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
+	out, err := svc.Activate(ctx, secondPlayer, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	if err != nil {
+		t.Fatalf("later activation failed: %v", err)
+	}
+	if out.IsFirst || out.OrderNo != 2 {
+		t.Fatalf("expected later visitor order 2, got isFirst=%v order=%d", out.IsFirst, out.OrderNo)
+	}
+	if out.Card == nil || out.Card.Title != "后来者卡片" {
+		t.Fatalf("expected later visitor main card, got %+v", out.Card)
+	}
 
 	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
 	if countErr != nil {
 		t.Fatalf("count activations failed: %v", countErr)
 	}
-	if count != 1 {
-		t.Fatalf("expected only the first activation row, got %d", count)
+	if count != 2 {
+		t.Fatalf("expected first and later activation rows, got %d", count)
 	}
 }
 
@@ -322,16 +332,15 @@ func TestActivateConcurrentFirstActivatorUnique(t *testing.T) {
 	successCount := 0
 	for i, err := range errs {
 		if err != nil {
-			assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
-			continue
+			t.Fatalf("concurrent activation failed: %v", err)
 		}
 		successCount++
 		if results[i].IsFirst {
 			firstCount++
 		}
 	}
-	if successCount != 1 {
-		t.Fatalf("expected exactly one successful activation, got %d", successCount)
+	if successCount != 2 {
+		t.Fatalf("expected both players to activate successfully, got %d", successCount)
 	}
 	if firstCount != 1 {
 		t.Fatalf("expected exactly one first-activator, got %d", firstCount)
@@ -378,6 +387,104 @@ func TestActivateDailyLimitRejected(t *testing.T) {
 	attempts := activationAttemptsForPlayer(t, ctx, playerID)
 	if len(attempts) != 1 {
 		t.Fatalf("expected daily-limit rejection not to add attempt rows, got %d", len(attempts))
+	}
+}
+
+func TestActivateConcurrentDistinctRequestsReturnDailyLimit(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	stageActivatableNiu(t, ctx)
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-concurrent-daily"})
+
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errA error
+		errB error
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-concurrent-a", Lat: 30.0, Lng: 103.0})
+		mu.Lock()
+		errA = err
+		mu.Unlock()
+	}()
+	go func() {
+		defer wg.Done()
+		_, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-concurrent-b", Lat: 30.0, Lng: 103.0})
+		mu.Lock()
+		errB = err
+		mu.Unlock()
+	}()
+	wg.Wait()
+
+	if errA == nil && errB != nil {
+		assertBizCode(t, errB, CodeDailyLimitReached.RuntimeCode())
+	} else if errB == nil && errA != nil {
+		assertBizCode(t, errA, CodeDailyLimitReached.RuntimeCode())
+	} else {
+		t.Fatalf("expected one success and one daily-limit error, got errA=%v errB=%v", errA, errB)
+	}
+}
+
+func TestActivateRequestReplayReturnsExactResponse(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	stageActivatableNiu(t, ctx)
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-activation-replay"})
+	in := &ActivateInput{RequestID: "activation-replay-1", Lat: 30.0, Lng: 103.0}
+
+	first, err := svc.Activate(ctx, playerID, in)
+	if err != nil {
+		t.Fatalf("first activation failed: %v", err)
+	}
+	replayed, err := svc.Activate(ctx, playerID, in)
+	if err != nil {
+		t.Fatalf("activation replay failed: %v", err)
+	}
+	if !reflect.DeepEqual(first, replayed) {
+		t.Fatalf("activation replay changed response: first=%+v replay=%+v", first, replayed)
+	}
+}
+
+func TestRevokeFirstActivationPromotesReplayResponse(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	niuID := stageActivatableNiu(t, ctx)
+	firstPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-revoke-first"})
+	secondPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-revoke-second"})
+
+	first, err := svc.Activate(ctx, firstPlayer, &ActivateInput{RequestID: "activation-revoke-first", Lat: 30.0, Lng: 103.0})
+	if err != nil {
+		t.Fatalf("first activation failed: %v", err)
+	}
+	second, err := svc.Activate(ctx, secondPlayer, &ActivateInput{RequestID: "activation-revoke-second", Lat: 30.0, Lng: 103.0})
+	if err != nil {
+		t.Fatalf("second activation failed: %v", err)
+	}
+	if second.IsFirst {
+		t.Fatal("second activation unexpectedly started as first")
+	}
+	if err = svc.Revoke(ctx, first.Seq); err != nil {
+		t.Fatalf("revoke first activation failed: %v", err)
+	}
+	promoted, err := svc.Activate(ctx, secondPlayer, &ActivateInput{RequestID: "activation-revoke-second", Lat: 30.0, Lng: 103.0})
+	if err != nil {
+		t.Fatalf("replay promoted activation failed: %v", err)
+	}
+	if !promoted.IsFirst || promoted.Seq != second.Seq {
+		t.Fatalf("promoted replay response is inconsistent: before=%+v after=%+v", second, promoted)
+	}
+	if err = svc.Revoke(ctx, second.Seq); err != nil {
+		t.Fatalf("revoke last activation failed: %v", err)
+	}
+	status, err := dao.Niu.Ctx(ctx).Where(do.Niu{Id: niuID}).Fields(dao.Niu.Columns().Status).Value()
+	if err != nil || status.String() != cattlesvc.NiuStatusInactive.String() {
+		t.Fatalf("last revoke did not restore inactive status: status=%q err=%v", status.String(), err)
 	}
 }
 

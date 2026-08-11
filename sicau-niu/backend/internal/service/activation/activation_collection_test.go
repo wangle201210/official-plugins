@@ -1,7 +1,6 @@
 // activation_collection_test.go covers the DB-gated personal card collection: the
-// player only sees cards for cattle they themselves activated (self-isolation),
-// the optional category filter, an invalid category rejection and the empty
-// collection for a player who has not activated any cattle.
+// player sees the complete bounded catalog with isolated ownership state, the
+// optional category filter, invalid category rejection and locked-card redaction.
 
 package activation
 
@@ -28,8 +27,8 @@ func stageNiuWithCard(t *testing.T, ctx context.Context, code, category, title s
 	return niuID
 }
 
-// TestCollectionSelfIsolation verifies the collection only contains cards for the
-// cattle the requesting player activated, never another player's activations.
+// TestCollectionSelfIsolation verifies the catalog exposes only the requesting
+// player's ownership and redacts card-face content for cards they do not own.
 func TestCollectionSelfIsolation(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
@@ -47,7 +46,7 @@ func TestCollectionSelfIsolation(t *testing.T) {
 	if myActivation.NiuId != mineNiu {
 		t.Fatalf("expected my activation to match niu %d, got %d", mineNiu, myActivation.NiuId)
 	}
-	otherActivation, err := svc.Activate(ctx, other, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	otherActivation, err := svc.Activate(ctx, other, &ActivateInput{Lat: 30.0002, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("other activation failed: %v", err)
 	}
@@ -59,13 +58,22 @@ func TestCollectionSelfIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collection failed: %v", err)
 	}
-	if len(items) != 1 || items[0].NiuId != mineNiu {
-		t.Fatalf("expected only my activated card, got %+v", items)
+	if len(items) != 2 {
+		t.Fatalf("expected the complete two-card catalog, got %+v", items)
+	}
+	if items[0].NiuId != mineNiu || !items[0].Owned || items[0].Title != "我的卡" {
+		t.Fatalf("expected my card to be owned and visible, got %+v", items[0])
+	}
+	if items[1].NiuId != otherNiu || items[1].Owned {
+		t.Fatalf("expected the other player's card to stay locked, got %+v", items[1])
+	}
+	if items[1].Title != "" || items[1].Content != "" || items[1].ImagePath != "" {
+		t.Fatalf("expected locked card-face content to be redacted, got %+v", items[1])
 	}
 }
 
 // TestCollectionCategoryFilter verifies the category filter narrows the result to
-// cards of that category among the player's activations.
+// catalog cards of that category while preserving ownership state.
 func TestCollectionCategoryFilter(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
@@ -92,7 +100,7 @@ func TestCollectionCategoryFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filtered collection failed: %v", err)
 	}
-	if len(items) != 1 || items[0].Category != "event" {
+	if len(items) != 1 || items[0].Category != "event" || !items[0].Owned {
 		t.Fatalf("expected only event cards, got %+v", items)
 	}
 }
@@ -109,19 +117,23 @@ func TestCollectionInvalidCategoryRejected(t *testing.T) {
 	assertBizCode(t, err, CodeCategoryInvalid.RuntimeCode())
 }
 
-// TestCollectionEmptyWhenNoActivation verifies a player with no activations gets an
-// empty, non-nil collection.
-func TestCollectionEmptyWhenNoActivation(t *testing.T) {
+// TestCollectionLockedWhenNoActivation verifies a player with no activations gets
+// the catalog with every card locked and card-face content redacted.
+func TestCollectionLockedWhenNoActivation(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
+	niuID := stageNiuWithCard(t, ctx, "NIU-COL-LOCKED", "research", "保密卡面", 30.0)
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-empty"})
 
 	items, err := svc.Collection(ctx, me, "")
 	if err != nil {
-		t.Fatalf("empty collection failed: %v", err)
+		t.Fatalf("locked collection failed: %v", err)
 	}
-	if items == nil || len(items) != 0 {
-		t.Fatalf("expected empty non-nil collection, got %+v", items)
+	if len(items) != 1 || items[0].NiuId != niuID || items[0].Owned {
+		t.Fatalf("expected one locked catalog card, got %+v", items)
+	}
+	if items[0].Category != "research" || items[0].Title != "" || items[0].Content != "" || items[0].ImagePath != "" {
+		t.Fatalf("expected category-only locked projection, got %+v", items[0])
 	}
 }

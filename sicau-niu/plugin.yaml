@@ -361,3 +361,9 @@ menus:
     icon: ant-design:account-book-outlined
     type: M
     sort: 6
+  - key: plugin:sicau-niu:record-activation-revoke
+    parent_key: plugin:sicau-niu:record-activation
+    name: 撤销错误激活
+    perms: sicau-niu:record:revoke
+    type: B
+    sort: 1

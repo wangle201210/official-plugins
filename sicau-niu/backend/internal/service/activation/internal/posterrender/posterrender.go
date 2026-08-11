@@ -130,7 +130,7 @@ func (r *basicRenderer) Render(ctx context.Context, data *PosterData) ([]byte, e
 	return buf.Bytes(), nil
 }
 
-// posterAccentColor derives a stable accent colour from the player nickname and
+// posterAccentColor derives a stable accent color from the player nickname and
 // cattle code so each player's poster is visually distinct. The seed is an inline
 // FNV-1a hash over the player identity.
 func posterAccentColor(data *PosterData) color.RGBA {

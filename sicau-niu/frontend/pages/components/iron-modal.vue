@@ -4,13 +4,18 @@ import type { IronItem } from "../iron-client";
 import { computed, ref } from "vue";
 
 import { useVbenModal } from "@vben/common-ui";
+import { IconifyIcon } from "@vben/icons";
 
 import { Descriptions, DescriptionsItem, message } from "ant-design-vue";
 
 import { useVbenForm, z } from "#/adapter/form";
 import { formatTimestamp } from "#/utils/time";
 
-import { createIron, updateIron } from "../iron-client";
+import {
+  createIron,
+  setIronReportingCycleToTenSeconds,
+  updateIron,
+} from "../iron-client";
 
 const emit = defineEmits<{ reload: [] }>();
 
@@ -21,6 +26,7 @@ interface IronFormValues {
 }
 
 const recordId = ref(0);
+const reportingCycleUpdating = ref(false);
 const snapshot = ref<Pick<IronItem, "lastLat" | "lastLng" | "locatedAt">>({
   lastLat: 0,
   lastLng: 0,
@@ -114,6 +120,24 @@ async function handleConfirm() {
   }
 }
 
+async function handleUpdateReportingCycle() {
+  const { valid } = await formApi.validateField("code");
+  if (!valid) {
+    return;
+  }
+  const { code } = await formApi.getValues<Pick<IronFormValues, "code">>();
+
+  try {
+    reportingCycleUpdating.value = true;
+    modalApi.lock(true);
+    await setIronReportingCycleToTenSeconds(code.trim());
+    message.success("上报频率已更新为 10 秒");
+  } finally {
+    reportingCycleUpdating.value = false;
+    modalApi.lock(false);
+  }
+}
+
 async function handleOpenChange(open: boolean) {
   if (!open) {
     return;
@@ -158,6 +182,17 @@ function formatLocatedAt(value: number | null) {
   <Modal :title="title">
     <div data-testid="sicau-niu-iron-form">
       <IronForm />
+      <div v-if="!isEdit" class="mt-3 flex justify-end">
+        <a-button
+          class="w-[190px]"
+          data-testid="sicau-niu-iron-reporting-cycle"
+          :loading="reportingCycleUpdating"
+          @click="handleUpdateReportingCycle"
+        >
+          <IconifyIcon class="mr-1" icon="ant-design:sync-outlined" />
+          设置 10 秒上报频率
+        </a-button>
+      </div>
       <Descriptions
         v-if="isEdit"
         bordered

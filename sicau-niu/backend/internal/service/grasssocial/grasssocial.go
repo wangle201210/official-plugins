@@ -70,6 +70,9 @@ type Service interface {
 	// that does not belong to the player with CodeMessageNotFound and returns a
 	// store bizerr on failure.
 	MarkRead(ctx context.Context, playerID int64, messageID int64) (err error)
+	// Activities returns recent structured steal and gift events that affected
+	// playerID, newest first. Actor profiles are batch-loaded to avoid N+1.
+	Activities(ctx context.Context, playerID int64) (out []*Activity, err error)
 }
 
 // Interface compliance assertion for the default grass-social implementation.

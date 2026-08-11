@@ -28,6 +28,10 @@ type StealTarget struct {
 	UserId int64
 	// Nickname is the target player nickname.
 	Nickname string
+	// Avatar is the target player's avatar URL.
+	Avatar string
+	// StolenToday reports whether this player already stole the target today.
+	StolenToday bool
 }
 
 // StealTargets returns the player's deterministic daily stealable list.
@@ -47,6 +51,7 @@ func (s *serviceImpl) dailyStealTargets(ctx context.Context, playerID int64, day
 		Fields(
 			dao.User.Columns().Id,
 			dao.User.Columns().Nickname,
+			dao.User.Columns().Avatar,
 		).
 		WhereNot(dao.User.Columns().Id, playerID).
 		OrderAsc(dao.User.Columns().Id).
@@ -69,10 +74,32 @@ func (s *serviceImpl) dailyStealTargets(ctx context.Context, playerID int64, day
 		count = len(rows)
 	}
 
-	targets := make([]*StealTarget, 0, count)
+	selected := make([]*entitymodel.User, 0, count)
+	targetIDs := make([]int64, 0, count)
 	for i := 0; i < count; i++ {
 		row := rows[order[i]]
-		targets = append(targets, &StealTarget{UserId: row.Id, Nickname: row.Nickname})
+		selected = append(selected, row)
+		targetIDs = append(targetIDs, row.Id)
+	}
+	stolen := make(map[int64]bool, count)
+	if len(targetIDs) > 0 {
+		steals := make([]*entitymodel.Steal, 0, count)
+		err = dao.Steal.Ctx(ctx).
+			Fields(dao.Steal.Columns().TargetUserId).
+			Where(dao.Steal.Columns().ActorUserId, playerID).
+			Where(dao.Steal.Columns().StealDate, day).
+			WhereIn(dao.Steal.Columns().TargetUserId, targetIDs).
+			Scan(&steals)
+		if err != nil {
+			return nil, bizerr.WrapCode(err, CodeQueryFailed)
+		}
+		for _, row := range steals {
+			stolen[row.TargetUserId] = true
+		}
+	}
+	targets := make([]*StealTarget, 0, count)
+	for _, row := range selected {
+		targets = append(targets, &StealTarget{UserId: row.Id, Nickname: row.Nickname, Avatar: row.Avatar, StolenToday: stolen[row.Id]})
 	}
 	return targets, nil
 }

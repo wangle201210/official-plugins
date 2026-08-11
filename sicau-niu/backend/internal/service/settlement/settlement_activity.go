@@ -1,6 +1,6 @@
 // settlement_activity.go implements the M5 dashboard activity metrics: the daily
 // active users (DAU) series and the next-day / 7-day retention. Both derive from
-// the existing C1-C4 behaviour tables (activation, feeding, check-in, steal, gift)
+// the existing C1-C4 behavior tables (activation, feeding, check-in, steal, gift)
 // with no new table and no scheduled job. "Active on a day" is the de-duplicated
 // union of those tables' (user, day) pairs; the metrics are aggregated entirely on
 // the database side with a bounded date range, so the assembly never loads rows
@@ -64,14 +64,14 @@ type RetentionStat struct {
 	Rate          float64
 }
 
-// behaviourSource names one behaviour table and the column holding its acting
+// behaviourSource names one behavior table and the column holding its acting
 // player, so the active-union branches are built from DAO constants without drift.
 type behaviourSource struct {
 	table   string
 	userCol string
 }
 
-// behaviourSources returns the behaviour tables that define player activity: an
+// behaviourSources returns the behavior tables that define player activity: an
 // activation, feeding, check-in, steal (actor) or gift (sender) on a day marks the
 // player active that day. The identifiers come from the generated DAO so the union
 // never drifts from the schema.
@@ -86,9 +86,9 @@ func behaviourSources() []behaviourSource {
 }
 
 // activeUnionSQL builds the de-duplicated active (user_id, day) relation as a
-// UNION across the behaviour tables. Each branch filters soft-deleted rows and,
+// UNION across the behavior tables. Each branch filters soft-deleted rows and,
 // when withSince is true, restricts to created_at >= ? (one bound per branch). The
-// created_at and deleted_at columns are shared by every behaviour table.
+// created_at and deleted_at columns are shared by every behavior table.
 func activeUnionSQL(withSince bool) string {
 	createdCol := dao.Feeding.Columns().CreatedAt
 	deletedCol := dao.Feeding.Columns().DeletedAt
@@ -130,7 +130,7 @@ func (s *serviceImpl) Activity(ctx context.Context, days int) (*Activity, error)
 	return &Activity{Dau: dau, RetentionD1: retD1, RetentionD7: retD7}, nil
 }
 
-// dauSeries returns the per-day active-user counts for the last days days, filling
+// dauSeries returns per-day active-user counts for the requested number of days, filling
 // calendar gaps with zero. The de-duplicated active relation is grouped by day and
 // counted on the database side; the lower bound is the start of the first day in
 // the window, bound once per union branch.

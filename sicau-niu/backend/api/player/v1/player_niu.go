@@ -19,12 +19,25 @@ type VisibleNiuRes struct {
 
 // VisibleNiuItem defines one visible cattle projected for the player map.
 type VisibleNiuItem struct {
-	Id            int64   `json:"id" dc:"Cattle ID" eg:"1"`
-	Code          string  `json:"code" dc:"Cattle serial code" eg:"NIU-001"`
-	NiuType       string  `json:"niuType" dc:"Cattle type: common=普通牛, special=特殊牛" eg:"special"`
-	Name          string  `json:"name" dc:"Cattle name; empty for common cattle" eg:"川农魂"`
-	Lat           float64 `json:"lat" dc:"GPS latitude anchor in GCJ-02" eg:"30.123456"`
-	Lng           float64 `json:"lng" dc:"GPS longitude anchor in GCJ-02" eg:"103.123456"`
-	Status        string  `json:"status" dc:"Shared-pool activation status: inactive=未激活, active=已激活(全员可见)" eg:"active"`
-	ActivatedByMe bool    `json:"activatedByMe" dc:"Whether the current player has already activated this cattle" eg:"false"`
+	Id            int64    `json:"id" dc:"Cattle ID" eg:"1"`
+	Code          string   `json:"code" dc:"Cattle serial code" eg:"NIU-001"`
+	NiuType       string   `json:"niuType" dc:"Cattle type: common=普通牛, special=特殊牛" eg:"special"`
+	Name          string   `json:"name" dc:"Cattle name; empty for common cattle" eg:"川农魂"`
+	CampusId      string   `json:"campusId" dc:"Nearest supported campus ID" eg:"cd"`
+	Skin          string   `json:"skin" dc:"Mini-program cattle skin" eg:"normal"`
+	Lat           *float64 `json:"lat,omitempty" dc:"Exact GCJ-02 latitude; present only after first activation" eg:"30.7058"`
+	Lng           *float64 `json:"lng,omitempty" dc:"Exact GCJ-02 longitude; present only after first activation" eg:"103.8318"`
+	Area          *NiuArea `json:"area,omitempty" dc:"Stable fuzzy area; present only before first activation" eg:"{}"`
+	Status        string   `json:"status" dc:"Shared-pool activation status: inactive=未激活, active=已激活(全员可见)" eg:"active"`
+	ActivatedByMe bool     `json:"activatedByMe" dc:"Whether the current player has already activated this cattle" eg:"false"`
+	ActivatedBy   string   `json:"activatedBy" dc:"First activator nickname; empty before first activation" eg:"川农同学"`
+	FeedCount     int      `json:"feedCount" dc:"Cumulative feeding record count" eg:"23"`
+	IronBoost     bool     `json:"ironBoost" dc:"Whether a stored iron-cow is currently in bonus range" eg:"false"`
+}
+
+type NiuArea struct {
+	Name    string  `json:"name" dc:"Stable fuzzy area display name" eg:"成都校区神秘区域"`
+	Lat     float64 `json:"lat" dc:"Fuzzy area center latitude in GCJ-02" eg:"30.7065"`
+	Lng     float64 `json:"lng" dc:"Fuzzy area center longitude in GCJ-02" eg:"103.8325"`
+	RadiusM int     `json:"radiusM" dc:"Fuzzy area radius in meters containing the hidden anchor" eg:"260"`
 }

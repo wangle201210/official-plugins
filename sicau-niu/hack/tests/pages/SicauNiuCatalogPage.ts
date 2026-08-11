@@ -182,7 +182,8 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
   }
 
   // ---------------------------------------------------------------------------
-  // 铁牛管理 (iron) — location display is read-only, fed by the background IOT job
+  // 铁牛管理 (iron) — location is read-only; create can update the IOT
+  // reporting cycle.
   // ---------------------------------------------------------------------------
 
   ironAddButton(): Locator {
@@ -193,9 +194,28 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
     return this.page.getByRole("dialog", { name: /新增铁牛|编辑铁牛/ }).last();
   }
 
+  ironCodeInput(): Locator {
+    return this.page.getByTestId("sicau-niu-iron-code-input").last();
+  }
+
+  ironReportingCycleButton(): Locator {
+    return this.page.getByTestId("sicau-niu-iron-reporting-cycle").last();
+  }
+
   async openIronFromMenu() {
     await this.openGroupedMenu("寻牛配置", "铁牛管理");
     await expect(this.ironAddButton()).toBeVisible();
+  }
+
+  async openNewIronModal() {
+    await this.ironAddButton().click();
+    await expect(this.ironModal()).toBeVisible();
+    await expect(this.ironReportingCycleButton()).toBeVisible();
+  }
+
+  async updateIronReportingCycle(code: string) {
+    await this.ironCodeInput().fill(code);
+    await this.ironReportingCycleButton().click();
   }
 
   async expectIronLocationReadonly() {

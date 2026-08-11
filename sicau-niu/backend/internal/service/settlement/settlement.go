@@ -79,7 +79,7 @@ type Service interface {
 	// descending, bounded. It returns a query bizerr on store failure.
 	ListArchives(ctx context.Context) (out *ArchiveList, err error)
 	// Activity returns the M5 dashboard activity metrics: the daily active-user
-	// series for the last days days (bounded) and the next-day / 7-day retention
+	// series for the requested number of days (bounded) and the next-day / 7-day retention
 	// over elapsed cohorts. It returns a query bizerr on store failure.
 	Activity(ctx context.Context, days int) (out *Activity, err error)
 	// Anomalies returns the bounded risk anomaly alerts: players whose single-day

@@ -42,8 +42,10 @@ import (
 // sicauNiuTables lists the plugin tables truncated before each DB-gated test so
 // every test starts from a clean, deterministic state.
 var sicauNiuTables = []string{
+	"plugin_sicau_niu_activation_photo",
 	"plugin_sicau_niu_activation_attempt",
 	"plugin_sicau_niu_activation",
+	"plugin_sicau_niu_feeding",
 	"plugin_sicau_niu_quote",
 	"plugin_sicau_niu_card",
 	"plugin_sicau_niu_iron",
@@ -58,7 +60,9 @@ var activationSchemaFiles = []string{
 	"001-sicau-niu-identity.sql",
 	"002-sicau-niu-catalog.sql",
 	"003-sicau-niu-activation.sql",
+	"004-sicau-niu-grass.sql",
 	"007-sicau-niu-rule-config.sql",
+	"010-sicau-niu-miniapp-interfaces.sql",
 }
 
 // activationDBHarness holds the lazily-provisioned shared test database state.

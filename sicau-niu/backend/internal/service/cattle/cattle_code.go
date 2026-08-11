@@ -75,6 +75,11 @@ var (
 		"Failed to write cattle data",
 		gcode.CodeInternalError,
 	)
+	CodeNiuImportInvalid = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_NIU_IMPORT_INVALID",
+		"Cattle import must contain 1 to 200 valid unique items",
+		gcode.CodeInvalidParameter,
+	)
 
 	// CodeIronCodeRequired reports that an iron-cow code is required.
 	CodeIronCodeRequired = bizerr.MustDefine(

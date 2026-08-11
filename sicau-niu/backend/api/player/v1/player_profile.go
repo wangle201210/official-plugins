@@ -20,6 +20,8 @@ type GetProfileRes struct {
 	CollegeId      int64  `json:"collegeId" dc:"Selected college ID; 0 means none" eg:"3"`
 	Grade          int    `json:"grade" dc:"Grade number filled by students; 0 means unset" eg:"2024"`
 	GraduationYear int    `json:"graduationYear" dc:"Graduation year filled by alumni; 0 means unset" eg:"2018"`
+	Level          int    `json:"level" dc:"Player level derived from cumulative effective feeding" eg:"3"`
+	Exp            int64  `json:"exp" dc:"Cumulative effective feeding experience" eg:"245"`
 	CreatedAt      *int64 `json:"createdAt" dc:"Account creation time as Unix timestamp in milliseconds" eg:"1776333600000"`
 	UpdatedAt      *int64 `json:"updatedAt" dc:"Profile update time as Unix timestamp in milliseconds" eg:"1776333900000"`
 }

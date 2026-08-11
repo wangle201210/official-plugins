@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"lina-plugin-sicau-niu/backend/internal/service/activation/internal/posterrender"
+	activationphotosvc "lina-plugin-sicau-niu/backend/internal/service/activationphoto"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
@@ -54,17 +55,23 @@ type Service interface {
 	// returns the relevant validation bizerr on rejection or a store bizerr on
 	// failure; rejection errors never carry distance or bearing hints.
 	Activate(ctx context.Context, playerID int64, in *ActivateInput) (out *ActivateOutput, err error)
-	// Collection returns playerID's personal card collection: the main cards of the
-	// cattle the player has activated, optionally filtered by category, ordered by
-	// activation recency. It is isolated to the current player and batch-assembles
-	// cards from the activated cattle to avoid N+1. It returns a query bizerr on
-	// store failure or a parameter bizerr on an invalid category filter.
+	// Collection returns the bounded card catalog with playerID's ownership state,
+	// optionally filtered by category. Locked entries retain only the cattle
+	// reference and category needed for progress display; card-face content is
+	// withheld. It uses bounded batch queries to avoid N+1 and returns a query
+	// bizerr on store failure or a parameter bizerr on an invalid category filter.
 	Collection(ctx context.Context, playerID int64, category string) (out []*CollectionItem, err error)
 	// Poster returns the activation poster composition data for a cattle playerID
 	// has activated: nickname, identity type, cattle code, arrival order, a random
 	// enabled quote and the campus badge. It returns CodeActivationNotFound when the
 	// player has not activated the cattle, or a query bizerr on store failure.
 	Poster(ctx context.Context, playerID int64, niuID int64) (out *PosterOutput, err error)
+	// NiuDetail returns one visible cattle with safe location projection, current
+	// aggregate state, a quote and the player's owned main card.
+	NiuDetail(ctx context.Context, playerID, niuID int64) (out *NiuDetailOutput, err error)
+	// Revoke removes one erroneous activation from active gameplay while retaining
+	// its photo evidence and repairing the cattle first-activator state.
+	Revoke(ctx context.Context, activationID int64) error
 }
 
 // Interface compliance assertion for the default activation service implementation.
@@ -77,6 +84,7 @@ type serviceImpl struct {
 	identitySvc    identitysvc.Service         // identitySvc supplies the poster nickname and identity type.
 	posterRenderer posterrender.PosterRenderer // posterRenderer is the replaceable PNG output seam.
 	rulesSvc       rulessvc.Service            // rulesSvc supplies operator-maintained runtime thresholds and badge text.
+	photoSvc       activationphotosvc.Service  // photoSvc validates and consumes player-owned activation evidence.
 	lbsThreshold   float64                     // lbsThreshold is the LBS activation distance threshold in meters.
 	campusBadge    string                      // campusBadge is the poster campus anniversary badge text.
 }
@@ -98,11 +106,12 @@ func NewBasicPosterRenderer() PosterRenderer {
 // output, the optional runtime-rule service used for operator-maintained
 // thresholds and badge text, and the fallback plain-value activation
 // configuration.
-func New(identitySvc identitysvc.Service, posterRenderer PosterRenderer, rulesSvc rulessvc.Service, config Config) Service {
+func New(identitySvc identitysvc.Service, posterRenderer PosterRenderer, rulesSvc rulessvc.Service, photoSvc activationphotosvc.Service, config Config) Service {
 	return &serviceImpl{
 		identitySvc:    identitySvc,
 		posterRenderer: posterRenderer,
 		rulesSvc:       rulesSvc,
+		photoSvc:       photoSvc,
 		lbsThreshold:   config.LBSThresholdMeters,
 		campusBadge:    config.CampusBadge,
 	}

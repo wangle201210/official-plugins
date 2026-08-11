@@ -18,6 +18,7 @@ func (c *ControllerV1) Activate(ctx context.Context, req *v1.ActivateReq) (res *
 		return nil, err
 	}
 	out, err := c.activationSvc.Activate(ctx, playerID, &activationsvc.ActivateInput{
+		RequestID: req.RequestId,
 		Lat:       req.Lat,
 		Lng:       req.Lng,
 		PhotoPath: req.PhotoPath,
@@ -26,7 +27,11 @@ func (c *ControllerV1) Activate(ctx context.Context, req *v1.ActivateReq) (res *
 		return nil, err
 	}
 	res = &v1.ActivateRes{
+		Seq:         out.Seq,
 		NiuId:       out.NiuId,
+		NiuName:     out.NiuName,
+		Skin:        out.Skin,
+		Quote:       out.Quote,
 		IsFirst:     out.IsFirst,
 		OrderNo:     out.OrderNo,
 		ActivatedAt: out.ActivatedAt,

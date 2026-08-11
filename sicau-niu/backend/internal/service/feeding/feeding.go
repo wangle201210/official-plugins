@@ -48,6 +48,9 @@ type IronLocationRefreshResult = ironlocation.RefreshResult
 // IronLocationRefresher updates stored iron-cow coordinates from the IOT platform.
 type IronLocationRefresher = ironlocation.Refresher
 
+// IronReportingCycleUpdater updates one locator's reporting cycle on the IOT platform.
+type IronReportingCycleUpdater = ironlocation.ReportingCycleUpdater
+
 // IronLocationHTTPClient is the explicit HTTP dependency accepted by the IOT refresher.
 type IronLocationHTTPClient = ironlocation.HTTPClient
 
@@ -98,6 +101,21 @@ func NewStoredIronLocation() IronLocationGateway {
 // external IOT coordinates and writes them into the plugin iron table.
 func NewIOTIronLocationRefresher(config IronLocationConfig, client IronLocationHTTPClient) (IronLocationRefresher, error) {
 	return ironlocation.NewIOTRefresher(config, client)
+}
+
+// NewIOTIronReportingCycleUpdater creates the operator-path updater that sends
+// one v1.1 setConfig command without adding an independent token cache.
+func NewIOTIronReportingCycleUpdater(
+	config IronLocationConfig,
+	client IronLocationHTTPClient,
+) (IronReportingCycleUpdater, error) {
+	return ironlocation.NewIOTReportingCycleUpdater(config, client)
+}
+
+// NewUnconfiguredIronReportingCycleUpdater creates the deferred-failure updater
+// used when IOT credentials are absent at route assembly time.
+func NewUnconfiguredIronReportingCycleUpdater() IronReportingCycleUpdater {
+	return ironlocation.NewUnconfiguredReportingCycleUpdater()
 }
 
 // New creates a feeding service with explicit dependencies: the grass ledger

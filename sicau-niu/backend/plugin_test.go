@@ -5,6 +5,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,11 +15,14 @@ import (
 	"time"
 
 	"github.com/gogf/gf/v2/container/gvar"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
 
 	"gopkg.in/yaml.v3"
 	"lina-core/pkg/bizerr"
 	"lina-core/pkg/plugin/capability/plugincap"
 	playerv1 "lina-plugin-sicau-niu/backend/api/player/v1"
+	playerctrl "lina-plugin-sicau-niu/backend/internal/controller/player"
 	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 )
@@ -162,6 +166,35 @@ niu:
 	}
 }
 
+func TestBuildIronReportingCycleUpdaterDefersMissingCredentials(t *testing.T) {
+	configSvc := newPluginTestConfigService(t, `
+wechat:
+  mock: true
+`)
+
+	updater, err := buildIronReportingCycleUpdater(context.Background(), configSvc)
+	if err != nil {
+		t.Fatalf("buildIronReportingCycleUpdater returned error: %v", err)
+	}
+	err = updater.SetReportingCycle(context.Background(), "50275156712", 10*time.Second)
+	bizErr, ok := bizerr.As(err)
+	if !ok || bizErr.RuntimeCode() != "PLUGIN_SICAU_NIU_IRON_LOCATION_IOT_NOT_CONFIGURED" {
+		t.Fatalf("expected IOT-not-configured bizerr, got %T %v", err, err)
+	}
+}
+
+func TestBuildIronReportingCycleUpdaterRejectsPartialCredentials(t *testing.T) {
+	configSvc := newPluginTestConfigService(t, `
+niu:
+  key: "key-1"
+`)
+
+	_, err := buildIronReportingCycleUpdater(context.Background(), configSvc)
+	if err == nil {
+		t.Fatal("expected partial IOT credentials to fail")
+	}
+}
+
 func TestRefreshIronLocationsSkipsNonPrimaryNode(t *testing.T) {
 	refresher := &fakeIronLocationRefresher{}
 	if err := refreshIronLocations(context.Background(), false, refresher); err != nil {
@@ -185,19 +218,31 @@ func TestRefreshIronLocationsUsesInjectedRefresherOnPrimaryNode(t *testing.T) {
 func TestPlayerRequestDTOsUseMiniProgramAPIDocTag(t *testing.T) {
 	requests := []interface{}{
 		playerv1.ActivateReq{},
+		playerv1.ActivitiesReq{},
 		playerv1.CollectionReq{},
 		playerv1.CertificateReq{},
 		playerv1.CheckinReq{},
 		playerv1.CollegeOptionsReq{},
+		playerv1.ConfigReq{},
+		playerv1.CreateTransportTeamReq{},
+		playerv1.EndTransportReq{},
 		playerv1.FeedReq{},
 		playerv1.FeedingTrailReq{},
 		playerv1.GiftReq{},
 		playerv1.GrassAccountReq{},
+		playerv1.HeartbeatTransportReq{},
+		playerv1.IronTransportStateReq{},
+		playerv1.JoinTransportTeamReq{},
+		playerv1.LeaveTransportTeamReq{},
 		playerv1.PlayerHonorsReq{},
 		playerv1.LoginReq{},
 		playerv1.MessagesReq{},
 		playerv1.MarkMessageReadReq{},
 		playerv1.VisibleNiuReq{},
+		playerv1.NiuDetailReq{},
+		playerv1.PhotoContentReq{},
+		playerv1.StartTransportReq{},
+		playerv1.UploadPhotoReq{},
 		playerv1.BindPhoneReq{},
 		playerv1.PosterReq{},
 		playerv1.GetProfileReq{},
@@ -247,6 +292,129 @@ func TestAPIDocSummariesUseChinese(t *testing.T) {
 	if err != nil {
 		t.Fatalf("walk API files: %v", err)
 	}
+}
+
+func TestPlayerControllerRejectsMissingDependencies(t *testing.T) {
+	_, err := playerctrl.NewV1(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected player controller construction to reject missing dependencies")
+	}
+}
+
+func TestMiniProgramOpenAPIContract(t *testing.T) {
+	server := g.Server("sicau-niu-mini-program-openapi-contract")
+	server.SetPort(0)
+	server.SetOpenApiPath("/api.json")
+	server.SetSwaggerPath("")
+	server.SetDumpRouterMap(false)
+	controller := &playerctrl.ControllerV1{}
+	server.Group("/", func(group *ghttp.RouterGroup) {
+		group.Bind(controller)
+	})
+	if err := server.Start(); err != nil {
+		t.Fatalf("start OpenAPI contract server: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := server.Shutdown(); err != nil {
+			t.Errorf("shutdown OpenAPI contract server: %v", err)
+		}
+	})
+
+	payload, err := json.Marshal(server.GetOpenApi())
+	if err != nil {
+		t.Fatalf("marshal generated OpenAPI: %v", err)
+	}
+	var document struct {
+		Paths      map[string]map[string]json.RawMessage `json:"paths"`
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]json.RawMessage `json:"properties"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(payload, &document); err != nil {
+		t.Fatalf("decode generated OpenAPI: %v", err)
+	}
+
+	requiredOperations := []struct {
+		method string
+		path   string
+	}{
+		{method: "get", path: "/plugins/sicau-niu/config"},
+		{method: "post", path: "/plugins/sicau-niu/player/login"},
+		{method: "get", path: "/plugins/sicau-niu/player/niu"},
+		{method: "get", path: "/plugins/sicau-niu/player/niu/{id}"},
+		{method: "post", path: "/plugins/sicau-niu/player/photos"},
+		{method: "post", path: "/plugins/sicau-niu/player/activations"},
+		{method: "post", path: "/plugins/sicau-niu/player/checkin"},
+		{method: "get", path: "/plugins/sicau-niu/player/grass"},
+		{method: "get", path: "/plugins/sicau-niu/player/steal-targets"},
+		{method: "post", path: "/plugins/sicau-niu/player/steals"},
+		{method: "get", path: "/plugins/sicau-niu/player/cards"},
+		{method: "get", path: "/plugins/sicau-niu/player/honors"},
+		{method: "get", path: "/plugins/sicau-niu/player/profile"},
+		{method: "get", path: "/plugins/sicau-niu/player/feedings"},
+		{method: "post", path: "/plugins/sicau-niu/player/feedings"},
+		{method: "get", path: "/plugins/sicau-niu/player/rankings/feed"},
+		{method: "get", path: "/plugins/sicau-niu/player/rankings/college"},
+		{method: "get", path: "/plugins/sicau-niu/player/activities"},
+		{method: "get", path: "/plugins/sicau-niu/player/iron-transport/state"},
+		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/teams"},
+		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/teams/{id}/join"},
+		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/teams/{id}/leave"},
+		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/start"},
+		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/heartbeat"},
+		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/end"},
+	}
+	for _, operation := range requiredOperations {
+		methods, ok := document.Paths[operation.path]
+		if !ok {
+			t.Errorf("generated OpenAPI is missing path %s", operation.path)
+			continue
+		}
+		if _, ok := methods[operation.method]; !ok {
+			t.Errorf("generated OpenAPI is missing %s %s", operation.method, operation.path)
+		}
+	}
+
+	requiredSchemaFields := map[string][]string{
+		"ActivateReq":            {"lat", "lng", "photoPath", "requestId"},
+		"CollectionCardItem":     {"niuId", "niuCode", "category", "owned", "title", "content", "imagePath"},
+		"UploadPhotoReq":         {"requestId"},
+		"CheckinReq":             {"requestId"},
+		"CreateTransportTeamReq": {"name", "campusId", "minMembers", "requestId"},
+		"JoinTransportTeamReq":   {"id", "requestId"},
+		"LeaveTransportTeamReq":  {"id", "requestId"},
+		"StartTransportReq":      {"teamId", "requestId"},
+		"HeartbeatTransportReq":  {"teamId", "lat", "lng", "requestId"},
+		"EndTransportReq":        {"teamId", "requestId"},
+	}
+	for suffix, fields := range requiredSchemaFields {
+		schemaName, properties := findOpenAPISchema(document.Components.Schemas, suffix)
+		if schemaName == "" {
+			t.Errorf("generated OpenAPI is missing schema ending in %s", suffix)
+			continue
+		}
+		for _, field := range fields {
+			if _, ok := properties[field]; !ok {
+				t.Errorf("generated OpenAPI schema %s is missing field %s", schemaName, field)
+			}
+		}
+	}
+}
+
+func findOpenAPISchema(
+	schemas map[string]struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	},
+	suffix string,
+) (string, map[string]json.RawMessage) {
+	for name, schema := range schemas {
+		if strings.HasSuffix(name, "."+suffix) {
+			return name, schema.Properties
+		}
+	}
+	return "", nil
 }
 
 func newPluginTestConfigService(t *testing.T, content string) plugincap.ConfigService {

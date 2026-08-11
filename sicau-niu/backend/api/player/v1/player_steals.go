@@ -10,7 +10,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // StealTargetsReq is the request for the player's daily stealable-target list.
 type StealTargetsReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/steal-targets" method:"get" tags:"寻牛小程序" summary:"查询今日可偷草目标" dc:"Return the authenticated player's deterministic daily random list of stealable players (default 12). The list is recomputed from a per-player, per-day seed and is stable within the natural day. Each item carries the target player ID and nickname. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/steal-targets" method:"get" tags:"寻牛小程序" summary:"查询今日可偷草目标" dc:"Return the authenticated player's deterministic daily random list of stealable players. Each item includes display fields and whether the current player already stole that target during the Beijing natural day. Requires a valid player token."`
 }
 
 // StealTargetsRes is the response for the player's daily stealable-target list.
@@ -20,8 +20,10 @@ type StealTargetsRes struct {
 
 // StealTargetItem defines one stealable target projected for the player.
 type StealTargetItem struct {
-	UserId   int64  `json:"userId" dc:"Stealable target player ID" eg:"2"`
-	Nickname string `json:"nickname" dc:"Target player nickname" eg:"川农同学"`
+	UserId      int64  `json:"userId" dc:"Stealable target player ID" eg:"2"`
+	Nickname    string `json:"nickname" dc:"Target player nickname" eg:"川农同学"`
+	Avatar      string `json:"avatar" dc:"Target player avatar URL" eg:"https://example.com/avatar.png"`
+	StolenToday bool   `json:"stolenToday" dc:"Whether the current player already stole this target today" eg:"false"`
 }
 
 // StealReq is the request for stealing grass from a target.

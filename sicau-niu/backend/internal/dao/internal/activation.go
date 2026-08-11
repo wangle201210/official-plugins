@@ -32,6 +32,8 @@ type ActivationColumns struct {
 	CreatedAt    string // Creation time
 	UpdatedAt    string // Update time
 	DeletedAt    string // Soft-delete time, NULL means active
+	RequestId    string // Player-scoped idempotency key
+	ResponseJson string // Stable successful activation response for idempotent replay
 }
 
 // activationColumns holds the columns for the table plugin_sicau_niu_activation.
@@ -47,6 +49,8 @@ var activationColumns = ActivationColumns{
 	CreatedAt:    "created_at",
 	UpdatedAt:    "updated_at",
 	DeletedAt:    "deleted_at",
+	RequestId:    "request_id",
+	ResponseJson: "response_json",
 }
 
 // NewActivationDao creates and returns a new DAO object for table data access.

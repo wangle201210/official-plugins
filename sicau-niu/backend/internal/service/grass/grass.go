@@ -36,7 +36,10 @@ type Service interface {
 	// natural day, writing a checkin ledger transaction and crediting the balance
 	// in one transaction. It returns CodeAlreadyCheckedIn when the player already
 	// checked in today, or a store bizerr on failure.
-	Checkin(ctx context.Context, playerID int64) (out *CheckinResult, err error)
+	Checkin(ctx context.Context, playerID int64, requestID ...string) (out *CheckinResult, err error)
+	// Progress returns level/experience derived from cumulative effective feeding
+	// and whether the player checked in during the current Beijing natural day.
+	Progress(ctx context.Context, playerID int64) (out *ProgressView, err error)
 	// Account returns the player's current grass balance and a bounded page of
 	// recent ledger transactions (newest first). It is isolated to the current
 	// player and creates the account lazily (zero balance) when absent. It returns
@@ -69,6 +72,6 @@ type serviceImpl struct {
 // and both are positive, keeping the random grant well-defined regardless of
 // configuration order.
 func New(rulesSvc rulessvc.Service, config Config) Service {
-	min, max := normalizeCheckinRange(config.CheckinMinAmount, config.CheckinMaxAmount)
-	return &serviceImpl{rulesSvc: rulesSvc, checkinMin: min, checkinMax: max}
+	minimum, maximum := normalizeCheckinRange(config.CheckinMinAmount, config.CheckinMaxAmount)
+	return &serviceImpl{rulesSvc: rulesSvc, checkinMin: minimum, checkinMax: maximum}
 }

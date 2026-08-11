@@ -10,9 +10,9 @@ import (
 	"context"
 	"testing"
 
-	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
+	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
 )
 
 // newCattleServiceForTest builds a cattle service wired to the real college
@@ -148,6 +148,42 @@ func TestCreateNiuDefaultsStatusInactive(t *testing.T) {
 	if got.Status != NiuStatusInactive.String() {
 		t.Fatalf("expected default status %q, got %q", NiuStatusInactive.String(), got.Status)
 	}
+}
+
+func TestImportNiuCreatesSkipsAndOverwritesBoundedBatch(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLCattleDB(t, ctx)
+	svc := newCattleServiceForTest()
+	if _, err := svc.CreateNiu(ctx, &NiuMutateInput{Code: "NIU-IMPORT-EXISTING", NiuType: NiuTypeCommon.String(), Lat: 30.0, Lng: 103.0}); err != nil {
+		t.Fatalf("seed existing cattle failed: %v", err)
+	}
+	items := []*NiuMutateInput{
+		{Code: "NIU-IMPORT-EXISTING", NiuType: NiuTypeCommon.String(), Lat: 30.1, Lng: 103.1},
+		{Code: "NIU-IMPORT-NEW", NiuType: NiuTypeCommon.String(), Lat: 30.2, Lng: 103.2},
+	}
+	created, err := svc.ImportNiu(ctx, &ImportNiuInput{Items: items})
+	if err != nil || created.Created != 1 || created.Skipped != 1 || created.Updated != 0 {
+		t.Fatalf("unexpected create/skip import result: result=%+v err=%v", created, err)
+	}
+	overwritten, err := svc.ImportNiu(ctx, &ImportNiuInput{Items: items, Overwrite: true})
+	if err != nil || overwritten.Created != 0 || overwritten.Skipped != 0 || overwritten.Updated != 2 {
+		t.Fatalf("unexpected overwrite import result: result=%+v err=%v", overwritten, err)
+	}
+	lat, err := dao.Niu.Ctx(ctx).Where(dao.Niu.Columns().Code, "NIU-IMPORT-EXISTING").Fields(dao.Niu.Columns().Lat).Value()
+	if err != nil || lat.Float64() != 30.1 {
+		t.Fatalf("overwrite did not persist cattle fields: lat=%f err=%v", lat.Float64(), err)
+	}
+}
+
+func TestImportNiuRejectsDuplicateCodesInPayload(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLCattleDB(t, ctx)
+	svc := newCattleServiceForTest()
+	_, err := svc.ImportNiu(ctx, &ImportNiuInput{Items: []*NiuMutateInput{
+		{Code: "NIU-IMPORT-DUP", NiuType: NiuTypeCommon.String(), Lat: 30.0, Lng: 103.0},
+		{Code: "NIU-IMPORT-DUP", NiuType: NiuTypeCommon.String(), Lat: 30.1, Lng: 103.1},
+	}})
+	assertBizCode(t, err, CodeNiuCodeExists.RuntimeCode())
 }
 
 // TestDeleteNiuCascadeSoftDeletesCard verifies deleting a cattle that owns a card
