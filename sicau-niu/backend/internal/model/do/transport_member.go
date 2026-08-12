@@ -12,16 +12,18 @@ import (
 
 // TransportMember is the golang structure of table plugin_sicau_niu_transport_member for DAO operations like Where/Data.
 type TransportMember struct {
-	g.Meta          `orm:"table:plugin_sicau_niu_transport_member, do:true"`
-	Id              any        //
-	TeamId          any        //
-	UserId          any        //
-	JoinRequestId   any        //
-	LeaveRequestId  any        //
-	Role            any        // Member role: leader, member
-	JoinedAt        *time.Time //
-	LeftAt          *time.Time //
-	LastHeartbeatAt *time.Time //
-	CreatedAt       *time.Time //
-	UpdatedAt       *time.Time //
+	g.Meta                  `orm:"table:plugin_sicau_niu_transport_member, do:true"`
+	Id                      any        //
+	TeamId                  any        //
+	UserId                  any        //
+	JoinRequestId           any        //
+	Role                    any        // Member display role: creator, member
+	JoinedAt                *time.Time //
+	LeftAt                  *time.Time //
+	CreatedAt               *time.Time //
+	UpdatedAt               *time.Time //
+	TotalContributionMeters any        //
+	LastReportLat           any        //
+	LastReportLng           any        //
+	LastReportAt            *time.Time //
 }

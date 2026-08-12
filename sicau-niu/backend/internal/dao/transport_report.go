@@ -8,15 +8,15 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/dao/internal"
 )
 
-// transportSessionDao is the data access object for the table plugin_sicau_niu_transport_session.
+// transportReportDao is the data access object for the table plugin_sicau_niu_transport_report.
 // You can define custom methods on it to extend its functionality as needed.
-type transportSessionDao struct {
-	*internal.TransportSessionDao
+type transportReportDao struct {
+	*internal.TransportReportDao
 }
 
 var (
-	// TransportSession is a globally accessible object for table plugin_sicau_niu_transport_session operations.
-	TransportSession = transportSessionDao{internal.NewTransportSessionDao()}
+	// TransportReport is a globally accessible object for table plugin_sicau_niu_transport_report operations.
+	TransportReport = transportReportDao{internal.NewTransportReportDao()}
 )
 
 // Add your custom methods and functionality below.

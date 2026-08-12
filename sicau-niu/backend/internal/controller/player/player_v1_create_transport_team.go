@@ -1,3 +1,4 @@
+// player_v1_create_transport_team.go handles player cloud-moving team creation.
 package player
 
 import (
@@ -12,7 +13,7 @@ func (c *ControllerV1) CreateTransportTeam(ctx context.Context, req *v1.CreateTr
 	if err != nil {
 		return nil, err
 	}
-	out, err := c.ironTransportSvc.CreateTeam(ctx, playerID, &irontransportsvc.CreateTeamInput{RequestID: req.RequestId, Name: req.Name, CampusID: req.CampusId, MinMembers: req.MinMembers})
+	out, err := c.ironTransportSvc.CreateTeam(ctx, playerID, &irontransportsvc.CreateTeamInput{RequestID: req.RequestId, Name: req.Name})
 	if err != nil {
 		return nil, err
 	}

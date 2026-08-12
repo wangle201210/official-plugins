@@ -31,6 +31,12 @@ Capabilities:
   selection and future college-ranking aggregation.
 - Operator read-only player query.
 
+### Cloud moving
+
+- **Cloud moving** — persistent teams with one effective membership per player,
+  location-report contribution facts, a 12-report daily limit, 72-hour inactive-team
+  expiry, aggregate statistics, protected coordinate audit, and operator-only rename.
+
 ### Auth model
 
 | Surface | Guard |
@@ -50,15 +56,15 @@ sicau-niu/
     api/{player,admin}/     API DTOs and route contracts
     internal/
       controller/{player,admin}/  Request handling and response projection
-      service/{identity,college,token,wechat}/  Business logic, token, WeChat seam
+      service/{identity,college,irontransport,...}/  Business logic and integrations
       middleware/            Plugin player-auth middleware
       dao|model/             Generated DAO/DO/Entity (do not edit)
     hack/config.yaml         Plugin-local DAO codegen config
     plugin.go                Source-plugin registration and route binding
-  frontend/pages/            Operator console pages (college dictionary, player query)
+  frontend/pages/            Operator console pages, including cloud-moving management
   manifest/
     config/                  WeChat / token configuration example
-    sql/                     Install DDL (player + college tables)
+    sql/                     Idempotent install DDL for activity-owned data
     sql/uninstall/           Uninstall cleanup
   plugin.yaml                Plugin manifest
   plugin_embed.go            Embedded asset registration entry

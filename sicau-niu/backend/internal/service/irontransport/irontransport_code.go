@@ -1,5 +1,4 @@
-// irontransport_code.go defines stable transport business and storage errors.
-
+// irontransport_code.go defines stable cloud-moving business errors.
 package irontransport
 
 import (
@@ -9,26 +8,18 @@ import (
 )
 
 var (
-	// CodeUnavailable reports that no valid located iron cow can be transported.
-	CodeUnavailable = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_UNAVAILABLE", "No located iron-cow is available", gcode.CodeBusinessValidationFailed)
-	// CodeTeamNotFound reports an unknown or unavailable transport team.
-	CodeTeamNotFound = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_TEAM_NOT_FOUND", "Transport team does not exist", gcode.CodeNotFound)
-	// CodeAlreadyInTeam reports that the player already has active membership.
-	CodeAlreadyInTeam = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_ALREADY_IN_TEAM", "Leave the current transport team first", gcode.CodeBusinessValidationFailed)
-	// CodeTeamFull reports that a forming team reached its capacity.
-	CodeTeamFull = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_TEAM_FULL", "Transport team is full", gcode.CodeBusinessValidationFailed)
-	// CodeTeamNotReady reports that a team has too few members to start.
-	CodeTeamNotReady = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_TEAM_NOT_READY", "Transport team does not have enough members", gcode.CodeBusinessValidationFailed)
-	// CodeForbidden reports a command attempted by an unauthorized player.
-	CodeForbidden = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_FORBIDDEN", "Transport operation is not allowed", gcode.CodeNotAuthorized)
-	// CodeInvalidState reports a command incompatible with current team state.
-	CodeInvalidState = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_INVALID_STATE", "Transport state does not allow this operation", gcode.CodeBusinessValidationFailed)
-	// CodeNotActive reports that no active session accepts the command.
-	CodeNotActive = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_NOT_ACTIVE", "No active transport session exists", gcode.CodeBusinessValidationFailed)
-	// CodeMovementInvalid reports an invalid or implausible movement sample.
-	CodeMovementInvalid = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_MOVEMENT_INVALID", "Transport heartbeat movement is invalid", gcode.CodeBusinessValidationFailed)
-	// CodeQueryFailed wraps transport state query failures.
-	CodeQueryFailed = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_QUERY_FAILED", "Failed to query transport state", gcode.CodeInternalError)
-	// CodeWriteFailed wraps transport mutation failures.
-	CodeWriteFailed = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_WRITE_FAILED", "Failed to update transport state", gcode.CodeInternalError)
+	CodeInvalidInput  = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_INVALID_INPUT", "Cloud-moving request is invalid", gcode.CodeBusinessValidationFailed)
+	CodeTeamNotFound  = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_TEAM_NOT_FOUND", "Cloud-moving team does not exist", gcode.CodeNotFound)
+	CodeAlreadyInTeam = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_ALREADY_IN_TEAM", "Player already belongs to a cloud-moving team", gcode.CodeBusinessValidationFailed)
+	CodeTeamNameTaken = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_TEAM_NAME_TAKEN", "An effective cloud-moving team already uses this name", gcode.CodeBusinessValidationFailed)
+	CodeTeamLimit     = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_TEAM_LIMIT", "The maximum number of effective cloud-moving teams has been reached", gcode.CodeBusinessValidationFailed)
+	CodeDailyLimit    = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_DAILY_LIMIT", "The daily position report limit has been reached", gcode.CodeBusinessValidationFailed)
+	CodeQueryFailed   = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_QUERY_FAILED", "Failed to query cloud-moving data", gcode.CodeInternalError)
+	CodeWriteFailed   = bizerr.MustDefine("PLUGIN_SICAU_NIU_TRANSPORT_WRITE_FAILED", "Failed to update cloud-moving data", gcode.CodeInternalError)
 )
+
+// InvalidInputError lets controllers reject structurally missing pointer fields
+// without duplicating the package's stable business error contract.
+func InvalidInputError() error {
+	return bizerr.NewCode(CodeInvalidInput)
+}

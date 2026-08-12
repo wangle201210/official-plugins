@@ -27,7 +27,6 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	activationsvc "lina-plugin-sicau-niu/backend/internal/service/activation"
 	activationphotosvc "lina-plugin-sicau-niu/backend/internal/service/activationphoto"
-	irontransportsvc "lina-plugin-sicau-niu/backend/internal/service/irontransport"
 	miniappconfigsvc "lina-plugin-sicau-niu/backend/internal/service/miniappconfig"
 )
 
@@ -48,8 +47,7 @@ var schemaFiles = []string{
 }
 
 var tables = []string{
-	"plugin_sicau_niu_transport_track",
-	"plugin_sicau_niu_transport_session",
+	"plugin_sicau_niu_transport_report",
 	"plugin_sicau_niu_transport_member",
 	"plugin_sicau_niu_transport_team",
 	"plugin_sicau_niu_miniapp_config",
@@ -378,179 +376,6 @@ func testPNG(t *testing.T) []byte {
 		t.Fatalf("encode test PNG failed: %v", err)
 	}
 	return encoded.Bytes()
-}
-
-func TestIronTransportUnavailableState(t *testing.T) {
-	ctx := context.Background()
-	setupDB(t, ctx)
-	playerID := insertUser(t, ctx, "openid-no-iron")
-	svc := irontransportsvc.New(irontransportsvc.Config{})
-	state, err := svc.State(ctx, playerID)
-	if err != nil {
-		t.Fatalf("read unavailable transport state failed: %v", err)
-	}
-	if state.Enabled || state.IronCow == nil || state.IronCow.ID != 0 || state.IronCow.Status != "waiting" {
-		t.Fatalf("expected disabled placeholder state without located iron, got %+v", state)
-	}
-}
-
-func TestIronTransportStateKeepsPlayersOlderTeamWithinCap(t *testing.T) {
-	ctx := context.Background()
-	setupDB(t, ctx)
-	playerID := insertUser(t, ctx, "openid-transport-capped-team")
-	teamID, err := dao.TransportTeam.Ctx(ctx).Data(do.TransportTeam{
-		Code: "OWN-TEAM", Name: "我的较早队伍", CampusId: "ya", LeaderUserId: playerID,
-		Status: "forming", MinMembers: 2, MaxMembers: 6, Visible: 1,
-	}).InsertAndGetId()
-	if err != nil {
-		t.Fatalf("insert player's team failed: %v", err)
-	}
-	if _, err = dao.TransportMember.Ctx(ctx).Data(do.TransportMember{TeamId: teamID, UserId: playerID, Role: "leader"}).Insert(); err != nil {
-		t.Fatalf("insert player's membership failed: %v", err)
-	}
-	for i := 0; i < 21; i++ {
-		if _, err = dao.TransportTeam.Ctx(ctx).Data(do.TransportTeam{
-			Code: fmt.Sprintf("NEW-%02d", i), Name: fmt.Sprintf("新队伍 %02d", i), CampusId: "cd",
-			LeaderUserId: playerID + int64(i) + 1, Status: "forming", MinMembers: 2, MaxMembers: 6, Visible: 1,
-		}).Insert(); err != nil {
-			t.Fatalf("insert newer team %d failed: %v", i, err)
-		}
-	}
-
-	state, err := irontransportsvc.New(irontransportsvc.Config{}).State(ctx, playerID)
-	if err != nil {
-		t.Fatalf("read capped transport state failed: %v", err)
-	}
-	if state.MyTeamID != teamID || state.CampusID != "ya" || len(state.Teams) != 20 {
-		t.Fatalf("player's own team was lost outside public cap: %+v", state)
-	}
-	found := false
-	for _, team := range state.Teams {
-		if team.ID == teamID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("player's own team %d missing from bounded state", teamID)
-	}
-}
-
-func TestIronTransportTeamLifecycle(t *testing.T) {
-	ctx := context.Background()
-	setupDB(t, ctx)
-	leader := insertUser(t, ctx, "openid-transport-leader")
-	member := insertUser(t, ctx, "openid-transport-member")
-	locatedAt := time.Now()
-	if _, err := dao.Iron.Ctx(ctx).Data(do.Iron{Code: "IRON-TEST", Name: "测试铁牛", LastLat: 30.7058, LastLng: 103.8318, LocatedAt: &locatedAt}).Insert(); err != nil {
-		t.Fatalf("insert iron failed: %v", err)
-	}
-	svc := irontransportsvc.New(irontransportsvc.Config{IdleTimeout: 5 * time.Minute, MinTeamSize: 2, MaxTeamSize: 6})
-	createInput := &irontransportsvc.CreateTeamInput{RequestID: "transport-create", Name: "测试搬运队", CampusID: "cd", MinMembers: 2}
-	state, err := svc.CreateTeam(ctx, leader, createInput)
-	if err != nil || state.MyTeamID == 0 {
-		t.Fatalf("create team failed: state=%+v err=%v", state, err)
-	}
-	teamID := state.MyTeamID
-	if replay, replayErr := svc.CreateTeam(ctx, leader, createInput); replayErr != nil || replay.MyTeamID != teamID || len(replay.Teams) != 1 {
-		t.Fatalf("create replay was not stable: state=%+v err=%v", replay, replayErr)
-	}
-	if _, err = svc.JoinTeam(ctx, member, teamID, "transport-join"); err != nil {
-		t.Fatalf("join team failed: %v", err)
-	}
-	if _, err = svc.JoinTeam(ctx, member, teamID, "transport-join"); err != nil {
-		t.Fatalf("join replay failed: %v", err)
-	}
-	state, err = svc.Start(ctx, leader, teamID, "transport-start")
-	if err != nil || state.Session == nil || state.Session.Status != "active" {
-		t.Fatalf("start transport failed: state=%+v err=%v", state, err)
-	}
-	if _, err = svc.Start(ctx, leader, teamID, "transport-start"); err != nil {
-		t.Fatalf("start replay failed: %v", err)
-	}
-	heartbeat := &irontransportsvc.HeartbeatInput{RequestID: "transport-heartbeat", TeamID: teamID, Lat: 30.7059, Lng: 103.8318}
-	state, err = svc.Heartbeat(ctx, member, heartbeat)
-	if err != nil || state.Session == nil || state.Session.MovedMeters <= 0 || len(state.Session.Trace) != 2 {
-		t.Fatalf("heartbeat did not persist movement: state=%+v err=%v", state, err)
-	}
-	state, err = svc.Heartbeat(ctx, member, heartbeat)
-	if err != nil || state.Session == nil || len(state.Session.Trace) != 2 {
-		t.Fatalf("heartbeat replay wrote another track: state=%+v err=%v", state, err)
-	}
-	state, err = svc.End(ctx, leader, teamID, "transport-end")
-	if err != nil || state.MyTeamID != 0 || state.Session != nil {
-		t.Fatalf("end transport failed: state=%+v err=%v", state, err)
-	}
-	if _, err = svc.End(ctx, leader, teamID, "transport-end"); err != nil {
-		t.Fatalf("end replay failed: %v", err)
-	}
-	if _, err = svc.CreateTeam(ctx, leader, &irontransportsvc.CreateTeamInput{Name: "下一队", CampusID: "cd", MinMembers: 2}); err != nil {
-		t.Fatalf("leader could not create a new team after ending: %v", err)
-	}
-}
-
-func TestIronTransportIdleTimeoutIsVisible(t *testing.T) {
-	ctx := context.Background()
-	setupDB(t, ctx)
-	leader := insertUser(t, ctx, "openid-timeout-leader")
-	member := insertUser(t, ctx, "openid-timeout-member")
-	locatedAt := time.Now()
-	if _, err := dao.Iron.Ctx(ctx).Data(do.Iron{Code: "IRON-TIMEOUT", Name: "超时铁牛", LastLat: 30.7058, LastLng: 103.8318, LocatedAt: &locatedAt}).Insert(); err != nil {
-		t.Fatalf("insert iron failed: %v", err)
-	}
-	svc := irontransportsvc.New(irontransportsvc.Config{IdleTimeout: time.Second, MinTeamSize: 2, MaxTeamSize: 6})
-	state, err := svc.CreateTeam(ctx, leader, &irontransportsvc.CreateTeamInput{Name: "超时队", CampusID: "cd", MinMembers: 2})
-	if err != nil {
-		t.Fatalf("create team failed: %v", err)
-	}
-	if _, err = svc.JoinTeam(ctx, member, state.MyTeamID); err != nil {
-		t.Fatalf("join team failed: %v", err)
-	}
-	if _, err = svc.Start(ctx, leader, state.MyTeamID); err != nil {
-		t.Fatalf("start transport failed: %v", err)
-	}
-	stale := time.Now().Add(-2 * time.Second)
-	if _, err = dao.TransportSession.Ctx(ctx).Where(do.TransportSession{Status: "active"}).Data(do.TransportSession{LastActiveAt: &stale}).Update(); err != nil {
-		t.Fatalf("age session failed: %v", err)
-	}
-	state, err = svc.State(ctx, leader)
-	if err != nil || state.Session == nil || state.Session.Status != "idle_timeout" || state.IronCow.Status != "timeout" {
-		t.Fatalf("timeout was not visible in state: state=%+v err=%v", state, err)
-	}
-}
-
-func TestIronTransportStaleHeartbeatCommitsTimeout(t *testing.T) {
-	ctx := context.Background()
-	setupDB(t, ctx)
-	leader := insertUser(t, ctx, "openid-heartbeat-timeout-leader")
-	member := insertUser(t, ctx, "openid-heartbeat-timeout-member")
-	locatedAt := time.Now()
-	if _, err := dao.Iron.Ctx(ctx).Data(do.Iron{Code: "IRON-HEARTBEAT-TIMEOUT", Name: "心跳超时铁牛", LastLat: 30.7058, LastLng: 103.8318, LocatedAt: &locatedAt}).Insert(); err != nil {
-		t.Fatalf("insert iron failed: %v", err)
-	}
-	svc := irontransportsvc.New(irontransportsvc.Config{IdleTimeout: time.Second, MinTeamSize: 2, MaxTeamSize: 6})
-	state, err := svc.CreateTeam(ctx, leader, &irontransportsvc.CreateTeamInput{Name: "心跳超时队", CampusID: "cd", MinMembers: 2})
-	if err != nil {
-		t.Fatalf("create team failed: %v", err)
-	}
-	teamID := state.MyTeamID
-	if _, err = svc.JoinTeam(ctx, member, teamID); err != nil {
-		t.Fatalf("join team failed: %v", err)
-	}
-	if _, err = svc.Start(ctx, leader, teamID); err != nil {
-		t.Fatalf("start transport failed: %v", err)
-	}
-	stale := time.Now().Add(-2 * time.Second)
-	if _, err = dao.TransportSession.Ctx(ctx).Where(do.TransportSession{Status: "active"}).Data(do.TransportSession{LastActiveAt: &stale}).Update(); err != nil {
-		t.Fatalf("age session failed: %v", err)
-	}
-	_, err = svc.Heartbeat(ctx, member, &irontransportsvc.HeartbeatInput{TeamID: teamID, Lat: 30.7059, Lng: 103.8318})
-	assertCode(t, err, irontransportsvc.CodeNotActive.RuntimeCode())
-
-	state, err = svc.State(ctx, leader)
-	if err != nil || state.Session == nil || state.Session.Status != "idle_timeout" || state.MyTeamID != 0 {
-		t.Fatalf("heartbeat timeout was rolled back: state=%+v err=%v", state, err)
-	}
 }
 
 func insertUser(t *testing.T, ctx context.Context, openid string) int64 {

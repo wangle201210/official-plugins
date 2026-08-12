@@ -1,3 +1,4 @@
+// player_v1_join_transport_team.go handles joining one effective cloud-moving team.
 package player
 
 import (

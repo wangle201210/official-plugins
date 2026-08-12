@@ -21,32 +21,36 @@ type TransportMemberDao struct {
 
 // TransportMemberColumns defines and stores column names for the table plugin_sicau_niu_transport_member.
 type TransportMemberColumns struct {
-	Id              string //
-	TeamId          string //
-	UserId          string //
-	JoinRequestId   string //
-	LeaveRequestId  string //
-	Role            string // Member role: leader, member
-	JoinedAt        string //
-	LeftAt          string //
-	LastHeartbeatAt string //
-	CreatedAt       string //
-	UpdatedAt       string //
+	Id                      string //
+	TeamId                  string //
+	UserId                  string //
+	JoinRequestId           string //
+	Role                    string // Member display role: creator, member
+	JoinedAt                string //
+	LeftAt                  string //
+	CreatedAt               string //
+	UpdatedAt               string //
+	TotalContributionMeters string //
+	LastReportLat           string //
+	LastReportLng           string //
+	LastReportAt            string //
 }
 
 // transportMemberColumns holds the columns for the table plugin_sicau_niu_transport_member.
 var transportMemberColumns = TransportMemberColumns{
-	Id:              "id",
-	TeamId:          "team_id",
-	UserId:          "user_id",
-	JoinRequestId:   "join_request_id",
-	LeaveRequestId:  "leave_request_id",
-	Role:            "role",
-	JoinedAt:        "joined_at",
-	LeftAt:          "left_at",
-	LastHeartbeatAt: "last_heartbeat_at",
-	CreatedAt:       "created_at",
-	UpdatedAt:       "updated_at",
+	Id:                      "id",
+	TeamId:                  "team_id",
+	UserId:                  "user_id",
+	JoinRequestId:           "join_request_id",
+	Role:                    "role",
+	JoinedAt:                "joined_at",
+	LeftAt:                  "left_at",
+	CreatedAt:               "created_at",
+	UpdatedAt:               "updated_at",
+	TotalContributionMeters: "total_contribution_meters",
+	LastReportLat:           "last_report_lat",
+	LastReportLng:           "last_report_lng",
+	LastReportAt:            "last_report_at",
 }
 
 // NewTransportMemberDao creates and returns a new DAO object for table data access.

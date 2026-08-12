@@ -21,38 +21,38 @@ type TransportTeamDao struct {
 
 // TransportTeamColumns defines and stores column names for the table plugin_sicau_niu_transport_team.
 type TransportTeamColumns struct {
-	Id              string //
-	Code            string //
-	Name            string //
-	CampusId        string //
-	LeaderUserId    string //
-	CreateRequestId string //
-	IronId          string //
-	Status          string // Team status: forming, active, ended
-	MinMembers      string //
-	MaxMembers      string //
-	Visible         string //
-	CreatedAt       string //
-	UpdatedAt       string //
-	DeletedAt       string //
+	Id                      string //
+	Name                    string //
+	LeaderUserId            string // Team creator player ID; creator has no lifecycle authority
+	CreateRequestId         string //
+	Status                  string // Team status: effective, invalid
+	Visible                 string //
+	CreatedAt               string //
+	UpdatedAt               string //
+	DeletedAt               string //
+	MemberCount             string //
+	TotalContributionMeters string //
+	LastActiveAt            string // Latest successful create, join or contribution server commit time
+	InvalidatedAt           string //
+	InvalidReason           string //
 }
 
 // transportTeamColumns holds the columns for the table plugin_sicau_niu_transport_team.
 var transportTeamColumns = TransportTeamColumns{
-	Id:              "id",
-	Code:            "code",
-	Name:            "name",
-	CampusId:        "campus_id",
-	LeaderUserId:    "leader_user_id",
-	CreateRequestId: "create_request_id",
-	IronId:          "iron_id",
-	Status:          "status",
-	MinMembers:      "min_members",
-	MaxMembers:      "max_members",
-	Visible:         "visible",
-	CreatedAt:       "created_at",
-	UpdatedAt:       "updated_at",
-	DeletedAt:       "deleted_at",
+	Id:                      "id",
+	Name:                    "name",
+	LeaderUserId:            "leader_user_id",
+	CreateRequestId:         "create_request_id",
+	Status:                  "status",
+	Visible:                 "visible",
+	CreatedAt:               "created_at",
+	UpdatedAt:               "updated_at",
+	DeletedAt:               "deleted_at",
+	MemberCount:             "member_count",
+	TotalContributionMeters: "total_contribution_meters",
+	LastActiveAt:            "last_active_at",
+	InvalidatedAt:           "invalidated_at",
+	InvalidReason:           "invalid_reason",
 }
 
 // NewTransportTeamDao creates and returns a new DAO object for table data access.

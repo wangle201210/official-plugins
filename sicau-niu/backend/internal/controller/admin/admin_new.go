@@ -19,6 +19,7 @@ import (
 	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
 	honorsvc "lina-plugin-sicau-niu/backend/internal/service/honor"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
+	irontransportsvc "lina-plugin-sicau-niu/backend/internal/service/irontransport"
 	miniappconfigsvc "lina-plugin-sicau-niu/backend/internal/service/miniappconfig"
 )
 
@@ -33,6 +34,7 @@ type ControllerV1 struct {
 	miniappConfigSvc      miniappconfigsvc.Service             // miniappConfigSvc maintains public runtime config.
 	photoSvc              activationphotosvc.Service           // photoSvc serves protected evidence audit.
 	activationSvc         activationsvc.Service                // activationSvc repairs erroneous activations.
+	ironTransportSvc      irontransportsvc.Service             // ironTransportSvc maintains cloud-moving teams and audit facts.
 }
 
 // NewV1 creates the operator controller with explicit service dependencies.
@@ -46,6 +48,7 @@ func NewV1(
 	miniappConfigSvc miniappconfigsvc.Service,
 	photoSvc activationphotosvc.Service,
 	activationSvc activationsvc.Service,
+	ironTransportSvc irontransportsvc.Service,
 ) (admin.IAdminV1, error) {
 	switch {
 	case collegeSvc == nil:
@@ -66,6 +69,8 @@ func NewV1(
 		return nil, gerror.New("sicau-niu admin controller requires activation photo service")
 	case activationSvc == nil:
 		return nil, gerror.New("sicau-niu admin controller requires activation service")
+	case ironTransportSvc == nil:
+		return nil, gerror.New("sicau-niu admin controller requires cloud-moving service")
 	}
 	return &ControllerV1{
 		collegeSvc:            collegeSvc,
@@ -77,5 +82,6 @@ func NewV1(
 		miniappConfigSvc:      miniappConfigSvc,
 		photoSvc:              photoSvc,
 		activationSvc:         activationSvc,
+		ironTransportSvc:      ironTransportSvc,
 	}, nil
 }

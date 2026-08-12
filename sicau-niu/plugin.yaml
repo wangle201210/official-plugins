@@ -306,6 +306,29 @@ menus:
     perms: sicau-niu:settlement:rules
     type: B
     sort: 4
+  # 云搬牛团队、贡献统计与成功位置上报审计。
+  - key: plugin:sicau-niu:transport
+    parent_key: plugin:sicau-niu:operation
+    name: 云搬牛管理
+    path: /sicau-niu-transport
+    component: system/plugin/dynamic-page
+    perms: sicau-niu:transport:list
+    icon: ant-design:team-outlined
+    type: M
+    sort: 3
+    remark: 云搬牛团队状态、贡献统计与位置上报审计
+  - key: plugin:sicau-niu:transport-update
+    parent_key: plugin:sicau-niu:transport
+    name: 云搬牛改名
+    perms: sicau-niu:transport:update
+    type: B
+    sort: 1
+  - key: plugin:sicau-niu:transport-audit
+    parent_key: plugin:sicau-niu:transport
+    name: 位置上报审计
+    perms: sicau-niu:transport:audit
+    type: B
+    sort: 2
   # 活动记录只读查询页(C niu-activity-records):统一挂在"寻牛记录"分组下。
   - key: plugin:sicau-niu:record-feeding
     parent_key: plugin:sicau-niu:records

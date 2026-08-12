@@ -1,3 +1,4 @@
+// player_transport_projection.go maps cloud-moving service models to player DTOs.
 package player
 
 import (
@@ -13,27 +14,55 @@ func toIronTransportState(state *irontransportsvc.State) *v1.IronTransportState 
 		return nil
 	}
 	out := &v1.IronTransportState{
-		Enabled: state.Enabled, Explanation: state.Explanation, IdleTimeoutSec: state.IdleTimeoutSec,
-		MinTeamSize: state.MinTeamSize, CampusId: state.CampusID, Teams: make([]*v1.IronTransportTeam, 0, len(state.Teams)),
-	}
-	if state.MyTeamID > 0 {
-		out.MyTeamId = strconv.FormatInt(state.MyTeamID, 10)
-	}
-	if state.IronCow != nil {
-		out.IronCow = &v1.IronTransportCow{Id: strconv.FormatInt(state.IronCow.ID, 10), Name: state.IronCow.Name, Lat: state.IronCow.Lat, Lng: state.IronCow.Lng, Status: state.IronCow.Status, MovedMeters: state.IronCow.MovedMeters}
+		Explanation: state.Explanation, MaxEffectiveTeams: state.MaxEffectiveTeams,
+		DailyReportLimit: state.DailyReportLimit, TodayReportCount: state.TodayReportCount,
+		TodayReportRemaining: state.TodayReportRemaining,
+		Teams:                make([]*v1.IronTransportTeam, 0, len(state.Teams)),
 	}
 	for _, team := range state.Teams {
-		projected := &v1.IronTransportTeam{Id: strconv.FormatInt(team.ID, 10), Name: team.Name, Code: team.Code, CampusId: team.CampusID, LeaderId: strconv.FormatInt(team.LeaderID, 10), MinMembers: team.MinMembers, MaxMembers: team.MaxMembers, Visible: team.Visible, Members: make([]*v1.IronTransportMember, 0, len(team.Members))}
-		for _, member := range team.Members {
-			projected.Members = append(projected.Members, &v1.IronTransportMember{Id: strconv.FormatInt(member.ID, 10), Name: member.Name, Avatar: member.Avatar, Role: member.Role, JoinedAt: apitime.Milli(member.JoinedAt)})
-		}
-		out.Teams = append(out.Teams, projected)
+		out.Teams = append(out.Teams, toIronTransportTeam(team))
 	}
-	if state.Session != nil {
-		out.Session = &v1.IronTransportSession{Id: strconv.FormatInt(state.Session.ID, 10), TeamId: strconv.FormatInt(state.Session.TeamID, 10), Status: state.Session.Status, StartedAt: apitime.Milli(state.Session.StartedAt), LastActiveAt: apitime.Milli(state.Session.LastActiveAt), MovedMeters: state.Session.MovedMeters, Trace: make([]*v1.IronTransportPoint, 0, len(state.Session.Trace))}
-		for _, point := range state.Session.Trace {
-			out.Session.Trace = append(out.Session.Trace, &v1.IronTransportPoint{Lat: point.Lat, Lng: point.Lng, At: apitime.Milli(point.At)})
-		}
-	}
+	out.MyTeam = toIronTransportTeam(state.MyTeam)
 	return out
+}
+
+func toIronTransportTeam(team *irontransportsvc.Team) *v1.IronTransportTeam {
+	if team == nil {
+		return nil
+	}
+	return &v1.IronTransportTeam{
+		Id: strconv.FormatInt(team.ID, 10), Name: team.Name,
+		CreatorId: strconv.FormatInt(team.CreatorID, 10), CreatorName: team.CreatorName,
+		MemberCount: team.MemberCount, TotalContributionMeters: team.TotalContributionMeters,
+		MyContributionMeters: team.MyContributionMeters, HasReportBaseline: team.HasReportBaseline,
+		LastActiveAt: apitime.Milli(team.LastActiveAt), CreatedAt: apitime.Milli(team.CreatedAt), Mine: team.Mine,
+	}
+}
+
+func toIronTransportMember(member *irontransportsvc.Member) *v1.IronTransportMember {
+	return &v1.IronTransportMember{
+		Id: strconv.FormatInt(member.ID, 10), UserId: strconv.FormatInt(member.UserID, 10),
+		Name: member.Name, Avatar: member.Avatar, Role: member.Role,
+		ContributionMeters: member.ContributionMeters, JoinedAt: apitime.Milli(member.JoinedAt),
+	}
+}
+
+func toIronTransportReportResult(report *irontransportsvc.ReportResult) *v1.IronTransportReportResult {
+	if report == nil {
+		return nil
+	}
+	return &v1.IronTransportReportResult{
+		Id: strconv.FormatInt(report.ID, 10), TeamId: strconv.FormatInt(report.TeamID, 10),
+		StartLat: report.StartLat, StartLng: report.StartLng, EndLat: report.EndLat, EndLng: report.EndLng,
+		ContributionMeters: report.ContributionMeters, UserTotalMeters: report.UserTotalMeters,
+		TeamTotalMeters: report.TeamTotalMeters, TodayReportCount: report.TodayReportCount,
+		TodayReportRemaining: report.TodayReportRemaining, AcceptedAt: apitime.Milli(report.AcceptedAt),
+	}
+}
+
+func toIronTransportReport(report *irontransportsvc.Report) *v1.IronTransportReport {
+	return &v1.IronTransportReport{
+		IronTransportReportResult: toIronTransportReportResult(report.ReportResult),
+		ActivityDate:              report.ActivityDate, SampledAt: apitime.Milli(report.SampledAt),
+	}
 }

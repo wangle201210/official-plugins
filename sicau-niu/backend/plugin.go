@@ -33,6 +33,7 @@ import (
 	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
+	cronsvc "lina-plugin-sicau-niu/backend/internal/service/cron"
 	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
 	grasssocialsvc "lina-plugin-sicau-niu/backend/internal/service/grasssocial"
@@ -133,12 +134,6 @@ const (
 	configKeyMiniappAnniversary   = "miniapp.anniversary"
 	configKeyMiniappAnniversaryAt = "miniapp.anniversaryAt"
 	configKeyMiniappDebug         = "miniapp.debug"
-	configKeyTransportIdleTimeout = "ironTransport.idleTimeout"
-	configKeyTransportMinTeamSize = "ironTransport.minTeamSize"
-	configKeyTransportMaxTeamSize = "ironTransport.maxTeamSize"
-	defaultTransportIdleTimeout   = 5 * time.Minute
-	defaultTransportMinTeamSize   = 3
-	defaultTransportMaxTeamSize   = 6
 	// configKeyAnomalyFeedDaily, configKeyAnomalyStealDaily and configKeyAnomalyLimit
 	// are the plugin config keys for the settlement anomaly alert thresholds and cap.
 	configKeyAnomalyFeedDaily  = "anomaly.feedDailyThreshold"
@@ -173,12 +168,6 @@ const (
 	// defaultIOTLocatorHTTPTimeout bounds one external IOT HTTP request so a slow
 	// platform response does not overlap the next 1-minute refresh indefinitely.
 	defaultIOTLocatorHTTPTimeout = 8 * time.Second
-	// ironLocationRefreshJobName identifies the iron-cow IOT refresh job declaration.
-	ironLocationRefreshJobName = "sicau-niu-iron-location-refresh"
-	// ironLocationRefreshJobDisplayName is the English source title for the locator refresh job.
-	ironLocationRefreshJobDisplayName = "Sicau Niu Iron Location Refresh"
-	// ironLocationRefreshJobDescription is the English source description for the locator refresh job.
-	ironLocationRefreshJobDescription = "Refreshes registered iron-cow locator coordinates from the IOT positioning platform."
 )
 
 // init registers the embedded sicau-niu source plugin and its route callbacks.
@@ -195,7 +184,7 @@ func init() {
 	if err := plugin.Jobs().RegisterJobs(
 		pluginhost.ExtensionPointJobsRegister,
 		pluginhost.CallbackExecutionModeBlocking,
-		registerIronLocationJob,
+		registerJobs,
 	); err != nil {
 		panic(err)
 	}
@@ -241,11 +230,6 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	if err != nil {
 		return err
 	}
-	transportConfig, err := buildTransportConfig(ctx, configSvc)
-	if err != nil {
-		return err
-	}
-
 	grassConfig, feedingConfig, grassSocialConfig, err := buildGrassConfigs(ctx, configSvc)
 	if err != nil {
 		return err
@@ -306,7 +290,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		return err
 	}
 	miniappConfigService := miniappconfigsvc.New(rulesService, miniappConfig)
-	ironTransportService := irontransportsvc.New(transportConfig)
+	ironTransportService := irontransportsvc.New(irontransportsvc.Config{})
 	activationService := activationsvc.New(
 		identityService,
 		activationsvc.NewBasicPosterRenderer(),
@@ -353,6 +337,7 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 		miniappConfigService,
 		photoService,
 		activationService,
+		ironTransportService,
 	)
 	if err != nil {
 		return err
@@ -413,10 +398,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					playerController.IronTransportState,
 					playerController.CreateTransportTeam,
 					playerController.JoinTransportTeam,
-					playerController.LeaveTransportTeam,
-					playerController.StartTransport,
-					playerController.HeartbeatTransport,
-					playerController.EndTransport,
+					playerController.GetTransportTeam,
+					playerController.ListTransportMembers,
+					playerController.ReportTransportContribution,
+					playerController.ListMyTransportReports,
 					playerController.FeedRanking,
 					playerController.CollegeRanking,
 					playerController.FriendRanking,
@@ -469,6 +454,10 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 					adminController.ListPhotoAudit,
 					adminController.AuditPhotoContent,
 					adminController.RevokeActivation,
+					adminController.ListTransportTeams,
+					adminController.UpdateTransportTeamName,
+					adminController.GetTransportStats,
+					adminController.ListTransportReports,
 				)
 				group.Bind(
 					settlementController.Dashboard,
@@ -501,15 +490,13 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	return nil
 }
 
-// registerIronLocationJob contributes the primary-node IOT locator refresh job
-// when niu.key and niu.secret are configured. Missing credentials keep
-// development and test deployments on stored/mock coordinates without registering
-// an external polling job.
-func registerIronLocationJob(ctx context.Context, registrar pluginhost.JobsRegistrar) error {
+// registerJobs contributes the always-on cloud-moving expiry job and the
+// optional primary-node IOT locator refresh job.
+func registerJobs(ctx context.Context, registrar pluginhost.JobsRegistrar) error {
 	if registrar == nil {
-		return gerror.New("sicau-niu iron-location job requires registrar")
+		return gerror.New("sicau-niu jobs require registrar")
 	}
-	configSvc, err := pluginConfigFromServices(registrar.Services(), "sicau-niu iron-location job")
+	configSvc, err := pluginConfigFromServices(registrar.Services(), "sicau-niu jobs")
 	if err != nil {
 		return err
 	}
@@ -517,33 +504,15 @@ func registerIronLocationJob(ctx context.Context, registrar pluginhost.JobsRegis
 	if err != nil {
 		return err
 	}
-	if !enabled {
-		return nil
-	}
-	return registrar.AddWithMetadata(
-		ctx,
-		"@every "+interval.String(),
-		ironLocationRefreshJobName,
-		ironLocationRefreshJobDisplayName,
-		ironLocationRefreshJobDescription,
-		func(ctx context.Context) error {
-			return refreshIronLocations(ctx, registrar.IsPrimaryNode(), refresher)
-		},
+	jobs, err := cronsvc.New(
+		irontransportsvc.New(irontransportsvc.Config{}),
+		refresher,
+		cronsvc.Config{IronLocationEnabled: enabled, IronLocationInterval: interval},
 	)
-}
-
-// refreshIronLocations runs one primary-node refresh cycle. The job registrar
-// already guards disabled plugins; this function keeps primary-node gating and
-// refresher dependency checks testable without touching host scheduler state.
-func refreshIronLocations(ctx context.Context, primaryNode bool, refresher feedingsvc.IronLocationRefresher) error {
-	if !primaryNode {
-		return nil
+	if err != nil {
+		return err
 	}
-	if refresher == nil {
-		return gerror.New("sicau-niu iron-location refresh requires refresher")
-	}
-	_, err := refresher.Refresh(ctx)
-	return err
+	return jobs.Register(ctx, registrar)
 }
 
 // pluginConfigFromServices extracts the plugin-scoped ConfigService from host
@@ -740,22 +709,6 @@ func buildMiniappConfig(ctx context.Context, config plugincap.ConfigService, act
 		return miniappconfigsvc.Config{}, gerror.Wrap(err, "sicau-niu read miniapp debug switch failed")
 	}
 	return miniappconfigsvc.Config{DefaultCampus: defaultCampus, Anniversary: anniversary, AnniversaryAt: anniversaryAt, Debug: debug, ActivateRadiusMeters: activateRadius}, nil
-}
-
-func buildTransportConfig(ctx context.Context, config plugincap.ConfigService) (irontransportsvc.Config, error) {
-	idleTimeout, err := config.Duration(ctx, configKeyTransportIdleTimeout, defaultTransportIdleTimeout)
-	if err != nil {
-		return irontransportsvc.Config{}, gerror.Wrap(err, "sicau-niu read transport idle timeout failed")
-	}
-	minTeamSize, err := config.Int(ctx, configKeyTransportMinTeamSize, defaultTransportMinTeamSize)
-	if err != nil {
-		return irontransportsvc.Config{}, gerror.Wrap(err, "sicau-niu read transport minimum team size failed")
-	}
-	maxTeamSize, err := config.Int(ctx, configKeyTransportMaxTeamSize, defaultTransportMaxTeamSize)
-	if err != nil {
-		return irontransportsvc.Config{}, gerror.Wrap(err, "sicau-niu read transport maximum team size failed")
-	}
-	return irontransportsvc.Config{IdleTimeout: idleTimeout, MinTeamSize: minTeamSize, MaxTeamSize: maxTeamSize}, nil
 }
 
 // buildRankingConfig reads the plain-value C5 leaderboard configuration (the

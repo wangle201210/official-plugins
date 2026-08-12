@@ -23,6 +23,10 @@
 - **院系字典** —— 运营维护的院系清单，供玩家资料选择与后续院系榜聚合复用。
 - 运营只读玩家查询。
 
+### 云搬牛
+
+- **云搬牛** —— 持久团关系、玩家唯一有效团绑定、位置上报贡献事实、每日 12 次限额、72 小时不活跃团失效、聚合统计、受保护坐标审计和仅运营端改名。
+
 ### 鉴权模型
 
 | 接口面 | 守卫 |
@@ -41,15 +45,15 @@ sicau-niu/
     api/{player,admin}/     API DTO 与路由契约
     internal/
       controller/{player,admin}/  请求处理与响应投影
-      service/{identity,college,token,wechat}/  业务逻辑、token、微信接缝
+      service/{identity,college,irontransport,...}/  业务逻辑与外部集成
       middleware/            插件玩家鉴权中间件
       dao|model/             生成的 DAO/DO/Entity（请勿手改）
     hack/config.yaml         插件本地 DAO 代码生成配置
     plugin.go                源码插件注册与路由绑定
-  frontend/pages/            运营后台页面（院系字典、玩家查询）
+  frontend/pages/            运营后台页面（含云搬牛管理）
   manifest/
     config/                  微信 / token 配置示例
-    sql/                     安装 DDL（玩家表 + 院系表）
+    sql/                     活动自有数据的幂等安装 DDL
     sql/uninstall/           卸载清理
   plugin.yaml                插件清单
   plugin_embed.go            嵌入资源注册入口

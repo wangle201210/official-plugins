@@ -23,18 +23,8 @@ import (
 	"lina-core/pkg/plugin/capability/plugincap"
 	playerv1 "lina-plugin-sicau-niu/backend/api/player/v1"
 	playerctrl "lina-plugin-sicau-niu/backend/internal/controller/player"
-	feedingsvc "lina-plugin-sicau-niu/backend/internal/service/feeding"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 )
-
-type fakeIronLocationRefresher struct {
-	called bool
-}
-
-func (f *fakeIronLocationRefresher) Refresh(ctx context.Context) (*feedingsvc.IronLocationRefreshResult, error) {
-	f.called = true
-	return &feedingsvc.IronLocationRefreshResult{}, nil
-}
 
 func TestBuildAuthDependenciesAllowsMissingTokenSecret(t *testing.T) {
 	configSvc := newPluginTestConfigService(t, `
@@ -195,26 +185,6 @@ niu:
 	}
 }
 
-func TestRefreshIronLocationsSkipsNonPrimaryNode(t *testing.T) {
-	refresher := &fakeIronLocationRefresher{}
-	if err := refreshIronLocations(context.Background(), false, refresher); err != nil {
-		t.Fatalf("refreshIronLocations returned error: %v", err)
-	}
-	if refresher.called {
-		t.Fatalf("expected non-primary node to skip refresh")
-	}
-}
-
-func TestRefreshIronLocationsUsesInjectedRefresherOnPrimaryNode(t *testing.T) {
-	refresher := &fakeIronLocationRefresher{}
-	if err := refreshIronLocations(context.Background(), true, refresher); err != nil {
-		t.Fatalf("refreshIronLocations returned error: %v", err)
-	}
-	if !refresher.called {
-		t.Fatalf("expected primary node to call refresher")
-	}
-}
-
 func TestPlayerRequestDTOsUseMiniProgramAPIDocTag(t *testing.T) {
 	requests := []interface{}{
 		playerv1.ActivateReq{},
@@ -225,15 +195,16 @@ func TestPlayerRequestDTOsUseMiniProgramAPIDocTag(t *testing.T) {
 		playerv1.CollegeOptionsReq{},
 		playerv1.ConfigReq{},
 		playerv1.CreateTransportTeamReq{},
-		playerv1.EndTransportReq{},
 		playerv1.FeedReq{},
 		playerv1.FeedingTrailReq{},
 		playerv1.GiftReq{},
 		playerv1.GrassAccountReq{},
-		playerv1.HeartbeatTransportReq{},
 		playerv1.IronTransportStateReq{},
 		playerv1.JoinTransportTeamReq{},
-		playerv1.LeaveTransportTeamReq{},
+		playerv1.GetTransportTeamReq{},
+		playerv1.ListTransportMembersReq{},
+		playerv1.ReportTransportContributionReq{},
+		playerv1.ListMyTransportReportsReq{},
 		playerv1.PlayerHonorsReq{},
 		playerv1.LoginReq{},
 		playerv1.MessagesReq{},
@@ -241,7 +212,6 @@ func TestPlayerRequestDTOsUseMiniProgramAPIDocTag(t *testing.T) {
 		playerv1.VisibleNiuReq{},
 		playerv1.NiuDetailReq{},
 		playerv1.PhotoContentReq{},
-		playerv1.StartTransportReq{},
 		playerv1.UploadPhotoReq{},
 		playerv1.BindPhoneReq{},
 		playerv1.PosterReq{},
@@ -361,10 +331,10 @@ func TestMiniProgramOpenAPIContract(t *testing.T) {
 		{method: "get", path: "/plugins/sicau-niu/player/iron-transport/state"},
 		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/teams"},
 		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/teams/{id}/join"},
-		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/teams/{id}/leave"},
-		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/start"},
-		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/heartbeat"},
-		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/end"},
+		{method: "get", path: "/plugins/sicau-niu/player/iron-transport/teams/{id}"},
+		{method: "get", path: "/plugins/sicau-niu/player/iron-transport/teams/{id}/members"},
+		{method: "post", path: "/plugins/sicau-niu/player/iron-transport/contributions"},
+		{method: "get", path: "/plugins/sicau-niu/player/iron-transport/contributions/mine"},
 	}
 	for _, operation := range requiredOperations {
 		methods, ok := document.Paths[operation.path]
@@ -378,16 +348,15 @@ func TestMiniProgramOpenAPIContract(t *testing.T) {
 	}
 
 	requiredSchemaFields := map[string][]string{
-		"ActivateReq":            {"lat", "lng", "photoPath", "requestId"},
-		"CollectionCardItem":     {"niuId", "niuCode", "category", "owned", "title", "content", "imagePath"},
-		"UploadPhotoReq":         {"requestId"},
-		"CheckinReq":             {"requestId"},
-		"CreateTransportTeamReq": {"name", "campusId", "minMembers", "requestId"},
-		"JoinTransportTeamReq":   {"id", "requestId"},
-		"LeaveTransportTeamReq":  {"id", "requestId"},
-		"StartTransportReq":      {"teamId", "requestId"},
-		"HeartbeatTransportReq":  {"teamId", "lat", "lng", "requestId"},
-		"EndTransportReq":        {"teamId", "requestId"},
+		"ActivateReq":                    {"lat", "lng", "photoPath", "requestId"},
+		"CollectionCardItem":             {"niuId", "niuCode", "category", "owned", "title", "content", "imagePath"},
+		"UploadPhotoReq":                 {"requestId"},
+		"CheckinReq":                     {"requestId"},
+		"CreateTransportTeamReq":         {"name", "requestId"},
+		"JoinTransportTeamReq":           {"id", "requestId"},
+		"GetTransportTeamReq":            {"id"},
+		"ListTransportMembersReq":        {"id", "pageNum", "pageSize"},
+		"ReportTransportContributionReq": {"teamId", "lat", "lng", "sampledAt", "requestId"},
 	}
 	for suffix, fields := range requiredSchemaFields {
 		schemaName, properties := findOpenAPISchema(document.Components.Schemas, suffix)

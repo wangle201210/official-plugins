@@ -46,4 +46,8 @@ type IAdminV1 interface {
 	DeleteQuote(ctx context.Context, req *v1.DeleteQuoteReq) (res *v1.DeleteQuoteRes, err error)
 	ListQuote(ctx context.Context, req *v1.ListQuoteReq) (res *v1.ListQuoteRes, err error)
 	UpdateQuote(ctx context.Context, req *v1.UpdateQuoteReq) (res *v1.UpdateQuoteRes, err error)
+	ListTransportReports(ctx context.Context, req *v1.ListTransportReportsReq) (res *v1.ListTransportReportsRes, err error)
+	GetTransportStats(ctx context.Context, req *v1.GetTransportStatsReq) (res *v1.GetTransportStatsRes, err error)
+	ListTransportTeams(ctx context.Context, req *v1.ListTransportTeamsReq) (res *v1.ListTransportTeamsRes, err error)
+	UpdateTransportTeamName(ctx context.Context, req *v1.UpdateTransportTeamNameReq) (res *v1.UpdateTransportTeamNameRes, err error)
 }

@@ -45,3 +45,4 @@ test-results/
 # Plugin-local runtime config
 **/manifest/config/config.yaml
 !**/manifest/config/config.example.yaml
+/sicau-niu/IOT平台太阳能定位器接口文档v1.1.pdf
