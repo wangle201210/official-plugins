@@ -64,6 +64,8 @@ type Service interface {
 	// positions, and records the feeding with the original amount, coefficient and
 	// effect. It returns the cattle info, a random enabled quote and the bonus
 	// breakdown with the resulting balance, or the relevant bizerr on failure.
+	// Reusing a successful request ID returns that first response exactly without
+	// deducting or recording another feeding.
 	Feed(ctx context.Context, playerID int64, in *FeedInput) (out *FeedOutput, err error)
 	// Trail returns playerID's most recent feedings (latest 10, newest first) with
 	// the fed cattle code/name, effect and feed time. It is isolated to the current

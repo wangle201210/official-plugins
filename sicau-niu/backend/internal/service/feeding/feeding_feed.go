@@ -1,15 +1,14 @@
 // feeding_feed.go implements the feed action: it validates the target cattle is
 // activated, computes the iron-cow proximity bonus from the cattle anchor and the
-// current iron positions, deduplicates client retries by the optional request ID,
-// then inside one transaction debits the player's ledger by the base amount and
-// records the feeding with the original amount, the bonus coefficient and the
-// resulting effect. The response carries the cattle info, a random enabled
-// school-history quote and the bonus breakdown.
+// current iron positions, and serializes writes for one player. The first
+// successful response is persisted with the feeding so a client retry carrying
+// the same request ID can replay it without applying the write twice.
 
 package feeding
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -19,7 +18,9 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
+	"lina-plugin-sicau-niu/backend/internal/requestid"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
+	"lina-plugin-sicau-niu/backend/internal/service/feeding/internal/ironlocation"
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
 )
 
@@ -33,31 +34,31 @@ type FeedInput struct {
 	NiuId int64
 	// BaseAmount is the grass amount to feed (deducted from the balance).
 	BaseAmount int
-	// RequestId is the optional client idempotency key; a retry carrying an
-	// already-recorded key is rejected as a duplicate instead of deducting twice.
+	// RequestId is the client idempotency key. A successful retry carrying the
+	// same key replays the first result instead of deducting twice.
 	RequestId string
 }
 
 // FeedOutput defines the result of a successful feeding.
 type FeedOutput struct {
 	// NiuId is the fed cattle ID.
-	NiuId int64
+	NiuId int64 `json:"niuId"`
 	// NiuCode is the fed cattle serial code.
-	NiuCode string
+	NiuCode string `json:"niuCode"`
 	// NiuName is the fed cattle name; empty for common cattle.
-	NiuName string
+	NiuName string `json:"niuName"`
 	// Quote is a random enabled school-history quote; empty when none exists.
-	Quote string
+	Quote string `json:"quote"`
 	// BaseAmount is the original grass amount fed.
-	BaseAmount int
+	BaseAmount int `json:"baseAmount"`
 	// CoefficientBasis is the bonus coefficient in basis of 100 (100 or 150).
-	CoefficientBasis int
+	CoefficientBasis int `json:"coefficientBasis"`
 	// EffectAmount is the actual feeding effect = base * coefficient / 100.
-	EffectAmount int
+	EffectAmount int `json:"effectAmount"`
 	// IsIronBonus reports whether an iron-cow proximity bonus applied.
-	IsIronBonus bool
+	IsIronBonus bool `json:"isIronBonus"`
 	// Balance is the player's grass balance after the feeding deduction.
-	Balance int64
+	Balance int64 `json:"balance"`
 }
 
 // Feed runs the validated, transactional feeding for playerID.
@@ -68,35 +69,70 @@ func (s *serviceImpl) Feed(ctx context.Context, playerID int64, in *FeedInput) (
 	if in.BaseAmount <= 0 {
 		return nil, bizerr.NewCode(CodeAmountInvalid)
 	}
+	requestID, requestOK := requestid.Normalize(in.RequestId)
+	if !requestOK {
+		return nil, bizerr.NewCode(CodeRequestIDRequired)
+	}
 	if playerID <= 0 {
 		return nil, bizerr.NewCode(CodeQueryFailed)
 	}
-
-	niuRow, err := s.loadActiveNiu(ctx, in.NiuId)
-	if err != nil {
-		return nil, err
+	replay, replayErr := s.feedByRequest(ctx, playerID, requestID)
+	if replayErr != nil || replay != nil {
+		return replay, replayErr
 	}
 
-	isBonus, err := s.isIronBonusInRange(ctx, niuRow.Lat, niuRow.Lng)
-	if err != nil {
-		return nil, err
-	}
+	// Position reads may be backed by a replaceable gateway, so keep them outside
+	// the player lock. Defer any error until after the in-transaction replay check:
+	// a concurrent first request may already have committed the stable response.
+	positions, positionsErr := s.ironLocation.Positions(ctx)
+	var output *FeedOutput
 
-	coefficientBasis := baseCoefficientBasis
-	if isBonus {
-		coefficientBasis = ironBonusCoefficientBasis
-	}
-	effectAmount := in.BaseAmount * coefficientBasis / 100
-	isBonusFlag := 0
-	if isBonus {
-		isBonusFlag = 1
-	}
-	fedAt := time.Now()
-
-	var newBalance int64
-	err = dao.Feeding.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		if txErr := s.guardDuplicateFeed(ctx, playerID, in.RequestId); txErr != nil {
+	err := dao.Feeding.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if txErr := lockFeedPlayer(ctx, playerID); txErr != nil {
 			return txErr
+		}
+		replay, txErr := s.feedByRequest(ctx, playerID, requestID)
+		if txErr != nil {
+			return txErr
+		}
+		if replay != nil {
+			output = replay
+			return nil
+		}
+		if positionsErr != nil {
+			return positionsErr
+		}
+		niuRow, txErr := s.loadActiveNiu(ctx, in.NiuId)
+		if txErr != nil {
+			return txErr
+		}
+		isBonus, txErr := s.isIronBonusInRange(ctx, niuRow.Lat, niuRow.Lng, positions)
+		if txErr != nil {
+			return txErr
+		}
+		coefficientBasis := baseCoefficientBasis
+		if isBonus {
+			coefficientBasis = ironBonusCoefficientBasis
+		}
+		effectAmount := in.BaseAmount * coefficientBasis / 100
+		isBonusFlag := 0
+		if isBonus {
+			isBonusFlag = 1
+		}
+		quote, txErr := s.randomEnabledQuote(ctx)
+		if txErr != nil {
+			return txErr
+		}
+		fedAt := time.Now()
+		output = &FeedOutput{
+			NiuId:            in.NiuId,
+			NiuCode:          niuRow.Code,
+			NiuName:          niuRow.Name,
+			Quote:            quote,
+			BaseAmount:       in.BaseAmount,
+			CoefficientBasis: coefficientBasis,
+			EffectAmount:     effectAmount,
+			IsIronBonus:      isBonus,
 		}
 		feedingID, txErr := dao.Feeding.Ctx(ctx).Data(do.Feeding{
 			UserId:           playerID,
@@ -106,7 +142,7 @@ func (s *serviceImpl) Feed(ctx context.Context, playerID int64, in *FeedInput) (
 			EffectAmount:     effectAmount,
 			IsIronBonus:      isBonusFlag,
 			FedAt:            &fedAt,
-			RequestId:        in.RequestId,
+			RequestId:        requestID,
 		}).InsertAndGetId()
 		if txErr != nil {
 			return bizerr.WrapCode(txErr, CodeWriteFailed)
@@ -116,47 +152,59 @@ func (s *serviceImpl) Feed(ctx context.Context, playerID int64, in *FeedInput) (
 		if applyErr != nil {
 			return applyErr
 		}
-		newBalance = balance
+		output.Balance = balance
+		responseJSON, txErr := json.Marshal(output)
+		if txErr != nil {
+			return bizerr.WrapCode(txErr, CodeWriteFailed)
+		}
+		if _, txErr = dao.Feeding.Ctx(ctx).
+			Where(do.Feeding{Id: feedingID}).
+			Data(do.Feeding{ResponseJson: string(responseJSON)}).
+			Update(); txErr != nil {
+			return bizerr.WrapCode(txErr, CodeWriteFailed)
+		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	quote, err := s.randomEnabledQuote(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &FeedOutput{
-		NiuId:            in.NiuId,
-		NiuCode:          niuRow.Code,
-		NiuName:          niuRow.Name,
-		Quote:            quote,
-		BaseAmount:       in.BaseAmount,
-		CoefficientBasis: coefficientBasis,
-		EffectAmount:     effectAmount,
-		IsIronBonus:      isBonus,
-		Balance:          newBalance,
-	}, nil
+	return output, nil
 }
 
-// guardDuplicateFeed rejects a feed whose non-empty request ID was already
-// recorded for the player. It runs inside the feeding transaction; the partial
-// unique index on (user_id, request_id) back-stops the concurrent race.
-func (s *serviceImpl) guardDuplicateFeed(ctx context.Context, playerID int64, requestID string) error {
-	if requestID == "" {
-		return nil
+// feedByRequest returns the response snapshot stored by the first successful
+// request. A missing key returns nil so the caller can execute the write.
+func (s *serviceImpl) feedByRequest(ctx context.Context, playerID int64, requestID string) (*FeedOutput, error) {
+	var record *entitymodel.Feeding
+	if err := dao.Feeding.Ctx(ctx).
+		Fields(dao.Feeding.Columns().ResponseJson).
+		Where(do.Feeding{UserId: playerID, RequestId: requestID}).
+		Scan(&record); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	count, err := dao.Feeding.Ctx(ctx).
-		Where(dao.Feeding.Columns().UserId, playerID).
-		Where(dao.Feeding.Columns().RequestId, requestID).
-		Count()
-	if err != nil {
+	if record == nil {
+		return nil, nil
+	}
+	var output FeedOutput
+	if err := json.Unmarshal([]byte(record.ResponseJson), &output); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	return &output, nil
+}
+
+// lockFeedPlayer serializes all feed writes for one player, including distinct
+// request IDs, and makes the request snapshot recheck race-free.
+func lockFeedPlayer(ctx context.Context, playerID int64) error {
+	var player *entitymodel.User
+	if err := dao.User.Ctx(ctx).
+		Fields(dao.User.Columns().Id).
+		Where(do.User{Id: playerID}).
+		LockUpdate().
+		Scan(&player); err != nil {
 		return bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	if count > 0 {
-		return bizerr.NewCode(CodeDuplicateRequest)
+	if player == nil {
+		return bizerr.NewCode(CodeQueryFailed)
 	}
 	return nil
 }
@@ -189,14 +237,9 @@ func (s *serviceImpl) loadActiveNiu(ctx context.Context, niuID int64) (*entitymo
 }
 
 // isIronBonusInRange reports whether the cattle anchor is within the configured
-// proximity threshold of any iron cow's current position. It loads all current
-// iron positions once and tests each in memory, so the check never issues a
-// per-iron query.
-func (s *serviceImpl) isIronBonusInRange(ctx context.Context, niuLat, niuLng float64) (bool, error) {
-	positions, err := s.ironLocation.Positions(ctx)
-	if err != nil {
-		return false, err
-	}
+// proximity threshold of any prefetched iron-cow position. It tests the bounded
+// position set in memory, so the check never issues a per-iron query.
+func (s *serviceImpl) isIronBonusInRange(ctx context.Context, niuLat, niuLng float64, positions []*ironlocation.IronPosition) (bool, error) {
 	threshold, err := s.currentIronBonusThreshold(ctx)
 	if err != nil {
 		return false, err

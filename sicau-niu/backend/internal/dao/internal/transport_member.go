@@ -24,7 +24,7 @@ type TransportMemberColumns struct {
 	Id                      string //
 	TeamId                  string //
 	UserId                  string //
-	JoinRequestId           string //
+	JoinRequestId           string // Required joiner-scoped idempotency key; empty for creator membership
 	Role                    string // Member display role: creator, member
 	JoinedAt                string //
 	LeftAt                  string //
@@ -34,6 +34,7 @@ type TransportMemberColumns struct {
 	LastReportLat           string //
 	LastReportLng           string //
 	LastReportAt            string //
+	JoinResponseJson        string // Stable first successful team join response for idempotent replay
 }
 
 // transportMemberColumns holds the columns for the table plugin_sicau_niu_transport_member.
@@ -51,6 +52,7 @@ var transportMemberColumns = TransportMemberColumns{
 	LastReportLat:           "last_report_lat",
 	LastReportLng:           "last_report_lng",
 	LastReportAt:            "last_report_at",
+	JoinResponseJson:        "join_response_json",
 }
 
 // NewTransportMemberDao creates and returns a new DAO object for table data access.

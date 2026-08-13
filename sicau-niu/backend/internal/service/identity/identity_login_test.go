@@ -7,11 +7,12 @@ package identity
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
-	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
 	"lina-plugin-sicau-niu/backend/internal/dao"
+	collegesvc "lina-plugin-sicau-niu/backend/internal/service/college"
 	tokensvc "lina-plugin-sicau-niu/backend/internal/service/token"
 	wechatsvc "lina-plugin-sicau-niu/backend/internal/service/wechat"
 )
@@ -27,6 +28,66 @@ func newIdentityServiceForTest(t *testing.T, fixedOpenid string) Service {
 		t.Fatalf("construct token service failed: %v", err)
 	}
 	return New(gateway, tokenService, collegesvc.New())
+}
+
+// TestLoginConcurrentFirstUseReusesOnePlayer verifies simultaneous first logins
+// for one WeChat openid all resolve to the same account instead of exposing the
+// backing unique-key conflict to losing callers.
+func TestLoginConcurrentFirstUseReusesOnePlayer(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLIdentityDB(t, ctx)
+
+	const fixedOpenid = "openid-login-concurrent"
+	svc := newIdentityServiceForTest(t, fixedOpenid)
+	const workers = 16
+
+	start := make(chan struct{})
+	results := make(chan *LoginOutput, workers)
+	errs := make(chan error, workers)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			<-start
+			out, err := svc.Login(ctx, &LoginInput{Code: "wx-concurrent"})
+			results <- out
+			errs <- err
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent login failed: %v", err)
+		}
+	}
+	var playerID int64
+	newCount := 0
+	for out := range results {
+		if out == nil || out.PlayerID <= 0 || out.Token == "" {
+			t.Fatalf("invalid concurrent login output: %+v", out)
+		}
+		if playerID == 0 {
+			playerID = out.PlayerID
+		}
+		if out.PlayerID != playerID {
+			t.Fatalf("concurrent logins resolved different players: %d and %d", playerID, out.PlayerID)
+		}
+		if out.IsNewUser {
+			newCount++
+		}
+	}
+	if newCount != 1 {
+		t.Fatalf("expected exactly one caller to provision the player, got %d", newCount)
+	}
+	count, err := dao.User.Ctx(ctx).Where(dao.User.Columns().Openid, fixedOpenid).Count()
+	if err != nil || count != 1 {
+		t.Fatalf("expected one player row, count=%d err=%v", count, err)
+	}
 }
 
 // TestLoginProvisionsThenReusesPlayer verifies the first login with a given

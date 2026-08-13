@@ -24,7 +24,7 @@ type TransportTeamColumns struct {
 	Id                      string //
 	Name                    string //
 	LeaderUserId            string // Team creator player ID; creator has no lifecycle authority
-	CreateRequestId         string //
+	CreateRequestId         string // Required creator-scoped idempotency key for stable replay
 	Status                  string // Team status: effective, invalid
 	Visible                 string //
 	CreatedAt               string //
@@ -35,6 +35,7 @@ type TransportTeamColumns struct {
 	LastActiveAt            string // Latest successful create, join or contribution server commit time
 	InvalidatedAt           string //
 	InvalidReason           string //
+	CreateResponseJson      string // Stable first successful team creation response for idempotent replay
 }
 
 // transportTeamColumns holds the columns for the table plugin_sicau_niu_transport_team.
@@ -53,6 +54,7 @@ var transportTeamColumns = TransportTeamColumns{
 	LastActiveAt:            "last_active_at",
 	InvalidatedAt:           "invalidated_at",
 	InvalidReason:           "invalid_reason",
+	CreateResponseJson:      "create_response_json",
 }
 
 // NewTransportTeamDao creates and returns a new DAO object for table data access.

@@ -5,11 +5,12 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"lina-plugin-sicau-niu/backend/internal/requestid"
 )
 
 func normalizeRequestID(value string) (string, bool) {
-	value = strings.TrimSpace(value)
-	return value, value != "" && len(value) <= 64
+	return requestid.Normalize(value)
 }
 
 func normalizeName(value string) (string, bool) {

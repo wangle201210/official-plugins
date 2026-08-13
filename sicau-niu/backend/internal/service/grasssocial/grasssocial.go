@@ -15,6 +15,7 @@ package grasssocial
 
 import (
 	"context"
+	"time"
 
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
 	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
@@ -53,14 +54,16 @@ type Service interface {
 	// daily steal limit. Inside one transaction it debits the target, credits the
 	// player and writes a stolen-notification to the target's inbox. The stolen
 	// amount never exceeds the target's balance. It returns the stolen amount and
-	// the player's new balance, or the relevant bizerr on failure.
+	// the player's new balance, or the relevant bizerr on failure. Reusing a
+	// successful request ID returns that first result without another transfer.
 	Steal(ctx context.Context, playerID int64, in *StealInput) (out *StealResult, err error)
 	// Gift moves in.Amount grass from playerID to in.ToUserId. It rejects an
 	// amount below the per-gift minimum, a player that reached the daily gift
 	// limit and an insufficient balance. Inside one transaction it debits the
 	// giver, credits the recipient and writes a gift-received notification to the
 	// recipient's inbox. It returns the giver's new balance, or the relevant
-	// bizerr on failure.
+	// bizerr on failure. Reusing a successful request ID returns that first result
+	// without another transfer or notification.
 	Gift(ctx context.Context, playerID int64, in *GiftInput) (out *GiftResult, err error)
 	// Messages returns playerID's own inbox page (newest first) with the total
 	// count. It is isolated to the current player and returns a query bizerr on
@@ -92,6 +95,7 @@ type serviceImpl struct {
 	stealMaxAmount    int              // stealMaxAmount is the per-steal random upper bound.
 	giftDailyLimit    int              // giftDailyLimit is the per-day gift action cap.
 	giftMinAmount     int              // giftMinAmount is the per-gift minimum amount.
+	now               func() time.Time // now supplies the authoritative time after player locking.
 }
 
 // New creates a grass-social service with explicit dependencies: the grass
@@ -110,5 +114,13 @@ func New(grassSvc grasssvc.Service, rulesSvc rulessvc.Service, config Config) Se
 		stealMaxAmount:    stealMax,
 		giftDailyLimit:    normalizePositive(config.GiftDailyLimit, defaultGiftDailyLimit),
 		giftMinAmount:     normalizePositive(config.GiftMinAmount, defaultGiftMinAmount),
+		now:               time.Now,
 	}
+}
+
+func (s *serviceImpl) nowTime() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }

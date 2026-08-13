@@ -28,6 +28,13 @@ var (
 		"Grass change amount cannot be zero",
 		gcode.CodeInvalidParameter,
 	)
+	// CodeRequestIDRequired reports that the mandatory idempotency key is missing
+	// or exceeds the service contract's length limit.
+	CodeRequestIDRequired = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_GRASS_REQUEST_ID_REQUIRED",
+		"Request ID is required and must not exceed 64 characters",
+		gcode.CodeInvalidParameter,
+	)
 	// CodeQueryFailed reports that a grass store query failed.
 	CodeQueryFailed = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_GRASS_QUERY_FAILED",

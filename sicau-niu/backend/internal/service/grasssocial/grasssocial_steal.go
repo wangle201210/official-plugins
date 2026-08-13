@@ -1,10 +1,8 @@
 // grasssocial_steal.go implements the steal action. It authorizes the target
 // against the player's deterministic daily list and enforces the daily steal
-// count limit (Beijing-time natural day), deduplicates client retries by the
-// optional request ID, then inside one transaction debits the target, credits
-// the player and writes a stolen-notification to the target's inbox. The stolen
-// amount is a small random value bounded by the target's current balance, so a
-// steal never drives the target negative.
+// count limit (Beijing-time natural day). Writes for one player are serialized,
+// and the first successful result is persisted so a retry carrying the same
+// request ID does not apply the transfer or notification twice.
 
 package grasssocial
 
@@ -19,6 +17,8 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/activityday"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
+	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
+	"lina-plugin-sicau-niu/backend/internal/requestid"
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
 )
 
@@ -26,8 +26,8 @@ import (
 type StealInput struct {
 	// TargetUserId is the target player ID to steal from.
 	TargetUserId int64
-	// RequestId is the optional client idempotency key; a retry carrying an
-	// already-recorded key is rejected as a duplicate instead of stealing twice.
+	// RequestId is the client idempotency key. A successful retry carrying the
+	// same key replays the first result instead of stealing twice.
 	RequestId string
 }
 
@@ -50,24 +50,43 @@ func (s *serviceImpl) Steal(ctx context.Context, playerID int64, in *StealInput)
 	if in.TargetUserId == playerID {
 		return nil, bizerr.NewCode(CodeSelfActionForbidden)
 	}
-
-	today := activityday.Today()
-
-	authorized, err := s.targetInDailyList(ctx, playerID, in.TargetUserId, today)
-	if err != nil {
-		return nil, err
+	requestID, requestOK := requestid.Normalize(in.RequestId)
+	if !requestOK {
+		return nil, bizerr.NewCode(CodeRequestIDRequired)
 	}
-	if !authorized {
-		return nil, bizerr.NewCode(CodeTargetNotStealable)
+	if replay, replayErr := s.stealByRequest(ctx, playerID, requestID); replayErr != nil || replay != nil {
+		return replay, replayErr
 	}
 
-	if err = s.guardStealDailyLimit(ctx, playerID, today); err != nil {
-		return nil, err
-	}
-
-	var result *StealResult
+	var (
+		result *StealResult
+		err    error
+	)
 	err = dao.Steal.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		if txErr := s.guardDuplicateSteal(ctx, playerID, in.RequestId); txErr != nil {
+		if txErr := lockSocialPlayers(ctx, playerID, in.TargetUserId); txErr != nil {
+			return txErr
+		}
+		replay, txErr := s.stealByRequest(ctx, playerID, requestID)
+		if txErr != nil {
+			return txErr
+		}
+		if replay != nil {
+			result = replay
+			return nil
+		}
+		rules, txErr := s.socialRules(ctx)
+		if txErr != nil {
+			return txErr
+		}
+		today := activityday.Date(s.nowTime())
+		authorized, txErr := s.targetInDailyList(ctx, playerID, in.TargetUserId, today, rules.StealDailyTargets)
+		if txErr != nil {
+			return txErr
+		}
+		if !authorized {
+			return bizerr.NewCode(CodeTargetNotStealable)
+		}
+		if txErr = s.guardStealDailyLimit(ctx, playerID, today, rules.StealDailyLimit); txErr != nil {
 			return txErr
 		}
 		targetBalance, txErr := s.currentBalance(ctx, in.TargetUserId)
@@ -78,10 +97,6 @@ func (s *serviceImpl) Steal(ctx context.Context, playerID int64, in *StealInput)
 			return bizerr.NewCode(CodeTargetNoGrass)
 		}
 
-		rules, txErr := s.socialRules(ctx)
-		if txErr != nil {
-			return txErr
-		}
 		amount := grand.N(rules.StealMinAmount, rules.StealMaxAmount)
 		if int64(amount) > targetBalance {
 			amount = int(targetBalance)
@@ -92,7 +107,7 @@ func (s *serviceImpl) Steal(ctx context.Context, playerID int64, in *StealInput)
 			TargetUserId: in.TargetUserId,
 			Amount:       amount,
 			StealDate:    today,
-			RequestId:    in.RequestId,
+			RequestId:    requestID,
 		}).InsertAndGetId()
 		if txErr != nil {
 			return bizerr.WrapCode(txErr, CodeWriteFailed)
@@ -104,6 +119,12 @@ func (s *serviceImpl) Steal(ctx context.Context, playerID int64, in *StealInput)
 		actorBalance, txErr := s.grassSvc.ApplyDelta(ctx, tx, playerID, int64(amount), grasssvc.TxnTypeStealGain, stealID)
 		if txErr != nil {
 			return txErr
+		}
+		if _, txErr = dao.Steal.Ctx(ctx).
+			Where(do.Steal{Id: stealID}).
+			Data(do.Steal{ResultBalance: actorBalance}).
+			Update(); txErr != nil {
+			return bizerr.WrapCode(txErr, CodeWriteFailed)
 		}
 
 		if txErr = s.insertInboxMessage(ctx, in.TargetUserId, MsgTypeStolen, stolenMessageContent(amount)); txErr != nil {
@@ -119,30 +140,26 @@ func (s *serviceImpl) Steal(ctx context.Context, playerID int64, in *StealInput)
 	return result, nil
 }
 
-// guardDuplicateSteal rejects a steal whose non-empty request ID was already
-// recorded for the player. It runs inside the steal transaction; the partial
-// unique index on (actor_user_id, request_id) back-stops the concurrent race.
-func (s *serviceImpl) guardDuplicateSteal(ctx context.Context, playerID int64, requestID string) error {
-	if requestID == "" {
-		return nil
+// stealByRequest returns the first successful result stored for requestID. A
+// missing key returns nil so the caller can execute the write.
+func (s *serviceImpl) stealByRequest(ctx context.Context, playerID int64, requestID string) (*StealResult, error) {
+	var record *entitymodel.Steal
+	if err := dao.Steal.Ctx(ctx).
+		Fields(dao.Steal.Columns().Amount, dao.Steal.Columns().ResultBalance).
+		Where(do.Steal{ActorUserId: playerID, RequestId: requestID}).
+		Scan(&record); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	count, err := dao.Steal.Ctx(ctx).
-		Where(dao.Steal.Columns().ActorUserId, playerID).
-		Where(dao.Steal.Columns().RequestId, requestID).
-		Count()
-	if err != nil {
-		return bizerr.WrapCode(err, CodeQueryFailed)
+	if record == nil {
+		return nil, nil
 	}
-	if count > 0 {
-		return bizerr.NewCode(CodeDuplicateRequest)
-	}
-	return nil
+	return &StealResult{Amount: record.Amount, Balance: record.ResultBalance}, nil
 }
 
 // targetInDailyList reports whether targetID appears in playerID's deterministic
-// stealable list for the given day, reusing the same derivation as StealTargets.
-func (s *serviceImpl) targetInDailyList(ctx context.Context, playerID, targetID int64, day string) (bool, error) {
-	targets, err := s.dailyStealTargets(ctx, playerID, day)
+// stealable list for the given day and authoritative rule snapshot.
+func (s *serviceImpl) targetInDailyList(ctx context.Context, playerID, targetID int64, day string, dailyTargets int) (bool, error) {
+	targets, err := s.dailyStealTargets(ctx, playerID, day, dailyTargets)
 	if err != nil {
 		return false, err
 	}
@@ -154,9 +171,9 @@ func (s *serviceImpl) targetInDailyList(ctx context.Context, playerID, targetID 
 	return false, nil
 }
 
-// guardStealDailyLimit rejects a steal once the player reached the daily count
-// limit. The steal rows for the day back this count.
-func (s *serviceImpl) guardStealDailyLimit(ctx context.Context, playerID int64, day string) error {
+// guardStealDailyLimit rejects a steal once the player reached dailyLimit. The
+// caller supplies the authoritative rule snapshot read after player locking.
+func (s *serviceImpl) guardStealDailyLimit(ctx context.Context, playerID int64, day string, dailyLimit int) error {
 	count, err := dao.Steal.Ctx(ctx).
 		Where(dao.Steal.Columns().ActorUserId, playerID).
 		Where(dao.Steal.Columns().StealDate, day).
@@ -164,11 +181,7 @@ func (s *serviceImpl) guardStealDailyLimit(ctx context.Context, playerID int64, 
 	if err != nil {
 		return bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	rules, err := s.socialRules(ctx)
-	if err != nil {
-		return err
-	}
-	if count >= rules.StealDailyLimit {
+	if count >= dailyLimit {
 		return bizerr.NewCode(CodeStealLimitReached)
 	}
 	return nil

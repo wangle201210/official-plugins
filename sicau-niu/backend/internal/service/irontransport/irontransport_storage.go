@@ -3,6 +3,8 @@ package irontransport
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -15,8 +17,44 @@ import (
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
 )
 
+func marshalStateSnapshot(state *State) (string, error) {
+	data, err := json.Marshal(state)
+	if err != nil {
+		return "", bizerr.WrapCode(err, CodeWriteFailed)
+	}
+	return string(data), nil
+}
+
+func unmarshalStateSnapshot(value string) (*State, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, bizerr.NewCode(CodeQueryFailed)
+	}
+	var state State
+	if err := json.Unmarshal([]byte(value), &state); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	return &state, nil
+}
+
 func (s *serviceImpl) transaction(ctx context.Context, fn func(context.Context) error) error {
 	return dao.TransportTeam.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error { return fn(ctx) })
+}
+
+// lifecycleTransaction settles all bounded team expirations and runs one read
+// projection under the same locks and authoritative timestamp. The callback
+// returns only technical errors; callers defer business errors until commit so
+// a rejected request cannot roll back lifecycle facts.
+func (s *serviceImpl) lifecycleTransaction(ctx context.Context, fn func(context.Context, time.Time) error) error {
+	return s.transaction(ctx, func(ctx context.Context) error {
+		if err := lockTeamCapacity(ctx); err != nil {
+			return bizerr.WrapCode(err, CodeQueryFailed)
+		}
+		_, now, err := s.expireInactiveLocked(ctx, time.Time{})
+		if err != nil {
+			return err
+		}
+		return fn(ctx, now)
+	})
 }
 
 func lockPlayer(ctx context.Context, playerID int64) error {

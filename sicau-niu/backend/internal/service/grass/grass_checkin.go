@@ -8,7 +8,6 @@ package grass
 
 import (
 	"context"
-	"strings"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/util/grand"
@@ -18,6 +17,7 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
+	"lina-plugin-sicau-niu/backend/internal/requestid"
 )
 
 // CheckinResult is the outcome of a successful daily check-in.
@@ -29,27 +29,23 @@ type CheckinResult struct {
 }
 
 // Checkin grants the player a random daily check-in amount once per natural day.
-func (s *serviceImpl) Checkin(ctx context.Context, playerID int64, requestIDs ...string) (*CheckinResult, error) {
+// requestID is mandatory and replays the first successful response exactly.
+func (s *serviceImpl) Checkin(ctx context.Context, playerID int64, requestID string) (*CheckinResult, error) {
 	if playerID <= 0 {
 		return nil, bizerr.NewCode(CodeQueryFailed)
 	}
 
-	today := activityday.Today()
-	requestID := ""
-	if len(requestIDs) > 0 {
-		requestID = strings.TrimSpace(requestIDs[0])
+	var requestOK bool
+	requestID, requestOK = requestid.Normalize(requestID)
+	if !requestOK {
+		return nil, bizerr.NewCode(CodeRequestIDRequired)
 	}
-	if len(requestID) > 64 {
-		return nil, bizerr.NewCode(CodeQueryFailed)
+	if replay, replayErr := s.checkinByRequest(ctx, playerID, requestID); replayErr != nil || replay != nil {
+		return replay, replayErr
 	}
-	checkinMin, checkinMax, err := s.checkinRange(ctx)
-	if err != nil {
-		return nil, err
-	}
-	amount := grand.N(checkinMin, checkinMax)
 
 	var result *CheckinResult
-	err = dao.Checkin.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err := dao.Checkin.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		var player *entitymodel.User
 		if txErr := dao.User.Ctx(ctx).Where(dao.User.Columns().Id, playerID).LockUpdate().Scan(&player); txErr != nil {
 			return bizerr.WrapCode(txErr, CodeQueryFailed)
@@ -57,16 +53,18 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64, requestIDs ..
 		if player == nil {
 			return bizerr.NewCode(CodeQueryFailed)
 		}
-		if requestID != "" {
-			var replay *entitymodel.Checkin
-			if txErr := dao.Checkin.Ctx(ctx).Where(do.Checkin{UserId: playerID, RequestId: requestID}).Scan(&replay); txErr != nil {
-				return bizerr.WrapCode(txErr, CodeQueryFailed)
-			}
-			if replay != nil {
-				result = &CheckinResult{Amount: replay.Amount, Balance: replay.ResultBalance}
-				return nil
-			}
+		replay, txErr := s.checkinByRequest(ctx, playerID, requestID)
+		if txErr != nil {
+			return txErr
 		}
+		if replay != nil {
+			result = replay
+			return nil
+		}
+		// Derive the business day only after this player's writes are serialized,
+		// so a request queued across Beijing midnight is checked and stored on one
+		// authoritative day.
+		today := activityday.Date(s.nowTime())
 		alreadyCheckedIn, txErr := dao.Checkin.Ctx(ctx).
 			Where(dao.Checkin.Columns().UserId, playerID).
 			Where(dao.Checkin.Columns().CheckinDate, today).
@@ -77,6 +75,11 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64, requestIDs ..
 		if alreadyCheckedIn > 0 {
 			return bizerr.NewCode(CodeAlreadyCheckedIn)
 		}
+		checkinMin, checkinMax, txErr := s.checkinRange(ctx)
+		if txErr != nil {
+			return txErr
+		}
+		amount := grand.N(checkinMin, checkinMax)
 
 		checkinID, txErr := dao.Checkin.Ctx(ctx).Data(do.Checkin{
 			UserId:      playerID,
@@ -103,6 +106,22 @@ func (s *serviceImpl) Checkin(ctx context.Context, playerID int64, requestIDs ..
 		return nil, err
 	}
 	return result, nil
+}
+
+// checkinByRequest returns the first successful result stored for requestID. A
+// missing key returns nil so the caller can continue with a new write.
+func (s *serviceImpl) checkinByRequest(ctx context.Context, playerID int64, requestID string) (*CheckinResult, error) {
+	var record *entitymodel.Checkin
+	if err := dao.Checkin.Ctx(ctx).
+		Fields(dao.Checkin.Columns().Amount, dao.Checkin.Columns().ResultBalance).
+		Where(do.Checkin{UserId: playerID, RequestId: requestID}).
+		Scan(&record); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	if record == nil {
+		return nil, nil
+	}
+	return &CheckinResult{Amount: record.Amount, Balance: record.ResultBalance}, nil
 }
 
 // checkinRange returns the operator-maintained check-in range when rules are

@@ -1,6 +1,7 @@
 // ranking_feed.go implements the personal feeding leaderboard. The Top-N is
 // aggregated on the database side by grouping feeding rows by user, summing the
-// effect and ordering descending with a LIMIT; nicknames are batch-assembled in
+// effect and ordering descending with a stable user-ID tie-breaker and LIMIT;
+// nicknames are batch-assembled in
 // one query. The requesting player's own rank is computed without scanning the
 // whole board: the player's total is summed once and the number of players
 // strictly ahead is counted with a grouped HAVING query.
@@ -25,7 +26,7 @@ type FeedBoard struct {
 
 // PlayerRank is one ranked player on a personal board.
 type PlayerRank struct {
-	// Rank is the 1-based position on the board.
+	// Rank is the 1-based competition rank; tied totals share a rank.
 	Rank int
 	// UserId is the player ID.
 	UserId int64
@@ -37,7 +38,7 @@ type PlayerRank struct {
 
 // SelfRank is the requesting player's own rank and total on a board.
 type SelfRank struct {
-	// Rank is the 1-based rank of the player; 0 when the player is off the board.
+	// Rank is the 1-based competition rank; 0 when the player is off the board.
 	Rank int
 	// Total is the player's total feeding effect.
 	Total int64
@@ -51,7 +52,7 @@ type userTotalRow struct {
 
 // FeedBoard returns the Top-N personal feeding board and the player's own rank.
 func (s *serviceImpl) FeedBoard(ctx context.Context, playerID int64) (*FeedBoard, error) {
-	rows, err := s.topUserTotals(ctx, nil)
+	rows, err := s.topUserTotals(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -59,34 +60,27 @@ func (s *serviceImpl) FeedBoard(ctx context.Context, playerID int64) (*FeedBoard
 	if err != nil {
 		return nil, err
 	}
-	self, err := s.selfRank(ctx, playerID, nil)
+	self, err := s.selfRank(ctx, playerID)
 	if err != nil {
 		return nil, err
 	}
 	return &FeedBoard{List: list, Self: self}, nil
 }
 
-// topUserTotals aggregates the Top-N user totals on the database side. When
-// userIDs is non-nil the aggregation is restricted to those players (used by the
-// friend board); a nil filter aggregates all players. The returned rows are
-// ordered by total descending and capped at the configured Top-N.
-func (s *serviceImpl) topUserTotals(ctx context.Context, userIDs []int64) ([]*userTotalRow, error) {
-	model := dao.Feeding.Ctx(ctx)
-	if userIDs != nil {
-		if len(userIDs) == 0 {
-			return []*userTotalRow{}, nil
-		}
-		model = model.WhereIn(dao.Feeding.Columns().UserId, userIDs)
-	}
+// topUserTotals aggregates all-player Top-N totals on the database side. The
+// returned rows are ordered by total descending and capped at the configured
+// Top-N.
+func (s *serviceImpl) topUserTotals(ctx context.Context) ([]*userTotalRow, error) {
 	topN, err := s.currentTopN(ctx)
 	if err != nil {
 		return nil, err
 	}
 	rows := make([]*userTotalRow, 0, topN)
-	err = model.
+	err = dao.Feeding.Ctx(ctx).
 		Fields(dao.Feeding.Columns().UserId, "SUM("+dao.Feeding.Columns().EffectAmount+") AS total").
 		Group(dao.Feeding.Columns().UserId).
 		Order("total DESC").
+		OrderAsc(dao.Feeding.Columns().UserId).
 		Limit(topN).
 		Scan(&rows)
 	if err != nil {
@@ -106,7 +100,8 @@ func (s *serviceImpl) currentTopN(ctx context.Context) (int, error) {
 
 // assemblePlayerRanks projects the grouped user totals to ranked player rows,
 // batch-loading the nicknames for the listed users in one query to avoid N+1 and
-// assigning 1-based ranks in the already-sorted order.
+// assigning competition ranks (1, 1, 3) in the already-sorted order so list and
+// self projections use the same strictly-ahead semantics.
 func (s *serviceImpl) assemblePlayerRanks(ctx context.Context, rows []*userTotalRow) ([]*PlayerRank, error) {
 	if len(rows) == 0 {
 		return []*PlayerRank{}, nil
@@ -120,13 +115,19 @@ func (s *serviceImpl) assemblePlayerRanks(ctx context.Context, rows []*userTotal
 		return nil, err
 	}
 	list := make([]*PlayerRank, 0, len(rows))
+	rank := 0
+	var previousTotal int64
 	for i, row := range rows {
+		if i == 0 || row.Total != previousTotal {
+			rank = i + 1
+		}
 		list = append(list, &PlayerRank{
-			Rank:     i + 1,
+			Rank:     rank,
 			UserId:   row.UserId,
 			Nickname: nicknames[row.UserId],
 			Total:    row.Total,
 		})
+		previousTotal = row.Total
 	}
 	return list, nil
 }
@@ -134,14 +135,9 @@ func (s *serviceImpl) assemblePlayerRanks(ctx context.Context, rows []*userTotal
 // selfRank computes the requesting player's own rank and total. The player's
 // total is summed once; the rank is the number of players strictly ahead of the
 // player plus one, counted with a grouped HAVING query so the whole board is
-// never scanned. When restrictIDs is non-nil only those players (the friend
-// cohort) participate in the ahead count and the player must be in the cohort. A
-// non-positive playerID or a zero total yields rank 0.
-func (s *serviceImpl) selfRank(ctx context.Context, playerID int64, restrictIDs []int64) (*SelfRank, error) {
+// never scanned. A non-positive playerID or a zero total yields rank 0.
+func (s *serviceImpl) selfRank(ctx context.Context, playerID int64) (*SelfRank, error) {
 	if playerID <= 0 {
-		return &SelfRank{Rank: 0, Total: 0}, nil
-	}
-	if restrictIDs != nil && !containsID(restrictIDs, playerID) {
 		return &SelfRank{Rank: 0, Total: 0}, nil
 	}
 
@@ -153,7 +149,7 @@ func (s *serviceImpl) selfRank(ctx context.Context, playerID int64, restrictIDs 
 		return &SelfRank{Rank: 0, Total: total}, nil
 	}
 
-	ahead, err := s.countAhead(ctx, total, restrictIDs)
+	ahead, err := s.countAhead(ctx, total)
 	if err != nil {
 		return nil, err
 	}
@@ -174,17 +170,9 @@ func (s *serviceImpl) userTotal(ctx context.Context, playerID int64) (int64, err
 // countAhead returns the number of players whose total feeding effect is strictly
 // greater than total. It groups feeding rows by user, keeps groups whose summed
 // effect exceeds the reference total with a HAVING clause, and counts the
-// resulting groups, all on the database side. When restrictIDs is non-nil only
-// those players participate.
-func (s *serviceImpl) countAhead(ctx context.Context, total int64, restrictIDs []int64) (int, error) {
-	model := dao.Feeding.Ctx(ctx)
-	if restrictIDs != nil {
-		if len(restrictIDs) == 0 {
-			return 0, nil
-		}
-		model = model.WhereIn(dao.Feeding.Columns().UserId, restrictIDs)
-	}
-	count, err := model.
+// resulting groups, all on the database side.
+func (s *serviceImpl) countAhead(ctx context.Context, total int64) (int, error) {
+	count, err := dao.Feeding.Ctx(ctx).
 		Fields(dao.Feeding.Columns().UserId).
 		Group(dao.Feeding.Columns().UserId).
 		Having("SUM("+dao.Feeding.Columns().EffectAmount+") > ?", total).
@@ -193,14 +181,4 @@ func (s *serviceImpl) countAhead(ctx context.Context, total int64, restrictIDs [
 		return 0, bizerr.WrapCode(err, CodeRankingQueryFailed)
 	}
 	return count, nil
-}
-
-// containsID reports whether id is present in ids.
-func containsID(ids []int64, id int64) bool {
-	for _, candidate := range ids {
-		if candidate == id {
-			return true
-		}
-	}
-	return false
 }

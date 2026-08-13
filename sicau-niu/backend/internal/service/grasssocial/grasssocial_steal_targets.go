@@ -39,13 +39,18 @@ func (s *serviceImpl) StealTargets(ctx context.Context, playerID int64) ([]*Stea
 	if playerID <= 0 {
 		return nil, bizerr.NewCode(CodeQueryFailed)
 	}
-	return s.dailyStealTargets(ctx, playerID, activityday.Today())
+	rules, err := s.socialRules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.dailyStealTargets(ctx, playerID, activityday.Today(), rules.StealDailyTargets)
 }
 
 // dailyStealTargets computes the stealable list for a player on a specific day.
 // It is shared by StealTargets and the steal authorization so both observe the
-// same deterministic membership.
-func (s *serviceImpl) dailyStealTargets(ctx context.Context, playerID int64, day string) ([]*StealTarget, error) {
+// same deterministic membership. dailyTargets comes from one caller-owned rule
+// snapshot so write authorization cannot mix operator updates mid-request.
+func (s *serviceImpl) dailyStealTargets(ctx context.Context, playerID int64, day string, dailyTargets int) ([]*StealTarget, error) {
 	rows := make([]*entitymodel.User, 0)
 	err := dao.User.Ctx(ctx).
 		Fields(
@@ -65,11 +70,7 @@ func (s *serviceImpl) dailyStealTargets(ctx context.Context, playerID int64, day
 	}
 
 	order := deterministicOrder(len(rows), dailySeed(playerID, day))
-	rules, err := s.socialRules(ctx)
-	if err != nil {
-		return nil, err
-	}
-	count := rules.StealDailyTargets
+	count := dailyTargets
 	if count > len(rows) {
 		count = len(rows)
 	}

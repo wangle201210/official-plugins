@@ -10,10 +10,10 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // FeedReq is the request for feeding grass to an activated cattle.
 type FeedReq struct {
-	g.Meta     `path:"/plugins/sicau-niu/player/feedings" method:"post" tags:"寻牛小程序" summary:"给已激活牛只喂草" dc:"Feed baseAmount grass to an already-activated cattle. The server checks the player has enough grass, deducts the base amount (ledger feed transaction), and computes the effect: when the cattle anchor is within the iron-bonus distance of any iron cow's current location the coefficient is 1.5 (coefficientBasis=150), otherwise 1.0 (coefficientBasis=100). The response carries the cattle info, a random school-history quote and the bonus breakdown. Feeding a not-yet-activated cattle or feeding beyond the balance is rejected. Requires a valid player token."`
+	g.Meta     `path:"/plugins/sicau-niu/player/feedings" method:"post" tags:"寻牛小程序" summary:"给已激活牛只喂草" dc:"Feed baseAmount grass to an already-activated cattle. A required player-scoped requestId makes network retries stable: reusing a successful key returns its first cattle, quote, bonus and balance response without another deduction or feeding record. The server checks the player has enough grass and computes the effect: when the cattle anchor is within the iron-bonus distance of any iron cow's current location the coefficient is 1.5 (coefficientBasis=150), otherwise 1.0 (coefficientBasis=100). Feeding a not-yet-activated cattle or feeding beyond the balance is rejected. Requires a valid player token."`
 	NiuId      int64  `json:"niuId" v:"required" dc:"Target activated cattle ID to feed" eg:"1"`
 	BaseAmount int    `json:"baseAmount" v:"required" dc:"Grass amount to feed (deducted from balance); must be positive and not exceed the balance" eg:"10"`
-	RequestId  string `json:"requestId" v:"max-length:64" dc:"Optional client idempotency key (max 64 chars); resend the same key on a network retry and the server rejects the duplicate instead of deducting twice" eg:"feed-1b2a3c4d"`
+	RequestId  string `json:"requestId" v:"required|max-length:64" dc:"Required player-scoped idempotency key (max 64 chars); resend the same key while a network result is unknown and the server returns the first successful response without deducting twice" eg:"feed-1b2a3c4d"`
 }
 
 // FeedRes is the response for a successful feeding.

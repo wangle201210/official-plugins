@@ -109,3 +109,25 @@ func TestUpdateProfileStudentValidation(t *testing.T) {
 		t.Fatalf("expected grade 3, got %d", profile.Grade)
 	}
 }
+
+// TestUpdateProfileAlumniRequiresGraduationYear verifies alumni profiles cannot
+// be persisted without the graduation year used by identity displays.
+func TestUpdateProfileAlumniRequiresGraduationYear(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLIdentityDB(t, ctx)
+
+	svc, player := provisionPlayer(t, ctx, "openid-profile-alumni")
+	err := svc.UpdateProfile(ctx, player, &UpdateProfileInput{
+		IdentityType:   IdentityTypeAlumni.String(),
+		GraduationYear: 0,
+	})
+	assertBizCode(t, err, CodeGraduationYearInvalid.RuntimeCode())
+
+	if err = svc.UpdateProfile(ctx, player, &UpdateProfileInput{
+		Nickname:       "alumni",
+		IdentityType:   IdentityTypeAlumni.String(),
+		GraduationYear: time.Now().Year(),
+	}); err != nil {
+		t.Fatalf("valid alumni profile update failed: %v", err)
+	}
+}

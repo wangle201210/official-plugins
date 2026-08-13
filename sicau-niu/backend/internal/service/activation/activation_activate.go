@@ -24,6 +24,7 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
+	"lina-plugin-sicau-niu/backend/internal/requestid"
 	cattlesvc "lina-plugin-sicau-niu/backend/internal/service/cattle"
 )
 
@@ -57,7 +58,8 @@ type activationMatch struct {
 
 // ActivateInput defines the LBS activation request.
 type ActivateInput struct {
-	// RequestID is the player-scoped idempotency key supplied by the mini program.
+	// RequestID is the mandatory player-scoped idempotency key supplied by the
+	// mini program. Retrying it replays the first successful response.
 	RequestID string
 	// Lat is the player reported GPS latitude.
 	Lat float64
@@ -107,35 +109,9 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 	if err != nil {
 		return nil, err
 	}
-	if requestID != "" {
-		if replay, replayErr := s.activationByRequest(ctx, playerID, requestID); replayErr != nil || replay != nil {
-			return replay, replayErr
-		}
+	if replay, replayErr := s.activationByRequest(ctx, playerID, requestID); replayErr != nil || replay != nil {
+		return replay, replayErr
 	}
-	if s.photoSvc != nil {
-		if err := s.photoSvc.Validate(ctx, playerID, in.PhotoPath); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := s.guardDailyLimit(ctx, playerID); err != nil {
-		return nil, err
-	}
-
-	activatedAt := time.Now()
-	activityDate := activityday.Date(activatedAt)
-
-	guards, err := s.activationGuards(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err = s.guardDailyAttemptLimit(ctx, playerID, activatedAt, guards.DailyAttemptLimit); err != nil {
-		return nil, err
-	}
-	if err = s.guardMovementSpeed(ctx, playerID, in, activatedAt, guards.MaxSpeedMps); err != nil {
-		return nil, err
-	}
-
 	var output *ActivateOutput
 	var activationErr error
 	err = dao.Niu.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
@@ -146,26 +122,54 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 		if player == nil {
 			return bizerr.NewCode(CodeActivationNotFound)
 		}
-		if requestID != "" {
-			replay, txErr := s.activationByRequest(ctx, playerID, requestID)
-			if txErr != nil {
-				return txErr
-			}
-			if replay != nil {
-				output = replay
-				return nil
-			}
-		}
-		// The user row lock serializes distinct request IDs from the same player.
-		// Recheck the daily guard here so a concurrent loser receives the stable
-		// business error instead of leaking the backing unique-index error.
-		if txErr := s.guardDailyLimit(ctx, playerID); txErr != nil {
-			return txErr
-		}
-		threshold, txErr := s.activationLBSThreshold(ctx)
+		replay, txErr := s.activationByRequest(ctx, playerID, requestID)
 		if txErr != nil {
 			return txErr
 		}
+		if replay != nil {
+			output = replay
+			return nil
+		}
+		// Validate photo ownership and unused state only after the same-player lock
+		// and replay check. Concurrent retries of a committed request must replay
+		// before observing that the first execution consumed its photo.
+		if s.photoSvc != nil {
+			if txErr = s.photoSvc.Validate(ctx, playerID, in.PhotoPath); txErr != nil {
+				return txErr
+			}
+		}
+		// Resolve every activation limit from one normalized rule-set read after
+		// serialization and replay detection. A concurrent operator update can
+		// therefore affect the next action, but cannot mix two rule versions in
+		// this irreversible activation.
+		rules, txErr := s.activationRuleSnapshot(ctx)
+		if txErr != nil {
+			return txErr
+		}
+		// Capture one authoritative time only after this player's writes are
+		// serialized. Every daily guard, audit fact and activation row below uses
+		// this same instant, including requests queued across Beijing midnight.
+		activatedAt := s.nowTime()
+		activityDate := activityday.Date(activatedAt)
+		// The user row lock serializes distinct request IDs from the same player.
+		// Recheck the daily guard here so a concurrent loser receives the stable
+		// business error instead of leaking the backing unique-index error.
+		if txErr := s.guardDailyLimit(ctx, playerID, activityDate); txErr != nil {
+			return txErr
+		}
+		if txErr := s.guardDailyAttemptLimit(ctx, playerID, activatedAt, rules.dailyAttemptLimit); txErr != nil {
+			return txErr
+		}
+		if txErr := s.guardMovementSpeed(ctx, playerID, in, activatedAt, rules.maxSpeedMps); txErr != nil {
+			if bizerr.Is(txErr, CodeSpeedAnomaly) {
+				// guardMovementSpeed wrote the audit row in this transaction. Commit
+				// that risk record, then return the business rejection after commit.
+				activationErr = txErr
+				return nil
+			}
+			return txErr
+		}
+		threshold := rules.lbsThreshold
 		match, txErr := matchAndLockNearbyNiu(ctx, playerID, in.Lat, in.Lng, activatedAt, threshold)
 		if txErr != nil {
 			return txErr
@@ -254,21 +258,21 @@ func (s *serviceImpl) Activate(ctx context.Context, playerID int64, in *Activate
 
 func activationRequestID(playerID int64, in *ActivateInput) (string, error) {
 	if in == nil {
-		return "", bizerr.NewCode(CodeNoNearbyNiu)
+		return "", bizerr.NewCode(CodeRequestIDRequired)
 	}
 	if playerID <= 0 {
 		return "", bizerr.NewCode(CodeActivationNotFound)
 	}
-	requestID := strings.TrimSpace(in.RequestID)
-	if len(requestID) > 64 {
-		return "", bizerr.NewCode(CodeActivationNotFound)
+	requestID, ok := requestid.Normalize(in.RequestID)
+	if !ok {
+		return "", bizerr.NewCode(CodeRequestIDRequired)
 	}
 	return requestID, nil
 }
 
 func (s *serviceImpl) activationByRequest(ctx context.Context, playerID int64, requestID string) (*ActivateOutput, error) {
 	var record *entitymodel.Activation
-	if err := dao.Activation.Ctx(ctx).Where(do.Activation{UserId: playerID, RequestId: requestID}).Scan(&record); err != nil {
+	if err := dao.Activation.Ctx(ctx).Unscoped().Where(do.Activation{UserId: playerID, RequestId: requestID}).Scan(&record); err != nil {
 		return nil, bizerr.WrapCode(err, CodeQueryFailed)
 	}
 	if record == nil {
@@ -311,23 +315,12 @@ func (s *serviceImpl) buildActivationOutput(ctx context.Context, record *entitym
 	}, nil
 }
 
-// activationLBSThreshold returns the operator-maintained LBS threshold when the
-// rules service is injected, otherwise the constructor fallback.
-func (s *serviceImpl) activationLBSThreshold(ctx context.Context) (float64, error) {
-	if s.rulesSvc == nil {
-		return s.lbsThreshold, nil
-	}
-	return s.rulesSvc.ActivationLBSThresholdMeters(ctx)
-}
-
-// guardDailyLimit rejects a second activation on the same Beijing-time natural
-// day before entering the transaction. The active-set unique index back-stops
-// this check against the concurrent race.
-func (s *serviceImpl) guardDailyLimit(ctx context.Context, playerID int64) error {
-	today := activityday.Today()
+// guardDailyLimit rejects a second activation for the supplied authoritative
+// Beijing business date. The caller holds the player row lock.
+func (s *serviceImpl) guardDailyLimit(ctx context.Context, playerID int64, activityDate string) error {
 	dailyCount, err := dao.Activation.Ctx(ctx).
 		Where(dao.Activation.Columns().UserId, playerID).
-		Where(dao.Activation.Columns().ActivityDate, today).
+		Where(dao.Activation.Columns().ActivityDate, activityDate).
 		Count()
 	if err != nil {
 		return bizerr.WrapCode(err, CodeQueryFailed)
@@ -339,8 +332,8 @@ func (s *serviceImpl) guardDailyLimit(ctx context.Context, playerID int64) error
 }
 
 // insertActivationAttempt records one photo check-in audit row. Daily-limit
-// rejections intentionally call guardDailyLimit before this point and are not
-// written to keep the audit table focused on location matching outcomes.
+// rejections are not written so the audit table stays focused on location
+// matching outcomes.
 func insertActivationAttempt(
 	ctx context.Context,
 	playerID int64,

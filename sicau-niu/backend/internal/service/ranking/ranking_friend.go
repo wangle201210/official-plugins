@@ -1,17 +1,17 @@
 // ranking_friend.go implements the SICAU-friend leaderboard. The SICAU-friend
-// player cohort is resolved once on the database side, then the personal feeding
-// aggregation, nickname assembly and self-rank computation are all restricted to
-// that cohort and reuse the personal-board helpers. The self rank is only
-// meaningful when the requesting player belongs to the cohort.
+// player cohort is joined directly into bounded database aggregations so the
+// full friend-ID set is never loaded into application memory. The self rank is
+// only meaningful when the requesting player belongs to the cohort.
 
 package ranking
 
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/database/gdb"
+
 	"lina-core/pkg/bizerr"
 	"lina-plugin-sicau-niu/backend/internal/dao"
-	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
 )
 
 // FriendBoard is the SICAU-friend leaderboard result: the Top-N rows and the
@@ -26,18 +26,9 @@ type FriendBoard struct {
 }
 
 // FriendBoard returns the Top-N SICAU-friend board and the player's own rank. The
-// cohort is resolved once and reused for the aggregation, nickname assembly and
-// self-rank so the friend filter stays consistent across the response.
+// cohort filter is applied consistently by the Top-N and self-rank queries.
 func (s *serviceImpl) FriendBoard(ctx context.Context, playerID int64) (*FriendBoard, error) {
-	friendIDs, err := s.friendUserIDs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if len(friendIDs) == 0 {
-		return &FriendBoard{List: []*PlayerRank{}, Self: &SelfRank{Rank: 0, Total: 0}}, nil
-	}
-
-	rows, err := s.topUserTotals(ctx, friendIDs)
+	rows, err := s.topFriendTotals(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -45,28 +36,74 @@ func (s *serviceImpl) FriendBoard(ctx context.Context, playerID int64) (*FriendB
 	if err != nil {
 		return nil, err
 	}
-	self, err := s.selfRank(ctx, playerID, friendIDs)
+	self, err := s.friendSelfRank(ctx, playerID)
 	if err != nil {
 		return nil, err
 	}
 	return &FriendBoard{List: list, Self: self}, nil
 }
 
-// friendUserIDs returns the IDs of all active SICAU-friend players in one
-// projected query. The cohort is small and bounded by the friend population, so a
-// single set read is the authoritative input for the friend aggregation.
-func (s *serviceImpl) friendUserIDs(ctx context.Context) ([]int64, error) {
-	rows := make([]*entitymodel.User, 0)
-	err := dao.User.Ctx(ctx).
-		Fields(dao.User.Columns().Id).
-		Where(dao.User.Columns().IdentityType, friendIdentity).
+func (s *serviceImpl) topFriendTotals(ctx context.Context) ([]*userTotalRow, error) {
+	topN, err := s.currentTopN(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]*userTotalRow, 0, topN)
+	err = friendFeedingModel(ctx).
+		Fields(
+			"f."+dao.Feeding.Columns().UserId+" AS user_id",
+			"SUM(f."+dao.Feeding.Columns().EffectAmount+") AS total",
+		).
+		Group("f." + dao.Feeding.Columns().UserId).
+		Order("total DESC").
+		OrderAsc("f." + dao.Feeding.Columns().UserId).
+		Limit(topN).
 		Scan(&rows)
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeRankingQueryFailed)
 	}
-	ids := make([]int64, 0, len(rows))
-	for _, row := range rows {
-		ids = append(ids, row.Id)
+	return rows, nil
+}
+
+func (s *serviceImpl) friendSelfRank(ctx context.Context, playerID int64) (*SelfRank, error) {
+	if playerID <= 0 {
+		return &SelfRank{}, nil
 	}
-	return ids, nil
+	count, err := dao.User.Ctx(ctx).
+		Where(dao.User.Columns().Id, playerID).
+		Where(dao.User.Columns().IdentityType, friendIdentity).
+		Count()
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeRankingQueryFailed)
+	}
+	if count == 0 {
+		return &SelfRank{}, nil
+	}
+	total, err := s.userTotal(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	if total <= 0 {
+		return &SelfRank{Total: total}, nil
+	}
+	ahead, err := friendFeedingModel(ctx).
+		Fields("f."+dao.Feeding.Columns().UserId).
+		Group("f."+dao.Feeding.Columns().UserId).
+		Having("SUM(f."+dao.Feeding.Columns().EffectAmount+") > ?", total).
+		Count()
+	if err != nil {
+		return nil, bizerr.WrapCode(err, CodeRankingQueryFailed)
+	}
+	return &SelfRank{Rank: ahead + 1, Total: total}, nil
+}
+
+func friendFeedingModel(ctx context.Context) *gdb.Model {
+	return dao.Feeding.Ctx(ctx).
+		As("f").
+		InnerJoin(
+			userTable+" AS u",
+			"u."+dao.User.Columns().Id+" = f."+dao.Feeding.Columns().UserId+
+				" AND u."+dao.User.Columns().DeletedAt+" IS NULL",
+		).
+		Where("u."+dao.User.Columns().IdentityType, friendIdentity)
 }

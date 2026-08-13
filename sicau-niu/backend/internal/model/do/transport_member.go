@@ -16,7 +16,7 @@ type TransportMember struct {
 	Id                      any        //
 	TeamId                  any        //
 	UserId                  any        //
-	JoinRequestId           any        //
+	JoinRequestId           any        // Required joiner-scoped idempotency key; empty for creator membership
 	Role                    any        // Member display role: creator, member
 	JoinedAt                *time.Time //
 	LeftAt                  *time.Time //
@@ -26,4 +26,5 @@ type TransportMember struct {
 	LastReportLat           any        //
 	LastReportLng           any        //
 	LastReportAt            *time.Time //
+	JoinResponseJson        any        // Stable first successful team join response for idempotent replay
 }

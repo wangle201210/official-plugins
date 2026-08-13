@@ -1,6 +1,6 @@
 // player_activations.go defines the request and response DTOs for the LBS
 // activation action: the current player reports their check-in location and an
-// optional photo path, then the server matches a nearby unactivated cattle; the
+// required private photo ID, then the server matches a nearby unvisited cattle; the
 // response carries the matched cattle ID, first-activator flag, arrival order,
 // activation time and the cattle main card (issued on activation).
 

@@ -3,6 +3,7 @@ package irontransport
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -34,8 +35,27 @@ var integrationSchemaFiles = []string{
 	"002-sicau-niu-catalog.sql",
 	"003-sicau-niu-activation.sql",
 	"004-sicau-niu-grass.sql",
+	"005-sicau-niu-honor.sql",
+	"006-sicau-niu-settlement.sql",
 	"007-sicau-niu-rule-config.sql",
+	"008-sicau-niu-anticheat-idempotency.sql",
+	"009-sicau-niu-timezone-aware-times.sql",
 	"010-sicau-niu-miniapp-interfaces.sql",
+}
+
+var integrationUpgradeReplayFiles = []string{
+	"001-sicau-niu-identity.sql",
+	"002-sicau-niu-catalog.sql",
+	"003-sicau-niu-activation.sql",
+	"004-sicau-niu-grass.sql",
+	"005-sicau-niu-honor.sql",
+	"006-sicau-niu-settlement.sql",
+	"007-sicau-niu-rule-config.sql",
+	"008-sicau-niu-anticheat-idempotency.sql",
+	"009-sicau-niu-timezone-aware-times.sql",
+	"010-sicau-niu-miniapp-interfaces.sql",
+	"011-sicau-niu-cloud-moving.sql",
+	"012-sicau-niu-runtime-hardening.sql",
 }
 
 var integrationTables = []string{
@@ -82,11 +102,12 @@ func provisionIntegrationDB(ctx context.Context, baseLink string) error {
 	if err = executeIntegrationSQL(ctx, dbDialect, coreDictionarySchema); err != nil {
 		return err
 	}
+	initialSchemaPaths := make([]string, 0, len(integrationSchemaFiles))
 	for _, name := range integrationSchemaFiles {
-		path := filepath.Join("..", "..", "..", "..", "manifest", "sql", name)
-		if err = executeIntegrationSQL(ctx, dbDialect, path); err != nil {
-			return err
-		}
+		initialSchemaPaths = append(initialSchemaPaths, filepath.Join("..", "..", "..", "..", "manifest", "sql", name))
+	}
+	if err = executeIntegrationSQLFiles(ctx, dbDialect, initialSchemaPaths); err != nil {
+		return err
 	}
 	if err = seedLegacyTransportModel(ctx); err != nil {
 		return err
@@ -95,13 +116,42 @@ func provisionIntegrationDB(ctx context.Context, baseLink string) error {
 	if err = executeIntegrationSQL(ctx, dbDialect, cloudMovingMigration); err != nil {
 		return err
 	}
-	if err = assertLegacyTransportMigration(ctx); err != nil {
-		return err
-	}
 	// The cloud-moving migration is explicitly idempotent and must tolerate a
 	// second run against the already-upgraded schema.
 	if err = executeIntegrationSQL(ctx, dbDialect, cloudMovingMigration); err != nil {
 		return fmt.Errorf("repeat cloud-moving schema failed: %w", err)
+	}
+	if err = seedLegacyRuntimeHardeningFacts(ctx); err != nil {
+		return err
+	}
+	// Source-plugin upgrades replay every manifest migration. Reproduce that
+	// path after the v0.1 schema has already dropped legacy transport columns.
+	upgradePaths := make([]string, 0, len(integrationUpgradeReplayFiles))
+	for _, name := range integrationUpgradeReplayFiles {
+		upgradePaths = append(upgradePaths, filepath.Join("..", "..", "..", "..", "manifest", "sql", name))
+	}
+	if err = executeIntegrationSQLFiles(ctx, dbDialect, upgradePaths); err != nil {
+		return fmt.Errorf("replay upgraded manifest failed: %w", err)
+	}
+	if err = assertLegacyRuntimeHardeningFactsCleared(ctx); err != nil {
+		return err
+	}
+	if err = seedCurrentRuntimeHardeningFacts(ctx); err != nil {
+		return err
+	}
+	if err = executeIntegrationSQLFiles(ctx, dbDialect, upgradePaths); err != nil {
+		return fmt.Errorf("repeat upgraded manifest failed: %w", err)
+	}
+	if err = assertCurrentRuntimeHardeningFactsPreserved(ctx); err != nil {
+		return err
+	}
+	for _, table := range []string{dao.TransportTeam.Table(), dao.TransportMember.Table()} {
+		if err = g.DB().GetCore().ClearTableFields(ctx, table); err != nil {
+			return fmt.Errorf("refresh migrated table metadata for %s failed: %w", table, err)
+		}
+	}
+	if err = assertCloudMovingSchema(ctx); err != nil {
+		return err
 	}
 	integrationDBLink = link
 	return nil
@@ -146,37 +196,261 @@ FROM legacy_session, legacy_member`)
 	return nil
 }
 
-func assertLegacyTransportMigration(ctx context.Context) error {
-	var team struct {
-		Status        string     `json:"status"`
-		Visible       int        `json:"visible"`
-		MemberCount   int        `json:"memberCount"`
-		InvalidatedAt *time.Time `json:"invalidatedAt"`
-		InvalidReason string     `json:"invalidReason"`
+func seedLegacyRuntimeHardeningFacts(ctx context.Context) error {
+	_, err := g.DB().Exec(ctx, `
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_grass_account (user_id, balance)
+SELECT id, 40 FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_grass_txn (user_id, delta, txn_type, ref_id)
+SELECT id, 40, 'checkin', 1 FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_checkin (
+    user_id, checkin_date, amount, request_id, result_balance
+)
+SELECT id, '2026-08-13', 40, 'legacy-checkin-request', 40 FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_feeding (
+    user_id, niu_id, base_amount, coefficient_basis, effect_amount,
+    is_iron_bonus, request_id, fed_at
+)
+SELECT id, 1, 1, 100, 1, 0, 'legacy-feed-request', CURRENT_TIMESTAMP
+FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_steal (
+    actor_user_id, target_user_id, amount, steal_date, request_id
+)
+SELECT id, id, 1, '2026-08-13', 'legacy-steal-request'
+FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_gift (
+    from_user_id, to_user_id, amount, gift_date, request_id
+)
+SELECT id, id, 1, '2026-08-13', 'legacy-gift-request'
+FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_inbox_msg (user_id, msg_type, content)
+SELECT id, 'gift_received', 'legacy message' FROM player`)
+	if err != nil {
+		return fmt.Errorf("seed legacy runtime-hardening facts failed: %w", err)
 	}
-	if err := dao.TransportTeam.Ctx(ctx).
-		Fields(
-			dao.TransportTeam.Columns().Status,
-			dao.TransportTeam.Columns().Visible,
-			dao.TransportTeam.Columns().MemberCount,
-			dao.TransportTeam.Columns().InvalidatedAt,
-			dao.TransportTeam.Columns().InvalidReason,
-		).
-		Where(do.TransportTeam{CreateRequestId: "legacy-create"}).Scan(&team); err != nil {
-		return fmt.Errorf("query migrated legacy team failed: %w", err)
+	return nil
+}
+
+func assertLegacyRuntimeHardeningFactsCleared(ctx context.Context) error {
+	for _, table := range []string{
+		"plugin_sicau_niu_grass_account",
+		"plugin_sicau_niu_grass_txn",
+		"plugin_sicau_niu_checkin",
+		"plugin_sicau_niu_feeding",
+		"plugin_sicau_niu_steal",
+		"plugin_sicau_niu_gift",
+		"plugin_sicau_niu_inbox_msg",
+	} {
+		countValue, err := g.DB().GetValue(ctx, "SELECT COUNT(*) FROM "+table)
+		if err != nil {
+			return fmt.Errorf("query cleared legacy hardening table %s failed: %w", table, err)
+		}
+		if countValue.Int64() != 0 {
+			return fmt.Errorf("expected legacy hardening table %s to be empty, got %d rows", table, countValue.Int64())
+		}
 	}
-	if team.Status != string(teamStatusInvalid) || team.Visible != 0 || team.MemberCount != 0 || team.InvalidatedAt == nil || team.InvalidReason != "legacy_model" {
-		return fmt.Errorf("legacy team was not safely invalidated: %+v", team)
+	return nil
+}
+
+func seedCurrentRuntimeHardeningFacts(ctx context.Context) error {
+	_, err := g.DB().Exec(ctx, `
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_grass_account (user_id, balance)
+SELECT id, 30 FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_grass_txn (user_id, delta, txn_type, ref_id)
+SELECT id, 30, 'checkin', 2 FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_checkin (
+    user_id, checkin_date, amount, request_id, result_balance
+)
+SELECT id, '2026-08-13', 30, 'current-checkin-request', 30 FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_feeding (
+    user_id, niu_id, base_amount, coefficient_basis, effect_amount,
+    is_iron_bonus, request_id, response_json, fed_at
+)
+SELECT id, 1, 1, 100, 1, 0, 'current-feed-request', '{"effect":1}', CURRENT_TIMESTAMP
+FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_steal (
+    actor_user_id, target_user_id, amount, steal_date, request_id, result_balance
+)
+SELECT id, id, 1, '2026-08-13', 'current-steal-request', 10
+FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_gift (
+    from_user_id, to_user_id, amount, gift_date, request_id, result_balance
+)
+SELECT id, id, 1, '2026-08-13', 'current-gift-request', 9
+FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+)
+INSERT INTO plugin_sicau_niu_inbox_msg (user_id, msg_type, content)
+SELECT id, 'gift_received', 'current message' FROM player;
+
+WITH player AS (
+    SELECT id FROM plugin_sicau_niu_user
+    WHERE openid = 'transport-migration-legacy-user'
+), team AS (
+    INSERT INTO plugin_sicau_niu_transport_team (
+        name, leader_user_id, create_request_id, status, visible, member_count,
+        total_contribution_meters, last_active_at, create_response_json
+    )
+    SELECT '升级重放保留团', id, 'current-create-request', 'effective', 1, 1,
+           0, CURRENT_TIMESTAMP, '{"teams":[]}'
+    FROM player
+    RETURNING id, leader_user_id
+), member AS (
+    INSERT INTO plugin_sicau_niu_transport_member (
+        team_id, user_id, join_request_id, role, total_contribution_meters,
+        join_response_json
+    )
+    SELECT id, leader_user_id, 'current-join-request', 'member', 0, '{"teams":[]}'
+    FROM team
+    RETURNING id, team_id, user_id
+)
+INSERT INTO plugin_sicau_niu_transport_report (
+    team_id, member_id, user_id, request_id, activity_date,
+    end_lat, end_lng, sampled_at, accepted_at
+)
+SELECT team_id, id, user_id, 'current-report-request', '2026-08-13',
+       30.7, 103.8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM member`)
+	if err != nil {
+		return fmt.Errorf("seed current runtime-hardening facts failed: %w", err)
 	}
-	var member struct {
-		LeftAt *time.Time `json:"leftAt"`
+	return nil
+}
+
+func assertCurrentRuntimeHardeningFactsPreserved(ctx context.Context) error {
+	checks := []struct {
+		table     string
+		column    string
+		requestID string
+	}{
+		{table: "plugin_sicau_niu_checkin", column: "request_id", requestID: "current-checkin-request"},
+		{table: "plugin_sicau_niu_feeding", column: "request_id", requestID: "current-feed-request"},
+		{table: "plugin_sicau_niu_steal", column: "request_id", requestID: "current-steal-request"},
+		{table: "plugin_sicau_niu_gift", column: "request_id", requestID: "current-gift-request"},
+		{table: "plugin_sicau_niu_transport_team", column: "create_request_id", requestID: "current-create-request"},
+		{table: "plugin_sicau_niu_transport_member", column: "join_request_id", requestID: "current-join-request"},
+		{table: "plugin_sicau_niu_transport_report", column: "request_id", requestID: "current-report-request"},
 	}
-	if err := dao.TransportMember.Ctx(ctx).Fields(dao.TransportMember.Columns().LeftAt).
-		Where(do.TransportMember{JoinRequestId: "legacy-join"}).Scan(&member); err != nil {
-		return fmt.Errorf("query migrated legacy member failed: %w", err)
+	for _, check := range checks {
+		countValue, err := g.DB().GetValue(
+			ctx,
+			"SELECT COUNT(*) FROM "+check.table+" WHERE "+check.column+" = ?",
+			check.requestID,
+		)
+		if err != nil {
+			return fmt.Errorf("query preserved hardening table %s failed: %w", check.table, err)
+		}
+		if countValue.Int64() != 1 {
+			return fmt.Errorf("expected current hardening fact %s in %s to survive replay", check.requestID, check.table)
+		}
 	}
-	if member.LeftAt == nil {
-		return errors.New("legacy active membership was not closed")
+	for _, table := range []string{
+		"plugin_sicau_niu_grass_account",
+		"plugin_sicau_niu_grass_txn",
+		"plugin_sicau_niu_checkin",
+		"plugin_sicau_niu_inbox_msg",
+	} {
+		countValue, err := g.DB().GetValue(ctx, "SELECT COUNT(*) FROM "+table)
+		if err != nil {
+			return fmt.Errorf("query preserved runtime table %s failed: %w", table, err)
+		}
+		if countValue.Int64() != 1 {
+			return fmt.Errorf("expected one current row in %s to survive replay, got %d", table, countValue.Int64())
+		}
+	}
+	_, err := g.DB().Exec(ctx, `TRUNCATE TABLE
+plugin_sicau_niu_transport_report,
+plugin_sicau_niu_transport_member,
+plugin_sicau_niu_transport_team,
+plugin_sicau_niu_inbox_msg,
+plugin_sicau_niu_gift,
+plugin_sicau_niu_steal,
+plugin_sicau_niu_feeding,
+plugin_sicau_niu_checkin,
+plugin_sicau_niu_grass_txn,
+plugin_sicau_niu_grass_account`)
+	return err
+}
+
+func assertCloudMovingSchema(ctx context.Context) error {
+	for _, table := range []string{
+		"plugin_sicau_niu_transport_team",
+		"plugin_sicau_niu_transport_member",
+		"plugin_sicau_niu_transport_report",
+	} {
+		countValue, queryErr := g.DB().GetValue(ctx, "SELECT COUNT(*) FROM "+table)
+		if queryErr != nil {
+			return fmt.Errorf("query rebuilt cloud-moving table %s failed: %w", table, queryErr)
+		}
+		count := countValue.Int64()
+		if count != 0 {
+			return fmt.Errorf("expected rebuilt cloud-moving table %s to be empty, got %d rows", table, count)
+		}
 	}
 	for _, table := range []string{"plugin_sicau_niu_transport_session", "plugin_sicau_niu_transport_track"} {
 		value, queryErr := g.DB().GetValue(ctx, "SELECT to_regclass(?)", "public."+table)
@@ -206,20 +480,38 @@ WHERE tenant_id = 0
 }
 
 func executeIntegrationSQL(ctx context.Context, dbDialect dialect.Dialect, path string) error {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return err
+	return executeIntegrationSQLFiles(ctx, dbDialect, []string{path})
+}
+
+// executeIntegrationSQLFiles mirrors the source-plugin host by applying one
+// manifest batch in a single transaction, including all statements in each file.
+func executeIntegrationSQLFiles(ctx context.Context, dbDialect dialect.Dialect, paths []string) error {
+	type sqlBatch struct {
+		path       string
+		statements []string
 	}
-	translated, err := dbDialect.TranslateDDL(ctx, path, string(content))
-	if err != nil {
-		return err
-	}
-	for _, statement := range dialect.SplitSQLStatements(translated) {
-		if _, err = g.DB().Exec(ctx, statement); err != nil {
-			return fmt.Errorf("execute schema SQL failed: %w\nSQL:\n%s", err, statement)
+	batches := make([]sqlBatch, 0, len(paths))
+	for _, path := range paths {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
 		}
+		translated, err := dbDialect.TranslateDDL(ctx, path, string(content))
+		if err != nil {
+			return err
+		}
+		batches = append(batches, sqlBatch{path: path, statements: dialect.SplitSQLStatements(translated)})
 	}
-	return nil
+	return g.DB().Transaction(ctx, func(txCtx context.Context, tx gdb.TX) error {
+		for _, batch := range batches {
+			for index, statement := range batch.statements {
+				if _, err := tx.Ctx(txCtx).Exec(statement); err != nil {
+					return fmt.Errorf("execute schema SQL %s statement %d failed: %w\nSQL:\n%s", batch.path, index+1, err, statement)
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func uniqueIntegrationDBLink(baseLink string) (string, error) {
@@ -328,15 +620,19 @@ func TestCreateJoinAndContributionFacts(t *testing.T) {
 	}
 	teamID := state.MyTeam.ID
 	replay, err := svc.CreateTeam(ctx, creator, createInput)
-	if err != nil || replay.MyTeam == nil || replay.MyTeam.ID != teamID {
+	if err != nil {
 		t.Fatalf("create replay was not idempotent: state=%+v err=%v", replay, err)
 	}
-	if _, err = svc.JoinTeam(ctx, member, teamID, "join-cloud-team"); err != nil {
+	assertIntegrationJSONEqual(t, state, replay, "create replay")
+	joinedState, err := svc.JoinTeam(ctx, member, teamID, "join-cloud-team")
+	if err != nil {
 		t.Fatalf("join team failed: %v", err)
 	}
-	if _, err = svc.JoinTeam(ctx, member, teamID, "join-cloud-team"); err != nil {
+	joinReplay, err := svc.JoinTeam(ctx, member, teamID, "join-cloud-team")
+	if err != nil {
 		t.Fatalf("join replay failed: %v", err)
 	}
+	assertIntegrationJSONEqual(t, joinedState, joinReplay, "join replay")
 	_, err = svc.CreateTeam(ctx, member, &CreateTeamInput{RequestID: "create-while-joined", Name: "不应创建的团"})
 	assertIntegrationCode(t, err, CodeAlreadyInTeam.RuntimeCode())
 	members, err := svc.ListMembers(ctx, member, teamID, &PageInput{PageNum: 1, PageSize: 20})
@@ -388,6 +684,16 @@ func TestCreateJoinAndContributionFacts(t *testing.T) {
 	if lastActiveAfterRename := teamLastActiveAt(t, ctx, teamID); !lastActiveAfterRename.Equal(lastActiveBeforeRename) {
 		t.Fatalf("admin rename unexpectedly refreshed team activity: before=%v after=%v", lastActiveBeforeRename, lastActiveAfterRename)
 	}
+	createAfterMutation, err := svc.CreateTeam(ctx, creator, &CreateTeamInput{RequestID: createInput.RequestID, Name: "同键不同名称"})
+	if err != nil {
+		t.Fatalf("create replay drifted after join/report/rename: first=%+v replay=%+v err=%v", state, createAfterMutation, err)
+	}
+	assertIntegrationJSONEqual(t, state, createAfterMutation, "create replay after mutations")
+	joinAfterMutation, err := svc.JoinTeam(ctx, member, teamID, "join-cloud-team")
+	if err != nil {
+		t.Fatalf("join replay drifted after report/rename: first=%+v replay=%+v err=%v", joinedState, joinAfterMutation, err)
+	}
+	assertIntegrationJSONEqual(t, joinedState, joinAfterMutation, "join replay after mutations")
 	team, err := svc.GetTeam(ctx, member, teamID)
 	if err != nil || team.Name != "管理员改名团" {
 		t.Fatalf("renamed team was not visible: out=%+v err=%v", team, err)
@@ -399,6 +705,43 @@ func TestCreateJoinAndContributionFacts(t *testing.T) {
 	adminReports, err := svc.ListAdminReports(ctx, &AdminReportListInput{PageNum: 1, PageSize: 1, TeamID: teamID, UserID: member})
 	if err != nil || adminReports.Total != 3 || len(adminReports.List) != 1 || adminReports.List[0].EndLat == 0 {
 		t.Fatalf("unexpected admin report audit: out=%+v err=%v", adminReports, err)
+	}
+}
+
+func TestCreatorRequestIDDoesNotCollideWithLaterJoin(t *testing.T) {
+	ctx := context.Background()
+	setupIntegrationDB(t, ctx)
+	creator := insertIntegrationUser(t, ctx, "openid-creator-request-separation")
+	targetCreator := insertIntegrationUser(t, ctx, "openid-target-request-separation")
+	svc := New(Config{InactiveAfter: time.Hour})
+
+	source, err := svc.CreateTeam(ctx, creator, &CreateTeamInput{RequestID: "shared-create-join-key", Name: "待失效来源团"})
+	if err != nil {
+		t.Fatalf("create source team failed: %v", err)
+	}
+	target, err := svc.CreateTeam(ctx, targetCreator, &CreateTeamInput{RequestID: "target-create-key", Name: "后续加入目标团"})
+	if err != nil {
+		t.Fatalf("create target team failed: %v", err)
+	}
+	var creatorMembership struct {
+		JoinRequestID string `json:"joinRequestId"`
+	}
+	if err = dao.TransportMember.Ctx(ctx).
+		Fields(dao.TransportMember.Columns().JoinRequestId).
+		Where(do.TransportMember{TeamId: source.MyTeam.ID, UserId: creator}).
+		Scan(&creatorMembership); err != nil || creatorMembership.JoinRequestID != "" {
+		t.Fatalf("creator membership leaked create key into join idempotency: out=%+v err=%v", creatorMembership, err)
+	}
+	stale := time.Now().Add(-2 * time.Hour)
+	if _, err = dao.TransportTeam.Ctx(ctx).Where(do.TransportTeam{Id: source.MyTeam.ID}).Data(do.TransportTeam{LastActiveAt: &stale}).Update(); err != nil {
+		t.Fatalf("age source team failed: %v", err)
+	}
+	if _, err = svc.ExpireInactive(ctx, time.Now()); err != nil {
+		t.Fatalf("expire source team failed: %v", err)
+	}
+	joined, err := svc.JoinTeam(ctx, creator, target.MyTeam.ID, "shared-create-join-key")
+	if err != nil || joined.MyTeam == nil || joined.MyTeam.ID != target.MyTeam.ID {
+		t.Fatalf("create request key incorrectly replayed as a later join: state=%+v err=%v", joined, err)
 	}
 }
 
@@ -597,6 +940,59 @@ func TestJoinAndReportRejectExpiredTeamAndPersistInvalidation(t *testing.T) {
 	}
 }
 
+func TestLifecycleReadsSettleExpiryBeforeReturning(t *testing.T) {
+	ctx := context.Background()
+	setupIntegrationDB(t, ctx)
+	creator := insertIntegrationUser(t, ctx, "openid-lifecycle-read-creator")
+	fixedNow := time.Now().Truncate(time.Microsecond)
+	svc := New(Config{InactiveAfter: time.Hour}).(*serviceImpl)
+	svc.now = func() time.Time { return fixedNow }
+	state, err := svc.CreateTeam(ctx, creator, &CreateTeamInput{RequestID: "create-lifecycle-read", Name: "读路径失效团"})
+	if err != nil {
+		t.Fatalf("create read-expiry fixture failed: %v", err)
+	}
+	teamID := state.MyTeam.ID
+	stale := fixedNow.Add(-2 * time.Hour)
+	if _, err = dao.TransportTeam.Ctx(ctx).Where(do.TransportTeam{Id: teamID}).Data(do.TransportTeam{LastActiveAt: &stale}).Update(); err != nil {
+		t.Fatalf("age read-expiry fixture failed: %v", err)
+	}
+
+	state, err = svc.State(ctx, creator)
+	if err != nil || state.MyTeam != nil || len(state.Teams) != 0 {
+		t.Fatalf("state returned an expired team: state=%+v err=%v", state, err)
+	}
+	assertIntegrationTeamInvalid(t, ctx, teamID)
+	_, err = svc.GetTeam(ctx, creator, teamID)
+	assertIntegrationCode(t, err, CodeTeamNotFound.RuntimeCode())
+	_, err = svc.ListMembers(ctx, creator, teamID, &PageInput{PageNum: 1, PageSize: 20})
+	assertIntegrationCode(t, err, CodeTeamNotFound.RuntimeCode())
+}
+
+func TestRejectedCreateStillCommitsUnrelatedLifecycleSettlement(t *testing.T) {
+	ctx := context.Background()
+	setupIntegrationDB(t, ctx)
+	member := insertIntegrationUser(t, ctx, "openid-rejected-create-member")
+	staleLeader := insertIntegrationUser(t, ctx, "openid-rejected-create-stale")
+	fixedNow := time.Now().Truncate(time.Microsecond)
+	svc := New(Config{InactiveAfter: time.Hour}).(*serviceImpl)
+	svc.now = func() time.Time { return fixedNow }
+	if _, err := svc.CreateTeam(ctx, member, &CreateTeamInput{RequestID: "create-active-membership", Name: "现有成员团"}); err != nil {
+		t.Fatalf("create active membership fixture failed: %v", err)
+	}
+	staleState, err := svc.CreateTeam(ctx, staleLeader, &CreateTeamInput{RequestID: "create-stale-fixture", Name: "待结算失效团"})
+	if err != nil {
+		t.Fatalf("create stale fixture failed: %v", err)
+	}
+	stale := fixedNow.Add(-2 * time.Hour)
+	if _, err = dao.TransportTeam.Ctx(ctx).Where(do.TransportTeam{Id: staleState.MyTeam.ID}).Data(do.TransportTeam{LastActiveAt: &stale}).Update(); err != nil {
+		t.Fatalf("age stale fixture failed: %v", err)
+	}
+
+	_, err = svc.CreateTeam(ctx, member, &CreateTeamInput{RequestID: "rejected-create", Name: "不应创建的新团"})
+	assertIntegrationCode(t, err, CodeAlreadyInTeam.RuntimeCode())
+	assertIntegrationTeamInvalid(t, ctx, staleState.MyTeam.ID)
+}
+
 func TestInvalidatesInactiveTeamAndReleasesMembership(t *testing.T) {
 	ctx := context.Background()
 	setupIntegrationDB(t, ctx)
@@ -679,6 +1075,89 @@ func TestEffectiveTeamLimitAndExpiredSlotRelease(t *testing.T) {
 	if err != nil || state.MyTeam == nil || state.MyTeam.Name != "释放名额后的团" || len(state.Teams) != maxEffectiveTeams {
 		t.Fatalf("expired slot was not released: state=%+v err=%v", state, err)
 	}
+}
+
+func TestHiddenEffectiveTeamOccupiesCapacityAndRemainsUsableByMembers(t *testing.T) {
+	ctx := context.Background()
+	setupIntegrationDB(t, ctx)
+	creator := insertIntegrationUser(t, ctx, "openid-hidden-team-creator")
+	outsider := insertIntegrationUser(t, ctx, "openid-hidden-team-outsider")
+	fixedNow := time.Now().Truncate(time.Microsecond)
+	svc := New(Config{}).(*serviceImpl)
+	svc.now = func() time.Time { return fixedNow }
+	state, err := svc.CreateTeam(ctx, creator, &CreateTeamInput{RequestID: "hidden-team-create", Name: "后台隐藏团"})
+	if err != nil || state.MyTeam == nil {
+		t.Fatalf("create hidden-team fixture failed: state=%+v err=%v", state, err)
+	}
+	teamID := state.MyTeam.ID
+	if _, err = dao.TransportTeam.Ctx(ctx).Where(do.TransportTeam{Id: teamID}).Data(do.TransportTeam{Visible: 0}).Update(); err != nil {
+		t.Fatalf("hide team failed: %v", err)
+	}
+
+	state, err = svc.State(ctx, creator)
+	if err != nil || state.MyTeam == nil || state.MyTeam.ID != teamID || len(state.Teams) != 0 {
+		t.Fatalf("hidden team must remain private to its member: state=%+v err=%v", state, err)
+	}
+	if _, err = svc.GetTeam(ctx, outsider, teamID); err == nil {
+		t.Fatal("hidden team must not be discoverable by an outsider")
+	}
+	if _, err = svc.JoinTeam(ctx, outsider, teamID, "hidden-team-join"); err == nil {
+		t.Fatal("hidden team must reject a new member")
+	}
+	if _, err = svc.Report(ctx, creator, &ReportInput{
+		RequestID: "hidden-team-report", TeamID: teamID,
+		Lat: 30.7, Lng: 103.8, SampledAt: fixedNow,
+	}); err != nil {
+		t.Fatalf("existing member should still contribute to a hidden effective team: %v", err)
+	}
+
+	for index := 0; index < maxEffectiveTeams-1; index++ {
+		if _, err = dao.TransportTeam.Ctx(ctx).Data(do.TransportTeam{
+			Name: fmt.Sprintf("隐藏容量预置团-%03d", index), LeaderUserId: 800000 + index,
+			CreateRequestId: fmt.Sprintf("hidden-capacity-%03d", index), Status: teamStatusEffective,
+			Visible: 1, MemberCount: 1, LastActiveAt: &fixedNow,
+		}).Insert(); err != nil {
+			t.Fatalf("seed capacity team %d failed: %v", index, err)
+		}
+	}
+	_, err = svc.CreateTeam(ctx, outsider, &CreateTeamInput{RequestID: "hidden-capacity-over", Name: "第121个团"})
+	assertIntegrationCode(t, err, CodeTeamLimit.RuntimeCode())
+
+	expiry := fixedNow.Add(73 * time.Hour)
+	invalidated, err := svc.ExpireInactive(ctx, expiry)
+	if err != nil || invalidated != maxEffectiveTeams {
+		t.Fatalf("hidden effective team must expire with other effective teams: count=%d err=%v", invalidated, err)
+	}
+	assertIntegrationTeamInvalid(t, ctx, teamID)
+}
+
+func TestJoinRechecksCallerMembershipAtLockTime(t *testing.T) {
+	ctx := context.Background()
+	setupIntegrationDB(t, ctx)
+	playerID := insertIntegrationUser(t, ctx, "openid-join-lock-boundary-player")
+	targetCreator := insertIntegrationUser(t, ctx, "openid-join-lock-boundary-target")
+	beforeBoundary := time.Now().Truncate(time.Microsecond)
+	current := beforeBoundary
+	svc := New(Config{InactiveAfter: time.Hour}).(*serviceImpl)
+	svc.now = func() time.Time { return current }
+	oldState, err := svc.CreateTeam(ctx, playerID, &CreateTeamInput{RequestID: "join-lock-old", Name: "锁等待旧团"})
+	if err != nil {
+		t.Fatalf("create old team failed: %v", err)
+	}
+	targetState, err := svc.CreateTeam(ctx, targetCreator, &CreateTeamInput{RequestID: "join-lock-target", Name: "锁等待目标团"})
+	if err != nil {
+		t.Fatalf("create target team failed: %v", err)
+	}
+	oldActive := beforeBoundary.Add(-59 * time.Minute)
+	if _, err = dao.TransportTeam.Ctx(ctx).Where(do.TransportTeam{Id: oldState.MyTeam.ID}).Data(do.TransportTeam{LastActiveAt: &oldActive}).Update(); err != nil {
+		t.Fatalf("stage old membership boundary failed: %v", err)
+	}
+	current = beforeBoundary.Add(2 * time.Minute)
+	joined, err := svc.JoinTeam(ctx, playerID, targetState.MyTeam.ID, "join-lock-after-boundary")
+	if err != nil || joined.MyTeam == nil || joined.MyTeam.ID != targetState.MyTeam.ID {
+		t.Fatalf("join should expire the old membership using lock-time now: state=%+v err=%v", joined, err)
+	}
+	assertIntegrationTeamInvalid(t, ctx, oldState.MyTeam.ID)
 }
 
 func TestConcurrentCreatesCannotExceedEffectiveTeamLimit(t *testing.T) {
@@ -820,6 +1299,21 @@ func assertIntegrationTeamInvalid(t *testing.T, ctx context.Context, teamID int6
 	}
 	if row.Status != string(teamStatusInvalid) || row.MemberCount != 0 || row.InvalidatedAt == nil {
 		t.Fatalf("team was not persistently invalidated: %+v", row)
+	}
+}
+
+func assertIntegrationJSONEqual(t *testing.T, first, replay any, label string) {
+	t.Helper()
+	firstJSON, err := json.Marshal(first)
+	if err != nil {
+		t.Fatalf("marshal first %s response failed: %v", label, err)
+	}
+	replayJSON, err := json.Marshal(replay)
+	if err != nil {
+		t.Fatalf("marshal replayed %s response failed: %v", label, err)
+	}
+	if string(firstJSON) != string(replayJSON) {
+		t.Fatalf("%s response changed: first=%s replay=%s", label, firstJSON, replayJSON)
 	}
 }
 

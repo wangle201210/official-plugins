@@ -24,5 +24,6 @@ type Feeding struct {
 	CreatedAt        *time.Time //
 	UpdatedAt        *time.Time //
 	DeletedAt        *time.Time //
-	RequestId        any        // Client idempotency key deduplicating network retries; empty when not provided
+	RequestId        any        // Required player-scoped idempotency key for stable replay
+	ResponseJson     any        // Stable first successful feeding response for idempotent replay
 }

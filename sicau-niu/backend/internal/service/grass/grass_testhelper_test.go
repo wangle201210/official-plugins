@@ -12,8 +12,9 @@
 // the original GoFrame config are released once at the end of the package run.
 //
 // The grass capability writes the grass_account, grass_txn and checkin tables and
-// reads the user table for ownership, so the harness applies the 001 identity and
-// 004 grass DDL to ensure every consumed table exists.
+// reads the user table for ownership. The harness applies the install migrations
+// needed through 010 so the check-in idempotency columns and unique index match
+// the production schema.
 
 package grass
 
@@ -47,10 +48,13 @@ var grassTables = []string{
 }
 
 // grassSchemaFiles lists the plugin install DDL files applied to the shared test
-// database in order: 001 user/college then 004 grass.
+// database in dependency order through the check-in idempotency migration.
 var grassSchemaFiles = []string{
 	"001-sicau-niu-identity.sql",
+	"002-sicau-niu-catalog.sql",
+	"003-sicau-niu-activation.sql",
 	"004-sicau-niu-grass.sql",
+	"010-sicau-niu-miniapp-interfaces.sql",
 }
 
 // grassDBHarness holds the lazily-provisioned shared test database state.

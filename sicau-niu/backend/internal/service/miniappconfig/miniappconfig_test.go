@@ -1,9 +1,14 @@
+// miniappconfig_test.go verifies public defaults, live rule projection,
+// timezone handling and stable fuzzy-area behavior.
+
 package miniappconfig
 
 import (
 	"math"
 	"testing"
 	"time"
+
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 func TestSnapshotContainsAllCampusCalibrations(t *testing.T) {
@@ -12,10 +17,29 @@ func TestSnapshotContainsAllCampusCalibrations(t *testing.T) {
 	if len(out.Campuses) != 3 || out.DefaultCampus != CampusChengdu || out.ActivateRadiusM != 60 || out.Debug {
 		t.Fatalf("unexpected public config: %+v", out)
 	}
+	if out.StealDailyLimit != 5 || out.GiftDailyLimit != 12 || out.GiftMinAmount != 12 {
+		t.Fatalf("unexpected public gameplay defaults: %+v", out)
+	}
 	for _, campus := range out.Campuses {
 		if campus.Calibration.ImageSize.W <= 0 || campus.Calibration.ImageSize.H <= 0 || campus.Calibration.Affine.A == 0 || campus.Calibration.Affine.D == 0 {
 			t.Fatalf("campus calibration is incomplete: %+v", campus)
 		}
+	}
+}
+
+func TestSnapshotProjectsPublicGameplayRules(t *testing.T) {
+	rules := &rulessvc.RuleSet{
+		ActivationLBSThresholdMeters: 75,
+		StealDailyLimit:              7,
+		GiftDailyLimit:               9,
+		GiftMinAmount:                18,
+	}
+	svc := New(nil, Config{ActivateRadiusMeters: 60}).(*serviceImpl)
+	out := cloneSnapshot(&svc.defaults)
+
+	applyRuntimeRules(out, rules)
+	if out.ActivateRadiusM != 75 || out.StealDailyLimit != 7 || out.GiftDailyLimit != 9 || out.GiftMinAmount != 18 {
+		t.Fatalf("unexpected public gameplay rules: out=%+v", out)
 	}
 }
 

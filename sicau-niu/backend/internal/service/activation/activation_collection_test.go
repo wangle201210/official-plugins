@@ -39,14 +39,14 @@ func TestCollectionSelfIsolation(t *testing.T) {
 	me := insertUserRow(t, ctx, do.User{Openid: "openid-me"})
 	other := insertUserRow(t, ctx, do.User{Openid: "openid-other"})
 
-	myActivation, err := svc.Activate(ctx, me, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	myActivation, err := svc.Activate(ctx, me, &ActivateInput{RequestID: "activation-collection-mine", Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("my activation failed: %v", err)
 	}
 	if myActivation.NiuId != mineNiu {
 		t.Fatalf("expected my activation to match niu %d, got %d", mineNiu, myActivation.NiuId)
 	}
-	otherActivation, err := svc.Activate(ctx, other, &ActivateInput{Lat: 30.0002, Lng: 103.0})
+	otherActivation, err := svc.Activate(ctx, other, &ActivateInput{RequestID: "activation-collection-other", Lat: 30.0002, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("other activation failed: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestCollectionCategoryFilter(t *testing.T) {
 
 	// Activate both cattle on distinct days by pre-seeding the event activation so
 	// the daily limit does not block staging two collected cards.
-	spiritActivation, err := svc.Activate(ctx, me, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	spiritActivation, err := svc.Activate(ctx, me, &ActivateInput{RequestID: "activation-collection-spirit", Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("spirit activation failed: %v", err)
 	}

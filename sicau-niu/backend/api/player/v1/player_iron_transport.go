@@ -18,8 +18,8 @@ type IronTransportState struct {
 	DailyReportLimit     int                  `json:"dailyReportLimit" dc:"Per-player Beijing-day report limit" eg:"12"`
 	TodayReportCount     int                  `json:"todayReportCount" dc:"Current player's accepted report count today" eg:"2"`
 	TodayReportRemaining int                  `json:"todayReportRemaining" dc:"Current player's remaining reports today" eg:"10"`
-	Teams                []*IronTransportTeam `json:"teams" dc:"All effective teams, bounded to 120 and without nested member arrays" eg:"[]"`
-	MyTeam               *IronTransportTeam   `json:"myTeam,omitempty" dc:"Current player's effective team; omitted when unbound" eg:"null"`
+	Teams                []*IronTransportTeam `json:"teams" dc:"Player-visible effective teams, bounded to 120 and without nested member arrays" eg:"[]"`
+	MyTeam               *IronTransportTeam   `json:"myTeam,omitempty" dc:"Current player's effective team, including an operator-hidden team already joined by this player; omitted when unbound" eg:"null"`
 }
 
 type IronTransportTeam struct {

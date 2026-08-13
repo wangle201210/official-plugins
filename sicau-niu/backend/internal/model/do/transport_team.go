@@ -16,7 +16,7 @@ type TransportTeam struct {
 	Id                      any        //
 	Name                    any        //
 	LeaderUserId            any        // Team creator player ID; creator has no lifecycle authority
-	CreateRequestId         any        //
+	CreateRequestId         any        // Required creator-scoped idempotency key for stable replay
 	Status                  any        // Team status: effective, invalid
 	Visible                 any        //
 	CreatedAt               *time.Time //
@@ -27,4 +27,5 @@ type TransportTeam struct {
 	LastActiveAt            *time.Time // Latest successful create, join or contribution server commit time
 	InvalidatedAt           *time.Time //
 	InvalidReason           any        //
+	CreateResponseJson      any        // Stable first successful team creation response for idempotent replay
 }

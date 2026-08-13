@@ -30,6 +30,7 @@ func (c *ControllerV1) PlayerHonors(ctx context.Context, req *v1.PlayerHonorsReq
 			Category:   item.Category,
 			ImagePath:  item.ImagePath,
 			Unlocked:   item.Unlocked,
+			Granted:    item.Granted,
 		})
 	}
 	return &v1.PlayerHonorsRes{List: list}, nil

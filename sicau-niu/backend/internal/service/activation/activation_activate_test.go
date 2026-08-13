@@ -10,6 +10,7 @@ import (
 	"context"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -70,7 +71,7 @@ func TestActivateNoNearbyNiuRejected(t *testing.T) {
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-far"})
 
 	// ~0.01 degree latitude offset is well over a kilometer, far outside 50m.
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.01, Lng: 103.0})
+	_, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-no-nearby", Lat: 30.01, Lng: 103.0})
 	assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
 
 	count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
@@ -162,7 +163,11 @@ func TestActivateInvisibleNiuRejected(t *testing.T) {
 			niuID := insertNiuRow(t, ctx, tc.row)
 			playerID := insertUserRow(t, ctx, do.User{Openid: "openid-invisible-" + strconv.Itoa(i)})
 
-			_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+			_, err := svc.Activate(ctx, playerID, &ActivateInput{
+				RequestID: "activation-invisible-" + strconv.Itoa(i),
+				Lat:       30.0,
+				Lng:       103.0,
+			})
 			assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
 
 			count, countErr := dao.Activation.Ctx(ctx).Where(dao.Activation.Columns().NiuId, niuID).Count()
@@ -199,7 +204,7 @@ func TestActivateFirstActivatorFlipsStatus(t *testing.T) {
 	})
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-first"})
 
-	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-first", Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("first activation failed: %v", err)
 	}
@@ -255,7 +260,7 @@ func TestActivateNearestNearbyInactiveNiuMatched(t *testing.T) {
 	})
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-nearest"})
 
-	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-nearest", Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("nearest activation failed: %v", err)
 	}
@@ -275,10 +280,10 @@ func TestActivateActiveNiuAllowsLaterVisitor(t *testing.T) {
 	firstPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-active-a"})
 	secondPlayer := insertUserRow(t, ctx, do.User{Openid: "openid-active-b"})
 
-	if _, err := svc.Activate(ctx, firstPlayer, &ActivateInput{Lat: 30.0, Lng: 103.0}); err != nil {
+	if _, err := svc.Activate(ctx, firstPlayer, &ActivateInput{RequestID: "activation-active-first", Lat: 30.0, Lng: 103.0}); err != nil {
 		t.Fatalf("first activation failed: %v", err)
 	}
-	out, err := svc.Activate(ctx, secondPlayer, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	out, err := svc.Activate(ctx, secondPlayer, &ActivateInput{RequestID: "activation-active-second", Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("later activation failed: %v", err)
 	}
@@ -315,17 +320,17 @@ func TestActivateConcurrentFirstActivatorUnique(t *testing.T) {
 		results []*ActivateOutput
 		errs    []error
 	)
-	activate := func(playerID int64) {
+	activate := func(playerID int64, requestID string) {
 		defer wg.Done()
-		out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+		out, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: requestID, Lat: 30.0, Lng: 103.0})
 		mu.Lock()
 		defer mu.Unlock()
 		results = append(results, out)
 		errs = append(errs, err)
 	}
 	wg.Add(2)
-	go activate(playerA)
-	go activate(playerB)
+	go activate(playerA, "activation-concurrent-first-a")
+	go activate(playerB, "activation-concurrent-first-b")
 	wg.Wait()
 
 	firstCount := 0
@@ -374,7 +379,7 @@ func TestActivateDailyLimitRejected(t *testing.T) {
 	})
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-daily"})
 
-	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-daily-first", Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("first activation failed: %v", err)
 	}
@@ -382,7 +387,7 @@ func TestActivateDailyLimitRejected(t *testing.T) {
 		t.Fatalf("expected first staged niu %d activated, got %d", firstNiu, out.NiuId)
 	}
 	_ = secondNiu
-	_, err = svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	_, err = svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-daily-second", Lat: 30.0, Lng: 103.0})
 	assertBizCode(t, err, CodeDailyLimitReached.RuntimeCode())
 	attempts := activationAttemptsForPlayer(t, ctx, playerID)
 	if len(attempts) != 1 {
@@ -450,7 +455,7 @@ func TestActivateRequestReplayReturnsExactResponse(t *testing.T) {
 	}
 }
 
-func TestRevokeFirstActivationPromotesReplayResponse(t *testing.T) {
+func TestRevokeRepairsCurrentFirstStateWithoutChangingReplay(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLActivationDB(t, ctx)
 	svc := newActivationServiceForTest()
@@ -476,8 +481,20 @@ func TestRevokeFirstActivationPromotesReplayResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("replay promoted activation failed: %v", err)
 	}
-	if !promoted.IsFirst || promoted.Seq != second.Seq {
-		t.Fatalf("promoted replay response is inconsistent: before=%+v after=%+v", second, promoted)
+	if !reflect.DeepEqual(second, promoted) {
+		t.Fatalf("operational repair rewrote the first successful replay: before=%+v after=%+v", second, promoted)
+	}
+	var repaired *entitymodel.Activation
+	if err = dao.Activation.Ctx(ctx).Where(do.Activation{Id: second.Seq}).Scan(&repaired); err != nil || repaired == nil || repaired.IsFirst != firstActivatorFlag {
+		t.Fatalf("current first-activator state was not repaired: row=%+v err=%v", repaired, err)
+	}
+	revokedReplay, err := svc.Activate(ctx, firstPlayer, &ActivateInput{RequestID: "activation-revoke-first", Lat: 30.0, Lng: 103.0})
+	if err != nil || !reflect.DeepEqual(first, revokedReplay) {
+		t.Fatalf("revoked request was re-executed instead of stably replayed: first=%+v replay=%+v err=%v", first, revokedReplay, err)
+	}
+	activeCount, err := dao.Activation.Ctx(ctx).Where(do.Activation{UserId: firstPlayer}).Count()
+	if err != nil || activeCount != 0 {
+		t.Fatalf("revoked activation became effective again: count=%d err=%v", activeCount, err)
 	}
 	if err = svc.Revoke(ctx, second.Seq); err != nil {
 		t.Fatalf("revoke last activation failed: %v", err)
@@ -520,7 +537,7 @@ func TestActivateAttemptLimitRejected(t *testing.T) {
 		insertAttemptRow(t, ctx, playerID, 30.0, 103.0, time.Now().Add(-time.Duration(i+1)*time.Minute))
 	}
 
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	_, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-attempt-limit", Lat: 30.0, Lng: 103.0})
 	assertBizCode(t, err, CodeAttemptLimitReached.RuntimeCode())
 
 	attempts := activationAttemptsForPlayer(t, ctx, playerID)
@@ -533,6 +550,54 @@ func TestActivateAttemptLimitRejected(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("expected no activation rows, got %d", count)
+	}
+}
+
+// TestActivateConcurrentAttemptsRespectQuota verifies the player row lock also
+// protects the failed-attempt quota: with one slot left, two distinct concurrent
+// requests produce one recorded attempt and one quota error.
+func TestActivateConcurrentAttemptsRespectQuota(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-attempt-concurrent"})
+
+	for i := 0; i < defaultDailyAttemptLimit-1; i++ {
+		insertAttemptRow(t, ctx, playerID, 30.0, 103.0, time.Now().Add(-time.Duration(i+1)*time.Minute))
+	}
+
+	errs := make(chan error, 2)
+	var wg sync.WaitGroup
+	for _, requestID := range []string{"attempt-concurrent-a", "attempt-concurrent-b"} {
+		wg.Add(1)
+		go func(requestID string) {
+			defer wg.Done()
+			_, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: requestID, Lat: 30.0, Lng: 103.0})
+			errs <- err
+		}(requestID)
+	}
+	wg.Wait()
+	close(errs)
+
+	noNearby := 0
+	limited := 0
+	for err := range errs {
+		if isActivationBizCode(err, CodeNoNearbyNiu) {
+			noNearby++
+			continue
+		}
+		if isActivationBizCode(err, CodeAttemptLimitReached) {
+			limited++
+			continue
+		}
+		t.Fatalf("unexpected concurrent activation error: %v", err)
+	}
+	if noNearby != 1 || limited != 1 {
+		t.Fatalf("expected one recorded failure and one quota error, noNearby=%d limited=%d", noNearby, limited)
+	}
+	attempts := activationAttemptsForPlayer(t, ctx, playerID)
+	if len(attempts) != defaultDailyAttemptLimit {
+		t.Fatalf("expected attempt count capped at %d, got %d", defaultDailyAttemptLimit, len(attempts))
 	}
 }
 
@@ -549,7 +614,7 @@ func TestActivateSpeedAnomalyRejected(t *testing.T) {
 	// Previous check-in ~5.5km away just 5 seconds ago: >1000 m/s, far over 25 m/s.
 	insertAttemptRow(t, ctx, playerID, 30.05, 103.0, time.Now().Add(-5*time.Second))
 
-	_, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	_, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-speed", Lat: 30.0, Lng: 103.0})
 	assertBizCode(t, err, CodeSpeedAnomaly.RuntimeCode())
 
 	attempts := activationAttemptsForPlayer(t, ctx, playerID)
@@ -580,7 +645,7 @@ func TestActivateSlowMovementPasses(t *testing.T) {
 	// Previous check-in ~110m away one hour ago: ~0.03 m/s, far under 25 m/s.
 	insertAttemptRow(t, ctx, playerID, 30.001, 103.0, time.Now().Add(-time.Hour))
 
-	out, err := svc.Activate(ctx, playerID, &ActivateInput{Lat: 30.0, Lng: 103.0})
+	out, err := svc.Activate(ctx, playerID, &ActivateInput{RequestID: "activation-slow", Lat: 30.0, Lng: 103.0})
 	if err != nil {
 		t.Fatalf("expected slow movement to pass the speed guard, got %v", err)
 	}
@@ -598,7 +663,7 @@ func TestActivateNilInputRejected(t *testing.T) {
 	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-dup"})
 
 	_, err := svc.Activate(ctx, playerID, nil)
-	assertBizCode(t, err, CodeNoNearbyNiu.RuntimeCode())
+	assertBizCode(t, err, CodeRequestIDRequired.RuntimeCode())
 
 	count, countErr := dao.Activation.Ctx(ctx).Count()
 	if countErr != nil {
@@ -606,5 +671,17 @@ func TestActivateNilInputRejected(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("expected no activation rows, got %d", count)
+	}
+}
+
+// TestActivateRequiresRequestID verifies internal callers cannot bypass the
+// mandatory idempotency-key contract enforced by the HTTP DTO.
+func TestActivateRequiresRequestID(t *testing.T) {
+	for _, requestID := range []string{"", "   ", strings.Repeat("r", 65)} {
+		_, err := activationRequestID(1, &ActivateInput{RequestID: requestID})
+		assertBizCode(t, err, CodeRequestIDRequired.RuntimeCode())
+	}
+	if got, err := activationRequestID(1, &ActivateInput{RequestID: strings.Repeat("牛", 64)}); err != nil || got == "" {
+		t.Fatalf("64 Unicode request-id characters should pass validation: got=%q err=%v", got, err)
 	}
 }

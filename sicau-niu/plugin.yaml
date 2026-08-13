@@ -8,7 +8,7 @@ name: 寻牛活动
 
 # Plugin semantic version; examples in this repo use the `v` prefix.
 # 插件语义化版本号，当前示例统一使用带 `v` 前缀的写法。
-version: v0.1.0
+version: v0.2.0
 
 # Plugin type enum. Allowed values: `source` is compiled with the host; `dynamic` is loaded as a runtime plugin artifact.
 # 插件类型枚举。可选值：`source` 表示随宿主源码编译交付；`dynamic` 表示作为运行时动态插件产物加载。

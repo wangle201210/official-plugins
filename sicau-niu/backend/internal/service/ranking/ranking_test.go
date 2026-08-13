@@ -97,6 +97,35 @@ func TestFeedBoardEmptyWhenNoFeeding(t *testing.T) {
 	}
 }
 
+// TestFeedBoardUsesCompetitionRanksForTies verifies the list and self projection
+// use the same rank semantics: equal totals share a rank and the next rank skips.
+func TestFeedBoardUsesCompetitionRanksForTies(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLRankingDB(t, ctx)
+
+	svc := New(nil, Config{TopN: 10})
+	firstTie := insertUserRow(t, ctx, "并列甲", friendIdentity, 0)
+	secondTie := insertUserRow(t, ctx, "并列乙", friendIdentity, 0)
+	lower := insertUserRow(t, ctx, "第三名", friendIdentity, 0)
+	insertFeedingRow(t, ctx, firstTie, 100)
+	insertFeedingRow(t, ctx, secondTie, 100)
+	insertFeedingRow(t, ctx, lower, 50)
+
+	board, err := svc.FeedBoard(ctx, secondTie)
+	if err != nil {
+		t.Fatalf("FeedBoard failed: %v", err)
+	}
+	if len(board.List) != 3 {
+		t.Fatalf("expected three rows, got %d", len(board.List))
+	}
+	if board.List[0].Rank != 1 || board.List[1].Rank != 1 || board.List[2].Rank != 3 {
+		t.Fatalf("expected competition ranks 1,1,3, got %d,%d,%d", board.List[0].Rank, board.List[1].Rank, board.List[2].Rank)
+	}
+	if board.Self == nil || board.Self.Rank != 1 || board.Self.Total != 100 {
+		t.Fatalf("expected tied self rank 1 total 100, got %+v", board.Self)
+	}
+}
+
 // TestCollegeBoardAggregatesEnrolledStudents verifies the college board sums the
 // feeding effect of enrolled students per college, ignores non-students and
 // students without a college, and ranks colleges descending.

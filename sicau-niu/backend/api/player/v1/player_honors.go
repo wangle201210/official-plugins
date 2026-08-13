@@ -9,7 +9,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // PlayerHonorsReq is the request for the player honor list.
 type PlayerHonorsReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/honors" method:"get" tags:"寻牛小程序" summary:"查询玩家荣誉解锁状态" dc:"Return every honor definition with the requesting player's read-only unlock status, computed from their feeding count, activation count and card-collection completion against each honor's unlock rule. The endpoint is read-only and does not persist any grant. Counts are batch-aggregated to avoid per-honor queries. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/honors" method:"get" tags:"寻牛小程序" summary:"查询玩家荣誉解锁状态" dc:"Return every honor definition with both the requesting player's computed progress status and persisted grant status. The endpoint is read-only and does not persist grants. Counts and grants are batch-loaded to avoid per-honor queries. Requires a valid player token."`
 }
 
 // PlayerHonorsRes is the response for the player honor list.
@@ -28,4 +28,5 @@ type PlayerHonorItem struct {
 	Category   string `json:"category" dc:"Card category for the category_complete unlock rule; empty otherwise" eg:"person"`
 	ImagePath  string `json:"imagePath" dc:"Honor image/template storage path; empty when none" eg:"/upload/honor/bronze.png"`
 	Unlocked   bool   `json:"unlocked" dc:"Whether the player has met this honor's unlock rule (read-only computation)" eg:"true"`
+	Granted    bool   `json:"granted" dc:"Whether this honor has been persistently granted to the player; certificate retrieval requires true" eg:"false"`
 }

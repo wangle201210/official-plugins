@@ -22,6 +22,13 @@ var (
 		"Feeding amount must be positive",
 		gcode.CodeInvalidParameter,
 	)
+	// CodeRequestIDRequired reports that the mandatory idempotency key is missing
+	// or exceeds the public 64-character contract.
+	CodeRequestIDRequired = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_FEEDING_REQUEST_ID_REQUIRED",
+		"Request ID is required and must not exceed 64 characters",
+		gcode.CodeInvalidParameter,
+	)
 	// CodeNiuNotFound reports that the target cattle does not exist.
 	CodeNiuNotFound = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_FEEDING_NIU_NOT_FOUND",
@@ -33,13 +40,6 @@ var (
 	CodeNiuNotActive = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_FEEDING_NIU_NOT_ACTIVE",
 		"Cattle is not activated yet",
-		gcode.CodeBusinessValidationFailed,
-	)
-	// CodeDuplicateRequest reports that a feeding request ID was already
-	// processed, so the retry must not deduct grass a second time.
-	CodeDuplicateRequest = bizerr.MustDefine(
-		"PLUGIN_SICAU_NIU_FEEDING_DUPLICATE_REQUEST",
-		"Duplicate request already processed",
 		gcode.CodeBusinessValidationFailed,
 	)
 	// CodeQueryFailed reports that a feeding-related store query failed.

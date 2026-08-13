@@ -62,7 +62,7 @@ type UpdateProfileInput struct {
 	CollegeId int64
 	// Grade is the grade number; required positive for students.
 	Grade int
-	// GraduationYear is the graduation year; optional, validated when non-zero.
+	// GraduationYear is required for alumni and otherwise validated when non-zero.
 	GraduationYear int
 }
 
@@ -104,6 +104,9 @@ func (s *serviceImpl) UpdateProfile(ctx context.Context, playerID int64, in *Upd
 	}
 	if err = validateGraduationYear(in.GraduationYear); err != nil {
 		return err
+	}
+	if identityType == IdentityTypeAlumni && in.GraduationYear == 0 {
+		return bizerr.NewCode(CodeGraduationYearInvalid)
 	}
 
 	if _, err = s.loadPlayer(ctx, playerID); err != nil {

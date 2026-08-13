@@ -59,10 +59,19 @@ type reportRecord struct {
 }
 
 func (s *serviceImpl) State(ctx context.Context, playerID int64) (*State, error) {
-	now := time.Now()
-	if _, err := s.ExpireInactive(ctx, now); err != nil {
-		return nil, err
-	}
+	var state *State
+	err := s.lifecycleTransaction(ctx, func(ctx context.Context, now time.Time) error {
+		var snapshotErr error
+		state, snapshotErr = s.stateSnapshot(ctx, playerID, now)
+		return snapshotErr
+	})
+	return state, err
+}
+
+// stateSnapshot assembles the current bounded player projection without running
+// lifecycle writes. Write paths call it inside their transaction so the exact
+// first successful response can be persisted atomically with the business fact.
+func (s *serviceImpl) stateSnapshot(ctx context.Context, playerID int64, now time.Time) (*State, error) {
 	rows := make([]*teamProjection, 0, maxEffectiveTeams)
 	if err := baseTeamProjection(ctx).
 		Where("t."+dao.TransportTeam.Columns().Status, teamStatusEffective).
@@ -97,6 +106,22 @@ func (s *serviceImpl) State(ctx context.Context, playerID int64) (*State, error)
 				break
 			}
 		}
+		if state.MyTeam == nil {
+			var row *teamProjection
+			if err = baseTeamProjection(ctx).
+				Where("t."+dao.TransportTeam.Columns().Id, member.TeamId).
+				Where("t."+dao.TransportTeam.Columns().Status, teamStatusEffective).
+				Where("t." + dao.TransportTeam.Columns().DeletedAt + " IS NULL").
+				Limit(1).Scan(&row); err != nil {
+				return nil, bizerr.WrapCode(err, CodeQueryFailed)
+			}
+			if row != nil {
+				state.MyTeam = teamFromProjection(row, true)
+				state.MyTeam.Mine = true
+				state.MyTeam.MyContributionMeters = member.TotalContributionMeters
+				state.MyTeam.HasReportBaseline = member.LastReportAt != nil
+			}
+		}
 	}
 	state.TodayReportCount, err = dao.TransportReport.Ctx(ctx).
 		Where(do.TransportReport{UserId: playerID, ActivityDate: activityday.Date(now)}).Count()
@@ -114,25 +139,43 @@ func (s *serviceImpl) GetTeam(ctx context.Context, playerID, teamID int64) (*Tea
 	if teamID <= 0 {
 		return nil, bizerr.NewCode(CodeInvalidInput)
 	}
-	if _, err := s.ExpireInactive(ctx, time.Now()); err != nil {
+	var team *Team
+	err := s.lifecycleTransaction(ctx, func(ctx context.Context, _ time.Time) error {
+		var snapshotErr error
+		team, snapshotErr = s.teamSnapshot(ctx, playerID, teamID)
+		return snapshotErr
+	})
+	if err != nil {
 		return nil, err
 	}
-	var row *teamProjection
-	if err := baseTeamProjection(ctx).
-		Where("t."+dao.TransportTeam.Columns().Id, teamID).
-		Where("t."+dao.TransportTeam.Columns().Status, teamStatusEffective).
-		Where("t."+dao.TransportTeam.Columns().Visible, 1).
-		Where("t." + dao.TransportTeam.Columns().DeletedAt + " IS NULL").Limit(1).Scan(&row); err != nil {
-		return nil, bizerr.WrapCode(err, CodeQueryFailed)
-	}
-	if row == nil {
+	if team == nil {
 		return nil, bizerr.NewCode(CodeTeamNotFound)
 	}
+	return team, nil
+}
+
+// teamSnapshot returns one team projection without running lifecycle writes.
+func (s *serviceImpl) teamSnapshot(ctx context.Context, playerID, teamID int64) (*Team, error) {
 	member, err := activeMembership(ctx, playerID, false)
 	if err != nil {
 		return nil, err
 	}
-	team := teamFromProjection(row, member != nil && member.TeamId == teamID)
+	isMember := member != nil && member.TeamId == teamID
+	var row *teamProjection
+	model := baseTeamProjection(ctx).
+		Where("t."+dao.TransportTeam.Columns().Id, teamID).
+		Where("t."+dao.TransportTeam.Columns().Status, teamStatusEffective).
+		Where("t." + dao.TransportTeam.Columns().DeletedAt + " IS NULL")
+	if !isMember {
+		model = model.Where("t."+dao.TransportTeam.Columns().Visible, 1)
+	}
+	if err = model.Limit(1).Scan(&row); err != nil {
+		return nil, bizerr.WrapCode(err, CodeQueryFailed)
+	}
+	if row == nil {
+		return nil, nil
+	}
+	team := teamFromProjection(row, isMember)
 	if team.Mine {
 		team.MyContributionMeters = member.TotalContributionMeters
 		team.HasReportBaseline = member.LastReportAt != nil
@@ -141,14 +184,33 @@ func (s *serviceImpl) GetTeam(ctx context.Context, playerID, teamID int64) (*Tea
 }
 
 func (s *serviceImpl) ListMembers(ctx context.Context, playerID, teamID int64, in *PageInput) (*MemberList, error) {
-	team, err := s.GetTeam(ctx, playerID, teamID)
+	if teamID <= 0 {
+		return nil, bizerr.NewCode(CodeInvalidInput)
+	}
+	pageNum, pageSize := normalizePagination(in)
+	var result *MemberList
+	err := s.lifecycleTransaction(ctx, func(ctx context.Context, _ time.Time) error {
+		team, snapshotErr := s.teamSnapshot(ctx, playerID, teamID)
+		if snapshotErr != nil {
+			return snapshotErr
+		}
+		if team == nil || !team.Mine {
+			return nil
+		}
+		result, snapshotErr = listMembersSnapshot(ctx, teamID, pageNum, pageSize)
+		return snapshotErr
+	})
 	if err != nil {
 		return nil, err
 	}
-	if !team.Mine {
+	if result == nil {
 		return nil, bizerr.NewCode(CodeTeamNotFound)
 	}
-	pageNum, pageSize := normalizePagination(in)
+	return result, nil
+}
+
+// listMembersSnapshot returns one bounded active-member page without running lifecycle writes.
+func listMembersSnapshot(ctx context.Context, teamID int64, pageNum, pageSize int) (*MemberList, error) {
 	total, err := dao.TransportMember.Ctx(ctx).
 		Where(dao.TransportMember.Columns().TeamId, teamID).
 		Where(dao.TransportMember.Columns().LeftAt + " IS NULL").Count()
@@ -206,15 +268,23 @@ func (s *serviceImpl) ListMyReports(ctx context.Context, playerID int64, in *Pag
 }
 
 func (s *serviceImpl) ListAdminTeams(ctx context.Context, in *AdminTeamListInput) (*AdminTeamList, error) {
-	if _, err := s.ExpireInactive(ctx, time.Now()); err != nil {
-		return nil, err
-	}
 	if in == nil {
 		in = &AdminTeamListInput{}
 	}
 	if in.Status != "" && in.Status != string(teamStatusEffective) && in.Status != string(teamStatusInvalid) {
 		return nil, bizerr.NewCode(CodeInvalidInput)
 	}
+	var result *AdminTeamList
+	err := s.lifecycleTransaction(ctx, func(ctx context.Context, _ time.Time) error {
+		var snapshotErr error
+		result, snapshotErr = listAdminTeamsSnapshot(ctx, in)
+		return snapshotErr
+	})
+	return result, err
+}
+
+// listAdminTeamsSnapshot returns one bounded operator page without lifecycle writes.
+func listAdminTeamsSnapshot(ctx context.Context, in *AdminTeamListInput) (*AdminTeamList, error) {
 	pageNum, pageSize := normalizePagination(&PageInput{PageNum: in.PageNum, PageSize: in.PageSize})
 	countModel := dao.TransportTeam.Ctx(ctx)
 	model := baseTeamProjection(ctx).Where("t." + dao.TransportTeam.Columns().DeletedAt + " IS NULL")
@@ -246,13 +316,21 @@ func (s *serviceImpl) ListAdminTeams(ctx context.Context, in *AdminTeamListInput
 }
 
 func (s *serviceImpl) AdminStats(ctx context.Context, activityDate string) (*Stats, error) {
-	if _, err := s.ExpireInactive(ctx, time.Now()); err != nil {
-		return nil, err
-	}
 	activityDate = strings.TrimSpace(activityDate)
 	if !validActivityDate(activityDate) {
 		return nil, bizerr.NewCode(CodeInvalidInput)
 	}
+	var result *Stats
+	err := s.lifecycleTransaction(ctx, func(ctx context.Context, _ time.Time) error {
+		var snapshotErr error
+		result, snapshotErr = adminStatsSnapshot(ctx, activityDate)
+		return snapshotErr
+	})
+	return result, err
+}
+
+// adminStatsSnapshot aggregates operator statistics without lifecycle writes.
+func adminStatsSnapshot(ctx context.Context, activityDate string) (*Stats, error) {
 	effective, err := dao.TransportTeam.Ctx(ctx).Where(do.TransportTeam{Status: teamStatusEffective}).Count()
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeQueryFailed)

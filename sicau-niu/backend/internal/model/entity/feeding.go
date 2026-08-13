@@ -21,5 +21,6 @@ type Feeding struct {
 	CreatedAt        *time.Time `json:"createdAt"        orm:"created_at"        description:""`
 	UpdatedAt        *time.Time `json:"updatedAt"        orm:"updated_at"        description:""`
 	DeletedAt        *time.Time `json:"deletedAt"        orm:"deleted_at"        description:""`
-	RequestId        string     `json:"requestId"        orm:"request_id"        description:"Client idempotency key deduplicating network retries; empty when not provided"`
+	RequestId        string     `json:"requestId"        orm:"request_id"        description:"Required player-scoped idempotency key for stable replay"`
+	ResponseJson     string     `json:"responseJson"     orm:"response_json"     description:"Stable first successful feeding response for idempotent replay"`
 }

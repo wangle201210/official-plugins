@@ -5,19 +5,31 @@
 -- Dialect: PostgreSQL. Idempotent: safe to re-run.
 -- ------------------------------------------------------------
 
+-- The project has no legacy-data retention requirement. Clear only when the
+-- legacy team marker column still exists; replaying 011 on the new schema is a no-op.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid = to_regclass('plugin_sicau_niu_transport_team')
+          AND attname = 'code'
+          AND NOT attisdropped
+    ) THEN
+        TRUNCATE TABLE
+            plugin_sicau_niu_transport_track,
+            plugin_sicau_niu_transport_session,
+            plugin_sicau_niu_transport_member,
+            plugin_sicau_niu_transport_team
+        RESTART IDENTITY;
+    END IF;
+END $$;
+
 ALTER TABLE plugin_sicau_niu_transport_team
     ADD COLUMN IF NOT EXISTS "member_count" INT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS "total_contribution_meters" BIGINT NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS "last_active_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ADD COLUMN IF NOT EXISTS "invalidated_at" TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS "invalid_reason" VARCHAR(64) NOT NULL DEFAULT '';
-
-UPDATE plugin_sicau_niu_transport_team
-SET "status" = 'invalid',
-    "visible" = 0,
-    "invalidated_at" = COALESCE("invalidated_at", CURRENT_TIMESTAMP),
-    "invalid_reason" = CASE WHEN "invalid_reason" = '' THEN 'legacy_model' ELSE "invalid_reason" END
-WHERE "status" NOT IN ('effective', 'invalid');
 
 ALTER TABLE plugin_sicau_niu_transport_team
     DROP COLUMN IF EXISTS "code",
@@ -57,13 +69,6 @@ ALTER TABLE plugin_sicau_niu_transport_member
     ADD COLUMN IF NOT EXISTS "last_report_lat" DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS "last_report_lng" DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS "last_report_at" TIMESTAMPTZ;
-
-UPDATE plugin_sicau_niu_transport_member AS member
-SET "left_at" = COALESCE(member."left_at", team."invalidated_at", CURRENT_TIMESTAMP)
-FROM plugin_sicau_niu_transport_team AS team
-WHERE member."team_id" = team."id"
-  AND member."left_at" IS NULL
-  AND team."status" = 'invalid';
 
 ALTER TABLE plugin_sicau_niu_transport_member
     DROP COLUMN IF EXISTS "leave_request_id",

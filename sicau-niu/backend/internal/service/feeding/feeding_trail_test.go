@@ -39,13 +39,13 @@ func TestTrailSelfIsolationAndOrder(t *testing.T) {
 	creditGrass(t, ctx, me, 100)
 	creditGrass(t, ctx, other, 100)
 
-	if _, err := svc.Feed(ctx, me, &FeedInput{NiuId: niuA, BaseAmount: 5}); err != nil {
+	if _, err := svc.Feed(ctx, me, &FeedInput{NiuId: niuA, BaseAmount: 5, RequestId: "req-trail-a"}); err != nil {
 		t.Fatalf("feed A failed: %v", err)
 	}
-	if _, err := svc.Feed(ctx, me, &FeedInput{NiuId: niuB, BaseAmount: 5}); err != nil {
+	if _, err := svc.Feed(ctx, me, &FeedInput{NiuId: niuB, BaseAmount: 5, RequestId: "req-trail-b"}); err != nil {
 		t.Fatalf("feed B failed: %v", err)
 	}
-	if _, err := svc.Feed(ctx, other, &FeedInput{NiuId: niuA, BaseAmount: 5}); err != nil {
+	if _, err := svc.Feed(ctx, other, &FeedInput{NiuId: niuA, BaseAmount: 5, RequestId: "req-trail-other"}); err != nil {
 		t.Fatalf("other feed failed: %v", err)
 	}
 

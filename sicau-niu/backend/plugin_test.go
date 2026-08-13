@@ -118,6 +118,30 @@ niu:
 	}
 }
 
+// TestBuildIronLocationRefreshAcceptsExampleInterval verifies the duration
+// syntax shipped in config.example.yaml can be parsed by the runtime config
+// service without preventing plugin startup.
+func TestBuildIronLocationRefreshAcceptsExampleInterval(t *testing.T) {
+	configSvc := newPluginTestConfigService(t, `
+niu:
+  baseUrl: "https://example.test/iot"
+  key: "key-1"
+  secret: "secret-1"
+  refreshInterval: 1m
+`)
+
+	enabled, refresher, interval, err := buildIronLocationRefresh(context.Background(), configSvc)
+	if err != nil {
+		t.Fatalf("buildIronLocationRefresh returned error: %v", err)
+	}
+	if !enabled || refresher == nil {
+		t.Fatalf("expected IOT refresh to be enabled")
+	}
+	if interval != time.Minute {
+		t.Fatalf("expected example interval 1m, got %s", interval)
+	}
+}
+
 func TestBuildIronLocationRefreshClampsIntervalToOneMinute(t *testing.T) {
 	configSvc := newPluginTestConfigService(t, `
 niu:
@@ -350,7 +374,7 @@ func TestMiniProgramOpenAPIContract(t *testing.T) {
 	requiredSchemaFields := map[string][]string{
 		"ActivateReq":                    {"lat", "lng", "photoPath", "requestId"},
 		"CollectionCardItem":             {"niuId", "niuCode", "category", "owned", "title", "content", "imagePath"},
-		"UploadPhotoReq":                 {"requestId"},
+		"UploadPhotoReq":                 {"file", "requestId"},
 		"CheckinReq":                     {"requestId"},
 		"CreateTransportTeamReq":         {"name", "requestId"},
 		"JoinTransportTeamReq":           {"id", "requestId"},

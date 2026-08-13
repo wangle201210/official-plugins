@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"lina-plugin-sicau-niu/backend/internal/dao"
+	"lina-plugin-sicau-niu/backend/internal/model/do"
 	cardsvc "lina-plugin-sicau-niu/backend/internal/service/card"
 )
 
@@ -19,6 +20,14 @@ func unlockedByCode(items []*PlayerHonorItem) map[string]bool {
 	out := make(map[string]bool, len(items))
 	for _, item := range items {
 		out[item.Code] = item.Unlocked
+	}
+	return out
+}
+
+func grantedByCode(items []*PlayerHonorItem) map[string]bool {
+	out := make(map[string]bool, len(items))
+	for _, item := range items {
+		out[item.Code] = item.Granted
 	}
 	return out
 }
@@ -88,6 +97,32 @@ func TestPlayerHonorsUnlockRules(t *testing.T) {
 	}
 }
 
+func TestPlayerHonorsSeparatesProgressFromGrant(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLHonorDB(t, ctx)
+
+	svc := New(NewBasicCertRenderer(), nil, Config{})
+	player := insertUserRow(t, ctx, "授予状态玩家")
+	progressOnlyID := mustCreate(t, ctx, svc, &MutateInput{HonorType: HonorTypeCertificate.String(), Code: "progress", Name: "已达成未授予", UnlockType: UnlockTypeParticipation.String()})
+	grantedID := mustCreate(t, ctx, svc, &MutateInput{HonorType: HonorTypeCertificate.String(), Code: "granted", Name: "已授予", UnlockType: UnlockTypeParticipation.String()})
+	if _, err := dao.UserHonor.Ctx(ctx).Data(do.UserHonor{UserId: player, HonorId: grantedID}).Insert(); err != nil {
+		t.Fatalf("insert grant failed: %v", err)
+	}
+
+	items, err := svc.PlayerHonors(ctx, player)
+	if err != nil {
+		t.Fatalf("PlayerHonors failed: %v", err)
+	}
+	unlocked := unlockedByCode(items)
+	grants := grantedByCode(items)
+	if progressOnlyID <= 0 || !unlocked["progress"] || grants["progress"] {
+		t.Fatalf("progress-only honor state mismatch: unlocked=%v granted=%v", unlocked["progress"], grants["progress"])
+	}
+	if !unlocked["granted"] || !grants["granted"] {
+		t.Fatalf("granted honor state mismatch: unlocked=%v granted=%v", unlocked["granted"], grants["granted"])
+	}
+}
+
 // TestPlayerHonorsFullComplete verifies full_complete unlocks once the player has
 // collected every active card.
 func TestPlayerHonorsFullComplete(t *testing.T) {
@@ -114,9 +149,11 @@ func TestPlayerHonorsFullComplete(t *testing.T) {
 }
 
 // mustCreate creates a honor definition and fails the test on error.
-func mustCreate(t *testing.T, ctx context.Context, svc Service, in *MutateInput) {
+func mustCreate(t *testing.T, ctx context.Context, svc Service, in *MutateInput) int64 {
 	t.Helper()
-	if _, err := svc.Create(ctx, in); err != nil {
+	out, err := svc.Create(ctx, in)
+	if err != nil {
 		t.Fatalf("create honor %q failed: %v", in.Code, err)
 	}
+	return out
 }

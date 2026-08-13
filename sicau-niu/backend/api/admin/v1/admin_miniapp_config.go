@@ -4,7 +4,7 @@ package v1
 import "github.com/gogf/gf/v2/frame/g"
 
 type GetMiniappConfigReq struct {
-	g.Meta `path:"/plugins/sicau-niu/admin/config" method:"get" tags:"Sicau Niu Admin" summary:"查询小程序运行配置" dc:"Return the complete operator-maintained public mini-program configuration plus the live activation radius. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
+	g.Meta `path:"/plugins/sicau-niu/admin/config" method:"get" tags:"Sicau Niu Admin" summary:"查询小程序运行配置" dc:"Return the complete operator-maintained public mini-program configuration plus live public gameplay limits. Protected by host unified permission check." permission:"sicau-niu:settlement:view"`
 }
 
 type GetMiniappConfigRes struct {
@@ -31,6 +31,9 @@ type MiniappConfig struct {
 	Campuses           []*MiniappCampus `json:"campuses" dc:"Supported campus configurations" eg:"[]"`
 	DefaultCampus      string           `json:"defaultCampus" dc:"Default campus ID" eg:"cd"`
 	ActivateRadiusM    int              `json:"activateRadiusM" dc:"Live activation radius from runtime rules" eg:"50"`
+	StealDailyLimit    int              `json:"stealDailyLimit" dc:"Live per-player daily steal action limit" eg:"5"`
+	GiftDailyLimit     int              `json:"giftDailyLimit" dc:"Live per-player daily gift action limit" eg:"12"`
+	GiftMinAmount      int              `json:"giftMinAmount" dc:"Live minimum grass amount for one gift" eg:"12"`
 	CountdownDays      int              `json:"countdownDays" dc:"Whole countdown days" eg:"56"`
 	Anniversary        string           `json:"anniversary" dc:"Anniversary display name" eg:"120 周年校庆"`
 	AnniversaryAt      string           `json:"anniversaryAt" dc:"Anniversary date in YYYY-MM-DD" eg:"2026-10-06"`

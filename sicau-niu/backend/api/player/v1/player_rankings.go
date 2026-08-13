@@ -10,7 +10,7 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // FeedRankingReq is the request for the personal feeding leaderboard.
 type FeedRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/rankings/feed" method:"get" tags:"寻牛小程序" summary:"查询个人喂草榜" dc:"Return the personal feeding leaderboard: players ranked by their total feeding effect (SUM of effect_amount) descending, capped at the configured Top-N, plus the requesting player's own rank and total. Aggregation runs on the database side. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/rankings/feed" method:"get" tags:"寻牛小程序" summary:"查询个人喂草榜" dc:"Return the personal feeding leaderboard: players ranked by their total feeding effect (SUM of effect_amount) descending using competition ranks, so equal totals share a rank and the next rank skips (for example 1, 1, 3). The list is capped at the configured Top-N and includes the requesting player's own rank and total. Aggregation runs on the database side. Requires a valid player token."`
 }
 
 // FeedRankingRes is the response for the personal feeding leaderboard.
@@ -21,7 +21,7 @@ type FeedRankingRes struct {
 
 // FeedRankItem defines one player row on the personal feeding leaderboard.
 type FeedRankItem struct {
-	Rank     int    `json:"rank" dc:"1-based rank position on the board" eg:"1"`
+	Rank     int    `json:"rank" dc:"1-based competition rank; equal totals share the same rank and the next rank skips" eg:"1"`
 	UserId   int64  `json:"userId" dc:"Player ID" eg:"1"`
 	Nickname string `json:"nickname" dc:"Player nickname; empty when unset" eg:"川农牛仔"`
 	Total    int64  `json:"total" dc:"Total feeding effect accumulated by the player" eg:"1500"`
@@ -47,7 +47,7 @@ type CollegeRankItem struct {
 
 // FriendRankingReq is the request for the SICAU-friend leaderboard.
 type FriendRankingReq struct {
-	g.Meta `path:"/plugins/sicau-niu/player/rankings/friend" method:"get" tags:"寻牛小程序" summary:"查询川农好友榜" dc:"Return the SICAU-friend leaderboard: players whose identity is SICAU-friend (社会好友) ranked by their personal total feeding effect (SUM of effect_amount) descending, capped at the configured Top-N, plus the requesting player's own rank and total when the player is a SICAU-friend. Aggregation runs on the database side. Requires a valid player token."`
+	g.Meta `path:"/plugins/sicau-niu/player/rankings/friend" method:"get" tags:"寻牛小程序" summary:"查询川农好友榜" dc:"Return the SICAU-friend leaderboard: players whose identity is SICAU-friend (社会好友) ranked by personal total feeding effect (SUM of effect_amount) descending using competition ranks, so equal totals share a rank and the next rank skips. The list is capped at the configured Top-N and includes the requesting player's own rank and total when eligible. Aggregation runs on the database side. Requires a valid player token."`
 }
 
 // FriendRankingRes is the response for the SICAU-friend leaderboard.
@@ -58,6 +58,6 @@ type FriendRankingRes struct {
 
 // SelfRank defines the requesting player's own rank and total on a board.
 type SelfRank struct {
-	Rank  int   `json:"rank" dc:"1-based rank of the player; 0 when the player is off the board (no contribution or not eligible)" eg:"7"`
+	Rank  int   `json:"rank" dc:"1-based competition rank; equal totals share a rank; 0 when the player is off the board (no contribution or not eligible)" eg:"7"`
 	Total int64 `json:"total" dc:"Total feeding effect accumulated by the player" eg:"120"`
 }

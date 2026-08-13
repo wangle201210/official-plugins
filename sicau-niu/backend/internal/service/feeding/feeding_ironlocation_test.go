@@ -74,7 +74,7 @@ func TestIOTRefreshUpdatesStoredIronLocationForFeeding(t *testing.T) {
 	creditGrass(t, ctx, userID, 100)
 	svc := newFeedingServiceForTest(NewStoredIronLocation())
 
-	out, err := svc.Feed(ctx, userID, &FeedInput{NiuId: niuID, BaseAmount: 10})
+	out, err := svc.Feed(ctx, userID, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-iot"})
 	if err != nil {
 		t.Fatalf("Feed returned error: %v", err)
 	}

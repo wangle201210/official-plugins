@@ -122,7 +122,7 @@ niu:
   secret: ""
   # Background refresh interval for registered iron-cow coordinates.
   # 已登记铁牛坐标后台刷新间隔。
-  refreshInterval: 1min
+  refreshInterval: 1m
   # Locator list page size used by `/open/device/getInfoList`.
   # `/open/device/getInfoList`定位器列表分页大小。
   pageSize: 100

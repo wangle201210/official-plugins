@@ -22,7 +22,7 @@ func TestMessagesSelfIsolation(t *testing.T) {
 	other := insertUserRow(t, ctx, "openid-inbox-other")
 	seedGrass(t, ctx, giver, 100)
 
-	if _, err := svc.Gift(ctx, giver, &GiftInput{ToUserId: me, Amount: 12}); err != nil {
+	if _, err := svc.Gift(ctx, giver, &GiftInput{ToUserId: me, Amount: 12, RequestId: "req-inbox-gift"}); err != nil {
 		t.Fatalf("gift to me failed: %v", err)
 	}
 
@@ -55,7 +55,7 @@ func TestMarkReadOwnership(t *testing.T) {
 	stranger := insertUserRow(t, ctx, "openid-mark-stranger")
 	seedGrass(t, ctx, giver, 100)
 
-	if _, err := svc.Gift(ctx, giver, &GiftInput{ToUserId: me, Amount: 12}); err != nil {
+	if _, err := svc.Gift(ctx, giver, &GiftInput{ToUserId: me, Amount: 12, RequestId: "req-inbox-mark-gift"}); err != nil {
 		t.Fatalf("gift to me failed: %v", err)
 	}
 	mine, err := svc.Messages(ctx, me, &MessagesInput{})

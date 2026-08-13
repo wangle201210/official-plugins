@@ -35,7 +35,7 @@ inserted_member AS (
     "team_id", "user_id", "join_request_id", "role", "total_contribution_meters",
     "last_report_lat", "last_report_lng", "last_report_at"
   )
-  SELECT inserted_team."id", inserted_team."leader_user_id", 'e2e-join-${suffix}',
+  SELECT inserted_team."id", inserted_team."leader_user_id", '',
     'creator', ${contributionMeters}, 30.7068, 103.8318, CURRENT_TIMESTAMP
   FROM inserted_team
   RETURNING "id", "team_id", "user_id"
@@ -76,7 +76,11 @@ function cleanTransportFacts() {
     const escapedSuffix = pgEscapeLiteral(suffix);
     execPgSQL(`
 DELETE FROM plugin_sicau_niu_transport_report WHERE "request_id" IN ('e2e-report-1-${escapedSuffix}', 'e2e-report-2-${escapedSuffix}');
-DELETE FROM plugin_sicau_niu_transport_member WHERE "join_request_id" = 'e2e-join-${escapedSuffix}';
+DELETE FROM plugin_sicau_niu_transport_member
+WHERE "team_id" IN (
+  SELECT "id" FROM plugin_sicau_niu_transport_team
+  WHERE "create_request_id" = 'e2e-create-${escapedSuffix}'
+);
 DELETE FROM plugin_sicau_niu_transport_team WHERE "create_request_id" = 'e2e-create-${escapedSuffix}';
 DELETE FROM plugin_sicau_niu_user WHERE "openid" = 'e2e-transport-${escapedSuffix}';
 `);

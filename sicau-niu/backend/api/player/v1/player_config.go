@@ -1,15 +1,21 @@
+// player_config.go defines the unauthenticated, non-sensitive mini-program
+// runtime configuration contract.
+
 package v1
 
 import "github.com/gogf/gf/v2/frame/g"
 
 type ConfigReq struct {
-	g.Meta `path:"/plugins/sicau-niu/config" method:"get" tags:"寻牛小程序" summary:"查询小程序公开运行配置" dc:"Return non-sensitive mini-program campus calibration and activity settings. No player token is required and no credential is exposed."`
+	g.Meta `path:"/plugins/sicau-niu/config" method:"get" tags:"寻牛小程序" summary:"查询小程序公开运行配置" dc:"Return non-sensitive mini-program campus calibration, activity settings and live gameplay limits. No player token is required and no credential is exposed."`
 }
 
 type ConfigRes struct {
 	Campuses           []*CampusConfig `json:"campuses" dc:"Supported campus map calibrations" eg:"[]"`
 	DefaultCampus      string          `json:"defaultCampus" dc:"Default campus ID" eg:"cd"`
 	ActivateRadiusM    int             `json:"activateRadiusM" dc:"Live activation distance in meters" eg:"50"`
+	StealDailyLimit    int             `json:"stealDailyLimit" dc:"Live per-player daily steal action limit" eg:"5"`
+	GiftDailyLimit     int             `json:"giftDailyLimit" dc:"Live per-player daily gift action limit" eg:"12"`
+	GiftMinAmount      int             `json:"giftMinAmount" dc:"Live minimum grass amount for one gift" eg:"12"`
 	CountdownDays      int             `json:"countdownDays" dc:"Whole days until the configured anniversary date" eg:"56"`
 	Anniversary        string          `json:"anniversary" dc:"Anniversary display name" eg:"120 周年校庆"`
 	Debug              bool            `json:"debug" dc:"Whether mini-program debug helpers are enabled" eg:"false"`

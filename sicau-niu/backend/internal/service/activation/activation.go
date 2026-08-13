@@ -16,6 +16,7 @@ package activation
 
 import (
 	"context"
+	"time"
 
 	"lina-plugin-sicau-niu/backend/internal/service/activation/internal/posterrender"
 	activationphotosvc "lina-plugin-sicau-niu/backend/internal/service/activationphoto"
@@ -47,13 +48,14 @@ type Service interface {
 	VisibleNiu(ctx context.Context, playerID int64) (out []*VisibleNiuItem, err error)
 	// Activate matches and activates the nearest currently visible inactive cattle
 	// within the LBS threshold for playerID's reported GPS check-in location
-	// (GCJ-02). The request does not require a cattle ID. The per-day success
-	// limit, the daily attempt quota (failures count) and the movement-speed
-	// anti-cheat guard are checked before the transaction; the match path runs a
-	// bounded candidate query, then locks and rechecks the matched cattle inside
-	// the transaction before flipping it to active and issuing the main card. It
-	// returns the relevant validation bizerr on rejection or a store bizerr on
-	// failure; rejection errors never carry distance or bearing hints.
+	// (GCJ-02). The request does not require a cattle ID, but requires a
+	// player-scoped request ID whose first successful response is replayed on
+	// retries. The per-day success limit, daily attempt quota (failures count) and
+	// movement-speed anti-cheat guard are rechecked under the player row lock; the
+	// match path then locks and rechecks the matched cattle before flipping it to
+	// active and issuing the main card. It returns the relevant validation bizerr
+	// on rejection or a store bizerr on failure; rejection errors never carry
+	// distance or bearing hints.
 	Activate(ctx context.Context, playerID int64, in *ActivateInput) (out *ActivateOutput, err error)
 	// Collection returns the bounded card catalog with playerID's ownership state,
 	// optionally filtered by category. Locked entries retain only the cattle
@@ -87,6 +89,7 @@ type serviceImpl struct {
 	photoSvc       activationphotosvc.Service  // photoSvc validates and consumes player-owned activation evidence.
 	lbsThreshold   float64                     // lbsThreshold is the LBS activation distance threshold in meters.
 	campusBadge    string                      // campusBadge is the poster campus anniversary badge text.
+	now            func() time.Time            // now supplies the authoritative time after player locking.
 }
 
 // PosterRenderer is the activation-poster PNG output seam re-exported from this
@@ -114,5 +117,13 @@ func New(identitySvc identitysvc.Service, posterRenderer PosterRenderer, rulesSv
 		photoSvc:       photoSvc,
 		lbsThreshold:   config.LBSThresholdMeters,
 		campusBadge:    config.CampusBadge,
+		now:            time.Now,
 	}
+}
+
+func (s *serviceImpl) nowTime() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }

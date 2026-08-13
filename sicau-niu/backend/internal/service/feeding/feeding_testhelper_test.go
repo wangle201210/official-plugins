@@ -57,6 +57,7 @@ var feedingSchemaFiles = []string{
 	"002-sicau-niu-catalog.sql",
 	"004-sicau-niu-grass.sql",
 	"008-sicau-niu-anticheat-idempotency.sql",
+	"012-sicau-niu-runtime-hardening.sql",
 }
 
 // feedingDBHarness holds the lazily-provisioned shared test database state.
@@ -97,6 +98,19 @@ func creditGrass(t *testing.T, ctx context.Context, userID int64, amount int64) 
 	if err != nil {
 		t.Fatalf("seed grass failed: %v", err)
 	}
+}
+
+// feedingBalanceOf returns the player's current grass balance for assertions.
+func feedingBalanceOf(t *testing.T, ctx context.Context, userID int64) int64 {
+	t.Helper()
+	value, err := dao.GrassAccount.Ctx(ctx).
+		Fields(dao.GrassAccount.Columns().Balance).
+		Where(dao.GrassAccount.Columns().UserId, userID).
+		Value()
+	if err != nil {
+		t.Fatalf("read grass balance failed: %v", err)
+	}
+	return value.Int64()
 }
 
 // assertBizCode fails the test unless err is a structured business error whose

@@ -28,6 +28,7 @@ func toMiniappConfig(in *miniappconfigsvc.Snapshot) *v1.MiniappConfig {
 	}
 	return &v1.MiniappConfig{
 		Campuses: campuses, DefaultCampus: in.DefaultCampus, ActivateRadiusM: in.ActivateRadiusM,
+		StealDailyLimit: in.StealDailyLimit, GiftDailyLimit: in.GiftDailyLimit, GiftMinAmount: in.GiftMinAmount,
 		CountdownDays: in.CountdownDays, Anniversary: in.Anniversary, AnniversaryAt: in.AnniversaryAt,
 		Debug: in.Debug, AssetsVersion: in.AssetsVersion, StaticAssetBaseUrl: in.StaticAssetBaseURL, ActivityPhase: in.ActivityPhase,
 	}

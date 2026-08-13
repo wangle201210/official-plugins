@@ -48,7 +48,7 @@ func (s *serviceImpl) primaryOnly(registrar pluginhost.JobsRegistrar, handler pl
 }
 
 func (s *serviceImpl) expireInactiveTransportTeams(ctx context.Context) error {
-	_, err := s.transport.ExpireInactive(ctx, time.Now())
+	_, err := s.transport.ExpireInactive(ctx, time.Time{})
 	return err
 }
 

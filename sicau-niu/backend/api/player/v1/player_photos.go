@@ -1,10 +1,14 @@
 package v1
 
-import "github.com/gogf/gf/v2/frame/g"
+import (
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
+)
 
 type UploadPhotoReq struct {
 	g.Meta    `path:"/plugins/sicau-niu/player/photos" method:"post" mime:"multipart/form-data" tags:"寻牛小程序" summary:"上传激活照片" dc:"Upload one private activation photo from multipart field file. JPEG, PNG and HEIC images up to 5 MiB are transcoded to WebP no larger than 300 KiB. Ten successful uploads are allowed per Beijing natural day. Reusing requestId returns the first photoId. Requires a valid player token."`
-	RequestId string `json:"requestId" form:"requestId" v:"required|max-length:64" dc:"Player-scoped idempotency key" eg:"photo-1b2a3c4d"`
+	File      *ghttp.UploadFile `json:"file" type:"file" v:"required" dc:"Required activation photo file field; JPEG, PNG or HEIC, up to 5 MiB" eg:"activation.jpg"`
+	RequestId string            `json:"requestId" form:"requestId" v:"required|max-length:64" dc:"Player-scoped idempotency key" eg:"photo-1b2a3c4d"`
 }
 
 type UploadPhotoRes struct {

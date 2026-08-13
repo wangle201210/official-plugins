@@ -63,6 +63,7 @@ type Service interface {
 
 type serviceImpl struct {
 	inactiveAfter time.Duration
+	now           func() time.Time
 }
 
 var _ Service = (*serviceImpl)(nil)
@@ -86,27 +87,27 @@ type PageInput struct {
 }
 
 type State struct {
-	Explanation          string
-	MaxEffectiveTeams    int
-	DailyReportLimit     int
-	TodayReportCount     int
-	TodayReportRemaining int
-	Teams                []*Team
-	MyTeam               *Team
+	Explanation          string  `json:"explanation"`
+	MaxEffectiveTeams    int     `json:"maxEffectiveTeams"`
+	DailyReportLimit     int     `json:"dailyReportLimit"`
+	TodayReportCount     int     `json:"todayReportCount"`
+	TodayReportRemaining int     `json:"todayReportRemaining"`
+	Teams                []*Team `json:"teams"`
+	MyTeam               *Team   `json:"myTeam"`
 }
 
 type Team struct {
-	ID                      int64
-	Name                    string
-	CreatorID               int64
-	CreatorName             string
-	MemberCount             int
-	TotalContributionMeters int64
-	MyContributionMeters    int64
-	HasReportBaseline       bool
-	LastActiveAt            *time.Time
-	CreatedAt               *time.Time
-	Mine                    bool
+	ID                      int64      `json:"id"`
+	Name                    string     `json:"name"`
+	CreatorID               int64      `json:"creatorId"`
+	CreatorName             string     `json:"creatorName"`
+	MemberCount             int        `json:"memberCount"`
+	TotalContributionMeters int64      `json:"totalContributionMeters"`
+	MyContributionMeters    int64      `json:"myContributionMeters"`
+	HasReportBaseline       bool       `json:"hasReportBaseline"`
+	LastActiveAt            *time.Time `json:"lastActiveAt"`
+	CreatedAt               *time.Time `json:"createdAt"`
+	Mine                    bool       `json:"mine"`
 }
 
 type Member struct {
@@ -203,5 +204,12 @@ func New(config Config) Service {
 	if config.InactiveAfter <= 0 {
 		config.InactiveAfter = defaultInactiveAfter
 	}
-	return &serviceImpl{inactiveAfter: config.InactiveAfter}
+	return &serviceImpl{inactiveAfter: config.InactiveAfter, now: time.Now}
+}
+
+func (s *serviceImpl) nowTime() time.Time {
+	if s != nil && s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }

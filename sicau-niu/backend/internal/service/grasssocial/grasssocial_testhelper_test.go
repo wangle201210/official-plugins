@@ -35,6 +35,7 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	grasssvc "lina-plugin-sicau-niu/backend/internal/service/grass"
+	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
 // socialTables lists the plugin tables truncated before each DB-gated test.
@@ -53,6 +54,7 @@ var socialSchemaFiles = []string{
 	"001-sicau-niu-identity.sql",
 	"004-sicau-niu-grass.sql",
 	"008-sicau-niu-anticheat-idempotency.sql",
+	"012-sicau-niu-runtime-hardening.sql",
 }
 
 // socialDBHarness holds the lazily-provisioned shared test database state.
@@ -62,6 +64,57 @@ var (
 	socialDBPrepErr        error
 	socialDBOriginalConfig gdb.Config
 )
+
+// sequenceRulesService returns successive social-rule snapshots and records how
+// many times a write path consulted the live rule source. Embedding the existing
+// wide contract keeps the test double focused on the one method under test.
+type sequenceRulesService struct {
+	rulessvc.Service
+
+	mu        sync.Mutex
+	snapshots []rulessvc.SocialRules
+	calls     int
+}
+
+// newSequenceRulesService creates an isolated sequence-backed rule source.
+func newSequenceRulesService(snapshots ...rulessvc.SocialRules) *sequenceRulesService {
+	return &sequenceRulesService{snapshots: append([]rulessvc.SocialRules(nil), snapshots...)}
+}
+
+// SocialRules returns the next configured snapshot, retaining the last snapshot
+// after the sequence is exhausted so accidental extra reads remain observable.
+func (s *sequenceRulesService) SocialRules(_ context.Context) (rulessvc.SocialRules, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.calls++
+	index := s.calls - 1
+	if index >= len(s.snapshots) {
+		index = len(s.snapshots) - 1
+	}
+	return s.snapshots[index], nil
+}
+
+// callCount returns the synchronized SocialRules invocation count.
+func (s *sequenceRulesService) callCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls
+}
+
+// newSocialServiceWithRules builds the real grass-social write service with a
+// controllable live-rule source for snapshot-consistency tests.
+func newSocialServiceWithRules(rulesSvc rulessvc.Service) Service {
+	grassService := grasssvc.New(nil, grasssvc.Config{CheckinMinAmount: 1, CheckinMaxAmount: 1})
+	return New(grassService, rulesSvc, Config{
+		StealDailyTargets: 12,
+		StealDailyLimit:   2,
+		StealMinAmount:    10,
+		StealMaxAmount:    10,
+		GiftDailyLimit:    2,
+		GiftMinAmount:     12,
+	})
+}
 
 // newSocialServiceForTest builds a grass-social service with deterministic limits
 // for tests: a fixed steal amount (min==max) and small daily caps.
@@ -131,6 +184,11 @@ func assertBizCode(t *testing.T, err error, wantCode string) {
 	if bizErr.RuntimeCode() != wantCode {
 		t.Fatalf("expected code %s, got %s", wantCode, bizErr.RuntimeCode())
 	}
+}
+
+func isBizCode(err error, code *bizerr.Code) bool {
+	parsed, ok := bizerr.As(err)
+	return ok && parsed.RuntimeCode() == code.RuntimeCode()
 }
 
 // insertUserRow inserts one player row directly for test setup and returns its ID.

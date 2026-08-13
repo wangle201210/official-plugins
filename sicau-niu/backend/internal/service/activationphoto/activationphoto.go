@@ -30,6 +30,7 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
+	"lina-plugin-sicau-niu/backend/internal/requestid"
 )
 
 const (
@@ -166,13 +167,16 @@ func New(storage storagecap.Service) (Service, error) {
 // Upload transcodes JPEG, PNG or HEIC input into a bounded WebP and serializes
 // each player's daily slot allocation by locking the player row.
 func (s *serviceImpl) Upload(ctx context.Context, playerID int64, in *UploadInput) (*Photo, error) {
-	if playerID <= 0 || in == nil || in.Reader == nil || strings.TrimSpace(in.RequestID) == "" || len(strings.TrimSpace(in.RequestID)) > 64 {
+	if playerID <= 0 || in == nil || in.Reader == nil {
+		return nil, bizerr.NewCode(CodePhotoRequired)
+	}
+	requestID, requestOK := requestid.Normalize(in.RequestID)
+	if !requestOK {
 		return nil, bizerr.NewCode(CodePhotoRequired)
 	}
 	if s.storage == nil || in.SizeBytes <= 0 || in.SizeBytes > maxInputPhotoBytes {
 		return nil, bizerr.NewCode(CodePhotoInvalid)
 	}
-	requestID := strings.TrimSpace(in.RequestID)
 	if existing, err := s.photoByRequest(ctx, playerID, requestID); err != nil || existing != nil {
 		return photoResult(existing), err
 	}

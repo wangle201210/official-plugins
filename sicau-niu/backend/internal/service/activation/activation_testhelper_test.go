@@ -89,6 +89,11 @@ func assertBizCode(t *testing.T, err error, wantCode string) {
 	}
 }
 
+func isActivationBizCode(err error, code *bizerr.Code) bool {
+	parsed, ok := bizerr.As(err)
+	return ok && parsed.RuntimeCode() == code.RuntimeCode()
+}
+
 // insertNiuRow inserts one cattle row directly for test setup and returns its ID.
 // Tests use it to stage activatable cattle with explicit anchors and visibility.
 func insertNiuRow(t *testing.T, ctx context.Context, row do.Niu) int64 {

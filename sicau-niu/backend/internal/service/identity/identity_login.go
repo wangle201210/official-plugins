@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"lina-core/pkg/bizerr"
+	"lina-core/pkg/dialect"
 	"lina-core/pkg/logger"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
@@ -76,6 +77,19 @@ func (s *serviceImpl) resolvePlayerByOpenid(ctx context.Context, openid string) 
 
 	playerID, err := dao.User.Ctx(ctx).Data(do.User{Openid: openid}).InsertAndGetId()
 	if err != nil {
+		if dialect.IsUniqueConstraintViolation(err) {
+			// A concurrent first login inserted the same openid after our initial
+			// read. Reuse that winner instead of leaking the unique-key conflict.
+			if queryErr := dao.User.Ctx(ctx).
+				Where(do.User{Openid: openid}).
+				Fields(dao.User.Columns().Id).
+				Scan(&existing); queryErr != nil {
+				return 0, false, bizerr.WrapCode(queryErr, CodePlayerQueryFailed)
+			}
+			if existing != nil {
+				return existing.Id, false, nil
+			}
+		}
 		return 0, false, bizerr.WrapCode(err, CodePlayerWriteFailed)
 	}
 	return playerID, true, nil

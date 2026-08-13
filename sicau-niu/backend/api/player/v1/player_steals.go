@@ -28,9 +28,9 @@ type StealTargetItem struct {
 
 // StealReq is the request for stealing grass from a target.
 type StealReq struct {
-	g.Meta       `path:"/plugins/sicau-niu/player/steals" method:"post" tags:"寻牛小程序" summary:"偷取目标草料" dc:"Steal a small random amount of grass from a target that appears in the player's daily stealable list. The action is rejected when the target is not in today's list or the player has reached the daily steal limit. The stolen amount is debited from the target and credited to the player in one transaction (both ledger transactions), and the target receives a stolen-notification message. Requires a valid player token."`
+	g.Meta       `path:"/plugins/sicau-niu/player/steals" method:"post" tags:"寻牛小程序" summary:"偷取目标草料" dc:"Steal a small random amount of grass from a target that appears in the player's daily stealable list. A required player-scoped requestId makes network retries stable: reusing a successful key returns its first amount and balance without another transfer or notification. The action is rejected when the target is not in today's list or the player has reached the daily steal limit. The stolen amount is debited from the target and credited to the player in one transaction (both ledger transactions), and the target receives a stolen-notification message. Requires a valid player token."`
 	TargetUserId int64  `json:"targetUserId" v:"required" dc:"Target player ID to steal from; must be in today's stealable list" eg:"2"`
-	RequestId    string `json:"requestId" v:"max-length:64" dc:"Optional client idempotency key (max 64 chars); resend the same key on a network retry and the server rejects the duplicate instead of stealing twice" eg:"steal-1b2a3c4d"`
+	RequestId    string `json:"requestId" v:"required|max-length:64" dc:"Required player-scoped idempotency key (max 64 chars); resend the same key while a network result is unknown and the server returns the first successful amount and balance without stealing twice" eg:"steal-1b2a3c4d"`
 }
 
 // StealRes is the response for a successful steal.

@@ -1,3 +1,6 @@
+// player_v1_config.go maps the bounded public runtime snapshot to the player
+// API without exposing credentials or operator-only settings.
+
 package player
 
 import (
@@ -27,6 +30,7 @@ func (c *ControllerV1) Config(ctx context.Context, req *v1.ConfigReq) (res *v1.C
 	return &v1.ConfigRes{
 		Campuses: campuses, DefaultCampus: snapshot.DefaultCampus,
 		ActivateRadiusM: snapshot.ActivateRadiusM, CountdownDays: snapshot.CountdownDays,
+		StealDailyLimit: snapshot.StealDailyLimit, GiftDailyLimit: snapshot.GiftDailyLimit, GiftMinAmount: snapshot.GiftMinAmount,
 		Anniversary: snapshot.Anniversary, Debug: snapshot.Debug,
 		AssetsVersion: snapshot.AssetsVersion, StaticAssetBaseUrl: snapshot.StaticAssetBaseURL,
 		ActivityPhase: snapshot.ActivityPhase,

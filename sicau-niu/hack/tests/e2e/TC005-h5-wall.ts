@@ -5,7 +5,7 @@ const pluginID = "sicau-niu";
 
 // The host serves the C6 H5 memorial wall as a public static asset under
 // /x-assets/{plugin-id}/{version}/. The version segment matches plugin.yaml.
-const wallPath = "/x-assets/sicau-niu/v0.1.0/wall/index.html";
+const wallPath = "/x-assets/sicau-niu/v0.2.0/wall/index.html";
 const publicApiBase = "/x/sicau-niu/api/v1/plugins/sicau-niu/wall";
 
 // TC-5 closes the C6 niu-h5-wall public-page acceptance: with NO login it visits

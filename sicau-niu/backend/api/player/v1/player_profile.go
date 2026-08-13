@@ -28,13 +28,13 @@ type GetProfileRes struct {
 
 // UpdateProfileReq is the request for updating the current player's profile.
 type UpdateProfileReq struct {
-	g.Meta         `path:"/plugins/sicau-niu/player/profile" method:"put" tags:"寻牛小程序" summary:"更新当前玩家资料" dc:"Update the current player's nickname, identity tag, college, grade and graduation year. Students must select an existing college and a positive grade; alumni and friends may omit college/grade. Requires a valid player token."`
+	g.Meta         `path:"/plugins/sicau-niu/player/profile" method:"put" tags:"寻牛小程序" summary:"更新当前玩家资料" dc:"Update the current player's nickname, identity tag, college, grade and graduation year. Students must select an existing college and a positive grade; alumni must provide a valid graduation year; friends may omit identity details. Requires a valid player token."`
 	Nickname       string `json:"nickname" dc:"Player nickname" eg:"川农牛同学"`
 	Avatar         string `json:"avatar" dc:"Player avatar URL" eg:"https://example.com/a.png"`
 	IdentityType   string `json:"identityType" v:"required" dc:"Identity tag: student=在校生, alumni=校友, friend=川农好友" eg:"student"`
 	CollegeId      int64  `json:"collegeId" dc:"Selected college ID; required for students, optional for alumni/friend; 0 clears the selection for non-students" eg:"3"`
 	Grade          int    `json:"grade" dc:"Grade number; required positive for students, ignored for alumni/friend" eg:"2024"`
-	GraduationYear int    `json:"graduationYear" dc:"Graduation year for alumni; 0 means unset; validated against a sane range when non-zero" eg:"2018"`
+	GraduationYear int    `json:"graduationYear" dc:"Graduation year; required and range-validated for alumni, 0 clears it for other identities" eg:"2018"`
 }
 
 // UpdateProfileRes is the response for updating the current player's profile. It

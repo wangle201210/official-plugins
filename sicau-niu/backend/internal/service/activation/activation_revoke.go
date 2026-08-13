@@ -3,7 +3,6 @@ package activation
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/gogf/gf/v2/database/gdb"
 
@@ -46,13 +45,8 @@ func (s *serviceImpl) Revoke(ctx context.Context, activationID int64) error {
 			return bizerr.WrapCode(err, CodeQueryFailed)
 		}
 		if next != nil {
-			next.IsFirst = firstActivatorFlag
-			responseJSON, err := s.promotedResponseJSON(ctx, next)
-			if err != nil {
-				return err
-			}
 			if _, err = dao.Activation.Ctx(ctx).Where(do.Activation{Id: next.Id}).Data(do.Activation{
-				IsFirst: firstActivatorFlag, ResponseJson: responseJSON,
+				IsFirst: firstActivatorFlag,
 			}).Update(); err != nil {
 				return bizerr.WrapCode(err, CodeWriteFailed)
 			}
@@ -65,25 +59,4 @@ func (s *serviceImpl) Revoke(ctx context.Context, activationID int64) error {
 		}
 		return nil
 	})
-}
-
-func (s *serviceImpl) promotedResponseJSON(ctx context.Context, record *entitymodel.Activation) (string, error) {
-	var out ActivateOutput
-	if record.ResponseJson != "" {
-		if err := json.Unmarshal([]byte(record.ResponseJson), &out); err != nil {
-			return "", bizerr.WrapCode(err, CodeQueryFailed)
-		}
-		out.IsFirst = true
-	} else {
-		built, err := s.buildActivationOutput(ctx, record)
-		if err != nil {
-			return "", err
-		}
-		out = *built
-	}
-	encoded, err := json.Marshal(&out)
-	if err != nil {
-		return "", bizerr.WrapCode(err, CodeWriteFailed)
-	}
-	return string(encoded), nil
 }

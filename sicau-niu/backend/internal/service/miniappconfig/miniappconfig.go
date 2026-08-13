@@ -1,6 +1,7 @@
 // Package miniappconfig owns the non-sensitive runtime projection consumed by
 // the sicau-niu WeChat mini program. The plugin database is authoritative when
-// an operator has saved a row; startup values are used only as defaults.
+// an operator has saved a row; live gameplay rules are projected in one bounded
+// read and startup values are used only as defaults.
 package miniappconfig
 
 import (
@@ -67,8 +68,8 @@ type Config struct {
 
 // Service exposes public reads and operator replacement of mini-program config.
 type Service interface {
-	// Snapshot returns the operator row overlaid on startup defaults and the live
-	// activation radius. Store and config failures return config bizerrs.
+	// Snapshot returns the operator row overlaid on startup defaults and live
+	// public gameplay rules. Store and config failures return config bizerrs.
 	Snapshot(ctx context.Context) (*Snapshot, error)
 	// Update validates and replaces the complete operator-maintained projection,
 	// then returns the normalized live snapshot. Invalid input is not persisted.
@@ -79,9 +80,12 @@ type Service interface {
 type serviceImpl struct {
 	// defaults is the immutable normalized startup projection.
 	defaults Snapshot
-	// rulesSvc supplies the live activation radius when configured.
+	// rulesSvc supplies the live public gameplay rules when configured.
 	rulesSvc rulessvc.Service
 }
+
+// Interface compliance assertion for the default mini-program config service.
+var _ Service = (*serviceImpl)(nil)
 
 // Snapshot is the complete public mini-program configuration.
 type Snapshot struct {
@@ -91,6 +95,12 @@ type Snapshot struct {
 	DefaultCampus string
 	// ActivateRadiusM is the live activation radius in meters.
 	ActivateRadiusM int
+	// StealDailyLimit is the live per-player daily steal action cap.
+	StealDailyLimit int
+	// GiftDailyLimit is the live per-player daily gift action cap.
+	GiftDailyLimit int
+	// GiftMinAmount is the live minimum grass amount for one gift.
+	GiftMinAmount int
 	// CountdownDays is the non-negative whole-day anniversary countdown.
 	CountdownDays int
 	// Anniversary is the public anniversary display name.
@@ -185,6 +195,9 @@ func New(rulesSvc rulessvc.Service, config Config) Service {
 		},
 		DefaultCampus:      normalizeCampus(config.DefaultCampus),
 		ActivateRadiusM:    config.ActivateRadiusMeters,
+		StealDailyLimit:    5,
+		GiftDailyLimit:     12,
+		GiftMinAmount:      12,
 		Anniversary:        strings.TrimSpace(config.Anniversary),
 		AnniversaryAt:      strings.TrimSpace(config.AnniversaryAt),
 		Debug:              config.Debug,
@@ -207,7 +220,8 @@ func New(rulesSvc rulessvc.Service, config Config) Service {
 	return &serviceImpl{defaults: defaults, rulesSvc: rulesSvc}
 }
 
-// Snapshot reads the one operator row and resolves the live activation radius.
+// Snapshot reads the one operator row and resolves all public live rules in one
+// bounded rule query.
 func (s *serviceImpl) Snapshot(ctx context.Context) (*Snapshot, error) {
 	out := cloneSnapshot(&s.defaults)
 	var row *entitymodel.MiniappConfig
@@ -229,11 +243,11 @@ func (s *serviceImpl) Snapshot(ctx context.Context) (*Snapshot, error) {
 		out.ActivityPhase = row.ActivityPhase
 	}
 	if s.rulesSvc != nil {
-		radius, err := s.rulesSvc.ActivationLBSThresholdMeters(ctx)
+		rules, err := s.rulesSvc.Rules(ctx)
 		if err != nil {
 			return nil, err
 		}
-		out.ActivateRadiusM = int(radius)
+		applyRuntimeRules(out, rules)
 	}
 	out.CountdownDays = countdownDays(out.AnniversaryAt, time.Now())
 	return out, nil

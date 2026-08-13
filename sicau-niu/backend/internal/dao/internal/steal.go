@@ -21,28 +21,30 @@ type StealDao struct {
 
 // StealColumns defines and stores column names for the table plugin_sicau_niu_steal.
 type StealColumns struct {
-	Id           string //
-	ActorUserId  string //
-	TargetUserId string //
-	Amount       string //
-	StealDate    string // Steal date YYYY-MM-DD for the daily count limit
-	CreatedAt    string //
-	UpdatedAt    string //
-	DeletedAt    string //
-	RequestId    string // Client idempotency key deduplicating network retries; empty when not provided
+	Id            string //
+	ActorUserId   string //
+	TargetUserId  string //
+	Amount        string //
+	StealDate     string // Steal date YYYY-MM-DD for the daily count limit
+	CreatedAt     string //
+	UpdatedAt     string //
+	DeletedAt     string //
+	RequestId     string // Required player-scoped idempotency key for stable replay
+	ResultBalance string // Actor balance returned by the first successful steal request
 }
 
 // stealColumns holds the columns for the table plugin_sicau_niu_steal.
 var stealColumns = StealColumns{
-	Id:           "id",
-	ActorUserId:  "actor_user_id",
-	TargetUserId: "target_user_id",
-	Amount:       "amount",
-	StealDate:    "steal_date",
-	CreatedAt:    "created_at",
-	UpdatedAt:    "updated_at",
-	DeletedAt:    "deleted_at",
-	RequestId:    "request_id",
+	Id:            "id",
+	ActorUserId:   "actor_user_id",
+	TargetUserId:  "target_user_id",
+	Amount:        "amount",
+	StealDate:     "steal_date",
+	CreatedAt:     "created_at",
+	UpdatedAt:     "updated_at",
+	DeletedAt:     "deleted_at",
+	RequestId:     "request_id",
+	ResultBalance: "result_balance",
 }
 
 // NewStealDao creates and returns a new DAO object for table data access.

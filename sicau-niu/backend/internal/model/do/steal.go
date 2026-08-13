@@ -12,14 +12,15 @@ import (
 
 // Steal is the golang structure of table plugin_sicau_niu_steal for DAO operations like Where/Data.
 type Steal struct {
-	g.Meta       `orm:"table:plugin_sicau_niu_steal, do:true"`
-	Id           any        //
-	ActorUserId  any        //
-	TargetUserId any        //
-	Amount       any        //
-	StealDate    any        // Steal date YYYY-MM-DD for the daily count limit
-	CreatedAt    *time.Time //
-	UpdatedAt    *time.Time //
-	DeletedAt    *time.Time //
-	RequestId    any        // Client idempotency key deduplicating network retries; empty when not provided
+	g.Meta        `orm:"table:plugin_sicau_niu_steal, do:true"`
+	Id            any        //
+	ActorUserId   any        //
+	TargetUserId  any        //
+	Amount        any        //
+	StealDate     any        // Steal date YYYY-MM-DD for the daily count limit
+	CreatedAt     *time.Time //
+	UpdatedAt     *time.Time //
+	DeletedAt     *time.Time //
+	RequestId     any        // Required player-scoped idempotency key for stable replay
+	ResultBalance any        // Actor balance returned by the first successful steal request
 }

@@ -14,6 +14,7 @@ package grass
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
 
@@ -34,9 +35,11 @@ type Config struct {
 type Service interface {
 	// Checkin grants the authenticated player a random grass amount once per
 	// natural day, writing a checkin ledger transaction and crediting the balance
-	// in one transaction. It returns CodeAlreadyCheckedIn when the player already
-	// checked in today, or a store bizerr on failure.
-	Checkin(ctx context.Context, playerID int64, requestID ...string) (out *CheckinResult, err error)
+	// in one transaction. requestID is mandatory and player-scoped; retrying the
+	// same request returns the first successful amount and resulting balance. It
+	// returns CodeAlreadyCheckedIn when the player already checked in today, or a
+	// validation/store bizerr on failure.
+	Checkin(ctx context.Context, playerID int64, requestID string) (out *CheckinResult, err error)
 	// Progress returns level/experience derived from cumulative effective feeding
 	// and whether the player checked in during the current Beijing natural day.
 	Progress(ctx context.Context, playerID int64) (out *ProgressView, err error)
@@ -65,6 +68,7 @@ type serviceImpl struct {
 	rulesSvc   rulessvc.Service // rulesSvc supplies operator-maintained check-in bounds when injected.
 	checkinMin int              // checkinMin is the inclusive lower bound of the daily check-in grant.
 	checkinMax int              // checkinMax is the inclusive upper bound of the daily check-in grant.
+	now        func() time.Time // now supplies the authoritative time after player locking.
 }
 
 // New creates a grass service with an optional runtime-rule service and fallback
@@ -73,5 +77,12 @@ type serviceImpl struct {
 // configuration order.
 func New(rulesSvc rulessvc.Service, config Config) Service {
 	minimum, maximum := normalizeCheckinRange(config.CheckinMinAmount, config.CheckinMaxAmount)
-	return &serviceImpl{rulesSvc: rulesSvc, checkinMin: minimum, checkinMax: maximum}
+	return &serviceImpl{rulesSvc: rulesSvc, checkinMin: minimum, checkinMax: maximum, now: time.Now}
+}
+
+func (s *serviceImpl) nowTime() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }

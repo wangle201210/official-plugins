@@ -79,8 +79,19 @@ CREATE TABLE IF NOT EXISTS plugin_sicau_niu_transport_team (
 
 COMMENT ON TABLE plugin_sicau_niu_transport_team IS 'Iron-cow transport team';
 COMMENT ON COLUMN plugin_sicau_niu_transport_team."status" IS 'Team status: forming, active, ended';
-CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_transport_team_code
-    ON plugin_sicau_niu_transport_team ("code") WHERE "deleted_at" IS NULL;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_attribute
+        WHERE attrelid = 'plugin_sicau_niu_transport_team'::regclass
+          AND attname = 'code'
+          AND NOT attisdropped
+    ) THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_transport_team_code
+            ON plugin_sicau_niu_transport_team ("code") WHERE "deleted_at" IS NULL;
+    END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_sicau_niu_transport_team_state
     ON plugin_sicau_niu_transport_team ("status", "visible", "created_at" DESC)
     WHERE "deleted_at" IS NULL;
@@ -112,8 +123,19 @@ CREATE INDEX IF NOT EXISTS idx_sicau_niu_transport_member_team_active
     ON plugin_sicau_niu_transport_member ("team_id", "joined_at") WHERE "left_at" IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_transport_member_join_request
     ON plugin_sicau_niu_transport_member ("user_id", "join_request_id") WHERE "join_request_id" <> '';
-CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_transport_member_leave_request
-    ON plugin_sicau_niu_transport_member ("user_id", "leave_request_id") WHERE "leave_request_id" <> '';
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_attribute
+        WHERE attrelid = 'plugin_sicau_niu_transport_member'::regclass
+          AND attname = 'leave_request_id'
+          AND NOT attisdropped
+    ) THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS uk_sicau_niu_transport_member_leave_request
+            ON plugin_sicau_niu_transport_member ("user_id", "leave_request_id") WHERE "leave_request_id" <> '';
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS plugin_sicau_niu_transport_session (
     "id"             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

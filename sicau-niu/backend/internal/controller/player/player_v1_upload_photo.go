@@ -18,6 +18,9 @@ func (c *ControllerV1) UploadPhoto(ctx context.Context, req *v1.UploadPhotoReq) 
 	}
 	upload := g.RequestFromCtx(ctx).GetUploadFile("file")
 	if upload == nil {
+		upload = req.File
+	}
+	if upload == nil {
 		return nil, bizerr.NewCode(activationphotosvc.CodePhotoRequired)
 	}
 	reader, err := upload.Open()

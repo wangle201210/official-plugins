@@ -13,7 +13,7 @@ type TransportTeam struct {
 	Id                      int64      `json:"id"                      orm:"id"                        description:""`
 	Name                    string     `json:"name"                    orm:"name"                      description:""`
 	LeaderUserId            int64      `json:"leaderUserId"            orm:"leader_user_id"            description:"Team creator player ID; creator has no lifecycle authority"`
-	CreateRequestId         string     `json:"createRequestId"         orm:"create_request_id"         description:""`
+	CreateRequestId         string     `json:"createRequestId"         orm:"create_request_id"         description:"Required creator-scoped idempotency key for stable replay"`
 	Status                  string     `json:"status"                  orm:"status"                    description:"Team status: effective, invalid"`
 	Visible                 int        `json:"visible"                 orm:"visible"                   description:""`
 	CreatedAt               *time.Time `json:"createdAt"               orm:"created_at"                description:""`
@@ -24,4 +24,5 @@ type TransportTeam struct {
 	LastActiveAt            *time.Time `json:"lastActiveAt"            orm:"last_active_at"            description:"Latest successful create, join or contribution server commit time"`
 	InvalidatedAt           *time.Time `json:"invalidatedAt"           orm:"invalidated_at"            description:""`
 	InvalidReason           string     `json:"invalidReason"           orm:"invalid_reason"            description:""`
+	CreateResponseJson      string     `json:"createResponseJson"      orm:"create_response_json"      description:"Stable first successful team creation response for idempotent replay"`
 }

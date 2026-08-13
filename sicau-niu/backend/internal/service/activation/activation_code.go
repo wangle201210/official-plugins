@@ -10,6 +10,13 @@ import (
 )
 
 var (
+	// CodeRequestIDRequired reports that the mandatory idempotency key is missing
+	// or exceeds the service contract's length limit.
+	CodeRequestIDRequired = bizerr.MustDefine(
+		"PLUGIN_SICAU_NIU_ACTIVATION_REQUEST_ID_REQUIRED",
+		"Request ID is required and must not exceed 64 characters",
+		gcode.CodeInvalidParameter,
+	)
 	// CodeNiuIDRequired reports that a target cattle ID is required.
 	CodeNiuIDRequired = bizerr.MustDefine(
 		"PLUGIN_SICAU_NIU_ACTIVATION_NIU_ID_REQUIRED",

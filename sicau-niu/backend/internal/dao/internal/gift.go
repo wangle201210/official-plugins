@@ -21,28 +21,30 @@ type GiftDao struct {
 
 // GiftColumns defines and stores column names for the table plugin_sicau_niu_gift.
 type GiftColumns struct {
-	Id         string //
-	FromUserId string //
-	ToUserId   string //
-	Amount     string //
-	GiftDate   string // Gift date YYYY-MM-DD for the daily count limit
-	CreatedAt  string //
-	UpdatedAt  string //
-	DeletedAt  string //
-	RequestId  string // Client idempotency key deduplicating network retries; empty when not provided
+	Id            string //
+	FromUserId    string //
+	ToUserId      string //
+	Amount        string //
+	GiftDate      string // Gift date YYYY-MM-DD for the daily count limit
+	CreatedAt     string //
+	UpdatedAt     string //
+	DeletedAt     string //
+	RequestId     string // Required player-scoped idempotency key for stable replay
+	ResultBalance string // Giver balance returned by the first successful gift request
 }
 
 // giftColumns holds the columns for the table plugin_sicau_niu_gift.
 var giftColumns = GiftColumns{
-	Id:         "id",
-	FromUserId: "from_user_id",
-	ToUserId:   "to_user_id",
-	Amount:     "amount",
-	GiftDate:   "gift_date",
-	CreatedAt:  "created_at",
-	UpdatedAt:  "updated_at",
-	DeletedAt:  "deleted_at",
-	RequestId:  "request_id",
+	Id:            "id",
+	FromUserId:    "from_user_id",
+	ToUserId:      "to_user_id",
+	Amount:        "amount",
+	GiftDate:      "gift_date",
+	CreatedAt:     "created_at",
+	UpdatedAt:     "updated_at",
+	DeletedAt:     "deleted_at",
+	RequestId:     "request_id",
+	ResultBalance: "result_balance",
 }
 
 // NewGiftDao creates and returns a new DAO object for table data access.

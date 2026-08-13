@@ -30,6 +30,13 @@ type PlayerHonorItem struct {
 	Category   string
 	ImagePath  string
 	Unlocked   bool
+	Granted    bool
+}
+
+// honorGrantRow is the bounded projection used to assemble persisted grant
+// state for all returned definitions without issuing a query per honor.
+type honorGrantRow struct {
+	HonorId int64 `json:"honor_id"`
 }
 
 // playerProgress holds the player's pre-aggregated counts used to evaluate every
@@ -76,6 +83,10 @@ func (s *serviceImpl) PlayerHonors(ctx context.Context, playerID int64) ([]*Play
 	if err != nil {
 		return nil, err
 	}
+	granted, err := s.grantedHonorIDs(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
 
 	items := make([]*PlayerHonorItem, 0, len(defs))
 	for _, def := range defs {
@@ -89,9 +100,31 @@ func (s *serviceImpl) PlayerHonors(ctx context.Context, playerID int64) ([]*Play
 			Category:   def.Category,
 			ImagePath:  def.ImagePath,
 			Unlocked:   progress.unlocked(UnlockType(def.UnlockType), def.Threshold, def.Category),
+			Granted:    granted[def.Id],
 		})
 	}
 	return items, nil
+}
+
+// grantedHonorIDs returns the persisted, non-deleted grant set for playerID in
+// one projected query. Progress completion and an operator-issued grant remain
+// separate states because certificate rendering requires the latter.
+func (s *serviceImpl) grantedHonorIDs(ctx context.Context, playerID int64) (map[int64]bool, error) {
+	granted := make(map[int64]bool)
+	if playerID <= 0 {
+		return granted, nil
+	}
+	rows := make([]*honorGrantRow, 0)
+	if err := dao.UserHonor.Ctx(ctx).
+		Fields(dao.UserHonor.Columns().HonorId).
+		Where(dao.UserHonor.Columns().UserId, playerID).
+		Scan(&rows); err != nil {
+		return nil, bizerr.WrapCode(err, CodeHonorQueryFailed)
+	}
+	for _, row := range rows {
+		granted[row.HonorId] = true
+	}
+	return granted, nil
 }
 
 // aggregateProgress pre-aggregates all counts the unlock rules need for playerID
