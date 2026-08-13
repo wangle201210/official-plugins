@@ -19,7 +19,10 @@ func (s *serviceImpl) Revoke(ctx context.Context, activationID int64) error {
 		return bizerr.NewCode(CodeActivationNotFound)
 	}
 	return dao.Activation.Transaction(ctx, func(ctx context.Context, _ gdb.TX) error {
-		var record *entitymodel.Activation
+		var (
+			record *entitymodel.Activation
+			err    error
+		)
 		if err := dao.Activation.Ctx(ctx).Where(do.Activation{Id: activationID}).LockUpdate().Scan(&record); err != nil {
 			return bizerr.WrapCode(err, CodeQueryFailed)
 		}
