@@ -31,7 +31,7 @@ func toVisibleNiuItem(item *activationsvc.VisibleNiuItem) *v1.VisibleNiuItem {
 	if item == nil {
 		return nil
 	}
-	out := &v1.VisibleNiuItem{Id: item.Id, Code: item.Code, NiuType: item.NiuType, Name: item.Name, CampusId: item.CampusId, Skin: item.Skin, Lat: item.Lat, Lng: item.Lng, Status: item.Status, ActivatedByMe: item.ActivatedByMe, ActivatedBy: item.ActivatedBy, FeedCount: item.FeedCount, IronBoost: item.IronBoost}
+	out := &v1.VisibleNiuItem{Id: item.Id, Code: item.Code, NiuType: item.NiuType, Name: item.Name, CampusId: item.CampusId, Skin: item.Skin, Lat: item.Lat, Lng: item.Lng, Status: item.Status, ActivatedByMe: item.ActivatedByMe, ActivatedBy: item.ActivatedBy, FeedCount: item.FeedCount, FeedEffect: item.FeedEffect, IronBoost: item.IronBoost}
 	if item.Area != nil {
 		out.Area = &v1.NiuArea{Name: item.Area.Name, Lat: item.Area.Lat, Lng: item.Area.Lng, RadiusM: item.Area.RadiusM}
 	}

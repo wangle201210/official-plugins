@@ -32,6 +32,7 @@ type VisibleNiuItem struct {
 	ActivatedByMe bool     `json:"activatedByMe" dc:"Whether the current player has already activated this cattle" eg:"false"`
 	ActivatedBy   string   `json:"activatedBy" dc:"First activator nickname; empty before first activation" eg:"川农同学"`
 	FeedCount     int      `json:"feedCount" dc:"Cumulative feeding record count" eg:"23"`
+	FeedEffect    int      `json:"feedEffect" dc:"Cumulative grass received after the iron-cow bonus, summed over all feeding records" eg:"288"`
 	IronBoost     bool     `json:"ironBoost" dc:"Whether a stored iron-cow is currently in bonus range" eg:"false"`
 }
 

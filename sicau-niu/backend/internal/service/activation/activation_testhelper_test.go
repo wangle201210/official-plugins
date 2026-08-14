@@ -135,6 +135,27 @@ func insertUserRow(t *testing.T, ctx context.Context, row do.User) int64 {
 	return id
 }
 
+// insertFeedingRow inserts one feeding row directly for test setup so the map
+// projection's feeding aggregate can be asserted without going through the
+// grass-balance-guarded Feed path. It returns the inserted ID.
+func insertFeedingRow(t *testing.T, ctx context.Context, userID, niuID int64, baseAmount, coefficientBasis, effectAmount, isIronBonus int) int64 {
+	t.Helper()
+	fedAt := time.Now()
+	id, err := dao.Feeding.Ctx(ctx).Data(do.Feeding{
+		UserId:           userID,
+		NiuId:            niuID,
+		BaseAmount:       baseAmount,
+		CoefficientBasis: coefficientBasis,
+		EffectAmount:     effectAmount,
+		IsIronBonus:      isIronBonus,
+		FedAt:            &fedAt,
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert feeding row failed: %v", err)
+	}
+	return id
+}
+
 // daoInsertActivation inserts an activation row directly for test setup, used to
 // stage prior activations on a chosen activity date without going through the
 // daily-limit-guarded Activate path. It returns the inserted ID.

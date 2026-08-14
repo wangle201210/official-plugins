@@ -51,6 +51,9 @@ type VisibleNiuItem struct {
 	ActivatedBy string
 	// FeedCount is the cumulative number of feeding records for this cattle.
 	FeedCount int
+	// FeedEffect is the cumulative grass this cattle received after the iron-cow
+	// bonus, summed from the effect amount of all its feeding records.
+	FeedEffect int
 	// IronBoost reports whether a stored iron-cow coordinate is currently in range.
 	IronBoost bool
 }
@@ -89,7 +92,7 @@ func (s *serviceImpl) VisibleNiu(ctx context.Context, playerID int64) ([]*Visibl
 	if err != nil {
 		return nil, err
 	}
-	feedCounts, err := batchFeedCounts(ctx, visible)
+	feeds, err := batchFeedStats(ctx, visible)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +121,8 @@ func (s *serviceImpl) VisibleNiu(ctx context.Context, playerID int64) ([]*Visibl
 			Status:        row.Status,
 			ActivatedByMe: activatedByMe[row.Id],
 			ActivatedBy:   firstActivators[row.Id],
-			FeedCount:     feedCounts[row.Id],
+			FeedCount:     feeds[row.Id].count,
+			FeedEffect:    feeds[row.Id].effect,
 			IronBoost:     ironInRange(row.Lat, row.Lng, irons, ironThreshold),
 		}
 		if row.Status == cattlesvc.NiuStatusActive.String() {
@@ -133,20 +137,37 @@ func (s *serviceImpl) VisibleNiu(ctx context.Context, playerID int64) ([]*Visibl
 	return list, nil
 }
 
-type feedCountRow struct {
-	NiuId     int64 `orm:"niu_id"`
-	FeedCount int   `orm:"feed_count"`
+// feedStats is the per-cattle feeding aggregate consumed by the map projection.
+type feedStats struct {
+	// count is the number of feeding records for the cattle.
+	count int
+	// effect is the summed post-bonus grass the cattle received.
+	effect int
 }
 
-func batchFeedCounts(ctx context.Context, visible []*entitymodel.Niu) (map[int64]int, error) {
-	counts := make(map[int64]int, len(visible))
+type feedStatsRow struct {
+	NiuId      int64 `orm:"niu_id"`
+	FeedCount  int   `orm:"feed_count"`
+	FeedEffect int   `orm:"feed_effect"`
+}
+
+// batchFeedStats aggregates the feeding count and post-bonus grass total of the
+// visible cattle in one grouped query, so the map projection stays free of
+// per-row queries. Cattle without feeding records are absent from the result and
+// read back as the zero value.
+func batchFeedStats(ctx context.Context, visible []*entitymodel.Niu) (map[int64]feedStats, error) {
+	stats := make(map[int64]feedStats, len(visible))
 	ids := visibleNiuIDs(visible)
 	if len(ids) == 0 {
-		return counts, nil
+		return stats, nil
 	}
-	rows := make([]*feedCountRow, 0)
+	rows := make([]*feedStatsRow, 0)
 	err := dao.Feeding.Ctx(ctx).
-		Fields(dao.Feeding.Columns().NiuId, "COUNT(*) AS feed_count").
+		Fields(
+			dao.Feeding.Columns().NiuId,
+			"COUNT(*) AS feed_count",
+			"COALESCE(SUM("+dao.Feeding.Columns().EffectAmount+"), 0) AS feed_effect",
+		).
 		WhereIn(dao.Feeding.Columns().NiuId, ids).
 		Group(dao.Feeding.Columns().NiuId).
 		Scan(&rows)
@@ -154,9 +175,9 @@ func batchFeedCounts(ctx context.Context, visible []*entitymodel.Niu) (map[int64
 		return nil, bizerr.WrapCode(err, CodeQueryFailed)
 	}
 	for _, row := range rows {
-		counts[row.NiuId] = row.FeedCount
+		stats[row.NiuId] = feedStats{count: row.FeedCount, effect: row.FeedEffect}
 	}
-	return counts, nil
+	return stats, nil
 }
 
 func batchFirstActivators(ctx context.Context, visible []*entitymodel.Niu) (map[int64]string, error) {

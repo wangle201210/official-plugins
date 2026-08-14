@@ -185,3 +185,40 @@ func TestVisibleNiuHidesInactiveAnchor(t *testing.T) {
 		t.Fatalf("active cattle did not expose exact anchor: %+v", active)
 	}
 }
+
+// TestVisibleNiuAggregatesFeedStats verifies the per-cattle feeding count and the
+// post-bonus grass total are aggregated per cattle, that the iron-cow bonus is
+// carried by the summed effect amount rather than the fed base amount, and that a
+// cattle without feeding records reports zero for both.
+func TestVisibleNiuAggregatesFeedStats(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	past := time.Now().Add(-time.Hour)
+
+	fedID := insertNiuRow(t, ctx, do.Niu{Code: "NIU-FEED-STATS", NiuType: cattlesvc.NiuTypeCommon.String(), Lat: 30.0, Lng: 103.0, OnlineAt: &past, Status: cattlesvc.NiuStatusActive.String()})
+	untouchedID := insertNiuRow(t, ctx, do.Niu{Code: "NIU-FEED-NONE", NiuType: cattlesvc.NiuTypeCommon.String(), Lat: 30.0, Lng: 103.0, OnlineAt: &past, Status: cattlesvc.NiuStatusActive.String()})
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-feed-stats"})
+
+	// Two ordinary feedings (12 each) plus one iron-bonus feeding (12 -> 18).
+	insertFeedingRow(t, ctx, playerID, fedID, 12, 100, 12, 0)
+	insertFeedingRow(t, ctx, playerID, fedID, 12, 100, 12, 0)
+	insertFeedingRow(t, ctx, playerID, fedID, 12, 150, 18, 1)
+
+	items, err := svc.VisibleNiu(ctx, playerID)
+	if err != nil {
+		t.Fatalf("visible niu failed: %v", err)
+	}
+	byID := make(map[int64]*VisibleNiuItem, len(items))
+	for _, item := range items {
+		byID[item.Id] = item
+	}
+	fed := byID[fedID]
+	if fed == nil || fed.FeedCount != 3 || fed.FeedEffect != 42 {
+		t.Fatalf("expected 3 feedings totalling 42 post-bonus grass, got %+v", fed)
+	}
+	untouched := byID[untouchedID]
+	if untouched == nil || untouched.FeedCount != 0 || untouched.FeedEffect != 0 {
+		t.Fatalf("expected zero feed stats for a cattle nobody fed, got %+v", untouched)
+	}
+}
