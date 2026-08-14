@@ -162,6 +162,24 @@ export function listActivationAttempts(
   );
 }
 
+export interface ActivationPhotoContent {
+  contentType: string;
+  sizeBytes: number;
+  imageBase64: string;
+}
+
+/**
+ * 读取激活照片内容。记录中的 photoPath 是不透明照片标识而非可访问地址，
+ * 照片存放在插件私有对象存储中，只能通过受保护的审计接口换取图片字节。
+ */
+export function getActivationPhoto(photoId: string) {
+  return requestClient.get<ActivationPhotoContent>(
+    recordApi(
+      `plugins/sicau-niu/admin/audit/photos/${encodeURIComponent(photoId)}`,
+    ),
+  );
+}
+
 export function listGrassTxns(params: PagedParams & { userId?: number }) {
   return listRecords<GrassTxnRecord>(
     "plugins/sicau-niu/admin/records/grass-txns",

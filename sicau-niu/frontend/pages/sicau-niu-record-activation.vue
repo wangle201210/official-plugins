@@ -12,16 +12,29 @@ import { ref } from "vue";
 
 import { IconifyIcon } from "@vben/icons";
 
-import { Image, ImagePreviewGroup, Space, TabPane, Tabs, Tag } from "ant-design-vue";
+import {
+  Image,
+  ImagePreviewGroup,
+  message,
+  Space,
+  TabPane,
+  Tabs,
+  Tag,
+} from "ant-design-vue";
 
 import { useVbenVxeGrid } from "#/adapter/vxe-table";
 import { formatTimestamp } from "#/utils/time";
 import { Page } from "#/plugins/dynamic";
 
-import { listActivationAttempts, listActivations } from "./record-client";
+import {
+  getActivationPhoto,
+  listActivationAttempts,
+  listActivations,
+} from "./record-client";
 
 const previewVisible = ref(false);
 const previewImage = ref("");
+const previewLoadingId = ref("");
 const activeTab = ref("activations");
 
 const attemptResultOptions = [
@@ -209,13 +222,25 @@ const [AttemptGrid] = useVbenVxeGrid({
   },
 });
 
-function openPhotoPreview(row: ActivationAttemptRecord | ActivationRecord) {
-  const photoPath = row.photoPath?.trim();
-  if (!photoPath) {
+async function openPhotoPreview(row: ActivationAttemptRecord | ActivationRecord) {
+  const photoId = row.photoPath?.trim();
+  if (!photoId || previewLoadingId.value) {
     return;
   }
-  previewImage.value = photoPath;
-  previewVisible.value = true;
+  previewLoadingId.value = photoId;
+  try {
+    const photo = await getActivationPhoto(photoId);
+    if (!photo?.imageBase64) {
+      message.error("照片内容为空,无法查看");
+      return;
+    }
+    previewImage.value = `data:${photo.contentType || "image/webp"};base64,${photo.imageBase64}`;
+    previewVisible.value = true;
+  } catch {
+    message.error("照片读取失败,请稍后重试");
+  } finally {
+    previewLoadingId.value = "";
+  }
 }
 
 function handlePreviewVisibleChange(visible: boolean) {
@@ -270,6 +295,7 @@ function formatMeters(value: number) {
                 <ghost-button
                   v-if="row.photoPath"
                   :data-testid="`sicau-niu-activation-photo-${row.id}`"
+                  :loading="previewLoadingId === row.photoPath"
                   @click.stop="openPhotoPreview(row)"
                 >
                   <IconifyIcon icon="ant-design:eye-outlined" class="mr-1" />
@@ -305,6 +331,7 @@ function formatMeters(value: number) {
                 <ghost-button
                   v-if="row.photoPath"
                   :data-testid="`sicau-niu-activation-attempt-photo-${row.id}`"
+                  :loading="previewLoadingId === row.photoPath"
                   @click.stop="openPhotoPreview(row)"
                 >
                   <IconifyIcon icon="ant-design:eye-outlined" class="mr-1" />

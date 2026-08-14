@@ -74,25 +74,37 @@ export class SicauNiuRecordPage extends SicauNiuOperatorPage {
       .first();
   }
 
-  // expectActivationPhotoPreview opens a record photo and asserts the global image
-  // preview layer renders the original image URL.
-  async expectActivationPhotoPreview(id: string, photoPath: string) {
+  // expectActivationPhotoPreview opens a record photo and asserts the preview
+  // layer renders the image bytes returned by the protected audit endpoint. The
+  // stored photo path is an opaque identifier, so a preview that still carried
+  // that raw value would never resolve to an image.
+  async expectActivationPhotoPreview(id: string, expectedSrc: string) {
     const button = this.activationPhotoButton(id);
     await expect(button).toBeVisible();
     await button.click();
     await expect(
       this.page.locator(".ant-image-preview-img").last(),
-    ).toHaveAttribute("src", photoPath);
+    ).toHaveAttribute("src", expectedSrc);
   }
 
   // expectActivationAttemptPhotoPreview opens an attempt photo and asserts the
-  // global image preview layer renders the original image URL.
-  async expectActivationAttemptPhotoPreview(id: string, photoPath: string) {
+  // preview layer renders the audited image bytes.
+  async expectActivationAttemptPhotoPreview(id: string, expectedSrc: string) {
     const button = this.activationAttemptPhotoButton(id);
     await expect(button).toBeVisible();
     await button.click();
     await expect(
       this.page.locator(".ant-image-preview-img").last(),
-    ).toHaveAttribute("src", photoPath);
+    ).toHaveAttribute("src", expectedSrc);
+  }
+
+  // expectActivationPhotoPreviewFailure asserts a failing audit read surfaces a
+  // recoverable message instead of opening an empty preview layer.
+  async expectActivationPhotoPreviewFailure(id: string, message: string) {
+    const button = this.activationPhotoButton(id);
+    await expect(button).toBeVisible();
+    await button.click();
+    await expect(this.page.getByText(message).first()).toBeVisible();
+    await expect(this.page.locator(".ant-image-preview-img")).toHaveCount(0);
   }
 }

@@ -5,15 +5,26 @@ import { pgEscapeLiteral, queryPgScalar } from "@host-tests/support/postgres";
 import { SicauNiuRecordPage } from "../pages/SicauNiuRecordPage";
 
 const pluginID = "sicau-niu";
-const tinyPhotoDataURL =
-  "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+// Activation rows persist an opaque photo identifier, never a browser-resolvable
+// URL: the bytes live in private plugin object storage and are only readable
+// through the protected audit endpoint. The seeds below therefore store an
+// identifier, and the tests stub that endpoint so the assertion proves the page
+// exchanges the identifier for image bytes instead of rendering it as a URL.
+const auditPhotoRoute =
+  "**/plugins/sicau-niu/admin/audit/photos/*";
+const auditPhotoBase64 = "R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+const auditPhotoDataURL = `data:image/webp;base64,${auditPhotoBase64}`;
+
+function photoIdentifier(suffix: string) {
+  return `e2e-photo-${suffix}`;
+}
 
 function seedActivationRecordWithPhoto(suffix: string) {
   const openid = pgEscapeLiteral(`e2e-activation-photo-${suffix}`);
   const nickname = pgEscapeLiteral(`拍照玩家-${suffix}`);
   const niuCode = pgEscapeLiteral(`E2E-PHOTO-${suffix}`);
   const niuName = pgEscapeLiteral(`照片牛-${suffix}`);
-  const photoPath = pgEscapeLiteral(tinyPhotoDataURL);
+  const photoPath = pgEscapeLiteral(photoIdentifier(suffix));
   return queryPgScalar(`
 WITH inserted_user AS (
   INSERT INTO plugin_sicau_niu_user ("openid", "nickname")
@@ -42,7 +53,7 @@ function seedActivationAttemptWithPhoto(suffix: string) {
   const nickname = pgEscapeLiteral(`尝试玩家-${suffix}`);
   const niuCode = pgEscapeLiteral(`E2E-ATTEMPT-${suffix}`);
   const niuName = pgEscapeLiteral(`尝试牛-${suffix}`);
-  const photoPath = pgEscapeLiteral(tinyPhotoDataURL);
+  const photoPath = pgEscapeLiteral(photoIdentifier(suffix));
   return queryPgScalar(`
 WITH inserted_user AS (
   INSERT INTO plugin_sicau_niu_user ("openid", "nickname")
@@ -96,19 +107,55 @@ test.describe("TC-6 sicau-niu 活动记录查询", () => {
     await recordPage.expectGridRendered("增减量");
   });
 
-  test("TC-6d: 激活记录可查看上传照片", async () => {
-    const activationId = seedActivationRecordWithPhoto(`${Date.now()}`);
+  test("TC-6d: 激活记录可查看上传照片", async ({ adminPage }) => {
+    const suffix = `${Date.now()}`;
+    const activationId = seedActivationRecordWithPhoto(suffix);
+    const requestedPhotoIds: string[] = [];
+    await adminPage.route(auditPhotoRoute, async (route) => {
+      requestedPhotoIds.push(
+        decodeURIComponent(new URL(route.request().url()).pathname.split("/").pop() ?? ""),
+      );
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 0,
+          message: "OK",
+          data: {
+            contentType: "image/webp",
+            sizeBytes: 64,
+            imageBase64: auditPhotoBase64,
+          },
+        }),
+      });
+    });
 
     await recordPage.openRecord("激活记录");
     await recordPage.expectGridRendered("照片");
     await recordPage.expectActivationPhotoPreview(
       activationId,
-      tinyPhotoDataURL,
+      auditPhotoDataURL,
     );
+    // 预览必须由不透明标识换取图片字节，而不是把标识当作图片地址渲染。
+    expect(requestedPhotoIds).toContain(photoIdentifier(suffix));
   });
 
-  test("TC-6e: 打卡尝试记录可查看失败原因和照片", async () => {
-    const attemptId = seedActivationAttemptWithPhoto(`${Date.now()}`);
+  test("TC-6e: 打卡尝试记录可查看失败原因和照片", async ({ adminPage }) => {
+    const suffix = `${Date.now()}`;
+    const attemptId = seedActivationAttemptWithPhoto(suffix);
+    await adminPage.route(auditPhotoRoute, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 0,
+          message: "OK",
+          data: {
+            contentType: "image/webp",
+            sizeBytes: 64,
+            imageBase64: auditPhotoBase64,
+          },
+        }),
+      });
+    });
 
     await recordPage.openRecord("激活记录");
     await recordPage.page.getByRole("tab", { name: "打卡尝试" }).click();
@@ -117,7 +164,29 @@ test.describe("TC-6 sicau-niu 活动记录查询", () => {
     await expect(recordPage.page.getByText("超出判距").first()).toBeVisible();
     await recordPage.expectActivationAttemptPhotoPreview(
       attemptId,
-      tinyPhotoDataURL,
+      auditPhotoDataURL,
+    );
+  });
+
+  test("TC-6f: 激活照片读取失败展示可恢复提示", async ({ adminPage }) => {
+    const suffix = `${Date.now()}`;
+    const activationId = seedActivationRecordWithPhoto(suffix);
+    await adminPage.route(auditPhotoRoute, async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 50000,
+          message: "Activation photo not found",
+        }),
+      });
+    });
+
+    await recordPage.openRecord("激活记录");
+    await recordPage.expectGridRendered("照片");
+    await recordPage.expectActivationPhotoPreviewFailure(
+      activationId,
+      "照片读取失败,请稍后重试",
     );
   });
 });
