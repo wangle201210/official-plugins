@@ -27,6 +27,43 @@ func TestSnapshotContainsAllCampusCalibrations(t *testing.T) {
 	}
 }
 
+// TestChengduCalibrationMatchesSeededCattle guards the Chengdu campus calibration against
+// drifting away from the real campus: the seeded cattle must project inside the campus
+// artwork, otherwise the mini-program draws cattle outside the drawn campus.
+func TestChengduCalibrationMatchesSeededCattle(t *testing.T) {
+	svc := New(nil, Config{DefaultCampus: CampusChengdu, ActivateRadiusMeters: 60})
+	out := cloneSnapshot(&svc.(*serviceImpl).defaults)
+
+	var chengdu *Campus
+	for _, campus := range out.Campuses {
+		if campus.Id == CampusChengdu {
+			chengdu = campus
+		}
+	}
+	if chengdu == nil {
+		t.Fatal("chengdu campus is missing from the public config")
+	}
+
+	// The campus sits at 211 Huimin Road, Wenjiang; anything far from it breaks LBS activation.
+	if math.Abs(chengdu.Calibration.Origin.Lat0-30.7054) > 0.005 || math.Abs(chengdu.Calibration.Origin.Lng0-103.8632) > 0.005 {
+		t.Fatalf("chengdu origin drifted from the real campus: %+v", chengdu.Calibration.Origin)
+	}
+
+	// Bounding box of the campus artwork inside its own image.
+	const minX, maxX, minY, maxY = 0.0, 13523.0, 312.0, 6684.0
+	// Widest-spread seeded cattle from manifest/sql/mock-data.
+	for _, seed := range [][2]float64{{30.70404, 103.85975}, {30.70676, 103.86665}} {
+		cal := chengdu.Calibration
+		x := (seed[1] - cal.Origin.Lng0) * 111320 * math.Cos(cal.Origin.Lat0*math.Pi/180)
+		y := (seed[0] - cal.Origin.Lat0) * 110540
+		px := cal.Affine.A*x + cal.Affine.B*y + cal.Affine.Tx
+		py := cal.Affine.C*x + cal.Affine.D*y + cal.Affine.Ty
+		if px < minX || px > maxX || py < minY || py > maxY {
+			t.Fatalf("seeded cattle %v projects outside the campus artwork: px=%.0f py=%.0f", seed, px, py)
+		}
+	}
+}
+
 func TestSnapshotProjectsPublicGameplayRules(t *testing.T) {
 	rules := &rulessvc.RuleSet{
 		ActivationLBSThresholdMeters: 75,

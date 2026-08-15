@@ -189,7 +189,12 @@ type Area struct {
 func New(rulesSvc rulessvc.Service, config Config) Service {
 	defaults := Snapshot{
 		Campuses: []*Campus{
-			campus(CampusChengdu, "成都校区", 30.7058, 103.8318, 0.56, 16644, 8241),
+			// Chengdu campus (211 Huimin Road, Wenjiang). The origin is the GCJ-02 campus
+			// center; the anchor is the centroid of the campus artwork, which is not centered
+			// in its own image. The scale makes the drawn campus span roughly 920m x 430m.
+			// The artwork is an oblique illustration, so this affine is an approximation:
+			// replace it with a control-point solve once field survey data is available.
+			anchoredCampus(CampusChengdu, "成都校区", 30.7054, 103.8632, 0.068, 16644, 8241, 5654, 2931),
 			campus(CampusDujiangyan, "都江堰校区", 31.001, 103.63, 1.2, 991, 749),
 			campus(CampusYaan, "雅安校区", 29.9855, 102.9988, 1.15, 1200, 900),
 		},
@@ -359,10 +364,16 @@ func normalizeSnapshot(in *Snapshot) (*Snapshot, error) {
 	return out, nil
 }
 
-// campus builds one default north-up affine calibration.
+// campus builds one default north-up affine calibration anchored at the image center.
 func campus(id, name string, lat0, lng0, metersPerPixel float64, width, height int) *Campus {
+	return anchoredCampus(id, name, lat0, lng0, metersPerPixel, width, height, float64(width)/2, float64(height)/2)
+}
+
+// anchoredCampus builds one default north-up affine calibration whose origin lands on an
+// arbitrary image pixel. Use it when the campus artwork is not centered in its own image.
+func anchoredCampus(id, name string, lat0, lng0, metersPerPixel float64, width, height int, anchorX, anchorY float64) *Campus {
 	scale := 1 / metersPerPixel
-	return &Campus{Id: id, Name: name, Calibration: Calibration{Version: 1, Origin: Origin{Lat0: lat0, Lng0: lng0}, ImageSize: ImageSize{W: width, H: height}, Affine: Affine{A: scale, D: -scale, Tx: float64(width) / 2, Ty: float64(height) / 2}}}
+	return &Campus{Id: id, Name: name, Calibration: Calibration{Version: 1, Origin: Origin{Lat0: lat0, Lng0: lng0}, ImageSize: ImageSize{W: width, H: height}, Affine: Affine{A: scale, D: -scale, Tx: anchorX, Ty: anchorY}}}
 }
 
 // cloneSnapshot deep-copies a snapshot and its campus slice.
