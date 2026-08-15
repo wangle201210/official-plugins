@@ -40,9 +40,26 @@ const (
 	maxPhotoBytes int64 = 300 * 1024
 	// maxDailyPhotos is the per-player Beijing-day successful upload quota.
 	maxDailyPhotos = 10
-	// maxDecodedPixels rejects decompression-bomb-sized source images.
-	maxDecodedPixels = 40_000_000
+	// maxSourcePixels rejects decompression-bomb-sized source images. The check runs
+	// on the image header, so an oversized file never reaches a full decode.
+	maxSourcePixels = 24_000_000
+	// targetLongEdge is the long edge the source is scaled to before encoding. One
+	// upfront downscale keeps the encoder working on ~2M pixels instead of the full
+	// camera resolution, which is what makes transcoding fast.
+	targetLongEdge = 1600
+	// minLongEdge bounds the downscale ladder used when the first encodes overshoot.
+	minLongEdge = 640
+	// encodeMethod is libwebp's speed/size tradeoff. Method 6 is several times
+	// slower for a marginal size gain, which does not pay off at this resolution.
+	encodeMethod = 4
+	// maxConcurrentTranscodes bounds simultaneous decode+encode work so a burst of
+	// uploads cannot multiply peak CPU and memory across the whole host process.
+	maxConcurrentTranscodes = 4
 )
+
+// transcodeSlots gates concurrent image transcoding. It is process-wide because the
+// cost it protects (CPU cores and peak heap) is process-wide.
+var transcodeSlots = make(chan struct{}, maxConcurrentTranscodes)
 
 // Service owns photo validation, private storage, owner reads and one-time use.
 type Service interface {
@@ -185,9 +202,9 @@ func (s *serviceImpl) Upload(ctx context.Context, playerID int64, in *UploadInpu
 	if err != nil || len(input) == 0 || int64(len(input)) > maxInputPhotoBytes {
 		return nil, bizerr.NewCode(CodePhotoInvalid)
 	}
-	standardized, err := standardizeImage(input, in.ContentType, in.Filename)
+	standardized, err := standardizeImage(ctx, input, in.ContentType, in.Filename)
 	if err != nil {
-		return nil, bizerr.NewCode(CodePhotoInvalid)
+		return nil, err
 	}
 
 	var storedPath string
@@ -391,38 +408,96 @@ func firstAvailableSlot(used []int) int {
 	return 0
 }
 
-// standardizeImage decodes a supported image, bounds its pixels and dimensions,
-// then reduces WebP quality until the output satisfies maxPhotoBytes.
-func standardizeImage(content []byte, declaredType, filename string) ([]byte, error) {
-	img, err := decodeImage(content, declaredType, filename)
+// standardizeImage bounds the source by its header, scales it down once and then
+// encodes WebP under maxPhotoBytes.
+//
+// Order matters: the pixel budget is enforced from the image header before any
+// decode, because a small compressed file can declare an enormous canvas and a
+// full decode would allocate it before any post-hoc check could reject it. The
+// single upfront downscale then keeps the encoder off camera-resolution buffers;
+// the quality ladder only exists for textures that still overshoot at 1600px.
+func standardizeImage(ctx context.Context, content []byte, declaredType, filename string) ([]byte, error) {
+	config, _, err := image.DecodeConfig(bytes.NewReader(content))
+	if err != nil {
+		return nil, bizerr.NewCode(CodePhotoInvalid)
+	}
+	if config.Width <= 0 || config.Height <= 0 {
+		return nil, bizerr.NewCode(CodePhotoInvalid)
+	}
+	if int64(config.Width)*int64(config.Height) > maxSourcePixels {
+		return nil, bizerr.NewCode(CodePhotoTooLarge)
+	}
+
+	release, err := acquireTranscodeSlot(ctx)
 	if err != nil {
 		return nil, err
 	}
-	bounds := img.Bounds()
-	if bounds.Dx() <= 0 || bounds.Dy() <= 0 || int64(bounds.Dx())*int64(bounds.Dy()) > maxDecodedPixels {
-		return nil, errors.New("invalid image dimensions")
+	defer release()
+
+	img, err := decodeImage(content, declaredType, filename)
+	if err != nil {
+		return nil, bizerr.NewCode(CodePhotoInvalid)
 	}
-	current := img
-	for resizeAttempt := 0; resizeAttempt < 8; resizeAttempt++ {
-		for quality := 84; quality >= 28; quality -= 8 {
+	bounds := img.Bounds()
+	if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
+		return nil, bizerr.NewCode(CodePhotoInvalid)
+	}
+
+	current := scaleToLongEdge(img, targetLongEdge)
+	for {
+		for _, quality := range []int{82, 70, 58, 46} {
 			var encoded bytes.Buffer
-			if err = webp.Encode(&encoded, current, webp.Options{Quality: quality, Method: 6}); err != nil {
-				return nil, err
+			if err = webp.Encode(&encoded, current, webp.Options{Quality: quality, Method: encodeMethod}); err != nil {
+				return nil, bizerr.NewCode(CodePhotoInvalid)
 			}
-			if encoded.Len() <= int(maxPhotoBytes) {
+			if int64(encoded.Len()) <= maxPhotoBytes {
 				return encoded.Bytes(), nil
 			}
 		}
-		width := current.Bounds().Dx() * 4 / 5
-		height := current.Bounds().Dy() * 4 / 5
-		if width < 320 || height < 320 {
-			break
+		longEdge := maxInt(current.Bounds().Dx(), current.Bounds().Dy()) * 3 / 4
+		if longEdge < minLongEdge {
+			return nil, bizerr.NewCode(CodePhotoInvalid)
 		}
-		resized := image.NewNRGBA(image.Rect(0, 0, width, height))
-		draw.CatmullRom.Scale(resized, resized.Bounds(), current, current.Bounds(), draw.Over, nil)
-		current = resized
+		current = scaleToLongEdge(current, longEdge)
 	}
-	return nil, errors.New("unable to compress image to limit")
+}
+
+// acquireTranscodeSlot takes one bounded transcoding slot, rejecting rather than
+// queueing indefinitely when the request context is already done.
+func acquireTranscodeSlot(ctx context.Context) (func(), error) {
+	select {
+	case transcodeSlots <- struct{}{}:
+		return func() { <-transcodeSlots }, nil
+	case <-ctx.Done():
+		return nil, bizerr.NewCode(CodePhotoBusy)
+	}
+}
+
+// scaleToLongEdge returns img scaled so its long edge is at most longEdge. Images
+// already within the budget are returned untouched. ApproxBiLinear is used because
+// the output is a 300 KiB share thumbnail, where the sharper kernels cost several
+// times more CPU for no visible gain.
+func scaleToLongEdge(img image.Image, longEdge int) image.Image {
+	bounds := img.Bounds()
+	source := maxInt(bounds.Dx(), bounds.Dy())
+	if source <= longEdge || longEdge <= 0 {
+		return img
+	}
+	width := bounds.Dx() * longEdge / source
+	height := bounds.Dy() * longEdge / source
+	if width < 1 || height < 1 {
+		return img
+	}
+	scaled := image.NewNRGBA(image.Rect(0, 0, width, height))
+	draw.ApproxBiLinear.Scale(scaled, scaled.Bounds(), img, bounds, draw.Over, nil)
+	return scaled
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // decodeImage decodes JPEG, PNG or HEIC based on validated content metadata.
