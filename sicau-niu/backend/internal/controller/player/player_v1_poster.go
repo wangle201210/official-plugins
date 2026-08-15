@@ -23,9 +23,9 @@ func (c *ControllerV1) Poster(ctx context.Context, req *v1.PosterReq) (res *v1.P
 		Nickname:     out.Nickname,
 		IdentityType: out.IdentityType,
 		NiuCode:      out.NiuCode,
+		NiuName:      out.NiuName,
 		OrderNo:      out.OrderNo,
 		Quote:        out.Quote,
 		CampusBadge:  out.CampusBadge,
-		ImageBase64:  out.ImageBase64,
 	}, nil
 }

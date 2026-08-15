@@ -40,7 +40,7 @@ func TestPlayerHonorsUnlockRules(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New(NewBasicCertRenderer(), nil, Config{})
+	svc := New(nil, Config{})
 	player := insertUserRow(t, ctx, "玩家")
 
 	// Catalog: two cattle, both person-category cards. The full active set is 2.
@@ -101,7 +101,7 @@ func TestPlayerHonorsSeparatesProgressFromGrant(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New(NewBasicCertRenderer(), nil, Config{})
+	svc := New(nil, Config{})
 	player := insertUserRow(t, ctx, "授予状态玩家")
 	progressOnlyID := mustCreate(t, ctx, svc, &MutateInput{HonorType: HonorTypeCertificate.String(), Code: "progress", Name: "已达成未授予", UnlockType: UnlockTypeParticipation.String()})
 	grantedID := mustCreate(t, ctx, svc, &MutateInput{HonorType: HonorTypeCertificate.String(), Code: "granted", Name: "已授予", UnlockType: UnlockTypeParticipation.String()})
@@ -129,7 +129,7 @@ func TestPlayerHonorsFullComplete(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
 
-	svc := New(NewBasicCertRenderer(), nil, Config{})
+	svc := New(nil, Config{})
 	player := insertUserRow(t, ctx, "全集玩家")
 
 	insertCardRow(t, ctx, 301, cardsvc.CategoryPerson.String())

@@ -3,14 +3,13 @@
 // assembles the poster fields: the player's nickname and identity type from the
 // identity service, the cattle serial code, the player's arrival order for the
 // cattle, a random enabled school-history quote and the configured campus badge.
-// The PNG output is produced through the replaceable PosterRenderer seam so the
-// rendering implementation can change without touching this composition logic.
+// The composed fields are returned as data; the share poster itself is drawn by
+// the mini-program on canvas, so no image is produced here.
 
 package activation
 
 import (
 	"context"
-	"encoding/base64"
 
 	"github.com/gogf/gf/v2/util/grand"
 
@@ -18,7 +17,6 @@ import (
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	"lina-plugin-sicau-niu/backend/internal/model/do"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
-	"lina-plugin-sicau-niu/backend/internal/service/activation/internal/posterrender"
 )
 
 // quoteEnabledOn is the enabled-flag value selecting quotes that participate in
@@ -33,14 +31,14 @@ type PosterOutput struct {
 	IdentityType string
 	// NiuCode is the activated cattle serial code.
 	NiuCode string
+	// NiuName is the activated cattle display name; empty for unnamed common cattle.
+	NiuName string
 	// OrderNo is the player's arrival order for the cattle, starting at 1.
 	OrderNo int
 	// Quote is a random enabled school-history quote; empty when none exists.
 	Quote string
 	// CampusBadge is the campus anniversary badge text; empty when unset.
 	CampusBadge string
-	// ImageBase64 is the rendered personalized poster PNG, base64-encoded.
-	ImageBase64 string
 }
 
 // Poster returns the activation poster composition data for a cattle playerID has
@@ -70,7 +68,7 @@ func (s *serviceImpl) Poster(ctx context.Context, playerID int64, niuID int64) (
 		return nil, err
 	}
 
-	niuCode, err := s.loadNiuCode(ctx, niuID)
+	niuCode, niuName, err := s.loadNiuLabels(ctx, niuID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,44 +86,30 @@ func (s *serviceImpl) Poster(ctx context.Context, playerID int64, niuID int64) (
 		Nickname:     profile.Nickname,
 		IdentityType: profile.IdentityType,
 		NiuCode:      niuCode,
+		NiuName:      niuName,
 		OrderNo:      record.OrderNo,
 		Quote:        quote,
 		CampusBadge:  campusBadge,
 	}
 
-	// Render the personalized poster PNG through the replaceable seam and return it
-	// base64-encoded so the mini-program can display and share the image.
-	image, renderErr := s.posterRenderer.Render(ctx, &posterrender.PosterData{
-		Nickname:     output.Nickname,
-		IdentityType: output.IdentityType,
-		NiuCode:      output.NiuCode,
-		OrderNo:      output.OrderNo,
-		Quote:        output.Quote,
-		CampusBadge:  output.CampusBadge,
-	})
-	if renderErr != nil {
-		return nil, renderErr
-	}
-	output.ImageBase64 = base64.StdEncoding.EncodeToString(image)
-
 	return output, nil
 }
 
-// loadNiuCode loads the cattle serial code by ID. It returns CodeNiuNotFound when
-// the cattle is missing.
-func (s *serviceImpl) loadNiuCode(ctx context.Context, niuID int64) (string, error) {
+// loadNiuLabels loads the cattle serial code and display name by ID in one query.
+// It returns CodeNiuNotFound when the cattle is missing; the name is empty for
+// unnamed common cattle, and the poster then falls back to the code.
+func (s *serviceImpl) loadNiuLabels(ctx context.Context, niuID int64) (code string, name string, err error) {
 	var niuRow *entitymodel.Niu
-	err := dao.Niu.Ctx(ctx).
-		Fields(dao.Niu.Columns().Code).
+	if err = dao.Niu.Ctx(ctx).
+		Fields(dao.Niu.Columns().Code, dao.Niu.Columns().Name).
 		Where(do.Niu{Id: niuID}).
-		Scan(&niuRow)
-	if err != nil {
-		return "", bizerr.WrapCode(err, CodeQueryFailed)
+		Scan(&niuRow); err != nil {
+		return "", "", bizerr.WrapCode(err, CodeQueryFailed)
 	}
 	if niuRow == nil {
-		return "", bizerr.NewCode(CodeNiuNotFound)
+		return "", "", bizerr.NewCode(CodeNiuNotFound)
 	}
-	return niuRow.Code, nil
+	return niuRow.Code, niuRow.Name, nil
 }
 
 // randomEnabledQuote returns the content of one random enabled quote. It loads the

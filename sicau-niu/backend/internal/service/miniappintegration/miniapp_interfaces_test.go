@@ -46,10 +46,11 @@ var schemaFiles = []string{
 	"010-sicau-niu-miniapp-interfaces.sql",
 }
 
+// tables lists the plugin tables truncated before each test. Cloud-moving tables
+// are created by 011, whose host dictionary seed cannot run against this
+// plugin-only test database, so truncation skips tables the schema files never
+// created instead of failing the run.
 var tables = []string{
-	"plugin_sicau_niu_transport_report",
-	"plugin_sicau_niu_transport_member",
-	"plugin_sicau_niu_transport_team",
 	"plugin_sicau_niu_miniapp_config",
 	"plugin_sicau_niu_activation_photo",
 	"plugin_sicau_niu_activation_attempt",
@@ -73,7 +74,9 @@ func setupDB(t *testing.T, ctx context.Context) {
 		t.Fatalf("provision mini-program interface database failed: %v", dbPrepErr)
 	}
 	for _, table := range tables {
-		if _, err := g.DB().Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s RESTART IDENTITY CASCADE", table)); err != nil {
+		if _, err := g.DB().Exec(ctx, fmt.Sprintf(
+			"DO $$ BEGIN IF to_regclass('%s') IS NOT NULL THEN EXECUTE 'TRUNCATE TABLE %s RESTART IDENTITY CASCADE'; END IF; END $$", table, table,
+		)); err != nil {
 			t.Fatalf("truncate %s failed: %v", table, err)
 		}
 	}
@@ -344,7 +347,7 @@ func TestActivationConsumesPhotoOnlyOnSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upload success photo failed: %v", err)
 	}
-	activationSvc := activationsvc.New(nil, activationsvc.NewBasicPosterRenderer(), nil, photoSvc, activationsvc.Config{LBSThresholdMeters: 50})
+	activationSvc := activationsvc.New(nil, nil, photoSvc, activationsvc.Config{LBSThresholdMeters: 50})
 	if _, err = activationSvc.Activate(ctx, owner, &activationsvc.ActivateInput{RequestID: "activation-success", Lat: 30.7058, Lng: 103.8318, PhotoPath: successPhoto.Token}); err != nil {
 		t.Fatalf("activation with owned photo failed: %v", err)
 	}

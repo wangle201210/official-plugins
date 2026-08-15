@@ -18,8 +18,8 @@ type PosterRes struct {
 	Nickname     string `json:"nickname" dc:"Player nickname" eg:"川农牛同学"`
 	IdentityType string `json:"identityType" dc:"Raw identity type for the frontend to map to a label: student=在校生, alumni=校友, friend=川农好友; empty when unset" eg:"student"`
 	NiuCode      string `json:"niuCode" dc:"Activated cattle serial code" eg:"NIU-001"`
+	NiuName      string `json:"niuName" dc:"Activated cattle display name; empty for unnamed common cattle" eg:"勤学牛"`
 	OrderNo      int    `json:"orderNo" dc:"The player's arrival order for this cattle, starting at 1" eg:"1"`
 	Quote        string `json:"quote" dc:"A random enabled school-history quote; empty when no enabled quote exists" eg:"任重道远，砥砺前行"`
 	CampusBadge  string `json:"campusBadge" dc:"Campus anniversary badge text from plugin config; empty when unset" eg:"川农120周年校庆"`
-	ImageBase64  string `json:"imageBase64" dc:"Rendered personalized poster PNG, base64-encoded, for the mini-program to display and share" eg:"iVBORw0KGgoAAAANS..."`
 }

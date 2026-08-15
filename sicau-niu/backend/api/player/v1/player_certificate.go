@@ -15,9 +15,9 @@ type CertificateReq struct {
 
 // CertificateRes is the response for the player electronic certificate.
 type CertificateRes struct {
-	ImageBase64 string `json:"imageBase64" dc:"Base64-encoded certificate PNG" eg:"iVBORw0KGgoAAAANS..."`
 	Nickname    string `json:"nickname" dc:"Holder nickname; empty when unset" eg:"川农牛仔"`
 	HonorName   string `json:"honorName" dc:"Certificate honor display name" eg:"川农120图鉴收藏证书"`
 	HonorCode   string `json:"honorCode" dc:"Certificate honor unique code" eg:"cert_full_complete"`
+	CampusBadge string `json:"campusBadge" dc:"Campus anniversary badge text; empty when unset" eg:"四川农业大学 120 周年"`
 	UnlockedAt  *int64 `json:"unlockedAt" dc:"Grant time as Unix milliseconds; null when unset" eg:"1717488000000"`
 }

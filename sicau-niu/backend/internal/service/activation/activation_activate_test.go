@@ -27,7 +27,6 @@ import (
 func newActivationServiceForTest() *serviceImpl {
 	return &serviceImpl{
 		identitySvc:    &fakeIdentityService{},
-		posterRenderer: NewBasicPosterRenderer(),
 		lbsThreshold:   50,
 		campusBadge:    "TEST-BADGE",
 	}

@@ -20,7 +20,6 @@ package honor
 import (
 	"context"
 
-	"lina-plugin-sicau-niu/backend/internal/service/honor/internal/certrender"
 	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
 )
 
@@ -57,22 +56,12 @@ type Service interface {
 	// certificate honor the requesting player already holds. It rejects when the
 	// honor is missing, is not a certificate type, or the player does not hold it,
 	// so a player can only obtain their own granted certificate. It returns the
-	// base64-encoded PNG together with the structured certificate fields.
+	// structured certificate fields the mini-program draws on canvas.
 	PlayerCertificate(ctx context.Context, playerID, honorID int64) (out *Certificate, err error)
 }
 
 // Interface compliance assertion for the default honor service implementation.
 var _ Service = (*serviceImpl)(nil)
-
-// CertRenderer is the electronic-certificate PNG output seam re-exported from this
-// package so the route-assembly layer can construct the default renderer and inject
-// it without importing the internal seam package.
-type CertRenderer = certrender.CertRenderer
-
-// NewBasicCertRenderer creates the default basic electronic-certificate renderer.
-func NewBasicCertRenderer() CertRenderer {
-	return certrender.New()
-}
 
 // Config carries the plain-value runtime configuration for the honor capability:
 // only the campus anniversary badge text composed onto generated certificates.
@@ -85,11 +74,11 @@ type Config struct {
 // activation, card and user_honor tables. It reads those tables through the
 // generated DAO and reuses the card package's exported category-enum validator for
 // the category-complete rule; its only runtime dependencies are the replaceable
-// certificate renderer and the plain-value campus badge injected at assembly time.
+// only runtime dependencies are the runtime rule service and the plain-value campus
+// badge injected at assembly time.
 type serviceImpl struct {
-	certRenderer CertRenderer     // certRenderer is the replaceable certificate PNG output seam.
-	rulesSvc     rulessvc.Service // rulesSvc supplies current certificate badge text when injected.
-	campusBadge  string           // campusBadge is the anniversary badge text rendered on certificates.
+	rulesSvc    rulessvc.Service // rulesSvc supplies current certificate badge text when injected.
+	campusBadge string           // campusBadge is the anniversary badge text rendered on certificates.
 }
 
 // New creates a honor service with the certificate renderer, optional
@@ -97,10 +86,9 @@ type serviceImpl struct {
 // component reads the plugin's own honor_def, feeding, activation, card and
 // user_honor tables through the generated DAO and reuses the card package's
 // exported category-enum contract.
-func New(certRenderer CertRenderer, rulesSvc rulessvc.Service, config Config) Service {
+func New(rulesSvc rulessvc.Service, config Config) Service {
 	return &serviceImpl{
-		certRenderer: certRenderer,
-		rulesSvc:     rulesSvc,
-		campusBadge:  config.CampusBadge,
+		rulesSvc:    rulesSvc,
+		campusBadge: config.CampusBadge,
 	}
 }

@@ -37,12 +37,12 @@ func grantHonor(t *testing.T, ctx context.Context, userID, honorID int64) {
 	}
 }
 
-// TestPlayerCertificateRendersForHolder verifies a holder receives a non-empty PNG
-// and that two distinct holders receive distinct certificates.
-func TestPlayerCertificateRendersForHolder(t *testing.T) {
+// TestPlayerCertificateReturnsHolderFields verifies each holder receives their own
+// certificate fields, including the campus badge the mini-program draws on canvas.
+func TestPlayerCertificateReturnsHolderFields(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
-	svc := New(NewBasicCertRenderer(), nil, Config{CampusBadge: "川农120周年"})
+	svc := New(nil, Config{CampusBadge: "川农120周年"})
 
 	cert := seedCertificateHonor(t, ctx, "cert-a")
 	userA := insertUserRow(t, ctx, "证书同学A")
@@ -54,19 +54,19 @@ func TestPlayerCertificateRendersForHolder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PlayerCertificate(A) error: %v", err)
 	}
-	if certA.ImageBase64 == "" {
-		t.Fatalf("certificate image is empty")
-	}
 	if certA.HonorName != "川农120纪念证书" || certA.Nickname != "证书同学A" {
 		t.Fatalf("unexpected certificate fields: name=%q nickname=%q", certA.HonorName, certA.Nickname)
+	}
+	if certA.CampusBadge != "川农120周年" {
+		t.Fatalf("expected the configured campus badge, got %q", certA.CampusBadge)
 	}
 
 	certB, err := svc.PlayerCertificate(ctx, userB, cert)
 	if err != nil {
 		t.Fatalf("PlayerCertificate(B) error: %v", err)
 	}
-	if certA.ImageBase64 == certB.ImageBase64 {
-		t.Fatalf("distinct holders produced identical certificates")
+	if certB.Nickname != "证书同学B" || certB.HonorCode != certA.HonorCode {
+		t.Fatalf("expected per-holder fields on the same honor, got nickname=%q code=%q", certB.Nickname, certB.HonorCode)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestPlayerCertificateRendersForHolder(t *testing.T) {
 func TestPlayerCertificateRejectsNotOwned(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
-	svc := New(NewBasicCertRenderer(), nil, Config{})
+	svc := New(nil, Config{})
 
 	cert := seedCertificateHonor(t, ctx, "cert-b")
 	user := insertUserRow(t, ctx, "未获证书的玩家")
@@ -89,7 +89,7 @@ func TestPlayerCertificateRejectsNotOwned(t *testing.T) {
 func TestPlayerCertificateRejectsNonCertificate(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLHonorDB(t, ctx)
-	svc := New(NewBasicCertRenderer(), nil, Config{})
+	svc := New(nil, Config{})
 
 	badgeID, err := dao.HonorDef.Ctx(ctx).Data(do.HonorDef{
 		HonorType:  string(HonorTypeBadge),

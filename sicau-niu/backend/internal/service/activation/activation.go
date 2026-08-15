@@ -18,7 +18,6 @@ import (
 	"context"
 	"time"
 
-	"lina-plugin-sicau-niu/backend/internal/service/activation/internal/posterrender"
 	activationphotosvc "lina-plugin-sicau-niu/backend/internal/service/activationphoto"
 	identitysvc "lina-plugin-sicau-niu/backend/internal/service/identity"
 	rulessvc "lina-plugin-sicau-niu/backend/internal/service/rules"
@@ -83,25 +82,12 @@ var _ Service = (*serviceImpl)(nil)
 // and quote tables. Its runtime dependencies are injected explicitly as separate
 // parameters so dependency changes surface at compile time.
 type serviceImpl struct {
-	identitySvc    identitysvc.Service         // identitySvc supplies the poster nickname and identity type.
-	posterRenderer posterrender.PosterRenderer // posterRenderer is the replaceable PNG output seam.
-	rulesSvc       rulessvc.Service            // rulesSvc supplies operator-maintained runtime thresholds and badge text.
-	photoSvc       activationphotosvc.Service  // photoSvc validates and consumes player-owned activation evidence.
-	lbsThreshold   float64                     // lbsThreshold is the LBS activation distance threshold in meters.
-	campusBadge    string                      // campusBadge is the poster campus anniversary badge text.
-	now            func() time.Time            // now supplies the authoritative time after player locking.
-}
-
-// PosterRenderer is the activation-poster PNG output seam re-exported from this
-// package so the route-assembly layer can construct the default renderer and
-// inject it without reaching across the package-internal boundary.
-type PosterRenderer = posterrender.PosterRenderer
-
-// NewBasicPosterRenderer creates the default basic activation-poster renderer.
-// The route-assembly layer constructs it once and injects it into New so the PNG
-// output implementation can be replaced behind the stable seam.
-func NewBasicPosterRenderer() PosterRenderer {
-	return posterrender.New()
+	identitySvc  identitysvc.Service        // identitySvc supplies the poster nickname and identity type.
+	rulesSvc     rulessvc.Service           // rulesSvc supplies operator-maintained runtime thresholds and badge text.
+	photoSvc     activationphotosvc.Service // photoSvc validates and consumes player-owned activation evidence.
+	lbsThreshold float64                    // lbsThreshold is the LBS activation distance threshold in meters.
+	campusBadge  string                     // campusBadge is the poster campus anniversary badge text.
+	now          func() time.Time           // now supplies the authoritative time after player locking.
 }
 
 // New creates an activation service with explicit dependencies: the identity
@@ -109,15 +95,14 @@ func NewBasicPosterRenderer() PosterRenderer {
 // output, the optional runtime-rule service used for operator-maintained
 // thresholds and badge text, and the fallback plain-value activation
 // configuration.
-func New(identitySvc identitysvc.Service, posterRenderer PosterRenderer, rulesSvc rulessvc.Service, photoSvc activationphotosvc.Service, config Config) Service {
+func New(identitySvc identitysvc.Service, rulesSvc rulessvc.Service, photoSvc activationphotosvc.Service, config Config) Service {
 	return &serviceImpl{
-		identitySvc:    identitySvc,
-		posterRenderer: posterRenderer,
-		rulesSvc:       rulesSvc,
-		photoSvc:       photoSvc,
-		lbsThreshold:   config.LBSThresholdMeters,
-		campusBadge:    config.CampusBadge,
-		now:            time.Now,
+		identitySvc:  identitySvc,
+		rulesSvc:     rulesSvc,
+		photoSvc:     photoSvc,
+		lbsThreshold: config.LBSThresholdMeters,
+		campusBadge:  config.CampusBadge,
+		now:          time.Now,
 	}
 }
 

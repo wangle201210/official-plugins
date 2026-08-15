@@ -10,35 +10,33 @@ package honor
 
 import (
 	"context"
-	"encoding/base64"
 
 	"lina-core/pkg/apitime"
 	"lina-core/pkg/bizerr"
 	"lina-plugin-sicau-niu/backend/internal/dao"
 	entitymodel "lina-plugin-sicau-niu/backend/internal/model/entity"
-	"lina-plugin-sicau-niu/backend/internal/service/honor/internal/certrender"
 )
 
 // certificateHonorType is the persisted honor-type string selecting certificate
 // honors, reusing the package's stable enum constant.
 const certificateHonorType = string(HonorTypeCertificate)
 
-// Certificate is the player electronic-certificate result: the rendered image and
-// the structured fields.
+// Certificate is the player electronic-certificate result: the structured fields
+// the mini-program draws on canvas.
 type Certificate struct {
-	// ImageBase64 is the base64-encoded certificate PNG.
-	ImageBase64 string
 	// Nickname is the holder nickname.
 	Nickname string
 	// HonorName is the certificate honor display name.
 	HonorName string
 	// HonorCode is the certificate honor unique code.
 	HonorCode string
+	// CampusBadge is the campus anniversary badge text; empty when unset.
+	CampusBadge string
 	// UnlockedAt is the grant time as Unix milliseconds; nil when unset.
 	UnlockedAt *int64
 }
 
-// PlayerCertificate renders the personalized certificate the player holds.
+// PlayerCertificate returns the certificate fields for a certificate the player holds.
 func (s *serviceImpl) PlayerCertificate(ctx context.Context, playerID, honorID int64) (*Certificate, error) {
 	if honorID <= 0 {
 		return nil, bizerr.NewCode(CodeHonorIDRequired)
@@ -79,18 +77,8 @@ func (s *serviceImpl) PlayerCertificate(ctx context.Context, playerID, honorID i
 		return nil, err
 	}
 
-	image, err := s.certRenderer.Render(ctx, &certrender.CertData{
-		Nickname:    nickname,
-		HonorName:   honor.Name,
-		HonorCode:   honor.Code,
-		CampusBadge: campusBadge,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	return &Certificate{
-		ImageBase64: base64.StdEncoding.EncodeToString(image),
+		CampusBadge: campusBadge,
 		Nickname:    nickname,
 		HonorName:   honor.Name,
 		HonorCode:   honor.Code,

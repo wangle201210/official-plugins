@@ -293,7 +293,6 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	ironTransportService := irontransportsvc.New(irontransportsvc.Config{})
 	activationService := activationsvc.New(
 		identityService,
-		activationsvc.NewBasicPosterRenderer(),
 		rulesService,
 		photoService,
 		activationConfig,
@@ -303,7 +302,6 @@ func registerRoutes(ctx context.Context, registrar pluginhost.HTTPRegistrar) err
 	grassSocialService := grasssocialsvc.New(grassService, rulesService, grassSocialConfig)
 	rankingService := rankingsvc.New(rulesService, rankingConfig)
 	honorService := honorsvc.New(
-		honorsvc.NewBasicCertRenderer(),
 		rulesService,
 		honorsvc.Config{CampusBadge: activationConfig.CampusBadge},
 	)

@@ -21,10 +21,10 @@ func (c *ControllerV1) Certificate(ctx context.Context, req *v1.CertificateReq) 
 		return nil, err
 	}
 	return &v1.CertificateRes{
-		ImageBase64: certificate.ImageBase64,
 		Nickname:    certificate.Nickname,
 		HonorName:   certificate.HonorName,
 		HonorCode:   certificate.HonorCode,
+		CampusBadge: certificate.CampusBadge,
 		UnlockedAt:  certificate.UnlockedAt,
 	}, nil
 }
