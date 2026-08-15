@@ -12,18 +12,20 @@ type GetProfileReq struct {
 
 // GetProfileRes is the response for reading the current player's profile.
 type GetProfileRes struct {
-	PlayerId       int64  `json:"playerId" dc:"Player ID" eg:"1"`
-	Phone          string `json:"phone" dc:"Bound phone number; empty when not yet bound" eg:"13800138000"`
-	Nickname       string `json:"nickname" dc:"Player nickname" eg:"川农牛同学"`
-	Avatar         string `json:"avatar" dc:"Player avatar URL" eg:"https://example.com/a.png"`
-	IdentityType   string `json:"identityType" dc:"Identity tag: student=在校生, alumni=校友, friend=川农好友; empty when not yet set" eg:"student"`
-	CollegeId      int64  `json:"collegeId" dc:"Selected college ID; 0 means none" eg:"3"`
-	Grade          int    `json:"grade" dc:"Grade number filled by students; 0 means unset" eg:"2024"`
-	GraduationYear int    `json:"graduationYear" dc:"Graduation year filled by alumni; 0 means unset" eg:"2018"`
-	Level          int    `json:"level" dc:"Player level derived from cumulative effective feeding" eg:"3"`
-	Exp            int64  `json:"exp" dc:"Cumulative effective feeding experience" eg:"245"`
-	CreatedAt      *int64 `json:"createdAt" dc:"Account creation time as Unix timestamp in milliseconds" eg:"1776333600000"`
-	UpdatedAt      *int64 `json:"updatedAt" dc:"Profile update time as Unix timestamp in milliseconds" eg:"1776333900000"`
+	PlayerId        int64  `json:"playerId" dc:"Player ID" eg:"1"`
+	Phone           string `json:"phone" dc:"Bound phone number; empty when not yet bound" eg:"13800138000"`
+	Nickname        string `json:"nickname" dc:"Player nickname" eg:"川农牛同学"`
+	Avatar          string `json:"avatar" dc:"Player avatar URL" eg:"https://example.com/a.png"`
+	IdentityType    string `json:"identityType" dc:"Identity tag: student=在校生, alumni=校友, friend=川农好友; empty when not yet set" eg:"student"`
+	CollegeId       int64  `json:"collegeId" dc:"Selected college ID; 0 means none" eg:"3"`
+	Grade           int    `json:"grade" dc:"Grade number filled by students; 0 means unset" eg:"2024"`
+	GraduationYear  int    `json:"graduationYear" dc:"Graduation year filled by alumni; 0 means unset" eg:"2018"`
+	Level           int    `json:"level" dc:"Player level derived from cumulative effective feeding" eg:"3"`
+	Exp             int64  `json:"exp" dc:"Cumulative effective feeding experience" eg:"245"`
+	ExpIntoLevel    int64  `json:"expIntoLevel" dc:"Experience already earned inside the current level" eg:"45"`
+	ExpForNextLevel int64  `json:"expForNextLevel" dc:"Experience the current level needs in total to advance" eg:"200"`
+	CreatedAt       *int64 `json:"createdAt" dc:"Account creation time as Unix timestamp in milliseconds" eg:"1776333600000"`
+	UpdatedAt       *int64 `json:"updatedAt" dc:"Profile update time as Unix timestamp in milliseconds" eg:"1776333900000"`
 }
 
 // UpdateProfileReq is the request for updating the current player's profile.

@@ -23,17 +23,19 @@ func (c *ControllerV1) GetProfile(ctx context.Context, req *v1.GetProfileReq) (r
 		return nil, err
 	}
 	return &v1.GetProfileRes{
-		PlayerId:       out.Id,
-		Phone:          out.Phone,
-		Nickname:       out.Nickname,
-		Avatar:         out.Avatar,
-		IdentityType:   out.IdentityType,
-		CollegeId:      out.CollegeId,
-		Grade:          out.Grade,
-		GraduationYear: out.GraduationYear,
-		Level:          progress.Level,
-		Exp:            progress.Exp,
-		CreatedAt:      out.CreatedAt,
-		UpdatedAt:      out.UpdatedAt,
+		PlayerId:        out.Id,
+		Phone:           out.Phone,
+		Nickname:        out.Nickname,
+		Avatar:          out.Avatar,
+		IdentityType:    out.IdentityType,
+		CollegeId:       out.CollegeId,
+		Grade:           out.Grade,
+		GraduationYear:  out.GraduationYear,
+		Level:           progress.Level,
+		ExpIntoLevel:    progress.ExpIntoLevel,
+		ExpForNextLevel: progress.ExpForNextLevel,
+		Exp:             progress.Exp,
+		CreatedAt:       out.CreatedAt,
+		UpdatedAt:       out.UpdatedAt,
 	}, nil
 }

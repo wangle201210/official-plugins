@@ -28,10 +28,15 @@ const recentTxnLimit = 20
 type AccountView struct {
 	// Balance is the player's current grass balance.
 	Balance int64
-	// Level is one plus each completed 100 effective feeding points.
+	// Level is the player level derived from Exp by the arithmetic level curve.
 	Level int
 	// Exp is cumulative effective feeding experience.
 	Exp int64
+	// ExpIntoLevel is the experience already earned inside the current level.
+	ExpIntoLevel int64
+	// ExpForNextLevel is the experience the current level needs in total to
+	// advance. It is zero only when the level curve has no further step.
+	ExpForNextLevel int64
 	// CheckedToday reports whether today's Beijing-time check-in exists.
 	CheckedToday bool
 	// Recent holds the most recent ledger transactions, newest first.
@@ -40,9 +45,11 @@ type AccountView struct {
 
 // ProgressView contains the shared profile and grass-account progress fields.
 type ProgressView struct {
-	Level        int
-	Exp          int64
-	CheckedToday bool
+	Level           int
+	Exp             int64
+	ExpIntoLevel    int64
+	ExpForNextLevel int64
+	CheckedToday    bool
 }
 
 // TxnView is one ledger transaction projected for the player account view.
@@ -93,7 +100,15 @@ func (s *serviceImpl) Account(ctx context.Context, playerID int64) (*AccountView
 	if err != nil {
 		return nil, err
 	}
-	return &AccountView{Balance: balance, Level: progress.Level, Exp: progress.Exp, CheckedToday: progress.CheckedToday, Recent: recent}, nil
+	return &AccountView{
+		Balance:         balance,
+		Level:           progress.Level,
+		Exp:             progress.Exp,
+		ExpIntoLevel:    progress.ExpIntoLevel,
+		ExpForNextLevel: progress.ExpForNextLevel,
+		CheckedToday:    progress.CheckedToday,
+		Recent:          recent,
+	}, nil
 }
 
 // Progress computes level and check-in state with two fixed aggregate queries.
@@ -110,7 +125,44 @@ func (s *serviceImpl) Progress(ctx context.Context, playerID int64) (*ProgressVi
 	if err != nil {
 		return nil, bizerr.WrapCode(err, CodeQueryFailed)
 	}
-	return &ProgressView{Level: 1 + int(exp/100), Exp: exp, CheckedToday: checked > 0}, nil
+	level, intoLevel, forNextLevel := levelProgress(exp)
+	return &ProgressView{
+		Level:           level,
+		Exp:             exp,
+		ExpIntoLevel:    intoLevel,
+		ExpForNextLevel: forNextLevel,
+		CheckedToday:    checked > 0,
+	}, nil
+}
+
+// levelStep is the experience the first level-up costs. Each following level costs
+// one more step than the previous one, so level L costs levelStep*(L-1) and the
+// total needed to reach level L is levelStep*(L-1)*L/2.
+//
+// The curve is arithmetic rather than doubling on purpose: a player's experience
+// income is capped by the daily check-in and steal quotas and therefore does not
+// grow with level, so a geometric curve would stall progression within the
+// campaign window while an arithmetic one keeps every level reachable.
+const levelStep = 100
+
+// levelProgress maps cumulative experience onto the level curve. It returns the
+// current level (starting at 1), the experience earned inside that level, and the
+// experience the level needs in total to advance.
+func levelProgress(exp int64) (level int, intoLevel int64, forNextLevel int64) {
+	if exp < 0 {
+		exp = 0
+	}
+	level = 1
+	// expToReach(level+1) - expToReach(level) == levelStep*level, so walking the
+	// curve costs O(sqrt(exp)) steps and stays exact in integer arithmetic.
+	for {
+		next := int64(level) * levelStep
+		if exp < next {
+			return level, exp, next
+		}
+		exp -= next
+		level++
+	}
 }
 
 // readBalance returns the player's current balance, reading only the balance

@@ -26,5 +26,13 @@ func (c *ControllerV1) GrassAccount(ctx context.Context, req *v1.GrassAccountReq
 			CreatedAt: txn.CreatedAt,
 		})
 	}
-	return &v1.GrassAccountRes{Balance: out.Balance, Level: out.Level, Exp: out.Exp, CheckedToday: out.CheckedToday, Recent: recent}, nil
+	return &v1.GrassAccountRes{
+		Balance:         out.Balance,
+		Level:           out.Level,
+		Exp:             out.Exp,
+		ExpIntoLevel:    out.ExpIntoLevel,
+		ExpForNextLevel: out.ExpForNextLevel,
+		CheckedToday:    out.CheckedToday,
+		Recent:          recent,
+	}, nil
 }
