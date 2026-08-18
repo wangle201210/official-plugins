@@ -41,6 +41,7 @@ import (
 // rankingTables lists the plugin tables truncated before each DB-gated test.
 var rankingTables = []string{
 	"plugin_sicau_niu_feeding",
+	"plugin_sicau_niu_niu",
 	"plugin_sicau_niu_user",
 	"plugin_sicau_niu_college",
 }
@@ -92,12 +93,31 @@ func insertCollegeRow(t *testing.T, ctx context.Context, name string) int64 {
 	return id
 }
 
-// insertFeedingRow inserts one feeding record with the given effect for a player.
+// insertNiuRow inserts one cattle catalog row and returns its ID.
+func insertNiuRow(t *testing.T, ctx context.Context, code, name string) int64 {
+	t.Helper()
+	id, err := dao.Niu.Ctx(ctx).Data(do.Niu{
+		Code: code,
+		Name: name,
+	}).InsertAndGetId()
+	if err != nil {
+		t.Fatalf("insert cattle row failed: %v", err)
+	}
+	return id
+}
+
+// insertFeedingRow inserts one feeding record for the default cattle fixture.
 func insertFeedingRow(t *testing.T, ctx context.Context, userID int64, effect int) {
+	t.Helper()
+	insertFeedingForNiuRow(t, ctx, userID, 1, effect)
+}
+
+// insertFeedingForNiuRow inserts one feeding record for a specific cattle row.
+func insertFeedingForNiuRow(t *testing.T, ctx context.Context, userID, niuID int64, effect int) {
 	t.Helper()
 	_, err := dao.Feeding.Ctx(ctx).Data(do.Feeding{
 		UserId:           userID,
-		NiuId:            1,
+		NiuId:            niuID,
 		BaseAmount:       effect,
 		CoefficientBasis: 100,
 		EffectAmount:     effect,

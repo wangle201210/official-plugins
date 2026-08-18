@@ -1,10 +1,9 @@
 // Package ranking implements the sicau-niu C5 leaderboard capability: the
-// personal feeding board, the college board and the SICAU-friend board. All three
-// boards are aggregated views derived from the C4 feeding effect (no authoritative
-// ranking table). The personal board ranks individual players by their total
-// feeding effect; the college board ranks colleges by the total feeding effect of
-// their enrolled students; the SICAU-friend board ranks SICAU-friend players by
-// their personal total feeding effect. Each board is computed entirely on the
+// player-and-cattle feeding board, the college board and the SICAU-friend board.
+// All boards are aggregated views derived from the C4 feeding effect (no
+// authoritative ranking table). The feeding board ranks both individual players
+// and cattle; the college board ranks colleges by enrolled-student contribution;
+// the SICAU-friend board ranks eligible players. Each board is computed entirely on the
 // database side with a Top-N cap, so the data assembly never loads the full set
 // into memory. The personal and friend boards additionally compute the requesting
 // player's own rank without scanning the whole board: the player's own total is
@@ -30,15 +29,14 @@ type Config struct {
 	TopN int
 }
 
-// Service defines the C5 leaderboard contract: the personal feeding board, the
-// college board and the SICAU-friend board.
+// Service defines the C5 leaderboard contract: the player-and-cattle feeding
+// board, the college board and the SICAU-friend board.
 type Service interface {
-	// FeedBoard returns the personal feeding leaderboard: the Top-N players ranked
-	// by their total feeding effect descending, plus the requesting player's own
-	// rank and total. Aggregation runs on the database side with a Top-N cap and
-	// the nicknames of the listed players are batch-assembled in one query to
-	// avoid N+1. The self rank is 0 when the player has no feeding record. It
-	// returns a query bizerr on store failure.
+	// FeedBoard returns Top-N player and cattle feeding leaderboards, plus the
+	// requesting player's own rank and total. Both aggregations run on the
+	// database side with a Top-N cap; player and cattle display fields are
+	// batch-assembled without N+1 queries. The self rank is 0 when the player has
+	// no feeding record. It returns a query bizerr on store failure.
 	FeedBoard(ctx context.Context, playerID int64) (out *FeedBoard, err error)
 	// CollegeBoard returns the college leaderboard: the Top-N colleges ranked by
 	// the total feeding effect of their enrolled students descending. Enrolled

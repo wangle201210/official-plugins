@@ -22,6 +22,8 @@ type FeedBoard struct {
 	List []*PlayerRank
 	// Self is the requesting player's own rank and total.
 	Self *SelfRank
+	// NiuList is the Top-N cattle ordered by accumulated feeding effect.
+	NiuList []*NiuRank
 }
 
 // PlayerRank is one ranked player on a personal board.
@@ -52,7 +54,11 @@ type userTotalRow struct {
 
 // FeedBoard returns the Top-N personal feeding board and the player's own rank.
 func (s *serviceImpl) FeedBoard(ctx context.Context, playerID int64) (*FeedBoard, error) {
-	rows, err := s.topUserTotals(ctx)
+	topN, err := s.currentTopN(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.topUserTotals(ctx, topN)
 	if err != nil {
 		return nil, err
 	}
@@ -64,19 +70,19 @@ func (s *serviceImpl) FeedBoard(ctx context.Context, playerID int64) (*FeedBoard
 	if err != nil {
 		return nil, err
 	}
-	return &FeedBoard{List: list, Self: self}, nil
+	niuList, err := s.topNiuRanks(ctx, topN)
+	if err != nil {
+		return nil, err
+	}
+	return &FeedBoard{List: list, Self: self, NiuList: niuList}, nil
 }
 
 // topUserTotals aggregates all-player Top-N totals on the database side. The
 // returned rows are ordered by total descending and capped at the configured
 // Top-N.
-func (s *serviceImpl) topUserTotals(ctx context.Context) ([]*userTotalRow, error) {
-	topN, err := s.currentTopN(ctx)
-	if err != nil {
-		return nil, err
-	}
+func (s *serviceImpl) topUserTotals(ctx context.Context, topN int) ([]*userTotalRow, error) {
 	rows := make([]*userTotalRow, 0, topN)
-	err = dao.Feeding.Ctx(ctx).
+	err := dao.Feeding.Ctx(ctx).
 		Fields(dao.Feeding.Columns().UserId, "SUM("+dao.Feeding.Columns().EffectAmount+") AS total").
 		Group(dao.Feeding.Columns().UserId).
 		Order("total DESC").

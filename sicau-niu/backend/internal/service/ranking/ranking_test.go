@@ -126,6 +126,41 @@ func TestFeedBoardUsesCompetitionRanksForTies(t *testing.T) {
 	}
 }
 
+// TestFeedBoardAggregatesCattleCompetitionRanks verifies the feeding response
+// includes a cattle Top-N aggregated by cattle ID, uses competition ranks and
+// batch-assembles cattle labels in deterministic ID order for ties.
+func TestFeedBoardAggregatesCattleCompetitionRanks(t *testing.T) {
+	ctx := context.Background()
+	setupPostgreSQLRankingDB(t, ctx)
+
+	svc := New(nil, Config{TopN: 3})
+	player := insertUserRow(t, ctx, "喂牛玩家", studentIdentity, 0)
+	first := insertNiuRow(t, ctx, "NIU-RANK-1", "第一牛")
+	second := insertNiuRow(t, ctx, "NIU-RANK-2", "并列牛")
+	third := insertNiuRow(t, ctx, "NIU-RANK-3", "第三牛")
+	insertFeedingForNiuRow(t, ctx, player, first, 60)
+	insertFeedingForNiuRow(t, ctx, player, first, 40)
+	insertFeedingForNiuRow(t, ctx, player, second, 100)
+	insertFeedingForNiuRow(t, ctx, player, third, 50)
+
+	board, err := svc.FeedBoard(ctx, player)
+	if err != nil {
+		t.Fatalf("FeedBoard failed: %v", err)
+	}
+	if len(board.NiuList) != 3 {
+		t.Fatalf("expected three cattle rows, got %d", len(board.NiuList))
+	}
+	if board.NiuList[0].NiuId != first || board.NiuList[1].NiuId != second {
+		t.Fatalf("expected tied cattle ordered by ID, got %+v", board.NiuList)
+	}
+	if board.NiuList[0].Rank != 1 || board.NiuList[1].Rank != 1 || board.NiuList[2].Rank != 3 {
+		t.Fatalf("expected cattle ranks 1,1,3, got %d,%d,%d", board.NiuList[0].Rank, board.NiuList[1].Rank, board.NiuList[2].Rank)
+	}
+	if board.NiuList[0].NiuCode != "NIU-RANK-1" || board.NiuList[0].NiuName != "第一牛" || board.NiuList[0].Total != 100 {
+		t.Fatalf("expected assembled first cattle total 100, got %+v", board.NiuList[0])
+	}
+}
+
 // TestCollegeBoardAggregatesEnrolledStudents verifies the college board sums the
 // feeding effect of enrolled students per college, ignores non-students and
 // students without a college, and ranks colleges descending.

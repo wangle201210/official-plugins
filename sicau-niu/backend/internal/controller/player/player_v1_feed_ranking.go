@@ -21,8 +21,9 @@ func (c *ControllerV1) FeedRanking(ctx context.Context, req *v1.FeedRankingReq) 
 		return nil, err
 	}
 	return &v1.FeedRankingRes{
-		List: toFeedRankItems(board.List),
-		Self: toSelfRank(board.Self),
+		List:    toFeedRankItems(board.List),
+		Self:    toSelfRank(board.Self),
+		NiuList: toNiuRankItems(board.NiuList),
 	}, nil
 }
 
@@ -35,6 +36,17 @@ func toFeedRankItems(rows []*rankingsvc.PlayerRank) []*v1.FeedRankItem {
 			UserId:   row.UserId,
 			Nickname: row.Nickname,
 			Total:    row.Total,
+		})
+	}
+	return items
+}
+
+// toNiuRankItems projects cattle leaderboard rows to response DTOs.
+func toNiuRankItems(rows []*rankingsvc.NiuRank) []*v1.NiuRankItem {
+	items := make([]*v1.NiuRankItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, &v1.NiuRankItem{
+			Rank: row.Rank, NiuId: row.NiuId, NiuCode: row.NiuCode, NiuName: row.NiuName, Total: row.Total,
 		})
 	}
 	return items
