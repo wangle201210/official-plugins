@@ -669,8 +669,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/deckarep/golang-set v1.7.1 h1:SCQV0S6gTtp6itiFrTqI+pfmJ4LN85S1YzhDf9rTHJQ=
 github.com/deckarep/golang-set v1.7.1/go.mod h1:93vsz/8Wt4joVM7c2AVqh+YRMiUSc14yDtF28KmMOgQ=
-github.com/dellinger2023/net-flux v0.0.8-0.20260718061636-316ef59c9e05 h1:904mDZ/C20wyVPNFI7KMoUxYLAX8mm2iBdetv9Yrswg=
-github.com/dellinger2023/net-flux v0.0.8-0.20260718061636-316ef59c9e05/go.mod h1:/M0h701r6HDYdP5KRGeE0lKOOfn3MlDUiG5jcNqAvuU=
+github.com/dellinger2023/net-flux v0.0.18 h1:NKo6gHRH7prBTFhgEn0PckHlPSBCd7vc+pDQwhS+Uos=
+github.com/dellinger2023/net-flux v0.0.18/go.mod h1:/M0h701r6HDYdP5KRGeE0lKOOfn3MlDUiG5jcNqAvuU=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=

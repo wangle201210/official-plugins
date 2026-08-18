@@ -46,6 +46,27 @@ func TestNacosInstanceParamsUsePersistentRegistration(t *testing.T) {
 	}
 }
 
+// TestNacosServerConfigNormalizesURLHost verifies plugin URL-style host values
+// are converted to the separate fields expected by the Nacos SDK.
+func TestNacosServerConfigNormalizesURLHost(t *testing.T) {
+	cfg := defaultDiscoveryConfig()
+	cfg.Host = "http://10.157.225.139/"
+
+	serverConfig, err := newNacosServerConfig(cfg)
+	if err != nil {
+		t.Fatalf("build Nacos server config: %v", err)
+	}
+	if serverConfig.Scheme != "http" {
+		t.Fatalf("expected http scheme, got %s", serverConfig.Scheme)
+	}
+	if serverConfig.IpAddr != "10.157.225.139" {
+		t.Fatalf("expected normalized Nacos host, got %s", serverConfig.IpAddr)
+	}
+	if serverConfig.Port != uint64(defaultDiscoveryPort) {
+		t.Fatalf("expected Nacos port %d, got %d", defaultDiscoveryPort, serverConfig.Port)
+	}
+}
+
 // TestNacosClientConfigAvoidsLocalStaleCache verifies lookup correctness does
 // not depend on Nacos SDK process or disk cache state.
 func TestNacosClientConfigAvoidsLocalStaleCache(t *testing.T) {
@@ -73,9 +94,16 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 	cfg.Enabled = true
 	cfg.Host = envString("LINAPRO_TEST_NACOS_HOST", defaultDiscoveryHost)
 	cfg.Port = envInt(t, "LINAPRO_TEST_NACOS_PORT", defaultDiscoveryPort)
+	cfg.Namespace = envString("LINAPRO_TEST_NACOS_NAMESPACE", cfg.Namespace)
+	cfg.Username = envString("LINAPRO_TEST_NACOS_USERNAME", cfg.Username)
+	cfg.Password = envString("LINAPRO_TEST_NACOS_PASSWORD", cfg.Password)
 	cfg.LogDir = t.TempDir()
 	cfg.CacheDir = t.TempDir()
-	baseURL := fmt.Sprintf("http://%s:%d", cfg.Host, cfg.Port)
+	serverConfig, err := newNacosServerConfig(cfg)
+	if err != nil {
+		t.Fatalf("build Nacos server config: %v", err)
+	}
+	baseURL := fmt.Sprintf("%s://%s:%d", serverConfig.Scheme, serverConfig.IpAddr, serverConfig.Port)
 
 	registerRuntime := newDiscoveryRuntime(cfg)
 	defer registerRuntime.Close()
@@ -109,7 +137,7 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 				Node:         instance.Node,
 			})
 		}
-		deleteNacosTestService(t, baseURL, instanceName, nodeGroup(instance.Node))
+		deleteNacosTestService(t, baseURL, cfg.Namespace, instanceName, nodeGroup(instance.Node))
 	}()
 
 	ack := waitForLookupAck(t, lookupRuntime, instanceName, instance.Node)
@@ -135,7 +163,7 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 	}
 	registered = false
 	waitForEmptyLookupAck(t, lookupRuntime, instanceName, instance.Node)
-	deleteNacosTestService(t, baseURL, instanceName, nodeGroup(instance.Node))
+	deleteNacosTestService(t, baseURL, cfg.Namespace, instanceName, nodeGroup(instance.Node))
 }
 
 // waitForLookupAck waits for Nacos registration propagation.
@@ -209,10 +237,11 @@ func envInt(t *testing.T, key string, fallback int) int {
 }
 
 // deleteNacosTestService removes the empty service left after deregistration.
-func deleteNacosTestService(t *testing.T, baseURL string, serviceName string, groupName string) {
+func deleteNacosTestService(t *testing.T, baseURL string, namespace string, serviceName string, groupName string) {
 	t.Helper()
 
 	values := url.Values{}
+	values.Set("namespaceId", namespace)
 	values.Set("serviceName", serviceName)
 	values.Set("groupName", groupName)
 	request, err := http.NewRequest(http.MethodDelete, baseURL+"/nacos/v1/ns/service?"+values.Encode(), nil)

@@ -3,6 +3,7 @@
 package collection
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,6 +15,12 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/model"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+)
+
+// Nacos server schemes accepted in discovery host URLs.
+const (
+	defaultNacosServerScheme = "http"
+	secureNacosServerScheme  = "https"
 )
 
 // discoveryClient is the Nacos-backed discovery adapter used by collection server.
@@ -29,19 +36,58 @@ type discoveryClientFactory func(cfg DiscoveryConfig) (discoveryClient, error)
 
 // newDiscoveryClient creates the production Nacos discovery client.
 var newDiscoveryClient discoveryClientFactory = func(cfg DiscoveryConfig) (discoveryClient, error) {
+	serverConfig, err := newNacosServerConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	nacosClient, err := clients.CreateNamingClient(map[string]interface{}{
-		"serverConfigs": []constant.ServerConfig{
-			{
-				IpAddr: cfg.Host,
-				Port:   uint64(cfg.Port),
-			},
-		},
-		"clientConfig": newNacosClientConfig(cfg),
+		"serverConfigs": []constant.ServerConfig{serverConfig},
+		"clientConfig":  newNacosClientConfig(cfg),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &nacosDiscoveryClient{client: nacosClient}, nil
+}
+
+// newNacosServerConfig accepts either a hostname or an HTTP(S) URL and maps it
+// to the separate scheme and address fields required by the Nacos SDK.
+func newNacosServerConfig(cfg DiscoveryConfig) (constant.ServerConfig, error) {
+	rawHost := strings.TrimSpace(cfg.Host)
+	serverConfig := constant.ServerConfig{
+		Scheme: defaultNacosServerScheme,
+		IpAddr: rawHost,
+		Port:   uint64(cfg.Port),
+	}
+	if !strings.Contains(rawHost, "://") {
+		if strings.ContainsAny(rawHost, "/?#") {
+			return constant.ServerConfig{}, gerror.Newf("config %s must be a hostname or HTTP(S) URL", configKeyCollectionServerDiscoveryHost)
+		}
+		return serverConfig, nil
+	}
+
+	parsed, err := url.Parse(rawHost)
+	if err != nil {
+		return constant.ServerConfig{}, gerror.Wrapf(err, "parse config %s failed", configKeyCollectionServerDiscoveryHost)
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != defaultNacosServerScheme && scheme != secureNacosServerScheme {
+		return constant.ServerConfig{}, gerror.Newf("config %s scheme must be http or https", configKeyCollectionServerDiscoveryHost)
+	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return constant.ServerConfig{}, gerror.Newf("config %s URL must not contain credentials, query, fragment, or path", configKeyCollectionServerDiscoveryHost)
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		return constant.ServerConfig{}, gerror.Newf("config %s URL hostname cannot be empty", configKeyCollectionServerDiscoveryHost)
+	}
+	if port := parsed.Port(); port != "" && port != strconv.Itoa(cfg.Port) {
+		return constant.ServerConfig{}, gerror.Newf("config %s URL port must match %s", configKeyCollectionServerDiscoveryHost, configKeyCollectionServerDiscoveryPort)
+	}
+
+	serverConfig.Scheme = scheme
+	serverConfig.IpAddr = host
+	return serverConfig, nil
 }
 
 // newNacosClientConfig builds the Nacos SDK config used by short-lived discovery clients.

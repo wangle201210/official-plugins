@@ -131,6 +131,23 @@ collectionServer:
 	}
 }
 
+// TestLoadConfigRejectsInvalidDiscoveryHostURL verifies URL hosts cannot carry
+// paths that would corrupt the Nacos SDK endpoint.
+func TestLoadConfigRejectsInvalidDiscoveryHostURL(t *testing.T) {
+	_, err := LoadConfig(context.Background(), newTestConfigService(t, `
+collectionServer:
+  discovery:
+    enabled: true
+    host: "http://127.0.0.1/nacos"
+`))
+	if err == nil {
+		t.Fatal("expected invalid discovery host URL error")
+	}
+	if !strings.Contains(err.Error(), configKeyCollectionServerDiscoveryHost) {
+		t.Fatalf("expected error to mention %s, got %v", configKeyCollectionServerDiscoveryHost, err)
+	}
+}
+
 // newTestConfigService builds a scoped plugin config reader from artifact content.
 func newTestConfigService(t *testing.T, content string) plugincap.ConfigService {
 	t.Helper()
