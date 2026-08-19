@@ -90,15 +90,7 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 		t.Skip("set LINAPRO_TEST_NACOS=1 to run against a local Nacos server")
 	}
 
-	cfg := defaultDiscoveryConfig()
-	cfg.Enabled = true
-	cfg.Host = envString("LINAPRO_TEST_NACOS_HOST", defaultDiscoveryHost)
-	cfg.Port = envInt(t, "LINAPRO_TEST_NACOS_PORT", defaultDiscoveryPort)
-	cfg.Namespace = envString("LINAPRO_TEST_NACOS_NAMESPACE", cfg.Namespace)
-	cfg.Username = envString("LINAPRO_TEST_NACOS_USERNAME", cfg.Username)
-	cfg.Password = envString("LINAPRO_TEST_NACOS_PASSWORD", cfg.Password)
-	cfg.LogDir = t.TempDir()
-	cfg.CacheDir = t.TempDir()
+	cfg := newNacosIntegrationConfig(t)
 	serverConfig, err := newNacosServerConfig(cfg)
 	if err != nil {
 		t.Fatalf("build Nacos server config: %v", err)
@@ -164,6 +156,26 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 	registered = false
 	waitForEmptyLookupAck(t, lookupRuntime, instanceName, instance.Node)
 	deleteNacosTestService(t, baseURL, cfg.Namespace, instanceName, nodeGroup(instance.Node))
+}
+
+// newNacosIntegrationConfig reads shared real-Nacos test configuration.
+func newNacosIntegrationConfig(t *testing.T) DiscoveryConfig {
+	t.Helper()
+
+	cfg := defaultDiscoveryConfig()
+	cfg.Enabled = true
+	cfg.Host = envString("LINAPRO_TEST_NACOS_HOST", defaultDiscoveryHost)
+	cfg.Port = envInt(t, "LINAPRO_TEST_NACOS_PORT", defaultDiscoveryPort)
+	cfg.Namespace = envString("LINAPRO_TEST_NACOS_NAMESPACE", cfg.Namespace)
+	cfg.Username = envString("LINAPRO_TEST_NACOS_USERNAME", cfg.Username)
+	cfg.Password = envString("LINAPRO_TEST_NACOS_PASSWORD", cfg.Password)
+	cfg.Node = envInt(t, "LINAPRO_TEST_NACOS_NODE", cfg.Node)
+	if cfg.Node <= 0 {
+		t.Fatalf("LINAPRO_TEST_NACOS_NODE must be positive, got %d", cfg.Node)
+	}
+	cfg.LogDir = t.TempDir()
+	cfg.CacheDir = t.TempDir()
+	return cfg
 }
 
 // waitForLookupAck waits for Nacos registration propagation.
