@@ -1,7 +1,7 @@
 //go:build manual_nacos
 
-// This file provides an explicitly tagged Nacos registration test that keeps
-// its persistent external state for manual inspection.
+// This file provides an explicitly tagged Nacos registration test that leaves
+// its external registration untouched by the test code.
 
 package collection
 
@@ -15,7 +15,7 @@ import (
 )
 
 // TestNacosDiscoveryClientRegisterWithoutCleanup intentionally leaves one
-// persistent Nacos instance for manual inspection. The manual_nacos build tag
+// Nacos registration for manual inspection. The manual_nacos build tag
 // excludes it from normal test suites, while LINAPRO_TEST_NACOS_KEEP=1 provides
 // a second explicit confirmation that the caller accepts the external residue.
 func TestNacosDiscoveryClientRegisterWithoutCleanup(t *testing.T) {
@@ -35,7 +35,6 @@ func TestNacosDiscoveryClientRegisterWithoutCleanup(t *testing.T) {
 	}
 
 	runtime := newDiscoveryRuntime(cfg)
-	defer runtime.Close()
 	instance := &gen.Instance{
 		InstanceId:   serviceName,
 		InstanceName: serviceName,
@@ -47,12 +46,12 @@ func TestNacosDiscoveryClientRegisterWithoutCleanup(t *testing.T) {
 		PublicPort:   int32(instancePort),
 		Node:         int32(cfg.Node),
 	}
-	if err := runtime.Register(instance); err != nil {
+	if err := runtime.Register(1, instance); err != nil {
 		t.Fatalf("register retained Nacos instance: %v", err)
 	}
 
 	t.Logf(
-		"registered retained Nacos instance namespace=%s group=%s service=%s endpoint=%s:%d",
+		"registered Nacos instance without cleanup namespace=%s group=%s service=%s endpoint=%s:%d",
 		cfg.Namespace,
 		nodeGroup(instance.Node),
 		serviceName,

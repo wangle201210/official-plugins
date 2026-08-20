@@ -45,6 +45,9 @@ func (h *eventHandler) OnConnect(conn network.TCPConn) error {
 // OnClose records closed TCP clients.
 func (h *eventHandler) OnClose(conn network.TCPConn) {
 	logger.Infof(h.context(), "media collection client closed remote=%s", conn.RemoteAddr().String())
+	if h.discovery != nil {
+		h.discovery.RemoveConnection(conn.ID())
+	}
 }
 
 // OnCmdSystem handles basic system commands such as Ping.
@@ -73,7 +76,7 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 			pkt.GetPrivateIp(),
 			pkt.GetPrivatePort(),
 		)
-		return h.discovery.Register(pkt)
+		return h.discovery.Register(conn.ID(), pkt)
 	case *gen.Deregister:
 		logger.Infof(
 			h.context(),
@@ -83,7 +86,7 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 			pkt.GetIp(),
 			pkt.GetPort(),
 		)
-		return h.discovery.Deregister(pkt)
+		return h.discovery.Deregister(conn.ID(), pkt)
 	case *gen.Lookup:
 		logger.Infof(
 			h.context(),
@@ -92,7 +95,7 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 			pkt.GetNode(),
 			pkt.GetHealthy(),
 		)
-		ack, err := h.discovery.Lookup(pkt)
+		ack, err := h.discovery.Lookup(conn.ID(), pkt)
 		if err != nil {
 			return err
 		}

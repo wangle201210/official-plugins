@@ -263,7 +263,7 @@ func (c DiscoveryConfig) validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return gerror.Newf("config %s must be between 1 and 65535 when discovery is enabled", configKeyCollectionServerDiscoveryPort)
 	}
-	if _, err := newNacosServerConfig(c); err != nil {
+	if _, err := newNacosDiscoSetting(c); err != nil {
 		return err
 	}
 	if strings.TrimSpace(c.Namespace) == "" {

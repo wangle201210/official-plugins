@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
+	"github.com/dellinger2023/net-flux/pkg/naming"
 	"github.com/dellinger2023/net-flux/pkg/network"
 	"google.golang.org/protobuf/proto"
 )
@@ -82,8 +83,9 @@ func TestEventHandlerRejectsDiscoveryWhenDisabled(t *testing.T) {
 func TestEventHandlerRegistersDiscoveryInstance(t *testing.T) {
 	client := &fakeDiscoveryClient{}
 	handler := newTestDiscoveryHandler(t, client)
+	conn := &recordingConn{}
 
-	err := handler.OnCmdDiscovery(&recordingConn{}, &gen.Instance{
+	err := handler.OnCmdDiscovery(conn, &gen.Instance{
 		InstanceName: "media-node",
 		PrivateIp:    "10.0.0.12",
 		PrivatePort:  8080,
@@ -101,8 +103,12 @@ func TestEventHandlerRegistersDiscoveryInstance(t *testing.T) {
 	if client.registered.GetNode() != 2 {
 		t.Fatalf("expected registered node 2, got %d", client.registered.GetNode())
 	}
+	if client.closed {
+		t.Fatal("expected discovery client to remain open after register")
+	}
+	handler.OnClose(conn)
 	if !client.closed {
-		t.Fatal("expected discovery client closed after register")
+		t.Fatal("expected discovery client closed after connection close")
 	}
 }
 
@@ -110,8 +116,9 @@ func TestEventHandlerRegistersDiscoveryInstance(t *testing.T) {
 func TestEventHandlerDeregistersDiscoveryInstance(t *testing.T) {
 	client := &fakeDiscoveryClient{}
 	handler := newTestDiscoveryHandler(t, client)
+	conn := &recordingConn{}
 
-	err := handler.OnCmdDiscovery(&recordingConn{}, &gen.Deregister{
+	err := handler.OnCmdDiscovery(conn, &gen.Deregister{
 		InstanceName: "media-node",
 		Ip:           "10.0.0.12",
 		Port:         8080,
@@ -142,6 +149,20 @@ func TestEventHandlerLooksUpDiscoveryInstance(t *testing.T) {
 			PrivateIp:    "10.0.0.12",
 			PrivatePort:  8080,
 			Node:         4,
+		},
+		lookupResults: []*gen.Instance{
+			{
+				InstanceName: "4@@media-node",
+				PrivateIp:    "10.0.0.12",
+				PrivatePort:  8080,
+				Node:         4,
+			},
+			{
+				InstanceName: "4@@media-node",
+				PrivateIp:    "10.0.0.13",
+				PrivatePort:  8081,
+				Node:         4,
+			},
 		},
 	}
 	handler := newTestDiscoveryHandler(t, client)
@@ -181,6 +202,9 @@ func TestEventHandlerLooksUpDiscoveryInstance(t *testing.T) {
 	if !service.GetValid() {
 		t.Fatal("expected service valid flag true")
 	}
+	if len(service.GetInstances()) != 2 {
+		t.Fatalf("expected two lookup instances, got %d", len(service.GetInstances()))
+	}
 	instance := service.GetInstances()[0]
 	if instance.GetInstanceName() != "media-node" {
 		t.Fatalf("expected clean lookup instance name media-node, got %s", instance.GetInstanceName())
@@ -189,8 +213,12 @@ func TestEventHandlerLooksUpDiscoveryInstance(t *testing.T) {
 		instance.GetPrivatePort() != client.lookupResult.GetPrivatePort() {
 		t.Fatalf("unexpected lookup instance endpoint: %#v", service.GetInstances())
 	}
+	if client.closed {
+		t.Fatal("expected discovery client to remain open after lookup")
+	}
+	handler.OnClose(conn)
 	if !client.closed {
-		t.Fatal("expected discovery client closed after lookup")
+		t.Fatal("expected discovery client closed after connection close")
 	}
 }
 
@@ -220,14 +248,19 @@ func TestEventHandlerWritesEmptyLookupAckWhenDiscoveryHasNoInstance(t *testing.T
 	if len(ack.GetServices()) != 0 {
 		t.Fatalf("expected empty services after no instance, got %#v", ack.GetServices())
 	}
+	if client.closed {
+		t.Fatal("expected discovery client to remain open after empty lookup")
+	}
+	handler.OnClose(conn)
 	if !client.closed {
-		t.Fatal("expected discovery client closed after empty lookup")
+		t.Fatal("expected discovery client closed after connection close")
 	}
 }
 
-// TestEventHandlerCreatesFreshDiscoveryClientPerLookup verifies lookups do not reuse stale Nacos caches.
-func TestEventHandlerCreatesFreshDiscoveryClientPerLookup(t *testing.T) {
-	firstClient := &fakeDiscoveryClient{
+// TestEventHandlerReusesDiscoveryClientPerConnection verifies one naming client
+// serves repeated lookups for the same TCP connection.
+func TestEventHandlerReusesDiscoveryClientPerConnection(t *testing.T) {
+	client := &fakeDiscoveryClient{
 		lookupResult: &gen.Instance{
 			InstanceName: "6@@media-node",
 			PrivateIp:    "10.0.0.12",
@@ -235,15 +268,7 @@ func TestEventHandlerCreatesFreshDiscoveryClientPerLookup(t *testing.T) {
 			Node:         6,
 		},
 	}
-	secondClient := &fakeDiscoveryClient{
-		lookupErr: errors.New("instance list is empty!"),
-	}
-	handler := newTestDiscoveryHandlerWithFactory(t, func(DiscoveryConfig) (discoveryClient, error) {
-		if !firstClient.closed {
-			return firstClient, nil
-		}
-		return secondClient, nil
-	})
+	handler := newTestDiscoveryHandler(t, client)
 
 	firstConn := &recordingConn{}
 	if err := handler.OnCmdDiscovery(firstConn, &gen.Lookup{ServiceName: "media-node", Node: 6, Healthy: true}); err != nil {
@@ -253,10 +278,12 @@ func TestEventHandlerCreatesFreshDiscoveryClientPerLookup(t *testing.T) {
 	if !ok || len(firstAck.GetServices()) != 1 {
 		t.Fatalf("expected first lookup to return one service, got %#v", firstConn.pkt)
 	}
-	if !firstClient.closed {
-		t.Fatal("expected first discovery client closed after lookup")
+	if client.closed {
+		t.Fatal("expected discovery client to remain open between lookups")
 	}
 
+	client.lookupResult = nil
+	client.lookupErr = errors.New("instance list is empty!")
 	secondConn := &recordingConn{}
 	if err := handler.OnCmdDiscovery(secondConn, &gen.Lookup{ServiceName: "media-node", Node: 6, Healthy: true}); err != nil {
 		t.Fatalf("second lookup discovery instance: %v", err)
@@ -268,8 +295,12 @@ func TestEventHandlerCreatesFreshDiscoveryClientPerLookup(t *testing.T) {
 	if len(secondAck.GetServices()) != 0 {
 		t.Fatalf("expected second lookup to observe empty discovery state, got %#v", secondAck.GetServices())
 	}
-	if !secondClient.closed {
-		t.Fatal("expected second discovery client closed after lookup")
+	if client.closed {
+		t.Fatal("expected discovery client to remain open after second lookup")
+	}
+	handler.OnClose(secondConn)
+	if !client.closed {
+		t.Fatal("expected discovery client closed after connection close")
 	}
 }
 
@@ -285,14 +316,17 @@ func newTestDiscoveryHandler(t *testing.T, client *fakeDiscoveryClient) network.
 // newTestDiscoveryHandlerWithFactory creates a handler wired to a fake discovery factory.
 func newTestDiscoveryHandlerWithFactory(
 	t *testing.T,
-	factory discoveryClientFactory,
+	factory func(DiscoveryConfig) (discoveryClient, error),
 ) network.EventHandler {
 	t.Helper()
 
 	cfg := defaultDiscoveryConfig()
 	cfg.Enabled = true
 	runtime := newDiscoveryRuntime(cfg)
-	runtime.factory = factory
+	runtime.factory = newDiscoClientFactory(naming.DiscoSetting{})
+	runtime.factory.newClient = func(naming.DiscoSetting) (discoveryClient, error) {
+		return factory(cfg)
+	}
 	return newEventHandler(context.Background(), runtime, nil)
 }
 
@@ -335,6 +369,7 @@ type fakeDiscoveryClient struct {
 	lookupServiceName string
 	lookupGroupName   string
 	lookupResult      *gen.Instance
+	lookupResults     []*gen.Instance
 	lookupErr         error
 	closed            bool
 }
@@ -356,16 +391,78 @@ func (c *fakeDiscoveryClient) DeregisterInstance(serviceName, groupName, ip stri
 	return nil
 }
 
-// GetServiceInstanceByGroup records one lookup call.
-func (c *fakeDiscoveryClient) GetServiceInstanceByGroup(serviceName, groupName string) (*gen.Instance, error) {
+// GetServiceInstances records one lookup call and returns all matching instances.
+func (c *fakeDiscoveryClient) GetServiceInstances(serviceName, groupName string, _ []string) ([]*gen.Instance, error) {
 	c.lookupServiceName = serviceName
 	c.lookupGroupName = groupName
-	return c.lookupResult, c.lookupErr
+	if c.lookupErr != nil {
+		return nil, c.lookupErr
+	}
+	if c.lookupResults != nil {
+		return c.lookupResults, nil
+	}
+	if c.lookupResult != nil {
+		return []*gen.Instance{c.lookupResult}, nil
+	}
+	return nil, nil
 }
 
 // Close records that the fake client was closed.
 func (c *fakeDiscoveryClient) Close() {
 	c.closed = true
+}
+
+// GetGroupName satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetGroupName() string { return "" }
+
+// GetAllServices satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetAllServices(string) ([]string, error) { return nil, nil }
+
+// GetService satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetService(string, string, []string) (*gen.Service, error) {
+	return nil, nil
+}
+
+// GetServiceInstanceByName satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetServiceInstanceByName(string) (*gen.Instance, error) {
+	return nil, nil
+}
+
+// GetServiceInstance satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetServiceInstance(string, string, []string) (*gen.Instance, error) {
+	return nil, nil
+}
+
+// GetServiceInstanceByGroup satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetServiceInstanceByGroup(string, string) (*gen.Instance, error) {
+	return nil, nil
+}
+
+// GetServiceInstancesByName satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetServiceInstancesByName(string) ([]*gen.Instance, error) {
+	return nil, nil
+}
+
+// SetConfig satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) SetConfig(string, string) error { return nil }
+
+// GetConfig satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) GetConfig(string) (string, error) { return "", nil }
+
+// DeleteConfig satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) DeleteConfig(string) error { return nil }
+
+// ListenConfig satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) ListenConfig(string, func(string, string, string, string)) error {
+	return nil
+}
+
+// CancelListenConfig satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) CancelListenConfig(string) error { return nil }
+
+// SearchConfig satisfies naming.DiscoClient for the test double.
+func (c *fakeDiscoveryClient) SearchConfig(string, string) (*naming.ConfigPage, error) {
+	return nil, nil
 }
 
 // fakeDeregisterCall records one deregister call.

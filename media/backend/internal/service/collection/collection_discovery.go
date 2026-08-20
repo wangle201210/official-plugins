@@ -1,4 +1,5 @@
-// This file bridges net-flux discovery packets to the optional Nacos client.
+// This file maps media discovery configuration and packets to the upstream
+// net-flux naming client lifecycle.
 
 package collection
 
@@ -6,182 +7,82 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
+	"github.com/dellinger2023/net-flux/pkg/naming"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/nacos-group/nacos-sdk-go/v2/clients"
-	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
-	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/v2/model"
-	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 // Nacos server schemes accepted in discovery host URLs.
 const (
 	defaultNacosServerScheme = "http"
 	secureNacosServerScheme  = "https"
+	discoveryRegisterRetries = 10
+	discoveryRegisterBackoff = 100 * time.Millisecond
 )
 
-// discoveryClient is the Nacos-backed discovery adapter used by collection server.
-type discoveryClient interface {
-	RegisterInstance(instance *gen.Instance) error
-	DeregisterInstance(serviceName, groupName, ip string, port uint64) error
-	GetServiceInstanceByGroup(serviceName, groupName string) (*gen.Instance, error)
-	Close()
-}
-
-// discoveryClientFactory creates a discovery client. Tests replace this with a fake factory.
-type discoveryClientFactory func(cfg DiscoveryConfig) (discoveryClient, error)
-
-// newDiscoveryClient creates the production Nacos discovery client.
-var newDiscoveryClient discoveryClientFactory = func(cfg DiscoveryConfig) (discoveryClient, error) {
-	serverConfig, err := newNacosServerConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	nacosClient, err := clients.CreateNamingClient(map[string]interface{}{
-		"serverConfigs": []constant.ServerConfig{serverConfig},
-		"clientConfig":  newNacosClientConfig(cfg),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &nacosDiscoveryClient{client: nacosClient}, nil
-}
-
-// newNacosServerConfig accepts either a hostname or an HTTP(S) URL and maps it
-// to the separate scheme and address fields required by the Nacos SDK.
-func newNacosServerConfig(cfg DiscoveryConfig) (constant.ServerConfig, error) {
+// newNacosDiscoSetting maps media configuration to upstream naming settings.
+func newNacosDiscoSetting(cfg DiscoveryConfig) (naming.DiscoSetting, error) {
 	rawHost := strings.TrimSpace(cfg.Host)
-	serverConfig := constant.ServerConfig{
-		Scheme: defaultNacosServerScheme,
-		IpAddr: rawHost,
-		Port:   uint64(cfg.Port),
-	}
+	normalizedHost := rawHost
 	if !strings.Contains(rawHost, "://") {
 		if strings.ContainsAny(rawHost, "/?#") {
-			return constant.ServerConfig{}, gerror.Newf("config %s must be a hostname or HTTP(S) URL", configKeyCollectionServerDiscoveryHost)
+			return naming.DiscoSetting{}, gerror.Newf("config %s must be a hostname or HTTP(S) URL", configKeyCollectionServerDiscoveryHost)
 		}
-		return serverConfig, nil
+	} else {
+		parsed, err := url.Parse(rawHost)
+		if err != nil {
+			return naming.DiscoSetting{}, gerror.Wrapf(err, "parse config %s failed", configKeyCollectionServerDiscoveryHost)
+		}
+		scheme := strings.ToLower(parsed.Scheme)
+		if scheme != defaultNacosServerScheme && scheme != secureNacosServerScheme {
+			return naming.DiscoSetting{}, gerror.Newf("config %s scheme must be http or https", configKeyCollectionServerDiscoveryHost)
+		}
+		if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+			return naming.DiscoSetting{}, gerror.Newf("config %s URL must not contain credentials, query, fragment, or path", configKeyCollectionServerDiscoveryHost)
+		}
+		host := parsed.Hostname()
+		if host == "" {
+			return naming.DiscoSetting{}, gerror.Newf("config %s URL hostname cannot be empty", configKeyCollectionServerDiscoveryHost)
+		}
+		if port := parsed.Port(); port != "" && port != strconv.Itoa(cfg.Port) {
+			return naming.DiscoSetting{}, gerror.Newf("config %s URL port must match %s", configKeyCollectionServerDiscoveryHost, configKeyCollectionServerDiscoveryPort)
+		}
+		// naming.DiscoSetting expects a bare host. Keeping the scheme in Host
+		// breaks the upstream gRPC client address.
+		normalizedHost = host
 	}
 
-	parsed, err := url.Parse(rawHost)
-	if err != nil {
-		return constant.ServerConfig{}, gerror.Wrapf(err, "parse config %s failed", configKeyCollectionServerDiscoveryHost)
-	}
-	scheme := strings.ToLower(parsed.Scheme)
-	if scheme != defaultNacosServerScheme && scheme != secureNacosServerScheme {
-		return constant.ServerConfig{}, gerror.Newf("config %s scheme must be http or https", configKeyCollectionServerDiscoveryHost)
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
-		return constant.ServerConfig{}, gerror.Newf("config %s URL must not contain credentials, query, fragment, or path", configKeyCollectionServerDiscoveryHost)
-	}
-	host := parsed.Hostname()
-	if host == "" {
-		return constant.ServerConfig{}, gerror.Newf("config %s URL hostname cannot be empty", configKeyCollectionServerDiscoveryHost)
-	}
-	if port := parsed.Port(); port != "" && port != strconv.Itoa(cfg.Port) {
-		return constant.ServerConfig{}, gerror.Newf("config %s URL port must match %s", configKeyCollectionServerDiscoveryHost, configKeyCollectionServerDiscoveryPort)
-	}
-
-	serverConfig.Scheme = scheme
-	serverConfig.IpAddr = host
-	return serverConfig, nil
+	return naming.DiscoSetting{
+		Host:         normalizedHost,
+		Port:         cfg.Port,
+		Namespace:    cfg.Namespace,
+		LogDir:       cfg.LogDir,
+		CacheDir:     cfg.CacheDir,
+		PreloadCache: !cfg.NotLoadCacheAtStart,
+		Timeout:      cfg.Timeout,
+		GroupName:    naming.DefaultGroupName,
+		Username:     cfg.Username,
+		Password:     cfg.Password,
+		Node:         cfg.Node,
+	}, nil
 }
 
-// newNacosClientConfig builds the Nacos SDK config used by short-lived discovery clients.
-func newNacosClientConfig(cfg DiscoveryConfig) constant.ClientConfig {
-	return constant.ClientConfig{
-		NamespaceId:          cfg.Namespace,
-		TimeoutMs:            uint64(cfg.Timeout),
-		NotLoadCacheAtStart:  cfg.NotLoadCacheAtStart,
-		UpdateCacheWhenEmpty: true,
-		LogDir:               cfg.LogDir,
-		CacheDir:             cfg.CacheDir,
-		LogLevel:             "info",
-		Username:             cfg.Username,
-		Password:             cfg.Password,
-	}
-}
-
-// nacosDiscoveryClient adapts Nacos SDK naming operations to net-flux packets.
-type nacosDiscoveryClient struct {
-	client naming_client.INamingClient
-}
-
-// RegisterInstance registers one net-flux instance in Nacos.
-func (c *nacosDiscoveryClient) RegisterInstance(instance *gen.Instance) error {
-	_, err := c.client.RegisterInstance(newRegisterInstanceParam(instance))
-	return err
-}
-
-// newRegisterInstanceParam builds a pod-independent Nacos registration request.
-func newRegisterInstanceParam(instance *gen.Instance) vo.RegisterInstanceParam {
-	return vo.RegisterInstanceParam{
-		ServiceName: instance.GetInstanceName(),
-		GroupName:   nodeGroup(instance.GetNode()),
-		Ip:          instance.GetPrivateIp(),
-		Port:        uint64(instance.GetPrivatePort()),
-		Enable:      true,
-		Healthy:     true,
-		Weight:      1.0,
-		Ephemeral:   false,
-		Metadata:    instanceMetadata(instance),
-	}
-}
-
-// DeregisterInstance deregisters one instance from Nacos.
-func (c *nacosDiscoveryClient) DeregisterInstance(serviceName, groupName, ip string, port uint64) error {
-	_, err := c.client.DeregisterInstance(newDeregisterInstanceParam(serviceName, groupName, ip, port))
-	return err
-}
-
-// newDeregisterInstanceParam builds the Nacos deregistration request matching
-// the persistent instances registered by this collection server.
-func newDeregisterInstanceParam(serviceName, groupName, ip string, port uint64) vo.DeregisterInstanceParam {
-	return vo.DeregisterInstanceParam{
-		ServiceName: serviceName,
-		GroupName:   groupName,
-		Ip:          ip,
-		Port:        port,
-		Ephemeral:   false,
-	}
-}
-
-// GetServiceInstanceByGroup queries one healthy Nacos instance and converts it to net-flux format.
-func (c *nacosDiscoveryClient) GetServiceInstanceByGroup(serviceName, groupName string) (*gen.Instance, error) {
-	instance, err := c.client.SelectOneHealthyInstance(vo.SelectOneHealthInstanceParam{
-		ServiceName: serviceName,
-		GroupName:   groupName,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return nacosInstanceToProto(instance)
-}
-
-// Close releases Nacos SDK naming resources.
-func (c *nacosDiscoveryClient) Close() {
-	if c == nil || c.client == nil {
-		return
-	}
-	c.client.CloseClient()
-}
-
-// discoveryRuntime creates short-lived Nacos discovery clients for TCP packets.
+// discoveryRuntime reuses one naming client per TCP connection and service.
 type discoveryRuntime struct {
 	cfg     DiscoveryConfig
-	factory discoveryClientFactory
-	mu      sync.Mutex
-	client  discoveryClient
+	factory *discoClientFactory
+	err     error
 }
 
 // newDiscoveryRuntime creates a discovery runtime for one TCP server instance.
 func newDiscoveryRuntime(cfg DiscoveryConfig) *discoveryRuntime {
+	settings, err := newNacosDiscoSetting(cfg)
 	return &discoveryRuntime{
 		cfg:     cfg,
-		factory: newDiscoveryClient,
+		factory: newDiscoClientFactory(settings),
+		err:     err,
 	}
 }
 
@@ -190,8 +91,19 @@ func (r *discoveryRuntime) enabled() bool {
 	return r != nil && r.cfg.Enabled
 }
 
-// Register registers one media instance in Nacos.
-func (r *discoveryRuntime) Register(instance *gen.Instance) error {
+// client returns the connection/service-scoped naming client.
+func (r *discoveryRuntime) client(connID uint32, serviceName string) (discoveryClient, error) {
+	if r == nil || r.factory == nil {
+		return nil, gerror.New("media collection discovery client factory cannot be nil")
+	}
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.factory.GetDiscoClient(connID, serviceName)
+}
+
+// Register registers one media instance in Nacos and keeps its naming client.
+func (r *discoveryRuntime) Register(connID uint32, instance *gen.Instance) error {
 	if !r.enabled() {
 		return gerror.New("media collection discovery is disabled")
 	}
@@ -199,20 +111,32 @@ func (r *discoveryRuntime) Register(instance *gen.Instance) error {
 	if err != nil {
 		return err
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	client, err := r.clientLocked()
+	client, err := r.client(connID, normalized.GetInstanceName())
 	if err != nil {
 		return err
 	}
-	defer r.closeClientLocked()
-	return client.RegisterInstance(normalized)
+	return registerDiscoveryInstance(client, normalized)
 }
 
-// Deregister removes one media instance from Nacos.
-func (r *discoveryRuntime) Deregister(packet *gen.Deregister) error {
+// registerDiscoveryInstance retries only the upstream client's startup race.
+func registerDiscoveryInstance(client discoveryClient, instance *gen.Instance) error {
+	var lastErr error
+	for attempt := 0; attempt < discoveryRegisterRetries; attempt++ {
+		if err := client.RegisterInstance(instance); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			if !strings.Contains(strings.ToLower(err.Error()), "client not connected") {
+				return err
+			}
+		}
+		time.Sleep(discoveryRegisterBackoff)
+	}
+	return gerror.Wrap(lastErr, "register media discovery instance after client startup retries failed")
+}
+
+// Deregister removes one media instance and releases its service client.
+func (r *discoveryRuntime) Deregister(connID uint32, packet *gen.Deregister) error {
 	if !r.enabled() {
 		return gerror.New("media collection discovery is disabled")
 	}
@@ -230,20 +154,19 @@ func (r *discoveryRuntime) Deregister(packet *gen.Deregister) error {
 	if packet.GetPort() <= 0 {
 		return gerror.New("media collection discovery deregister port must be positive")
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	client, err := r.clientLocked()
+	client, err := r.client(connID, serviceName)
 	if err != nil {
 		return err
 	}
-	defer r.closeClientLocked()
-	return client.DeregisterInstance(serviceName, r.groupForNode(packet.GetNode()), ip, uint64(packet.GetPort()))
+	if err := client.DeregisterInstance(serviceName, r.groupForNode(packet.GetNode()), ip, uint64(packet.GetPort())); err != nil {
+		return err
+	}
+	r.factory.RemoveDiscoClient(connID, serviceName)
+	return nil
 }
 
-// Lookup queries one media service instance from Nacos and builds the net-flux response.
-func (r *discoveryRuntime) Lookup(packet *gen.Lookup) (*gen.LookupAck, error) {
+// Lookup queries all Nacos instances for one service and builds a net-flux response.
+func (r *discoveryRuntime) Lookup(connID uint32, packet *gen.Lookup) (*gen.LookupAck, error) {
 	if !r.enabled() {
 		return nil, gerror.New("media collection discovery is disabled")
 	}
@@ -254,74 +177,52 @@ func (r *discoveryRuntime) Lookup(packet *gen.Lookup) (*gen.LookupAck, error) {
 	if serviceName == "" {
 		return nil, gerror.New("media collection discovery lookup service name cannot be empty")
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	client, err := r.clientLocked()
+	client, err := r.client(connID, "")
 	if err != nil {
 		return nil, err
 	}
-	defer r.closeClientLocked()
-	instance, err := client.GetServiceInstanceByGroup(serviceName, r.groupForNode(packet.GetNode()))
+	instances, err := client.GetServiceInstances(serviceName, r.groupForNode(packet.GetNode()), []string{})
 	if err != nil {
 		if isDiscoveryEmptyInstanceError(err) {
 			return &gen.LookupAck{}, nil
 		}
 		return nil, err
 	}
-	if instance == nil {
+	if len(instances) == 0 {
 		return &gen.LookupAck{}, nil
 	}
-	instance = cleanLookupInstance(instance)
-
-	groupName := r.groupForNode(instance.GetNode())
-	return &gen.LookupAck{
-		Services: []*gen.Service{
-			{
-				Instances: []*gen.Instance{instance},
-				Cluster:   "",
-				Name:      instance.GetInstanceName(),
-				GroupName: groupName,
-				Valid:     packet.GetHealthy(),
-			},
-		},
-	}, nil
+	cleaned := make([]*gen.Instance, 0, len(instances))
+	for _, instance := range instances {
+		if instance != nil {
+			cleaned = append(cleaned, cleanLookupInstance(instance))
+		}
+	}
+	if len(cleaned) == 0 {
+		return &gen.LookupAck{}, nil
+	}
+	return &gen.LookupAck{Services: []*gen.Service{{
+		Instances: cleaned,
+		Cluster:   "",
+		Name:      serviceName,
+		GroupName: r.groupForNode(packet.GetNode()),
+		Valid:     packet.GetHealthy(),
+	}}}, nil
 }
 
-// Close closes the current Nacos discovery client.
+// RemoveConnection releases all naming clients associated with a TCP connection.
+func (r *discoveryRuntime) RemoveConnection(connID uint32) {
+	if r == nil || r.factory == nil {
+		return
+	}
+	r.factory.RemoveAll(connID)
+}
+
+// Close releases all Nacos naming clients owned by the runtime.
 func (r *discoveryRuntime) Close() {
-	if r == nil {
+	if r == nil || r.factory == nil {
 		return
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.closeClientLocked()
-}
-
-// clientLocked returns the current client or creates one. Caller must hold r.mu.
-func (r *discoveryRuntime) clientLocked() (discoveryClient, error) {
-	if r.client != nil {
-		return r.client, nil
-	}
-	if r.factory == nil {
-		return nil, gerror.New("media collection discovery client factory cannot be nil")
-	}
-	client, err := r.factory(r.cfg)
-	if err != nil {
-		return nil, gerror.Wrap(err, "create media collection discovery client failed")
-	}
-	r.client = client
-	return r.client, nil
-}
-
-// closeClientLocked closes and clears the current client. Caller must hold r.mu.
-func (r *discoveryRuntime) closeClientLocked() {
-	if r.client == nil {
-		return
-	}
-	r.client.Close()
-	r.client = nil
+	r.factory.Close()
 }
 
 // normalizeInstance validates and copies one register packet.
@@ -356,7 +257,7 @@ func (r *discoveryRuntime) normalizeInstance(instance *gen.Instance) (*gen.Insta
 	return &normalized, nil
 }
 
-// groupForNode returns the net-flux node group used by the sample server.
+// groupForNode returns the net-flux node group used by discovery packets.
 func (r *discoveryRuntime) groupForNode(node int32) string {
 	if node <= 0 {
 		node = int32(r.cfg.Node)
@@ -369,65 +270,6 @@ func nodeGroup(node int32) string {
 	return strconv.Itoa(int(node))
 }
 
-// instanceMetadata builds the Nacos metadata used by net-flux discovery.
-func instanceMetadata(instance *gen.Instance) map[string]string {
-	metadata := make(map[string]string, len(instance.GetExtra())+5)
-	for key, value := range instance.GetExtra() {
-		metadata[key] = value
-	}
-	metadata["inner_ip"] = instance.GetInnerIp()
-	metadata["inner_port"] = strconv.Itoa(int(instance.GetInnerPort()))
-	metadata["public_ip"] = instance.GetPublicIp()
-	metadata["public_port"] = strconv.Itoa(int(instance.GetPublicPort()))
-	metadata["node"] = nodeGroup(instance.GetNode())
-	return metadata
-}
-
-// nacosInstanceToProto converts a Nacos instance to the net-flux Instance message.
-func nacosInstanceToProto(instance *model.Instance) (*gen.Instance, error) {
-	if instance == nil {
-		return nil, nil
-	}
-	metadata := instance.Metadata
-	innerPort, err := metadataInt32(metadata, "inner_port")
-	if err != nil {
-		return nil, err
-	}
-	publicPort, err := metadataInt32(metadata, "public_port")
-	if err != nil {
-		return nil, err
-	}
-	node, err := metadataInt32(metadata, "node")
-	if err != nil {
-		return nil, err
-	}
-	return &gen.Instance{
-		InstanceId:   instance.InstanceId,
-		InstanceName: cleanNacosServiceName(instance.ServiceName),
-		PrivateIp:    instance.Ip,
-		PrivatePort:  int32(instance.Port),
-		InnerIp:      metadata["inner_ip"],
-		InnerPort:    innerPort,
-		PublicIp:     metadata["public_ip"],
-		PublicPort:   publicPort,
-		Weight:       float32(instance.Weight),
-		Healthy:      instance.Healthy,
-		Enable:       instance.Enable,
-		Ephemeral:    instance.Ephemeral,
-		Node:         node,
-		Extra:        metadata,
-	}, nil
-}
-
-// metadataInt32 reads one int32 value from Nacos metadata.
-func metadataInt32(metadata map[string]string, key string) (int32, error) {
-	value, err := strconv.Atoi(metadata[key])
-	if err != nil {
-		return 0, gerror.Wrapf(err, "read media collection discovery metadata %s failed", key)
-	}
-	return int32(value), nil
-}
-
 // cleanNacosServiceName removes the Nacos group prefix returned as group@@service.
 func cleanNacosServiceName(serviceName string) string {
 	if _, name, ok := strings.Cut(serviceName, "@@"); ok {
@@ -436,7 +278,7 @@ func cleanNacosServiceName(serviceName string) string {
 	return serviceName
 }
 
-// cleanLookupInstance removes Nacos transport-only naming details from LookupAck payloads.
+// cleanLookupInstance removes Nacos transport-only naming details from responses.
 func cleanLookupInstance(instance *gen.Instance) *gen.Instance {
 	cleanName := cleanNacosServiceName(instance.GetInstanceName())
 	if cleanName == instance.GetInstanceName() {
@@ -447,7 +289,7 @@ func cleanLookupInstance(instance *gen.Instance) *gen.Instance {
 	return &copied
 }
 
-// isDiscoveryEmptyInstanceError recognizes Nacos' "no healthy instance" response as an empty lookup result.
+// isDiscoveryEmptyInstanceError recognizes Nacos' empty lookup response.
 func isDiscoveryEmptyInstanceError(err error) bool {
 	if err == nil {
 		return false

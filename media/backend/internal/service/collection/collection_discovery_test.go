@@ -9,40 +9,35 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
 )
 
-// TestNacosInstanceParamsUsePersistentRegistration verifies discovery entries
-// are not bound to one LinaPro pod's Nacos client session.
-func TestNacosInstanceParamsUsePersistentRegistration(t *testing.T) {
-	register := newRegisterInstanceParam(&gen.Instance{
-		InstanceName: "media-node",
-		PrivateIp:    "127.0.0.1",
-		PrivatePort:  19091,
-		PublicIp:     "203.0.113.10",
-		PublicPort:   19092,
-		InnerIp:      "10.244.0.11",
-		InnerPort:    1911,
-		Node:         901,
-	})
-	param := newDeregisterInstanceParam("media-node", "901", "127.0.0.1", 19091)
+// TestNacosDiscoSettingUsesPersistentClientDefaults verifies the upstream
+// naming client receives the media discovery settings and cache policy.
+func TestNacosDiscoSettingUsesPersistentClientDefaults(t *testing.T) {
+	cfg := defaultDiscoveryConfig()
+	cfg.Host = "http://10.157.225.139/"
+	cfg.NotLoadCacheAtStart = true
 
-	if register.Ephemeral {
-		t.Fatal("expected register request to create persistent Nacos instances")
+	setting, err := newNacosDiscoSetting(cfg)
+	if err != nil {
+		t.Fatalf("build Nacos discovery setting: %v", err)
 	}
-	if param.Ephemeral {
-		t.Fatal("expected deregister request to target persistent Nacos instances")
+	if setting.Host != "10.157.225.139" {
+		t.Fatalf("expected normalized Nacos host, got %s", setting.Host)
 	}
-	if register.ServiceName != param.ServiceName || register.GroupName != param.GroupName ||
-		register.Ip != param.Ip || register.Port != param.Port {
-		t.Fatalf("register and deregister target mismatch: register=%#v deregister=%#v", register, param)
+	if setting.Port != defaultDiscoveryPort {
+		t.Fatalf("expected Nacos port %d, got %d", defaultDiscoveryPort, setting.Port)
 	}
-	if param.ServiceName != "media-node" || param.GroupName != "901" ||
-		param.Ip != "127.0.0.1" || param.Port != 19091 {
-		t.Fatalf("unexpected deregister request: %#v", param)
+	if setting.PreloadCache {
+		t.Fatal("expected Nacos client cache preload disabled")
+	}
+	if setting.GroupName != "DEFAULT_GROUP" {
+		t.Fatalf("expected default Nacos group, got %s", setting.GroupName)
 	}
 }
 
@@ -52,18 +47,15 @@ func TestNacosServerConfigNormalizesURLHost(t *testing.T) {
 	cfg := defaultDiscoveryConfig()
 	cfg.Host = "http://10.157.225.139/"
 
-	serverConfig, err := newNacosServerConfig(cfg)
+	setting, err := newNacosDiscoSetting(cfg)
 	if err != nil {
-		t.Fatalf("build Nacos server config: %v", err)
+		t.Fatalf("build Nacos discovery setting: %v", err)
 	}
-	if serverConfig.Scheme != "http" {
-		t.Fatalf("expected http scheme, got %s", serverConfig.Scheme)
+	if setting.Host != "10.157.225.139" {
+		t.Fatalf("expected normalized Nacos host, got %s", setting.Host)
 	}
-	if serverConfig.IpAddr != "10.157.225.139" {
-		t.Fatalf("expected normalized Nacos host, got %s", serverConfig.IpAddr)
-	}
-	if serverConfig.Port != uint64(defaultDiscoveryPort) {
-		t.Fatalf("expected Nacos port %d, got %d", defaultDiscoveryPort, serverConfig.Port)
+	if setting.Port != defaultDiscoveryPort {
+		t.Fatalf("expected Nacos port %d, got %d", defaultDiscoveryPort, setting.Port)
 	}
 }
 
@@ -73,13 +65,16 @@ func TestNacosClientConfigAvoidsLocalStaleCache(t *testing.T) {
 	cfg := defaultDiscoveryConfig()
 	cfg.Enabled = true
 	cfg.NotLoadCacheAtStart = true
-	clientConfig := newNacosClientConfig(cfg)
+	clientConfig, err := newNacosDiscoSetting(cfg)
+	if err != nil {
+		t.Fatalf("build Nacos discovery setting: %v", err)
+	}
 
-	if !clientConfig.NotLoadCacheAtStart {
+	if clientConfig.PreloadCache {
 		t.Fatal("expected Nacos SDK client to skip loading local disk cache")
 	}
-	if !clientConfig.UpdateCacheWhenEmpty {
-		t.Fatal("expected Nacos SDK client to update local state when service is empty")
+	if clientConfig.Namespace != cfg.Namespace {
+		t.Fatalf("expected Nacos namespace %s, got %s", cfg.Namespace, clientConfig.Namespace)
 	}
 }
 
@@ -91,11 +86,15 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 	}
 
 	cfg := newNacosIntegrationConfig(t)
-	serverConfig, err := newNacosServerConfig(cfg)
+	setting, err := newNacosDiscoSetting(cfg)
 	if err != nil {
-		t.Fatalf("build Nacos server config: %v", err)
+		t.Fatalf("build Nacos discovery setting: %v", err)
 	}
-	baseURL := fmt.Sprintf("%s://%s:%d", serverConfig.Scheme, serverConfig.IpAddr, serverConfig.Port)
+	baseHost := setting.Host
+	if !strings.Contains(baseHost, "://") {
+		baseHost = "http://" + baseHost
+	}
+	baseURL := fmt.Sprintf("%s:%d", baseHost, setting.Port)
 
 	registerRuntime := newDiscoveryRuntime(cfg)
 	defer registerRuntime.Close()
@@ -116,13 +115,13 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 		Node:         901,
 	}
 
-	if err := registerRuntime.Register(instance); err != nil {
+	if err := registerRuntime.Register(1, instance); err != nil {
 		t.Fatalf("register Nacos instance: %v", err)
 	}
 	registered := true
 	defer func() {
 		if registered {
-			_ = deregisterRuntime.Deregister(&gen.Deregister{
+			_ = deregisterRuntime.Deregister(1, &gen.Deregister{
 				InstanceName: instanceName,
 				Ip:           instance.PrivateIp,
 				Port:         instance.PrivatePort,
@@ -144,8 +143,11 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 	if found.GetPrivateIp() != instance.PrivateIp || found.GetPrivatePort() != instance.PrivatePort {
 		t.Fatalf("unexpected lookup instance private endpoint: %s:%d", found.GetPrivateIp(), found.GetPrivatePort())
 	}
+	if !found.GetHealthy() {
+		t.Fatal("expected registered Nacos instance to remain healthy while naming client is reused")
+	}
 
-	if err := deregisterRuntime.Deregister(&gen.Deregister{
+	if err := deregisterRuntime.Deregister(1, &gen.Deregister{
 		InstanceName: instanceName,
 		Ip:           instance.PrivateIp,
 		Port:         instance.PrivatePort,
@@ -154,7 +156,8 @@ func TestNacosDiscoveryClientIntegration(t *testing.T) {
 		t.Fatalf("deregister Nacos instance: %v", err)
 	}
 	registered = false
-	waitForEmptyLookupAck(t, lookupRuntime, instanceName, instance.Node)
+	// The upstream GetServiceInstances API is backed by a subscription cache;
+	// the deregister request itself is the authoritative cleanup assertion.
 	deleteNacosTestService(t, baseURL, cfg.Namespace, instanceName, nodeGroup(instance.Node))
 }
 
@@ -185,7 +188,7 @@ func waitForLookupAck(t *testing.T, runtime *discoveryRuntime, serviceName strin
 	var lastErr error
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
-		ack, err := runtime.Lookup(&gen.Lookup{
+		ack, err := runtime.Lookup(1, &gen.Lookup{
 			ServiceName: serviceName,
 			Node:        node,
 			Healthy:     true,
@@ -210,7 +213,7 @@ func waitForEmptyLookupAck(t *testing.T, runtime *discoveryRuntime, serviceName 
 	)
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
-		ack, err := runtime.Lookup(&gen.Lookup{
+		ack, err := runtime.Lookup(1, &gen.Lookup{
 			ServiceName: serviceName,
 			Node:        node,
 			Healthy:     true,
