@@ -11,6 +11,7 @@ type TietaUser struct {
 	Mobile       string // Mobile is the user mobile number.
 	UserType     string // UserType identifies internal or tenant users.
 	CustomerCode string // CustomerCode is the Tieta customer code.
+	CustomerName string // CustomerName is the Tieta customer name.
 	TenantId     string // TenantId is the Tieta customer/tenant ID.
 	DeptName     string // DeptName is the Tieta department name.
 	RegionCode   int64  // RegionCode is the Tieta region code.
@@ -34,6 +35,7 @@ type tietaUserInfo struct {
 	Phone        string `json:"phone"`
 	UserType     string `json:"userType"`
 	CustomerCode string `json:"customerCode"`
+	CustomerName string `json:"customerName"`
 	CustomerId   string `json:"customerId"`
 	DeptName     string `json:"deptName"`
 	RegionCode   int64  `json:"regionCode"`

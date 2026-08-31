@@ -21,18 +21,8 @@ type UserDeviceStrategyByTokenRes struct {
 
 // TietaUserInfo defines the HotGo-compatible Tieta identity projection returned by token validation.
 type TietaUserInfo struct {
-	Id           int64  `json:"id" dc:"用户ID" eg:"13"`
-	DeptId       int64  `json:"deptId" dc:"部门ID" eg:"1"`
-	Username     string `json:"username" dc:"用户名" eg:"wj530"`
-	RealName     string `json:"realName" dc:"姓名" eg:"王杰"`
-	Mobile       string `json:"mobile" dc:"手机号码" eg:"18213268117"`
-	UserType     string `json:"userType" dc:"用户类型" eg:"tenant"`
-	CustomerCode string `json:"customerCode" dc:"客户编码" eg:"customer-a"`
-	TenantID     string `json:"tenant_id" dc:"租户ID" eg:"tenant-a"`
-	DeptName     string `json:"deptName" dc:"部门名称" eg:"运营中心"`
-	RegionCode   int64  `json:"regionCode" dc:"区域编码" eg:"510100"`
-	OrgId        int64  `json:"orgId" dc:"组织ID" eg:"1"`
-	Enable       bool   `json:"enable" dc:"是否启用" eg:"true"`
+	CustomerName string `json:"customerName" dc:"租户名" eg:"公安"`
+	Phone        string `json:"phone" dc:"手机号码" eg:"18213268117"`
 }
 
 // StrategyInfo defines the HotGo-compatible strategy payload.

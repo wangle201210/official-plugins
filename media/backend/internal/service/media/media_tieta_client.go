@@ -272,6 +272,7 @@ func buildTietaUser(info *tietaUserInfo) *TietaUser {
 		Mobile:       strings.TrimSpace(info.Phone),
 		UserType:     strings.TrimSpace(info.UserType),
 		CustomerCode: strings.TrimSpace(info.CustomerCode),
+		CustomerName: strings.TrimSpace(info.CustomerName),
 		TenantId:     strings.TrimSpace(info.CustomerId),
 		DeptName:     strings.TrimSpace(info.DeptName),
 		RegionCode:   info.RegionCode,
@@ -367,14 +368,15 @@ func mockTietaUser(token string) *TietaUser {
 		tenantID = tietaMockTenantID
 	}
 	return &TietaUser{
-		Id:       13,
-		DeptId:   100,
-		Username: "wj530",
-		RealName: "王杰",
-		Mobile:   "18213268117",
-		UserType: "00",
-		TenantId: tenantID,
-		DeptName: "湖南铁塔",
-		Enable:   true,
+		Id:           13,
+		DeptId:       100,
+		Username:     "wj530",
+		RealName:     "王杰",
+		Mobile:       "18213268117",
+		UserType:     "00",
+		CustomerName: "四川铁塔",
+		TenantId:     tenantID,
+		DeptName:     "湖南铁塔",
+		Enable:       true,
 	}
 }

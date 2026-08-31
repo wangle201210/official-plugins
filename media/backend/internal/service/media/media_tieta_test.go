@@ -5,6 +5,7 @@ package media
 import (
 	"context"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -195,6 +196,18 @@ func TestParseTietaTokenUsesMediaClient(t *testing.T) {
 	}
 }
 
+// TestBuildTietaUserMapsCustomerName verifies the upstream authentication payload includes the customer name.
+func TestBuildTietaUserMapsCustomerName(t *testing.T) {
+	var response tietaUserResponse
+	if err := gjson.Unmarshal([]byte(`{"code":200,"data":{"customerName":"公安","phone":"18213268117"}}`), &response); err != nil {
+		t.Fatalf("unmarshal Tieta user response: %v", err)
+	}
+	user := buildTietaUser(response.Data)
+	if user == nil || user.CustomerName != "公安" || user.Mobile != "18213268117" {
+		t.Fatalf("expected customerName and phone from Tieta response, got %+v", user)
+	}
+}
+
 // TestAuthenticateTietaTokenCachesUserInfo verifies repeated auth reuses the host cache.
 func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 	ctx := context.Background()
@@ -227,6 +240,9 @@ func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 	}
 	if cacheSvc.lastKey != tietaUserCacheKey("token-value") {
 		t.Fatalf("expected hashed Tieta user cache key, got %q", cacheSvc.lastKey)
+	}
+	if !strings.HasPrefix(cacheSvc.lastKey, "token:v2:") {
+		t.Fatalf("expected versioned Tieta user cache key, got %q", cacheSvc.lastKey)
 	}
 	if cacheSvc.lastTTL != time.Minute {
 		t.Fatalf("expected one-minute Tieta user cache TTL, got %s", cacheSvc.lastTTL)

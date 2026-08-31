@@ -31,18 +31,8 @@ func buildCompatTietaUserInfo(user *mediasvc.TietaUser) *v1.TietaUserInfo {
 		return nil
 	}
 	return &v1.TietaUserInfo{
-		Id:           user.Id,
-		DeptId:       user.DeptId,
-		Username:     user.Username,
-		RealName:     user.RealName,
-		Mobile:       user.Mobile,
-		UserType:     user.UserType,
-		CustomerCode: user.CustomerCode,
-		TenantID:     user.TenantId,
-		DeptName:     user.DeptName,
-		RegionCode:   user.RegionCode,
-		OrgId:        user.OrgId,
-		Enable:       user.Enable,
+		CustomerName: user.CustomerName,
+		Phone:        user.Mobile,
 	}
 }
 

@@ -537,6 +537,43 @@ func TestMediaOpenRoutesExposeOnlyHotGoTokenStrategyEndpoint(t *testing.T) {
 	}
 }
 
+// TestMediaOpenUserDeviceStrategyReturnsNarrowedUserInfo verifies the public user projection.
+func TestMediaOpenUserDeviceStrategyReturnsNarrowedUserInfo(t *testing.T) {
+	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
+	setupMediaRouteSQLite(t)
+
+	middlewares := pluginhost.NewRouteMiddlewares(
+		mediaRouteNoOpMiddleware,
+		mediaRouteTestResponse,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+		mediaRouteNoOpMiddleware,
+	)
+	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
+	defer shutdown()
+
+	response := doMediaRouteRequest(
+		t,
+		http.MethodGet,
+		baseURL+"/api/v1/strategies/user-device?token=tenant-a&deviceId=device-a&nodeId=1",
+		"",
+		map[string]string{mediaInnerAPIKeyHeader: "media"},
+	)
+	if response.status != http.StatusOK {
+		t.Fatalf("expected user-device strategy route to pass, got status=%d body=%s", response.status, response.body)
+	}
+	var out mediaopenv1.UserDeviceStrategyByTokenRes
+	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+		t.Fatalf("decode user-device strategy response: %v", err)
+	}
+	if out.UserInfo == nil || out.UserInfo.CustomerName != "四川铁塔" || out.UserInfo.Phone != "18213268117" {
+		t.Fatalf("expected narrowed customerName and phone projection, got %+v", out.UserInfo)
+	}
+}
+
 // TestMediaOpenRoutesRejectMissingInnerAPIKey verifies configured inner API auth rejects missing keys.
 func TestMediaOpenRoutesRejectMissingInnerAPIKey(t *testing.T) {
 	setMediaRouteConfig(t, mediaRouteTestConfig{tietaMock: true, innerAPIKey: "media", includeInnerAPIKey: true})
