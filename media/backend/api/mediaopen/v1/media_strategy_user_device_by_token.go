@@ -21,6 +21,7 @@ type UserDeviceStrategyByTokenRes struct {
 
 // TietaUserInfo defines the HotGo-compatible Tieta identity projection returned by token validation.
 type TietaUserInfo struct {
+	Id           int64  `json:"id" dc:"用户ID" eg:"13"`
 	CustomerName string `json:"customerName" dc:"租户名" eg:"公安"`
 	Phone        string `json:"phone" dc:"手机号码" eg:"18213268117"`
 }

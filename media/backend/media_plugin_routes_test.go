@@ -569,8 +569,8 @@ func TestMediaOpenUserDeviceStrategyReturnsNarrowedUserInfo(t *testing.T) {
 	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
 		t.Fatalf("decode user-device strategy response: %v", err)
 	}
-	if out.UserInfo == nil || out.UserInfo.CustomerName != "四川铁塔" || out.UserInfo.Phone != "18213268117" {
-		t.Fatalf("expected narrowed customerName and phone projection, got %+v", out.UserInfo)
+	if out.UserInfo == nil || out.UserInfo.Id != 13 || out.UserInfo.CustomerName != "四川铁塔" || out.UserInfo.Phone != "18213268117" {
+		t.Fatalf("expected narrowed id, customerName and phone projection, got %+v", out.UserInfo)
 	}
 }
 
