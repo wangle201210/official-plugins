@@ -101,6 +101,8 @@ func getCachedTietaUser(ctx context.Context, cacheSvc mediaCache, token string) 
 	if user.Id <= 0 {
 		return nil, false
 	}
+	// Tenant identity always comes from the upstream customer code, including cache hits.
+	user.TenantId = strings.TrimSpace(user.CustomerCode)
 	return &user, true
 }
 
@@ -273,7 +275,7 @@ func buildTietaUser(info *tietaUserInfo) *TietaUser {
 		UserType:     strings.TrimSpace(info.UserType),
 		CustomerCode: strings.TrimSpace(info.CustomerCode),
 		CustomerName: strings.TrimSpace(info.CustomerName),
-		TenantId:     strings.TrimSpace(info.CustomerId),
+		TenantId:     strings.TrimSpace(info.CustomerCode),
 		DeptName:     strings.TrimSpace(info.DeptName),
 		RegionCode:   info.RegionCode,
 		OrgId:        info.OrgID,
@@ -374,6 +376,7 @@ func mockTietaUser(token string) *TietaUser {
 		RealName:     "王杰",
 		Mobile:       "18213268117",
 		UserType:     "00",
+		CustomerCode: tenantID,
 		CustomerName: "四川铁塔",
 		TenantId:     tenantID,
 		DeptName:     "湖南铁塔",

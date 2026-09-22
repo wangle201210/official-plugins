@@ -24,6 +24,10 @@ Mediaopen and HotGo-compatible APIs use a HotGo-style inner API key gate. Reques
 
 Token-based media authorization calls the upstream Tieta OpenAPI service. Configure `tieta.baseUrl` in the `media` plugin runtime config before enabling Tieta-backed token APIs. `tieta.timeout` defaults to `3s` when omitted or invalid, and `tieta.mock: true` is only for deterministic local development.
 
+Media tenant keys come from Tieta's `customerCode`, with surrounding whitespace removed. Existing `tenantId` API fields and `tenant_id` columns keep their names and string types. Use the same customer code in tenant and tenant-device strategy bindings, tenant whitelists, node concurrency limits, internal strategy requests, and stream/session reports. A missing customer code rejects tenant-scoped authorization; `customerId` is never a fallback. Cached user identities derive `TenantId` from `CustomerCode` using the same rule. The upstream device-permission request continues to use the token and device ID.
+
+When switching existing data, update tenant keys using a verified `customerId`-to-`customerCode` mapping and coordinate the reporting clients. The collector stores reported tenant keys as supplied; it cannot infer that mapping. This code change does not alter table structure or rewrite existing database rows.
+
 Route memory reuses the host `pluginhost.HostServices.Cache()` service and keeps entries for 12 hours with HotGo-compatible logical keys in the form `route_data:<deviceCode>:<channelCode>`.
 
 The plugin does not define a plugin-specific Redis configuration namespace or maintain a plugin-owned cache backend.

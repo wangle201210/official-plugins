@@ -215,7 +215,7 @@ func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create media service: %v", err)
 	}
-	client := &fakeTietaClient{user: &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"}}
+	client := &fakeTietaClient{user: buildTietaUser(&tietaUserInfo{ID: 13, UserName: "wj530", CustomerId: "customer-id-a", CustomerCode: "tenant-a"})}
 	restoreTietaClient := replaceMediaTietaClient(t, client)
 	defer restoreTietaClient()
 
@@ -228,7 +228,7 @@ func TestAuthenticateTietaTokenCachesUserInfo(t *testing.T) {
 		t.Fatalf("authenticate cached token: %v", err)
 	}
 
-	if first == nil || second == nil || first.Id != second.Id || second.Username != "wj530" {
+	if first == nil || second == nil || first.Id != second.Id || second.Username != "wj530" || first.TenantId != "tenant-a" || second.TenantId != "tenant-a" {
 		t.Fatalf("expected cached Tieta user to match first result, first=%+v second=%+v", first, second)
 	}
 	if len(client.tokens) != 1 || client.tokens[0] != "token-value" {
@@ -291,7 +291,7 @@ func TestResolveStrategyByTokenUsesTietaTenantDevicePermission(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
-		user:      &TietaUser{Id: 13, Username: "wj530", RealName: "王杰", Mobile: "18213268117", TenantId: "tenant-a"},
+		user:      buildTietaUser(&tietaUserInfo{ID: 13, UserName: "wj530", NickName: "王杰", Phone: "18213268117", CustomerId: "customer-id-a", CustomerCode: "tenant-a"}),
 		hasAccess: true,
 	})
 	defer restoreTietaClient()
@@ -332,7 +332,7 @@ func TestUserDeviceStrategyByTokenReturnsStrategyContent(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
-		user:      &TietaUser{Id: 13, Username: "wj530", RealName: "王杰", Mobile: "18213268117", TenantId: "tenant-a"},
+		user:      buildTietaUser(&tietaUserInfo{ID: 13, UserName: "wj530", NickName: "王杰", Phone: "18213268117", CustomerId: "customer-id-a", CustomerCode: "tenant-a"}),
 		hasAccess: true,
 	})
 	defer restoreTietaClient()
@@ -370,7 +370,7 @@ func TestUserDeviceStrategyByTokenReturnsEmptyStrategyWithoutAccess(t *testing.T
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
-		user:      &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"},
+		user:      buildTietaUser(&tietaUserInfo{ID: 13, UserName: "wj530", CustomerId: "customer-id-a", CustomerCode: "tenant-a"}),
 		hasAccess: false,
 	})
 	defer restoreTietaClient()
@@ -398,7 +398,7 @@ func TestUserDeviceStrategyByTokenRejectsWhenTenantNodeLimitReached(t *testing.T
 	setupMediaStrategySQLite(t, ctx)
 	setupMediaDashboardReportTables(t, ctx)
 	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
-		user:      &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"},
+		user:      buildTietaUser(&tietaUserInfo{ID: 13, UserName: "wj530", CustomerId: "customer-id-a", CustomerCode: "tenant-a"}),
 		hasAccess: true,
 	})
 	defer restoreTietaClient()
@@ -492,7 +492,7 @@ func TestListTenantWhiteIPsByTokenReturnsEnabledTenantIPs(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
-		user: &TietaUser{Id: 13, Username: "wj530", TenantId: "tenant-a"},
+		user: buildTietaUser(&tietaUserInfo{ID: 13, UserName: "wj530", CustomerId: "customer-id-a", CustomerCode: "tenant-a"}),
 	})
 	defer restoreTietaClient()
 
@@ -603,7 +603,7 @@ func TestResolveStrategyByTokenRejectsTenantMismatch(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
-		user:      &TietaUser{Id: 13, TenantId: "tenant-a"},
+		user:      buildTietaUser(&tietaUserInfo{ID: 13, CustomerId: "customer-id-a", CustomerCode: "tenant-a"}),
 		hasAccess: true,
 	})
 	defer restoreTietaClient()
@@ -630,7 +630,7 @@ func TestResolveStrategyByTokenDeniesWithoutDevicePermission(t *testing.T) {
 	ctx := context.Background()
 	setupMediaStrategySQLite(t, ctx)
 	restoreTietaClient := replaceMediaTietaClient(t, &fakeTietaClient{
-		user:      &TietaUser{Id: 13, TenantId: "tenant-a"},
+		user:      buildTietaUser(&tietaUserInfo{ID: 13, CustomerId: "customer-id-a", CustomerCode: "tenant-a"}),
 		hasAccess: false,
 	})
 	defer restoreTietaClient()

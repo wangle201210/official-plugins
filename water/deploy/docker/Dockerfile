@@ -5,6 +5,9 @@ FROM ${GO_IMAGE} AS builder
 
 WORKDIR /src
 
+ENV npm_config_registry=https://registry.npmmirror.com \
+    COREPACK_NPM_REGISTRY=https://registry.npmmirror.com
+
 RUN apk add --no-cache \
     build-base \
     ffmpeg-dev \

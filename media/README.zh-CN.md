@@ -24,6 +24,10 @@
 
 基于 token 的媒体鉴权会调用上游 Tieta OpenAPI 服务。启用 Tieta token 接口前，需要在`media`插件运行配置中设置`tieta.baseUrl`。`tieta.timeout`缺失或非法时默认使用`3s`，`tieta.mock: true`仅用于本地开发的确定性响应。
 
+媒体租户标识取自铁塔的`customerCode`，并去除首尾空白。既有`tenantId`接口字段和`tenant_id`数据库列保留名称及字符串类型。租户策略、租户设备策略、租户白名单、节点并发限制、内部策略请求以及流和会话上报都应填写同一客户编码。客户编码缺失时拒绝租户相关鉴权，不使用`customerId`兜底；缓存用户身份也按同一规则从`CustomerCode`派生`TenantId`。上游设备权限请求仍使用 token 和设备 ID。
+
+切换已有数据时，应根据核实的`customerId`到`customerCode`映射更新租户标识，并协调上报客户端。采集端按原值保存上报的租户标识，无法推断该映射。本次代码变更不调整表结构，也不自动改写既有数据库记录。
+
 路由记忆复用宿主 `pluginhost.HostServices.Cache()` 服务，默认保留 12 小时，逻辑键格式与 HotGo 保持一致：`route_data:<deviceCode>:<channelCode>`。
 
 插件不定义专属 Redis 配置命名空间，也不维护插件自有缓存后端。

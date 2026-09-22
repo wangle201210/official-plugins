@@ -12,7 +12,7 @@ type TietaUser struct {
 	UserType     string // UserType identifies internal or tenant users.
 	CustomerCode string // CustomerCode is the Tieta customer code.
 	CustomerName string // CustomerName is the Tieta customer name.
-	TenantId     string // TenantId is the Tieta customer/tenant ID.
+	TenantId     string // TenantId is the Tieta customerCode used as the media tenant key.
 	DeptName     string // DeptName is the Tieta department name.
 	RegionCode   int64  // RegionCode is the Tieta region code.
 	OrgId        int64  // OrgId is the Tieta organization ID.
