@@ -32,11 +32,15 @@ FROM ${RUNTIME_IMAGE}
 
 ENV WORKDIR=/app
 
-RUN apk add --no-cache \
-    ca-certificates \
-    ffmpeg-libs \
-    tzdata \
-    x264-libs
+RUN echo "https://mirrors.tencent.com/alpine/v3.22/main" > /etc/apk/repositories && \
+    echo "https://mirrors.tencent.com/alpine/v3.22/community" >> /etc/apk/repositories && \
+    apk add --no-cache \
+        ca-certificates \
+        ffmpeg-libs \
+        fontconfig \
+        tzdata \
+        wqy-zenhei \
+        x264-libs
 
 WORKDIR ${WORKDIR}
 
