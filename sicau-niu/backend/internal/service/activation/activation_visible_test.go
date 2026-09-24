@@ -71,7 +71,7 @@ func TestVisibleNiuIronBoostRequiresEnabledIron(t *testing.T) {
 	locatedAt := time.Now()
 	if _, err := dao.Iron.Ctx(ctx).Data(do.Iron{
 		Code: "IRON-MAP-BOOST", Name: "Map Iron", LastLat: 30.0,
-		LastLng: 103.0, LocatedAt: &locatedAt,
+		LastLng: 103.0, LocatedAt: &locatedAt, BonusEnabled: false,
 	}).Insert(); err != nil {
 		t.Fatalf("insert located iron failed: %v", err)
 	}

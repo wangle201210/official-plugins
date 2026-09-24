@@ -7,10 +7,10 @@ import "github.com/gogf/gf/v2/frame/g"
 
 // CreateIronReq is the request for registering one iron-cow identifier.
 type CreateIronReq struct {
-	g.Meta       `path:"/plugins/sicau-niu/admin/iron" method:"post" tags:"Sicau Niu Admin" summary:"新增铁牛" dc:"Register an iron-cow with a unique device code and an optional proximity-bonus switch, disabled by default. The real-time location is not set here; it is written later by the C4 bonus flow. Protected by host unified permission check." permission:"sicau-niu:iron:create"`
+	g.Meta       `path:"/plugins/sicau-niu/admin/iron" method:"post" tags:"Sicau Niu Admin" summary:"新增铁牛" dc:"Register an iron-cow with a unique device code and an optional proximity-bonus switch, enabled by default. The real-time location is not set here; it is written later by the C4 bonus flow. Protected by host unified permission check." permission:"sicau-niu:iron:create"`
 	Code         string `json:"code" v:"required|length:1,64" dc:"Iron-cow device identifier; must be unique among active iron-cows" eg:"IRON-01"`
 	Name         string `json:"name" v:"required|length:1,128" dc:"Iron-cow display name" eg:"图书馆铁牛"`
-	BonusEnabled bool   `json:"bonusEnabled" dc:"Enable the proximity bonus for this iron cow; defaults to false" eg:"false"`
+	BonusEnabled *bool  `json:"bonusEnabled" dc:"Whether this iron cow grants the proximity bonus; omitted defaults to true, false disables it" eg:"true"`
 	Remark       string `json:"remark" dc:"Iron-cow remark" eg:"门口入口处"`
 }
 

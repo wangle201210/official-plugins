@@ -53,7 +53,7 @@ type IronItem struct {
 type IronMutateInput struct {
 	Code         string
 	Name         string
-	BonusEnabled bool
+	BonusEnabled *bool
 	Remark       string
 }
 
@@ -120,10 +120,14 @@ func (s *serviceImpl) CreateIron(ctx context.Context, in *IronMutateInput) (int6
 		return 0, bizerr.NewCode(CodeIronCodeExists)
 	}
 
+	bonusEnabled := true
+	if in.BonusEnabled != nil {
+		bonusEnabled = *in.BonusEnabled
+	}
 	id, err := dao.Iron.Ctx(ctx).Data(do.Iron{
 		Code:         code,
 		Name:         name,
-		BonusEnabled: in.BonusEnabled,
+		BonusEnabled: bonusEnabled,
 		Remark:       strings.TrimSpace(in.Remark),
 	}).InsertAndGetId()
 	if err != nil {
@@ -159,12 +163,15 @@ func (s *serviceImpl) UpdateIron(ctx context.Context, id int64, in *IronMutateIn
 		return bizerr.NewCode(CodeIronCodeExists)
 	}
 
-	_, err = dao.Iron.Ctx(ctx).Where(do.Iron{Id: id}).Data(do.Iron{
-		Code:         code,
-		Name:         name,
-		BonusEnabled: in.BonusEnabled,
-		Remark:       strings.TrimSpace(in.Remark),
-	}).Update()
+	data := do.Iron{
+		Code:   code,
+		Name:   name,
+		Remark: strings.TrimSpace(in.Remark),
+	}
+	if in.BonusEnabled != nil {
+		data.BonusEnabled = *in.BonusEnabled
+	}
+	_, err = dao.Iron.Ctx(ctx).Where(do.Iron{Id: id}).Data(data).Update()
 	if err != nil {
 		return bizerr.WrapCode(err, CodeIronWriteFailed)
 	}

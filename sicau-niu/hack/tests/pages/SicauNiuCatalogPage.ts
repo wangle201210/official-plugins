@@ -227,16 +227,23 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
     await expect(this.ironReportingCycleButton()).toBeVisible();
   }
 
-  async createIronWithBonusOff(code: string) {
+  async createIronWithBonusOn(code: string) {
     await this.openNewIronModal();
     await this.ironCodeInput().fill(code);
     await this.ironNameInput().fill(code);
+    await expect(
+      this.ironModal().getByText("铁牛加成", { exact: true }),
+    ).toBeVisible();
     await expect(this.ironBonusSwitch()).toHaveAttribute(
       "aria-checked",
-      "false",
+      "true",
     );
+    const switchWidth = await this.ironBonusSwitch().evaluate(
+      (element) => element.getBoundingClientRect().width,
+    );
+    expect(switchWidth).toBeLessThan(100);
     await this.confirmDialog(this.ironModal());
-    await expect(this.ironRow(code)).toContainText("关闭");
+    await expect(this.ironRow(code)).toContainText("开启");
   }
 
   async openEditIron(code: string) {

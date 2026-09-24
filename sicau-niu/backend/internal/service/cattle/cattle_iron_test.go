@@ -85,21 +85,44 @@ func TestIronBonusSwitchIsIndependentAndPreservesLocation(t *testing.T) {
 				if item.BonusEnabled != expectedFirst || item.LastLat != 30.7 || item.LastLng != 103.8 {
 					t.Fatalf("unexpected first iron state: %+v", item)
 				}
-			} else if item.BonusEnabled {
+			} else if !item.BonusEnabled {
 				t.Fatalf("switching first iron changed another iron: %+v", item)
 			}
 		}
 	}
 
-	assertBonus(false)
-	if err = svc.UpdateIron(ctx, firstID, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One", BonusEnabled: true}); err != nil {
-		t.Fatalf("enable first iron bonus failed: %v", err)
-	}
 	assertBonus(true)
-	if err = svc.UpdateIron(ctx, firstID, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One", BonusEnabled: false}); err != nil {
+	bonusEnabled := false
+	if err = svc.UpdateIron(ctx, firstID, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One", BonusEnabled: &bonusEnabled}); err != nil {
 		t.Fatalf("disable first iron bonus failed: %v", err)
 	}
 	assertBonus(false)
+	if err = svc.UpdateIron(ctx, firstID, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One Renamed"}); err != nil {
+		t.Fatalf("update first iron without a bonus setting failed: %v", err)
+	}
+	assertBonus(false)
+	bonusEnabled = true
+	if err = svc.UpdateIron(ctx, firstID, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One Renamed", BonusEnabled: &bonusEnabled}); err != nil {
+		t.Fatalf("enable first iron bonus failed: %v", err)
+	}
+	assertBonus(true)
+}
+
+func TestCreateIronCanExplicitlyDisableBonus(t *testing.T) {
+	ctx := t.Context()
+	setupPostgreSQLCattleDB(t, ctx)
+	bonusEnabled := false
+	service := newCattleServiceForTest()
+	_, err := service.CreateIron(ctx, &IronMutateInput{
+		Code: "IRON-BONUS-OFF", Name: "Ox Off", BonusEnabled: &bonusEnabled,
+	})
+	if err != nil {
+		t.Fatalf("create disabled iron failed: %v", err)
+	}
+	list, err := service.ListIron(ctx, &ListIronInput{Keyword: "IRON-BONUS-OFF", PageSize: 10})
+	if err != nil || len(list.List) != 1 || list.List[0].BonusEnabled {
+		t.Fatalf("expected explicitly disabled iron, got %+v, %v", list, err)
+	}
 }
 
 // TestUpdateIronRejectsConflictingCode verifies updating one iron-cow to another

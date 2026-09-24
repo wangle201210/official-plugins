@@ -57,6 +57,7 @@ var cattleSchemaFiles = []string{
 	"002-sicau-niu-catalog.sql",
 	"007-sicau-niu-rule-config.sql",
 	"015-sicau-niu-iron-bonus-toggle.sql",
+	"016-sicau-niu-iron-bonus-default-on.sql",
 }
 
 // cattleDBHarness holds the lazily-provisioned shared test database state.

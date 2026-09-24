@@ -59,6 +59,7 @@ var feedingSchemaFiles = []string{
 	"008-sicau-niu-anticheat-idempotency.sql",
 	"012-sicau-niu-runtime-hardening.sql",
 	"015-sicau-niu-iron-bonus-toggle.sql",
+	"016-sicau-niu-iron-bonus-default-on.sql",
 }
 
 // feedingDBHarness holds the lazily-provisioned shared test database state.

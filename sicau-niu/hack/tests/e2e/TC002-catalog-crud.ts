@@ -148,22 +148,22 @@ test.describe("TC-2 sicau-niu 内容资产 CRUD", () => {
     await expect(catalogPage.ironReportingCycleButton()).toBeEnabled();
   });
 
-  test("TC-2h: 铁牛加成默认关闭，逐只开关保存且失败时不误报", async ({
+  test("TC-2h: 铁牛加成默认开启，逐只开关紧凑展示且失败时不误报", async ({
     adminPage,
   }) => {
     const code = `IRON-BONUS-${suffix}-h`;
     const updatePath = "**/x/sicau-niu/api/v1/plugins/sicau-niu/admin/iron/*";
     await catalogPage.openIronFromMenu();
     try {
-      await catalogPage.createIronWithBonusOff(code);
+      await catalogPage.createIronWithBonusOn(code);
       await catalogPage.openEditIron(code);
-      await catalogPage.ironBonusSwitch().click();
       await expect(catalogPage.ironBonusSwitch()).toHaveAttribute(
         "aria-checked",
         "true",
       );
+      await catalogPage.ironBonusSwitch().click();
       await catalogPage.saveIronModal();
-      await expect(catalogPage.ironRow(code)).toContainText("开启");
+      await expect(catalogPage.ironRow(code)).toContainText("关闭");
 
       await adminPage.route(updatePath, async (route) => {
         await route.fulfill({
@@ -174,16 +174,16 @@ test.describe("TC-2 sicau-niu 内容资产 CRUD", () => {
       await catalogPage.openEditIron(code);
       await expect(catalogPage.ironBonusSwitch()).toHaveAttribute(
         "aria-checked",
-        "true",
+        "false",
       );
       await catalogPage.ironBonusSwitch().click();
       await catalogPage.saveIronModal();
       await expect(catalogPage.ironModal()).toBeVisible();
-      await expect(catalogPage.ironRow(code)).toContainText("开启");
+      await expect(catalogPage.ironRow(code)).toContainText("关闭");
 
       await adminPage.unroute(updatePath);
       await catalogPage.saveIronModal();
-      await expect(catalogPage.ironRow(code)).toContainText("关闭");
+      await expect(catalogPage.ironRow(code)).toContainText("开启");
     } finally {
       await adminPage.unroute(updatePath);
       if (await catalogPage.ironModal().isVisible()) {

@@ -26,7 +26,7 @@ func TestIOTRefreshUpdatesStoredIronLocationForFeeding(t *testing.T) {
 	ctx := context.Background()
 	setupPostgreSQLFeedingDB(t, ctx)
 
-	if _, err := dao.Iron.Ctx(ctx).Data(do.Iron{Code: "IRON-IOT-1", Name: "IOT Iron"}).Insert(); err != nil {
+	if _, err := dao.Iron.Ctx(ctx).Data(do.Iron{Code: "IRON-IOT-1", Name: "IOT Iron", BonusEnabled: false}).Insert(); err != nil {
 		t.Fatalf("insert iron row failed: %v", err)
 	}
 	refresher, err := NewIOTIronLocationRefresher(IronLocationConfig{

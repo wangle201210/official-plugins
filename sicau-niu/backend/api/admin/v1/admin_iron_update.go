@@ -11,7 +11,7 @@ type UpdateIronReq struct {
 	Id           int64  `json:"id" v:"required|min:1" dc:"Iron-cow ID from the path" eg:"1"`
 	Code         string `json:"code" v:"required|length:1,64" dc:"Iron-cow device identifier; must be unique among active iron-cows" eg:"IRON-01"`
 	Name         string `json:"name" v:"required|length:1,128" dc:"Iron-cow display name" eg:"图书馆铁牛"`
-	BonusEnabled bool   `json:"bonusEnabled" dc:"Whether this iron cow grants the proximity bonus; false disables it immediately" eg:"true"`
+	BonusEnabled *bool  `json:"bonusEnabled" dc:"Whether this iron cow grants the proximity bonus; omitted keeps its current setting, false disables it immediately" eg:"true"`
 	Remark       string `json:"remark" dc:"Iron-cow remark" eg:"门口入口处"`
 }
 

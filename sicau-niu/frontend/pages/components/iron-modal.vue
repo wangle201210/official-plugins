@@ -36,7 +36,7 @@ const snapshot = ref<Pick<IronItem, "lastLat" | "lastLng" | "locatedAt">>({
 const formValues: IronFormValues = {
   code: "",
   name: "",
-  bonusEnabled: false,
+  bonusEnabled: true,
   remark: "",
 };
 
@@ -76,11 +76,15 @@ const [IronForm, formApi] = useVbenForm({
     {
       component: "Switch",
       componentProps: {
+        "aria-label": "铁牛加成",
         "data-testid": "sicau-niu-iron-bonus-switch",
+        checkedChildren: "开启",
+        class: "w-auto",
+        unCheckedChildren: "关闭",
       },
-      defaultValue: false,
+      defaultValue: true,
       fieldName: "bonusEnabled",
-      label: "启用铁牛加成",
+      label: "铁牛加成",
     },
     {
       component: "Textarea",
@@ -115,7 +119,7 @@ async function handleConfirm() {
     const payload = {
       code: values.code.trim(),
       name: values.name.trim(),
-      bonusEnabled: values.bonusEnabled ?? false,
+      bonusEnabled: values.bonusEnabled ?? true,
       remark: values.remark?.trim() ?? "",
     };
     if (isEdit.value) {
