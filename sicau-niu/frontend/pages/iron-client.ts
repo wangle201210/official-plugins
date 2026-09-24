@@ -10,6 +10,7 @@ export interface IronItem {
   id: number;
   code: string;
   name: string;
+  bonusEnabled: boolean;
   lastLat: number;
   lastLng: number;
   locatedAt: number | null;
@@ -27,6 +28,7 @@ export interface IronListParams {
 export interface IronSaveInput {
   code: string;
   name: string;
+  bonusEnabled: boolean;
   remark: string;
 }
 

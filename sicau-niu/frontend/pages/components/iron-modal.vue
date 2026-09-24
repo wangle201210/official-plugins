@@ -22,6 +22,7 @@ const emit = defineEmits<{ reload: [] }>();
 interface IronFormValues {
   code: string;
   name: string;
+  bonusEnabled: boolean;
   remark: string;
 }
 
@@ -35,6 +36,7 @@ const snapshot = ref<Pick<IronItem, "lastLat" | "lastLng" | "locatedAt">>({
 const formValues: IronFormValues = {
   code: "",
   name: "",
+  bonusEnabled: false,
   remark: "",
 };
 
@@ -72,6 +74,15 @@ const [IronForm, formApi] = useVbenForm({
       rules: z.string().min(1, { message: "请输入铁牛名称" }),
     },
     {
+      component: "Switch",
+      componentProps: {
+        "data-testid": "sicau-niu-iron-bonus-switch",
+      },
+      defaultValue: false,
+      fieldName: "bonusEnabled",
+      label: "启用铁牛加成",
+    },
+    {
       component: "Textarea",
       componentProps: {
         "data-testid": "sicau-niu-iron-remark-input",
@@ -104,6 +115,7 @@ async function handleConfirm() {
     const payload = {
       code: values.code.trim(),
       name: values.name.trim(),
+      bonusEnabled: values.bonusEnabled ?? false,
       remark: values.remark?.trim() ?? "",
     };
     if (isEdit.value) {
@@ -152,6 +164,7 @@ async function handleOpenChange(open: boolean) {
   await formApi.setValues({
     code: data?.code ?? formValues.code,
     name: data?.name ?? formValues.name,
+    bonusEnabled: data?.bonusEnabled ?? formValues.bonusEnabled,
     remark: data?.remark ?? formValues.remark,
   });
 }

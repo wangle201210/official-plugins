@@ -59,7 +59,7 @@ type Service interface {
 	// validation. Real-time location columns are not written here. It returns
 	// CodeIronCodeRequired/CodeIronCodeExists or the new ID on success.
 	CreateIron(ctx context.Context, in *IronMutateInput) (id int64, err error)
-	// UpdateIron modifies one iron-cow's code, name and remark after existence and
+	// UpdateIron modifies one iron-cow's code, name, remark and bonus switch after existence and
 	// code-uniqueness validation. It returns CodeIronNotFound for a missing ID,
 	// CodeIronCodeExists on a conflicting code, or nil on success.
 	UpdateIron(ctx context.Context, id int64, in *IronMutateInput) error

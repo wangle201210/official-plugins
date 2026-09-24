@@ -22,13 +22,14 @@ type ListIronRes struct {
 // IronItem defines one iron-cow row for the operator console. The real-time
 // location fields are written by the C4 bonus flow and are not maintained here.
 type IronItem struct {
-	Id        int64   `json:"id" dc:"Iron-cow ID" eg:"1"`
-	Code      string  `json:"code" dc:"Iron-cow device identifier, unique among active iron-cows" eg:"IRON-01"`
-	Name      string  `json:"name" dc:"Iron-cow display name" eg:"图书馆铁牛"`
-	LastLat   float64 `json:"lastLat" dc:"Latest GPS latitude written by the C4 bonus flow; 0 when unset" eg:"30.123456"`
-	LastLng   float64 `json:"lastLng" dc:"Latest GPS longitude written by the C4 bonus flow; 0 when unset" eg:"103.123456"`
-	LocatedAt *int64  `json:"locatedAt" dc:"Latest location pull time as Unix timestamp in milliseconds; null when unset" eg:"1776333600000"`
-	Remark    string  `json:"remark" dc:"Iron-cow remark" eg:"门口入口处"`
-	CreatedAt *int64  `json:"createdAt" dc:"Creation time as Unix timestamp in milliseconds" eg:"1776333600000"`
-	UpdatedAt *int64  `json:"updatedAt" dc:"Update time as Unix timestamp in milliseconds" eg:"1776333900000"`
+	Id           int64   `json:"id" dc:"Iron-cow ID" eg:"1"`
+	Code         string  `json:"code" dc:"Iron-cow device identifier, unique among active iron-cows" eg:"IRON-01"`
+	Name         string  `json:"name" dc:"Iron-cow display name" eg:"图书馆铁牛"`
+	BonusEnabled bool    `json:"bonusEnabled" dc:"Whether this iron cow is allowed to grant the proximity bonus" eg:"false"`
+	LastLat      float64 `json:"lastLat" dc:"Latest GPS latitude written by the C4 bonus flow; 0 when unset" eg:"30.123456"`
+	LastLng      float64 `json:"lastLng" dc:"Latest GPS longitude written by the C4 bonus flow; 0 when unset" eg:"103.123456"`
+	LocatedAt    *int64  `json:"locatedAt" dc:"Latest location pull time as Unix timestamp in milliseconds; null when unset" eg:"1776333600000"`
+	Remark       string  `json:"remark" dc:"Iron-cow remark" eg:"门口入口处"`
+	CreatedAt    *int64  `json:"createdAt" dc:"Creation time as Unix timestamp in milliseconds" eg:"1776333600000"`
+	UpdatedAt    *int64  `json:"updatedAt" dc:"Update time as Unix timestamp in milliseconds" eg:"1776333900000"`
 }

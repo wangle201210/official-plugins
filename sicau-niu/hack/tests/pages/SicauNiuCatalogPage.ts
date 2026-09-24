@@ -1,4 +1,8 @@
-import { expect, type Locator, type Page } from "@host-tests/support/playwright";
+import {
+  expect,
+  type Locator,
+  type Page,
+} from "@host-tests/support/playwright";
 
 import { SicauNiuOperatorPage } from "./SicauNiuOperatorPage";
 
@@ -65,9 +69,7 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
   }
 
   quoteModal(): Locator {
-    return this.page
-      .getByRole("dialog", { name: /新增金句|编辑金句/ })
-      .last();
+    return this.page.getByRole("dialog", { name: /新增金句|编辑金句/ }).last();
   }
 
   quoteContentInput(): Locator {
@@ -198,6 +200,18 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
     return this.page.getByTestId("sicau-niu-iron-code-input").last();
   }
 
+  ironNameInput(): Locator {
+    return this.page.getByTestId("sicau-niu-iron-name-input").last();
+  }
+
+  ironBonusSwitch(): Locator {
+    return this.page.getByTestId("sicau-niu-iron-bonus-switch").last();
+  }
+
+  ironRow(code: string): Locator {
+    return this.rowByText(code);
+  }
+
   ironReportingCycleButton(): Locator {
     return this.page.getByTestId("sicau-niu-iron-reporting-cycle").last();
   }
@@ -211,6 +225,38 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
     await this.ironAddButton().click();
     await expect(this.ironModal()).toBeVisible();
     await expect(this.ironReportingCycleButton()).toBeVisible();
+  }
+
+  async createIronWithBonusOff(code: string) {
+    await this.openNewIronModal();
+    await this.ironCodeInput().fill(code);
+    await this.ironNameInput().fill(code);
+    await expect(this.ironBonusSwitch()).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    await this.confirmDialog(this.ironModal());
+    await expect(this.ironRow(code)).toContainText("关闭");
+  }
+
+  async openEditIron(code: string) {
+    const editButton = await this.rowActionButton(code, /编\s*辑/);
+    await editButton.click();
+    await expect(this.ironModal()).toBeVisible();
+  }
+
+  async saveIronModal() {
+    await this.ironModal()
+      .getByRole("button", { name: /确\s*认|确\s*定/u })
+      .last()
+      .click();
+  }
+
+  async deleteIronRow(code: string) {
+    const deleteButton = await this.rowActionButton(code, /删\s*除/);
+    await deleteButton.click();
+    await this.confirmPopconfirm();
+    await expect(this.ironRow(code)).toHaveCount(0);
   }
 
   async updateIronReportingCycle(code: string) {
@@ -230,7 +276,10 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
     await expect(rowWithCoordinate).toBeVisible();
     await expect(rowWithCoordinate).toContainText(/\d{2}\.\d{6}/);
 
-    await this.page.getByRole("button", { name: /编\s*辑/ }).first().click();
+    await this.page
+      .getByRole("button", { name: /编\s*辑/ })
+      .first()
+      .click();
     const snapshot = this.ironModal().getByTestId(
       "sicau-niu-iron-location-snapshot",
     );
@@ -239,7 +288,9 @@ export class SicauNiuCatalogPage extends SicauNiuOperatorPage {
     await expect(snapshot).toContainText("纬度");
     await expect(snapshot).toContainText("经度");
     await expect(snapshot.locator("input, textarea")).toHaveCount(0);
-    await this.ironModal().getByRole("button", { name: /取\s*消/ }).click();
+    await this.ironModal()
+      .getByRole("button", { name: /取\s*消/ })
+      .click();
   }
 
   // rowActionButton locates a row by its text and returns the named action

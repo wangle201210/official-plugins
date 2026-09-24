@@ -21,30 +21,32 @@ type IronDao struct {
 
 // IronColumns defines and stores column names for the table plugin_sicau_niu_iron.
 type IronColumns struct {
-	Id        string //
-	Code      string // Iron-cow device identifier, unique among active rows
-	Name      string // Iron-cow display name
-	LastLat   string // Latest GPS latitude pulled by the bonus flow (C4)
-	LastLng   string // Latest GPS longitude pulled by the bonus flow (C4)
-	LocatedAt string // Latest location pull time
-	Remark    string // Iron-cow remark
-	CreatedAt string // Creation time
-	UpdatedAt string // Update time
-	DeletedAt string // Soft-delete time, NULL means active
+	Id           string //
+	Code         string // Iron-cow device identifier, unique among active rows
+	Name         string // Iron-cow display name
+	LastLat      string // Latest GPS latitude pulled by the bonus flow (C4)
+	LastLng      string // Latest GPS longitude pulled by the bonus flow (C4)
+	LocatedAt    string // Latest location pull time
+	Remark       string // Iron-cow remark
+	CreatedAt    string // Creation time
+	UpdatedAt    string // Update time
+	DeletedAt    string // Soft-delete time, NULL means active
+	BonusEnabled string // Whether this iron cow may grant the feeding proximity bonus
 }
 
 // ironColumns holds the columns for the table plugin_sicau_niu_iron.
 var ironColumns = IronColumns{
-	Id:        "id",
-	Code:      "code",
-	Name:      "name",
-	LastLat:   "last_lat",
-	LastLng:   "last_lng",
-	LocatedAt: "located_at",
-	Remark:    "remark",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
+	Id:           "id",
+	Code:         "code",
+	Name:         "name",
+	LastLat:      "last_lat",
+	LastLng:      "last_lng",
+	LocatedAt:    "located_at",
+	Remark:       "remark",
+	CreatedAt:    "created_at",
+	UpdatedAt:    "updated_at",
+	DeletedAt:    "deleted_at",
+	BonusEnabled: "bonus_enabled",
 }
 
 // NewIronDao creates and returns a new DAO object for table data access.

@@ -148,8 +148,58 @@ test.describe("TC-2 sicau-niu 内容资产 CRUD", () => {
     await expect(catalogPage.ironReportingCycleButton()).toBeEnabled();
   });
 
+  test("TC-2h: 铁牛加成默认关闭，逐只开关保存且失败时不误报", async ({
+    adminPage,
+  }) => {
+    const code = `IRON-BONUS-${suffix}-h`;
+    const updatePath = "**/x/sicau-niu/api/v1/plugins/sicau-niu/admin/iron/*";
+    await catalogPage.openIronFromMenu();
+    try {
+      await catalogPage.createIronWithBonusOff(code);
+      await catalogPage.openEditIron(code);
+      await catalogPage.ironBonusSwitch().click();
+      await expect(catalogPage.ironBonusSwitch()).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await catalogPage.saveIronModal();
+      await expect(catalogPage.ironRow(code)).toContainText("开启");
+
+      await adminPage.route(updatePath, async (route) => {
+        await route.fulfill({
+          json: { code: 50, data: null, message: "保存失败" },
+          status: 200,
+        });
+      });
+      await catalogPage.openEditIron(code);
+      await expect(catalogPage.ironBonusSwitch()).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await catalogPage.ironBonusSwitch().click();
+      await catalogPage.saveIronModal();
+      await expect(catalogPage.ironModal()).toBeVisible();
+      await expect(catalogPage.ironRow(code)).toContainText("开启");
+
+      await adminPage.unroute(updatePath);
+      await catalogPage.saveIronModal();
+      await expect(catalogPage.ironRow(code)).toContainText("关闭");
+    } finally {
+      await adminPage.unroute(updatePath);
+      if (await catalogPage.ironModal().isVisible()) {
+        await catalogPage
+          .ironModal()
+          .getByRole("button", { name: /取\s*消/u })
+          .click();
+      }
+      if (await catalogPage.ironRow(code).isVisible()) {
+        await catalogPage.deleteIronRow(code);
+      }
+    }
+  });
+
   // 注:牛的编辑/删除经后端单元测试(cattle DB 门控:更新 code 冲突、删除、删牛级联软删
   // 主卡)与 API 验证(GET/PUT/DELETE 均 code:0)覆盖;其复杂编辑表单(类型/子类/院系联动
   // + 详情回填)在 Playwright 下交互不稳定,牛的 UI 编辑/删除 E2E 留待后续硬化。本 TC 以
-  // 金句全量 CRUD、牛新增和铁牛 IOT 指令证明运营页关键路径端到端贯通。
+  // 金句全量 CRUD、牛新增、铁牛加成开关和 IOT 指令证明运营页关键路径端到端贯通。
 });

@@ -63,6 +63,7 @@ var activationSchemaFiles = []string{
 	"004-sicau-niu-grass.sql",
 	"007-sicau-niu-rule-config.sql",
 	"010-sicau-niu-miniapp-interfaces.sql",
+	"015-sicau-niu-iron-bonus-toggle.sql",
 }
 
 // activationDBHarness holds the lazily-provisioned shared test database state.

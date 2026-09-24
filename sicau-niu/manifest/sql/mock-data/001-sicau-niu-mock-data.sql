@@ -37,14 +37,7 @@ FROM (VALUES
 ) AS v(code,niu_type,subtype,name,college,lat,lng,status,online_now)
 WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_niu n WHERE n."code" = v.code AND n."deleted_at" IS NULL);
 
--- 3) 铁牛 (iron) — keyed by code.
-INSERT INTO plugin_sicau_niu_iron ("code","name","last_lat","last_lng")
-SELECT v.code, v.name, v.lat, v.lng FROM (VALUES
-    ('IRON-01','校门铁牛',30.70519,103.86281),
-    ('IRON-02','图书馆铁牛',30.70498,103.86198),
-    ('IRON-03','体育场铁牛',30.70603,103.86504)
-) AS v(code,name,lat,lng)
-WHERE NOT EXISTS (SELECT 1 FROM plugin_sicau_niu_iron i WHERE i."code" = v.code AND i."deleted_at" IS NULL);
+-- 3) 铁牛由安装目录登记，演示数据不创建虚构定位器或坐标。
 
 -- 4) 卡片 (card) — one main card per cattle; niu resolved by code.
 INSERT INTO plugin_sicau_niu_card ("niu_id","category","title","content","image_path")

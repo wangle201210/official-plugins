@@ -22,15 +22,16 @@ func (c *ControllerV1) ListIron(ctx context.Context, req *v1.ListIronReq) (res *
 	items := make([]*v1.IronItem, 0, len(out.List))
 	for _, item := range out.List {
 		items = append(items, &v1.IronItem{
-			Id:        item.Id,
-			Code:      item.Code,
-			Name:      item.Name,
-			LastLat:   item.LastLat,
-			LastLng:   item.LastLng,
-			LocatedAt: item.LocatedAt,
-			Remark:    item.Remark,
-			CreatedAt: item.CreatedAt,
-			UpdatedAt: item.UpdatedAt,
+			Id:           item.Id,
+			Code:         item.Code,
+			Name:         item.Name,
+			BonusEnabled: item.BonusEnabled,
+			LastLat:      item.LastLat,
+			LastLng:      item.LastLng,
+			LocatedAt:    item.LocatedAt,
+			Remark:       item.Remark,
+			CreatedAt:    item.CreatedAt,
+			UpdatedAt:    item.UpdatedAt,
 		})
 	}
 	return &v1.ListIronRes{List: items, Total: out.Total}, nil

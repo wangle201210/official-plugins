@@ -54,6 +54,54 @@ func TestCreateIronRequiresCodeAndName(t *testing.T) {
 	assertBizCode(t, err, CodeIronNameRequired.RuntimeCode())
 }
 
+func TestIronBonusSwitchIsIndependentAndPreservesLocation(t *testing.T) {
+	ctx := t.Context()
+	setupPostgreSQLCattleDB(t, ctx)
+
+	svc := newCattleServiceForTest()
+	firstID, err := svc.CreateIron(ctx, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One"})
+	if err != nil {
+		t.Fatalf("create first iron failed: %v", err)
+	}
+	if _, err = svc.CreateIron(ctx, &IronMutateInput{Code: "IRON-BONUS-2", Name: "Ox Two"}); err != nil {
+		t.Fatalf("create second iron failed: %v", err)
+	}
+	if _, err = dao.Iron.Ctx(ctx).Where(dao.Iron.Columns().Id, firstID).
+		Data(do.Iron{LastLat: 30.7, LastLng: 103.8}).Update(); err != nil {
+		t.Fatalf("store first iron position failed: %v", err)
+	}
+
+	assertBonus := func(expectedFirst bool) {
+		t.Helper()
+		list, listErr := svc.ListIron(ctx, &ListIronInput{Keyword: "IRON-BONUS", PageSize: 10})
+		if listErr != nil {
+			t.Fatalf("list iron failed: %v", listErr)
+		}
+		if list.Total != 2 || len(list.List) != 2 {
+			t.Fatalf("expected two iron rows, got %+v", list)
+		}
+		for _, item := range list.List {
+			if item.Id == firstID {
+				if item.BonusEnabled != expectedFirst || item.LastLat != 30.7 || item.LastLng != 103.8 {
+					t.Fatalf("unexpected first iron state: %+v", item)
+				}
+			} else if item.BonusEnabled {
+				t.Fatalf("switching first iron changed another iron: %+v", item)
+			}
+		}
+	}
+
+	assertBonus(false)
+	if err = svc.UpdateIron(ctx, firstID, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One", BonusEnabled: true}); err != nil {
+		t.Fatalf("enable first iron bonus failed: %v", err)
+	}
+	assertBonus(true)
+	if err = svc.UpdateIron(ctx, firstID, &IronMutateInput{Code: "IRON-BONUS-1", Name: "Ox One", BonusEnabled: false}); err != nil {
+		t.Fatalf("disable first iron bonus failed: %v", err)
+	}
+	assertBonus(false)
+}
+
 // TestUpdateIronRejectsConflictingCode verifies updating one iron-cow to another
 // active iron-cow's code is rejected with CodeIronCodeExists, while keeping its
 // own code succeeds.

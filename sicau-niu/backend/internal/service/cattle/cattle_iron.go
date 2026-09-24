@@ -37,22 +37,24 @@ type ListIronOutput struct {
 
 // IronItem defines one iron-cow row projected for the operator console.
 type IronItem struct {
-	Id        int64
-	Code      string
-	Name      string
-	LastLat   float64
-	LastLng   float64
-	LocatedAt *int64
-	Remark    string
-	CreatedAt *int64
-	UpdatedAt *int64
+	Id           int64
+	Code         string
+	Name         string
+	BonusEnabled bool
+	LastLat      float64
+	LastLng      float64
+	LocatedAt    *int64
+	Remark       string
+	CreatedAt    *int64
+	UpdatedAt    *int64
 }
 
 // IronMutateInput defines the create/update iron-cow input.
 type IronMutateInput struct {
-	Code   string
-	Name   string
-	Remark string
+	Code         string
+	Name         string
+	BonusEnabled bool
+	Remark       string
 }
 
 // ListIron returns one DB-side paged iron-cow page.
@@ -87,15 +89,16 @@ func (s *serviceImpl) ListIron(ctx context.Context, in *ListIronInput) (*ListIro
 	list := make([]*IronItem, 0, len(rows))
 	for _, row := range rows {
 		list = append(list, &IronItem{
-			Id:        row.Id,
-			Code:      row.Code,
-			Name:      row.Name,
-			LastLat:   row.LastLat,
-			LastLng:   row.LastLng,
-			LocatedAt: apitime.Milli(row.LocatedAt),
-			Remark:    row.Remark,
-			CreatedAt: apitime.Milli(row.CreatedAt),
-			UpdatedAt: apitime.Milli(row.UpdatedAt),
+			Id:           row.Id,
+			Code:         row.Code,
+			Name:         row.Name,
+			BonusEnabled: row.BonusEnabled,
+			LastLat:      row.LastLat,
+			LastLng:      row.LastLng,
+			LocatedAt:    apitime.Milli(row.LocatedAt),
+			Remark:       row.Remark,
+			CreatedAt:    apitime.Milli(row.CreatedAt),
+			UpdatedAt:    apitime.Milli(row.UpdatedAt),
 		})
 	}
 	return &ListIronOutput{List: list, Total: total}, nil
@@ -118,9 +121,10 @@ func (s *serviceImpl) CreateIron(ctx context.Context, in *IronMutateInput) (int6
 	}
 
 	id, err := dao.Iron.Ctx(ctx).Data(do.Iron{
-		Code:   code,
-		Name:   name,
-		Remark: strings.TrimSpace(in.Remark),
+		Code:         code,
+		Name:         name,
+		BonusEnabled: in.BonusEnabled,
+		Remark:       strings.TrimSpace(in.Remark),
 	}).InsertAndGetId()
 	if err != nil {
 		return 0, bizerr.WrapCode(err, CodeIronWriteFailed)
@@ -128,7 +132,7 @@ func (s *serviceImpl) CreateIron(ctx context.Context, in *IronMutateInput) (int6
 	return id, nil
 }
 
-// UpdateIron modifies one iron-cow's code, name and remark after validation. The
+// UpdateIron modifies one iron-cow's registration and bonus switch after validation. The
 // real-time location columns are left untouched.
 func (s *serviceImpl) UpdateIron(ctx context.Context, id int64, in *IronMutateInput) error {
 	if id <= 0 {
@@ -156,9 +160,10 @@ func (s *serviceImpl) UpdateIron(ctx context.Context, id int64, in *IronMutateIn
 	}
 
 	_, err = dao.Iron.Ctx(ctx).Where(do.Iron{Id: id}).Data(do.Iron{
-		Code:   code,
-		Name:   name,
-		Remark: strings.TrimSpace(in.Remark),
+		Code:         code,
+		Name:         name,
+		BonusEnabled: in.BonusEnabled,
+		Remark:       strings.TrimSpace(in.Remark),
 	}).Update()
 	if err != nil {
 		return bizerr.WrapCode(err, CodeIronWriteFailed)

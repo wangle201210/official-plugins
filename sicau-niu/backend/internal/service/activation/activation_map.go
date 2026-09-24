@@ -219,6 +219,7 @@ func currentIronPositions(ctx context.Context) ([]*entitymodel.Iron, error) {
 	rows := make([]*entitymodel.Iron, 0)
 	err := dao.Iron.Ctx(ctx).
 		Fields(dao.Iron.Columns().LastLat, dao.Iron.Columns().LastLng).
+		Where(dao.Iron.Columns().BonusEnabled, true).
 		Where(dao.Iron.Columns().LocatedAt+" IS NOT NULL").
 		WhereNot(dao.Iron.Columns().LastLat, 0).
 		WhereNot(dao.Iron.Columns().LastLng, 0).

@@ -58,6 +58,48 @@ func TestVisibleNiuFiltersByOnlineTime(t *testing.T) {
 	}
 }
 
+func TestVisibleNiuIronBoostRequiresEnabledIron(t *testing.T) {
+	ctx := t.Context()
+	setupPostgreSQLActivationDB(t, ctx)
+	svc := newActivationServiceForTest()
+	onlineAt := time.Now().Add(-time.Hour)
+	niuID := insertNiuRow(t, ctx, do.Niu{
+		Code: "NIU-IRON-BOOST", NiuType: cattlesvc.NiuTypeCommon.String(),
+		Lat: 30.0, Lng: 103.0, OnlineAt: &onlineAt,
+		Status: cattlesvc.NiuStatusInactive.String(),
+	})
+	locatedAt := time.Now()
+	if _, err := dao.Iron.Ctx(ctx).Data(do.Iron{
+		Code: "IRON-MAP-BOOST", Name: "Map Iron", LastLat: 30.0,
+		LastLng: 103.0, LocatedAt: &locatedAt,
+	}).Insert(); err != nil {
+		t.Fatalf("insert located iron failed: %v", err)
+	}
+	playerID := insertUserRow(t, ctx, do.User{Openid: "openid-iron-boost"})
+	assertBoost := func(expected bool) {
+		t.Helper()
+		items, err := svc.VisibleNiu(ctx, playerID)
+		if err != nil {
+			t.Fatalf("list visible cattle failed: %v", err)
+		}
+		if len(items) != 1 || items[0].Id != niuID || items[0].IronBoost != expected {
+			t.Fatalf("expected ironBoost=%t, got %+v", expected, items)
+		}
+	}
+
+	assertBoost(false)
+	if _, err := dao.Iron.Ctx(ctx).Where(dao.Iron.Columns().Code, "IRON-MAP-BOOST").
+		Data(do.Iron{BonusEnabled: true}).Update(); err != nil {
+		t.Fatalf("enable iron bonus failed: %v", err)
+	}
+	assertBoost(true)
+	if _, err := dao.Iron.Ctx(ctx).Where(dao.Iron.Columns().Code, "IRON-MAP-BOOST").
+		Data(do.Iron{BonusEnabled: false}).Update(); err != nil {
+		t.Fatalf("disable iron bonus failed: %v", err)
+	}
+	assertBoost(false)
+}
+
 // TestVisibleNiuIncludesApiCreatedPastOnlineAt verifies the operator Unix-ms
 // onlineAt input is stored as an absolute instant. The write and read run under
 // different PostgreSQL session time zones to catch TIMESTAMP-without-time-zone

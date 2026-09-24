@@ -12,9 +12,10 @@ import (
 // UpdateIron updates one iron-cow registration.
 func (c *ControllerV1) UpdateIron(ctx context.Context, req *v1.UpdateIronReq) (res *v1.UpdateIronRes, err error) {
 	err = c.cattleSvc.UpdateIron(ctx, req.Id, &cattlesvc.IronMutateInput{
-		Code:   req.Code,
-		Name:   req.Name,
-		Remark: req.Remark,
+		Code:         req.Code,
+		Name:         req.Name,
+		BonusEnabled: req.BonusEnabled,
+		Remark:       req.Remark,
 	})
 	if err != nil {
 		return nil, err

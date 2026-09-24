@@ -74,12 +74,38 @@ func TestIOTRefreshUpdatesStoredIronLocationForFeeding(t *testing.T) {
 	creditGrass(t, ctx, userID, 100)
 	svc := newFeedingServiceForTest(NewStoredIronLocation())
 
-	out, err := svc.Feed(ctx, userID, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-iot"})
+	out, err := svc.Feed(ctx, userID, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-iot-disabled"})
 	if err != nil {
 		t.Fatalf("Feed returned error: %v", err)
 	}
+	if out.IsIronBonus || out.CoefficientBasis != baseCoefficientBasis || out.EffectAmount != 10 {
+		t.Fatalf("expected a located but disabled iron to give no bonus, got %+v", out)
+	}
+	if _, err = dao.Iron.Ctx(ctx).Where(dao.Iron.Columns().Code, "IRON-IOT-1").
+		Data(do.Iron{BonusEnabled: true}).Update(); err != nil {
+		t.Fatalf("enable iron bonus failed: %v", err)
+	}
+	replay, err := svc.Feed(ctx, userID, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-iot-disabled"})
+	if err != nil || replay == nil || replay.IsIronBonus || replay.EffectAmount != 10 {
+		t.Fatalf("enabling an iron must not change a recorded feeding result, got %+v, %v", replay, err)
+	}
+	out, err = svc.Feed(ctx, userID, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-iot-enabled"})
+	if err != nil {
+		t.Fatalf("Feed with enabled iron returned error: %v", err)
+	}
 	if !out.IsIronBonus || out.CoefficientBasis != ironBonusCoefficientBasis || out.EffectAmount != 15 {
-		t.Fatalf("expected stored IOT coordinate to trigger iron bonus, got %+v", out)
+		t.Fatalf("expected enabled stored IOT coordinate to trigger iron bonus, got %+v", out)
+	}
+	if _, err = dao.Iron.Ctx(ctx).Where(dao.Iron.Columns().Code, "IRON-IOT-1").
+		Data(do.Iron{BonusEnabled: false}).Update(); err != nil {
+		t.Fatalf("disable iron bonus failed: %v", err)
+	}
+	out, err = svc.Feed(ctx, userID, &FeedInput{NiuId: niuID, BaseAmount: 10, RequestId: "req-feed-iot-disabled-again"})
+	if err != nil {
+		t.Fatalf("Feed after disabling iron returned error: %v", err)
+	}
+	if out.IsIronBonus || out.CoefficientBasis != baseCoefficientBasis || out.EffectAmount != 10 {
+		t.Fatalf("expected disabled iron to stop giving bonuses immediately, got %+v", out)
 	}
 }
 

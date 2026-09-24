@@ -1,5 +1,5 @@
 // Package ironlocation is the feeding capability's iron-cow real-time location
-// seam. It returns the current GPS positions of registered iron cows used to
+// seam. It returns the current GPS positions of bonus-enabled iron cows used to
 // decide the feeding proximity bonus. The player request path reads only the
 // latest stored last_lat/last_lng from the plugin iron table; the external IOT
 // platform is refreshed by a separate cron job so feeding does not block on
@@ -55,6 +55,7 @@ func NewStored() Gateway {
 func (g *storedGateway) Positions(ctx context.Context) ([]*IronPosition, error) {
 	rows := make([]*entitymodel.Iron, 0)
 	err := dao.Iron.Ctx(ctx).
+		Where(dao.Iron.Columns().BonusEnabled, true).
 		Fields(
 			dao.Iron.Columns().Id,
 			dao.Iron.Columns().LastLat,

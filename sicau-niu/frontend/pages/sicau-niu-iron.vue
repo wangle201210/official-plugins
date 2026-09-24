@@ -62,6 +62,12 @@ const [Grid, gridApi] = useVbenVxeGrid({
         title: "名称",
       },
       {
+        field: "bonusEnabled",
+        formatter: ({ cellValue }) => (cellValue === true ? "开启" : "关闭"),
+        title: "铁牛加成",
+        width: 100,
+      },
+      {
         field: "lastLat",
         formatter: ({ cellValue }) => formatCoordinate(cellValue),
         title: "纬度",
@@ -145,6 +151,7 @@ function handleEditIron(row: IronItem) {
     id: row.id,
     code: row.code,
     name: row.name,
+    bonusEnabled: row.bonusEnabled,
     lastLat: row.lastLat,
     lastLng: row.lastLng,
     locatedAt: row.locatedAt,
