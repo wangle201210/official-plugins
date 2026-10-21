@@ -74,7 +74,7 @@ func TestNormalizeMachineMetricBuildsInstanceReport(t *testing.T) {
 	if report.region != "华东" || report.nodeStatus != "healthy" || report.status != "running" {
 		t.Fatalf("unexpected status fields: %#v", report)
 	}
-	if report.cpuAllocated != 8 || report.cpuLoad != 42.5 {
+	if report.cpuAllocated != 8 || report.cpuLoad != 3.4 {
 		t.Fatalf("unexpected cpu values: %#v", report)
 	}
 	if report.memoryAllocated != 4 || report.memoryUsed != 2 {
@@ -196,6 +196,38 @@ func TestNormalizeNetworkMetricBuildsLatencyUpdate(t *testing.T) {
 	}
 	if latency["10.0.0.2"] != 28 {
 		t.Fatalf("expected destination latency 28, got %#v", latency)
+	}
+}
+
+// TestNormalizeNetworkMetricPreservesRawProbeValues verifies failed and unknown probes are not fabricated as healthy.
+func TestNormalizeNetworkMetricPreservesRawProbeValues(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		extra     map[string]string
+		reachable bool
+		known     bool
+	}{
+		{name: "absent"},
+		{name: "invalid", extra: map[string]string{"reachable": "unknown"}},
+		{name: "failed", extra: map[string]string{"reachable": "false"}, known: true},
+		{name: "success", extra: map[string]string{"reachable": " true "}, reachable: true, known: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			report, ok := normalizeNetworkMetric(&gen.NetworkMetric{
+				NodeId: " node-a ", MachineId: " instance-a ", SourceIp: " 10.0.0.1 ",
+				DestinationIp: " 10.0.0.2 ", Rtt: 9999, Jitter: 9999,
+				PacketLoss: 1, StatusCode: 503, Extra: test.extra, Timestamp: 1_780_000_000,
+			})
+			if !ok || report.nodeID != "node-a" || report.machineID != "instance-a" || report.sourceIP != "10.0.0.1" || report.destinationID != "10.0.0.2" {
+				t.Fatalf("unexpected normalized link identity: %#v", report)
+			}
+			if report.rtt != 9999 || report.jitter != 9999 || report.packetLoss != 1 || report.statusCode != 503 {
+				t.Fatalf("raw failed probe values were changed: %#v", report)
+			}
+			if (report.reachable != nil) != test.known || (report.reachable != nil && *report.reachable != test.reachable) {
+				t.Fatalf("unexpected reachability: %#v", report.reachable)
+			}
+		})
 	}
 }
 

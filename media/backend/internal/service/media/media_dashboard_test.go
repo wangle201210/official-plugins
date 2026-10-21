@@ -487,6 +487,19 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 	t.Helper()
 
 	statements := []string{
+		`CREATE TABLE IF NOT EXISTS plugin_media_report_network_link (
+			node_id TEXT NOT NULL,
+			machine_id TEXT NOT NULL,
+			source_ip TEXT NOT NULL,
+			destination_ip TEXT NOT NULL,
+			rtt INTEGER NOT NULL,
+			jitter INTEGER NOT NULL,
+			packet_loss REAL NOT NULL,
+			status_code INTEGER NOT NULL,
+			reachable BOOLEAN,
+			report_time INTEGER NOT NULL,
+			PRIMARY KEY (node_id, machine_id, source_ip, destination_ip)
+		)`,
 		`CREATE TABLE IF NOT EXISTS media_report_node (
 			node_id TEXT PRIMARY KEY,
 			node_name TEXT NOT NULL DEFAULT '',
@@ -597,6 +610,7 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 	}
 
 	cleanupStatements := []string{
+		`DELETE FROM plugin_media_report_network_link`,
 		`DELETE FROM media_report_session`,
 		`DELETE FROM media_report_stream`,
 		`DELETE FROM media_report_instance`,

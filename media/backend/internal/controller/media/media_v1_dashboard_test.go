@@ -13,7 +13,7 @@ import (
 
 // TestDashboardControllerReturnsFrontendDataShape verifies dashboard controller projection with multi-row mocks.
 func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	controller := &ControllerV1{mediaSvc: &dashboardControllerService{}}
 
 	node, err := controller.GetDashboardNodeOverview(ctx, &v1.GetDashboardNodeOverviewReq{RootNodeId: "node-a"})
@@ -25,11 +25,21 @@ func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 		"node_id", "node_name", "region", "status", "parent_node_id", "total_nodes", "alive_nodes",
 		"cpu_allocated", "cpu_load", "memory_allocated", "memory_used", "disk_io_read", "disk_io_write",
 		"network_in", "network_out", "live_streams", "sessions", "avg_delay", "last_heartbeat",
-		"report_time", "node_latency_map", "child_nodes",
+		"report_time", "node_latency_map", "network_links", "network_links_limited", "instance_resources", "child_nodes",
 	)
 	assertDashboardControllerMissingKey(t, nodePayload, "total")
 	if len(node.ChildNodes) != 2 {
 		t.Fatalf("expected two child nodes, got %#v", node.ChildNodes)
+	}
+	if len(node.NetworkLinks) != 1 || node.NetworkLinks[0].PacketLoss != 0.02 || node.NetworkLinks[0].Jitter != 3 ||
+		node.NetworkLinks[0].Reachable != nil || node.NetworkLinks[0].ReportTime != 1791784485000 {
+		t.Fatalf("expected complete raw network metrics: %#v", node.NetworkLinks)
+	}
+	if node.InstanceResources == nil || node.InstanceResources.InstanceCount != 2 || node.InstanceResources.CpuLoad != 2.5 {
+		t.Fatalf("expected direct instance resource projection: %#v", node.InstanceResources)
+	}
+	if node.ChildNodes[0].NetworkLinks == nil || node.ChildNodes[0].InstanceResources == nil {
+		t.Fatal("empty child metrics must serialize as arrays and objects")
 	}
 
 	instances, err := controller.ListDashboardInstances(ctx, &v1.ListDashboardInstancesReq{NodeId: "node-a"})
@@ -110,6 +120,10 @@ func (s *dashboardControllerService) GetDashboardNodeOverview(context.Context, m
 		LastHeartbeat:  &lastHeartbeat,
 		ReportTime:     1780000000000,
 		NodeLatencyMap: map[string]int{"node-b": 12, "node-c": 24},
+		NetworkLinks: []*mediasvc.DashboardNetworkLink{
+			{MachineId: "inst-a", SourceIp: "192.0.2.10", DestinationIp: "192.0.2.55", Rtt: 18, Jitter: 3, PacketLoss: 0.02, StatusCode: 200, ReportTime: 1791784485000},
+		},
+		InstanceResources: &mediasvc.DashboardNodeResources{InstanceCount: 2, CpuAllocated: 8, CpuLoad: 2.5},
 		ChildNodes: []*mediasvc.DashboardNodeOverviewItem{
 			{NodeId: "node-b", NodeName: "Node B", ParentNodeId: "node-a", NodeLatencyMap: map[string]int{}, ChildNodes: []*mediasvc.DashboardNodeOverviewItem{}},
 			{NodeId: "node-c", NodeName: "Node C", ParentNodeId: "node-a", NodeLatencyMap: map[string]int{}, ChildNodes: []*mediasvc.DashboardNodeOverviewItem{}},

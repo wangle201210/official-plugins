@@ -63,8 +63,14 @@ type (
 // networkReport carries one normalized node network projection update.
 type networkReport struct {
 	nodeID          string
+	machineID       string
+	sourceIP        string
 	destinationID   string
 	rtt             int32
+	jitter          int32
+	packetLoss      float64
+	statusCode      int32
+	reachable       *bool
 	networkOut      float64
 	lastHeartbeat   *gtime.Time
 	nodeLatencyMap  string
@@ -192,7 +198,7 @@ func normalizeMachineMetric(metric *gen.MachineMetric) (instanceReport, bool) {
 		nodeStatus:      normalizeStatusText(metric.GetNodeStatus(), string(reportNodeStatusHealthy)),
 		status:          normalizeStatusText(metric.GetStatus(), string(reportStatusUnknown)),
 		cpuAllocated:    float64(metric.GetCpuCount()),
-		cpuLoad:         metric.GetCpuUsage(),
+		cpuLoad:         metric.GetCpuUsage() * float64(metric.GetCpuCount()) / 100,
 		memoryAllocated: bytesToMegabytes(metric.GetMemTotal()),
 		memoryUsed:      bytesToMegabytes(metric.GetMemUsed()),
 		diskIoRead:      bytesToKilobytesPerSecond(metric.GetDiskReadBytes()),
@@ -282,14 +288,33 @@ func normalizeNetworkMetric(metric *gen.NetworkMetric) (networkReport, bool) {
 	reportTime := normalizeReportTime(metric.GetTimestamp())
 	return networkReport{
 		nodeID:          nodeID,
+		machineID:       strings.TrimSpace(metric.GetMachineId()),
+		sourceIP:        strings.TrimSpace(metric.GetSourceIp()),
 		destinationID:   destinationID,
 		rtt:             metric.GetRtt(),
+		jitter:          metric.GetJitter(),
+		packetLoss:      metric.GetPacketLoss(),
+		statusCode:      metric.GetStatusCode(),
+		reachable:       networkReachable(metric.GetExtra()),
 		networkOut:      normalizeNetworkThroughput(metric.GetExtra()),
 		lastHeartbeat:   reportTimeToGTime(reportTime),
 		nodeLatencyMap:  latencyMap,
 		reportTime:      reportTime,
 		hasLatencyMerge: hasLatencyMerge,
 	}, true
+}
+
+// networkReachable preserves explicitly reported reachability and leaves absent or invalid values unknown.
+func networkReachable(extra map[string]string) *bool {
+	value, ok := extra["reachable"]
+	if !ok {
+		return nil
+	}
+	reachable, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return nil
+	}
+	return &reachable
 }
 
 // normalizeStreamMetric converts one StreamMetric to a stream projection.

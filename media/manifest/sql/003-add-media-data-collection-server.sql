@@ -379,3 +379,32 @@ COMMENT ON COLUMN media_report_session."link_hops" IS '会话链路跳点JSON数
 COMMENT ON COLUMN media_report_session."total_link_latency" IS '会话链路总延迟，单位毫秒';
 COMMENT ON COLUMN media_report_session."report_time" IS '上报端采样时间';
 COMMENT ON COLUMN media_report_session."updated_at" IS '记录更新时间';
+
+
+-- Purpose: Stores the latest raw network probe per node, machine, source and destination.
+-- 用途：保存每条来源实例链路的最新原始探测值，不做评分，不使用软删除。
+CREATE TABLE IF NOT EXISTS plugin_media_report_network_link (
+    "node_id" VARCHAR(64) NOT NULL,
+    "machine_id" VARCHAR(128) NOT NULL DEFAULT '',
+    "source_ip" VARCHAR(255) NOT NULL DEFAULT '',
+    "destination_ip" VARCHAR(255) NOT NULL,
+    "rtt" INTEGER NOT NULL DEFAULT 0,
+    "jitter" INTEGER NOT NULL DEFAULT 0,
+    "packet_loss" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "status_code" INTEGER NOT NULL DEFAULT 0,
+    "reachable" BOOLEAN,
+    "report_time" BIGINT NOT NULL,
+    PRIMARY KEY ("node_id", "machine_id", "source_ip", "destination_ip")
+);
+
+COMMENT ON TABLE plugin_media_report_network_link IS '媒体节点原始网络链路最新投影，复合主键前导节点字段支持子树批量查询';
+COMMENT ON COLUMN plugin_media_report_network_link."node_id" IS '上报所属节点业务标识';
+COMMENT ON COLUMN plugin_media_report_network_link."machine_id" IS '上报来源机器或实例标识';
+COMMENT ON COLUMN plugin_media_report_network_link."source_ip" IS '原始探测源地址';
+COMMENT ON COLUMN plugin_media_report_network_link."destination_ip" IS '原始探测目的地址';
+COMMENT ON COLUMN plugin_media_report_network_link."rtt" IS '原始往返延迟，单位毫秒，保留探测失败固定值';
+COMMENT ON COLUMN plugin_media_report_network_link."jitter" IS '原始抖动，单位毫秒，保留探测失败固定值';
+COMMENT ON COLUMN plugin_media_report_network_link."packet_loss" IS '原始丢包比例0至1，当前上游口径为HTTP探测失败比例';
+COMMENT ON COLUMN plugin_media_report_network_link."status_code" IS '原始探测HTTP状态码';
+COMMENT ON COLUMN plugin_media_report_network_link."reachable" IS '原始extra.reachable布尔状态，未提供或无法解析时为空';
+COMMENT ON COLUMN plugin_media_report_network_link."report_time" IS '上报端采样时间，Unix毫秒时间戳';

@@ -61,7 +61,59 @@ func (w *reportRuntime) HandleNetworkMetric(ctx context.Context, metric *gen.Net
 	if !ok {
 		return nil
 	}
-	return upsertReportNodeNetwork(ctx, report)
+	if err := upsertReportNodeNetwork(ctx, report); err != nil {
+		return err
+	}
+	return upsertReportNetworkLink(ctx, report)
+}
+
+// upsertReportNetworkLink retains raw probe values and atomically rejects older samples for one link.
+// InsertIgnore plus a timestamp-guarded update uses two bounded writes and remains safe across collectors.
+func upsertReportNetworkLink(ctx context.Context, report networkReport) error {
+	if report.destinationID == "" {
+		return nil
+	}
+	var (
+		cols = dao.ReportNetworkLink.Columns()
+		key  = do.ReportNetworkLink{
+			NodeId:        report.nodeID,
+			MachineId:     report.machineID,
+			SourceIp:      report.sourceIP,
+			DestinationIp: report.destinationID,
+		}
+		reachable any = gdb.Raw("NULL")
+	)
+	if report.reachable != nil {
+		reachable = *report.reachable
+	}
+	// The generated nullable bool is a pointer in both entity and DO. Override only
+	// this field so explicit SQL NULL is not discarded by DO's omit-nil behavior.
+	data := struct {
+		do.ReportNetworkLink
+		Reachable any `orm:"reachable"`
+	}{
+		ReportNetworkLink: do.ReportNetworkLink{
+			NodeId:        report.nodeID,
+			MachineId:     report.machineID,
+			SourceIp:      report.sourceIP,
+			DestinationIp: report.destinationID,
+			Rtt:           report.rtt,
+			Jitter:        report.jitter,
+			PacketLoss:    report.packetLoss,
+			StatusCode:    report.statusCode,
+			ReportTime:    reportTimestampToMillis(report.reportTime),
+		},
+		Reachable: reachable,
+	}
+	if _, err := dao.ReportNetworkLink.Ctx(ctx).Data(data).InsertIgnore(); err != nil {
+		return err
+	}
+	_, err := dao.ReportNetworkLink.Ctx(ctx).
+		Where(key).
+		WhereLTE(cols.ReportTime, data.ReportTime).
+		Data(data).
+		Update()
+	return err
 }
 
 // HandleStreamMetric writes one latest stream projection and applies stream lifecycle counters.

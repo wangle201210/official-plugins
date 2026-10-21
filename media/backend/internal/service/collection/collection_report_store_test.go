@@ -14,6 +14,7 @@ import (
 
 	_ "lina-core/pkg/dbdriver"
 	"lina-plugin-media/backend/internal/dao"
+	"lina-plugin-media/backend/internal/model/do"
 	"lina-plugin-media/backend/internal/model/entity"
 )
 
@@ -173,7 +174,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if instance == nil {
 		t.Fatal("expected instance report row")
 	}
-	if instance.NodeId != nodeID || instance.CpuLoad != 32.5 || instance.CpuAllocated != 8 {
+	if instance.NodeId != nodeID || instance.CpuLoad != 2.6 || instance.CpuAllocated != 8 {
 		t.Fatalf("unexpected replayed instance resource projection: %#v", instance)
 	}
 	if instance.Status != "running" || instance.NetworkOut != 6 || instance.LiveStreams != 1 || instance.Sessions != 1 {
@@ -285,7 +286,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if err := dao.MediaReportInstance.Ctx(ctx).Where(dao.MediaReportInstance.Columns().InstanceId, instanceID).Scan(&counted); err != nil {
 		t.Fatalf("query counted instance after machine metric: %v", err)
 	}
-	if counted.CpuLoad != 33.5 || counted.LiveStreams != 0 || counted.Sessions != 0 {
+	if counted.CpuLoad != 2.68 || counted.LiveStreams != 0 || counted.Sessions != 0 {
 		t.Fatalf("expected machine metric not to overwrite counters, got %#v", counted)
 	}
 }
@@ -507,6 +508,128 @@ func TestReportRuntimeMergesNetworkLatencyConcurrently(t *testing.T) {
 	}
 }
 
+// TestReportRuntimePreservesLatestRawNetworkLinks verifies link identity, nullable state, zero values and stale reports.
+func TestReportRuntimePreservesLatestRawNetworkLinks(t *testing.T) {
+	if os.Getenv("LINAPRO_TEST_POSTGRES") != "1" {
+		t.Skip("set LINAPRO_TEST_POSTGRES=1 to run against a local PostgreSQL database")
+	}
+	var (
+		ctx    = t.Context()
+		writer = newReportRuntime(newMemoryCollectionCache())
+		key    = do.ReportNetworkLink{
+			NodeId: "collection-test-raw-links", MachineId: "machine-a",
+			SourceIp: "10.0.0.1", DestinationIp: "10.0.0.2",
+		}
+	)
+	const nodeID = "collection-test-raw-links"
+	setupCollectionReportPostgres(t, ctx)
+	cleanupCollectionReportRows(t, ctx, nodeID, "", "", "")
+	t.Cleanup(func() {
+		cleanupCollectionReportRows(t, context.WithoutCancel(ctx), nodeID, "", "", "")
+	})
+	metric := &gen.NetworkMetric{
+		NodeId: nodeID, MachineId: "machine-a", SourceIp: "10.0.0.1", DestinationIp: "10.0.0.2",
+		Rtt: 9999, Jitter: 9999, PacketLoss: 1, StatusCode: 503,
+		Extra: map[string]string{"reachable": "false"}, Timestamp: 1_780_000_000,
+	}
+	if err := writer.HandleNetworkMetric(ctx, metric); err != nil {
+		t.Fatalf("write failed probe: %v", err)
+	}
+	var link *entity.ReportNetworkLink
+	if err := dao.ReportNetworkLink.Ctx(ctx).Where(key).Scan(&link); err != nil {
+		t.Fatalf("read failed probe: %v", err)
+	}
+	if link == nil || link.Rtt != 9999 || link.Jitter != 9999 || link.PacketLoss != 1 || link.StatusCode != 503 || link.Reachable == nil || *link.Reachable || link.ReportTime != 1_780_000_000_000 {
+		t.Fatalf("failed probe or millisecond timestamp not preserved: %#v", link)
+	}
+	for _, probe := range []*gen.NetworkMetric{
+		{NodeId: nodeID, MachineId: "machine-b", SourceIp: "10.0.0.1", DestinationIp: "10.0.0.2"},
+		{NodeId: nodeID, MachineId: "machine-a", SourceIp: "10.0.0.3", DestinationIp: "10.0.0.2"},
+		{NodeId: nodeID, MachineId: "machine-a", SourceIp: "10.0.0.1", DestinationIp: "10.0.0.4"},
+		{NodeId: nodeID, MachineId: "machine-a", SourceIp: "10.0.0.1"},
+	} {
+		if err := writer.HandleNetworkMetric(ctx, probe); err != nil {
+			t.Fatalf("write other link: %v", err)
+		}
+	}
+	count, err := dao.ReportNetworkLink.Ctx(ctx).Where(do.ReportNetworkLink{NodeId: nodeID}).Count()
+	if err != nil || count != 4 {
+		t.Fatalf("expected four distinct links and no empty-destination row: count=%d err=%v", count, err)
+	}
+	metric.Rtt, metric.Jitter, metric.PacketLoss, metric.StatusCode = 0, 0, 0, 200
+	metric.Extra = map[string]string{"reachable": "true"}
+	metric.Timestamp = 1_780_000_001_234
+	if err := writer.HandleNetworkMetric(ctx, metric); err != nil {
+		t.Fatalf("write zero-valued successful probe: %v", err)
+	}
+	metric.Rtt, metric.Jitter, metric.PacketLoss, metric.StatusCode = 9999, 9999, 1, 503
+	metric.Extra = map[string]string{"reachable": "false"}
+	metric.Timestamp = 1_780_000_000
+	if err := writer.HandleNetworkMetric(ctx, metric); err != nil {
+		t.Fatalf("write stale probe: %v", err)
+	}
+	link = nil
+	if err := dao.ReportNetworkLink.Ctx(ctx).Where(key).Scan(&link); err != nil {
+		t.Fatalf("read latest probe: %v", err)
+	}
+	if link == nil || link.Rtt != 0 || link.Jitter != 0 || link.PacketLoss != 0 || link.StatusCode != 200 || link.Reachable == nil || !*link.Reachable || link.ReportTime != 1_780_000_001_234 {
+		t.Fatalf("new zero values were lost or replaced by stale sample: %#v", link)
+	}
+	for index, extra := range []map[string]string{nil, {"reachable": "unknown"}} {
+		metric.Timestamp = 1_780_000_001_235 + int64(index)
+		metric.Extra = extra
+		if err := writer.HandleNetworkMetric(ctx, metric); err != nil {
+			t.Fatalf("write unknown reachability: %v", err)
+		}
+		link = nil
+		if err := dao.ReportNetworkLink.Ctx(ctx).Where(key).Scan(&link); err != nil {
+			t.Fatalf("read unknown reachability: %v", err)
+		}
+		if link == nil || link.Reachable != nil {
+			t.Fatalf("missing or invalid reachability must replace old state with NULL: %#v", link)
+		}
+	}
+}
+
+// TestReportRuntimeRejectsConcurrentStaleNetworkLinks verifies the database timestamp guard across collectors.
+func TestReportRuntimeRejectsConcurrentStaleNetworkLinks(t *testing.T) {
+	if os.Getenv("LINAPRO_TEST_POSTGRES") != "1" {
+		t.Skip("set LINAPRO_TEST_POSTGRES=1 to run against a local PostgreSQL database")
+	}
+	ctx := t.Context()
+	setupCollectionReportPostgres(t, ctx)
+	const nodeID = "collection-test-raw-links-concurrent"
+	cleanupCollectionReportRows(t, ctx, nodeID, "", "", "")
+	t.Cleanup(func() {
+		cleanupCollectionReportRows(t, context.WithoutCancel(ctx), nodeID, "", "", "")
+	})
+	var wg sync.WaitGroup
+	errors := make(chan error, 12)
+	for index := range 12 {
+		wg.Go(func() {
+			writer := newReportRuntime(newMemoryCollectionCache())
+			errors <- writer.HandleNetworkMetric(ctx, &gen.NetworkMetric{
+				NodeId: nodeID, MachineId: "machine-a", SourceIp: "10.0.0.1", DestinationIp: "10.0.0.2",
+				Rtt: int32(index), Timestamp: 1_780_000_000_000 + int64(index),
+			})
+		})
+	}
+	wg.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			t.Fatalf("concurrent network write: %v", err)
+		}
+	}
+	var link *entity.ReportNetworkLink
+	if err := dao.ReportNetworkLink.Ctx(ctx).Where(do.ReportNetworkLink{NodeId: nodeID}).Scan(&link); err != nil {
+		t.Fatalf("read concurrent network report: %v", err)
+	}
+	if link == nil || link.Rtt != 11 || link.ReportTime != 1_780_000_000_011 {
+		t.Fatalf("concurrent writers lost newest sample: %#v", link)
+	}
+}
+
 // setupCollectionReportPostgres configures tests to use the local PostgreSQL database.
 func setupCollectionReportPostgres(t *testing.T, _ context.Context) {
 	t.Helper()
@@ -534,6 +657,9 @@ func setupCollectionReportPostgres(t *testing.T, _ context.Context) {
 func cleanupCollectionReportRows(t *testing.T, ctx context.Context, nodeID string, instanceID string, streamID string, sessionID string) {
 	t.Helper()
 
+	if _, err := dao.ReportNetworkLink.Ctx(ctx).Where(do.ReportNetworkLink{NodeId: nodeID}).Delete(); err != nil {
+		t.Fatalf("cleanup network link report: %v", err)
+	}
 	if sessionID != "" {
 		if _, err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, sessionID).Delete(); err != nil {
 			t.Fatalf("cleanup session report: %v", err)

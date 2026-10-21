@@ -10,8 +10,10 @@ import (
 func dashboardNodeOverviewToDTO(item *mediasvc.DashboardNodeOverviewItem) *v1.DashboardNodeOverviewItem {
 	if item == nil {
 		return &v1.DashboardNodeOverviewItem{
-			NodeLatencyMap: map[string]int{},
-			ChildNodes:     []*v1.DashboardNodeOverviewItem{},
+			NodeLatencyMap:    map[string]int{},
+			NetworkLinks:      []*v1.DashboardNetworkLink{},
+			InstanceResources: &v1.DashboardNodeResources{},
+			ChildNodes:        []*v1.DashboardNodeOverviewItem{},
 		}
 	}
 	children := make([]*v1.DashboardNodeOverviewItem, 0, len(item.ChildNodes))
@@ -19,13 +21,41 @@ func dashboardNodeOverviewToDTO(item *mediasvc.DashboardNodeOverviewItem) *v1.Da
 		children = append(children, dashboardNodeOverviewToDTO(child))
 	}
 	return &v1.DashboardNodeOverviewItem{
-		NodeId:          item.NodeId,
-		NodeName:        item.NodeName,
-		Region:          item.Region,
-		Status:          item.Status,
-		ParentNodeId:    item.ParentNodeId,
-		TotalNodes:      item.TotalNodes,
-		AliveNodes:      item.AliveNodes,
+		NodeId:              item.NodeId,
+		NodeName:            item.NodeName,
+		Region:              item.Region,
+		Status:              item.Status,
+		ParentNodeId:        item.ParentNodeId,
+		TotalNodes:          item.TotalNodes,
+		AliveNodes:          item.AliveNodes,
+		CpuAllocated:        item.CpuAllocated,
+		CpuLoad:             item.CpuLoad,
+		MemoryAllocated:     item.MemoryAllocated,
+		MemoryUsed:          item.MemoryUsed,
+		DiskIoRead:          item.DiskIoRead,
+		DiskIoWrite:         item.DiskIoWrite,
+		NetworkIn:           item.NetworkIn,
+		NetworkOut:          item.NetworkOut,
+		LiveStreams:         item.LiveStreams,
+		Sessions:            item.Sessions,
+		AvgDelay:            item.AvgDelay,
+		LastHeartbeat:       item.LastHeartbeat,
+		ReportTime:          item.ReportTime,
+		NodeLatencyMap:      cloneDashboardIntMap(item.NodeLatencyMap),
+		NetworkLinks:        dashboardNetworkLinksToDTO(item.NetworkLinks),
+		NetworkLinksLimited: item.NetworkLinksLimited,
+		InstanceResources:   dashboardNodeResourcesToDTO(item.InstanceResources),
+		ChildNodes:          children,
+	}
+}
+
+// dashboardNodeResourcesToDTO keeps missing instance resources explicit and excludes child totals.
+func dashboardNodeResourcesToDTO(item *mediasvc.DashboardNodeResources) *v1.DashboardNodeResources {
+	if item == nil {
+		return &v1.DashboardNodeResources{}
+	}
+	return &v1.DashboardNodeResources{
+		InstanceCount:   item.InstanceCount,
 		CpuAllocated:    item.CpuAllocated,
 		CpuLoad:         item.CpuLoad,
 		MemoryAllocated: item.MemoryAllocated,
@@ -34,14 +64,29 @@ func dashboardNodeOverviewToDTO(item *mediasvc.DashboardNodeOverviewItem) *v1.Da
 		DiskIoWrite:     item.DiskIoWrite,
 		NetworkIn:       item.NetworkIn,
 		NetworkOut:      item.NetworkOut,
-		LiveStreams:     item.LiveStreams,
-		Sessions:        item.Sessions,
-		AvgDelay:        item.AvgDelay,
-		LastHeartbeat:   item.LastHeartbeat,
-		ReportTime:      item.ReportTime,
-		NodeLatencyMap:  cloneDashboardIntMap(item.NodeLatencyMap),
-		ChildNodes:      children,
 	}
+}
+
+// dashboardNetworkLinksToDTO preserves zero metrics and unknown reachability in the API response.
+func dashboardNetworkLinksToDTO(items []*mediasvc.DashboardNetworkLink) []*v1.DashboardNetworkLink {
+	result := make([]*v1.DashboardNetworkLink, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		result = append(result, &v1.DashboardNetworkLink{
+			MachineId:     item.MachineId,
+			SourceIp:      item.SourceIp,
+			DestinationIp: item.DestinationIp,
+			Rtt:           item.Rtt,
+			Jitter:        item.Jitter,
+			PacketLoss:    item.PacketLoss,
+			StatusCode:    item.StatusCode,
+			Reachable:     item.Reachable,
+			ReportTime:    item.ReportTime,
+		})
+	}
+	return result
 }
 
 func dashboardInstanceNodeInfoToDTO(item *mediasvc.DashboardInstanceNodeInfo) *v1.DashboardInstanceNodeInfo {

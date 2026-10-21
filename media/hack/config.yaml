@@ -9,3 +9,15 @@ gfcli:
         importPrefix: "lina-plugin-media/backend/internal"
         descriptionTag: true
         noModelComment: true
+      - link: "pgsql:postgres:postgres@tcp(127.0.0.1:5432)/linapro?sslmode=disable&search_path=public"
+        path: "internal"
+        tables: "plugin_media_report_network_link"
+        removePrefix: "plugin_media_"
+        importPrefix: "lina-plugin-media/backend/internal"
+        descriptionTag: true
+        noModelComment: true
+        typeMapping:
+          bool:
+            type: "*bool"
+          boolean:
+            type: "*bool"

@@ -3,6 +3,7 @@
 -- Purpose: Removes media plugin-owned tables.
 -- ------------------------------------------------------------
 
+DROP TABLE IF EXISTS plugin_media_report_network_link;
 DROP TABLE IF EXISTS media_report_session;
 DROP TABLE IF EXISTS media_report_stream;
 DROP TABLE IF EXISTS media_report_instance;

@@ -41,28 +41,31 @@ type DashboardNodeOverviewOutput struct {
 
 // DashboardNodeOverviewItem defines one dashboard node overview tree item.
 type DashboardNodeOverviewItem struct {
-	NodeId          string
-	NodeName        string
-	Region          string
-	Status          string
-	ParentNodeId    string
-	TotalNodes      int
-	AliveNodes      int
-	CpuAllocated    float64
-	CpuLoad         float64
-	MemoryAllocated float64
-	MemoryUsed      float64
-	DiskIoRead      float64
-	DiskIoWrite     float64
-	NetworkIn       float64
-	NetworkOut      float64
-	LiveStreams     int
-	Sessions        int
-	AvgDelay        int
-	LastHeartbeat   *int64
-	ReportTime      int64
-	NodeLatencyMap  map[string]int
-	ChildNodes      []*DashboardNodeOverviewItem
+	NodeId              string
+	NodeName            string
+	Region              string
+	Status              string
+	ParentNodeId        string
+	TotalNodes          int
+	AliveNodes          int
+	CpuAllocated        float64
+	CpuLoad             float64
+	MemoryAllocated     float64
+	MemoryUsed          float64
+	DiskIoRead          float64
+	DiskIoWrite         float64
+	NetworkIn           float64
+	NetworkOut          float64
+	LiveStreams         int
+	Sessions            int
+	AvgDelay            int
+	LastHeartbeat       *int64
+	ReportTime          int64
+	NodeLatencyMap      map[string]int
+	NetworkLinks        []*DashboardNetworkLink
+	NetworkLinksLimited bool
+	InstanceResources   *DashboardNodeResources
+	ChildNodes          []*DashboardNodeOverviewItem
 }
 
 // ListDashboardInstancesInput defines dashboard instance list filters.
@@ -289,7 +292,7 @@ func (s *serviceImpl) GetDashboardNodeOverview(ctx context.Context, in Dashboard
 	if rootNodeID != "" && rootNodeID != dashboardRootNodeID {
 		if node, ok := nodesByID[rootNodeID]; ok {
 			applyDashboardNodeRuntimeAggregates(node, aggregates)
-			return &DashboardNodeOverviewOutput{Node: node}, nil
+			return s.dashboardNodeOverviewWithLinks(ctx, node)
 		}
 		if in.IncludeEmpty {
 			return &DashboardNodeOverviewOutput{Node: &DashboardNodeOverviewItem{
@@ -303,12 +306,12 @@ func (s *serviceImpl) GetDashboardNodeOverview(ctx context.Context, in Dashboard
 	}
 	if len(roots) == 1 {
 		applyDashboardNodeRuntimeAggregates(roots[0], aggregates)
-		return &DashboardNodeOverviewOutput{Node: roots[0]}, nil
+		return s.dashboardNodeOverviewWithLinks(ctx, roots[0])
 	}
 	root := emptyDashboardNodeOverview(dashboardRootNodeID)
 	root.ChildNodes = roots
 	applyDashboardNodeRuntimeAggregates(root, aggregates)
-	return &DashboardNodeOverviewOutput{Node: root}, nil
+	return s.dashboardNodeOverviewWithLinks(ctx, root)
 }
 
 // ListDashboardInstances returns bounded instance projections and node summary.
@@ -1050,6 +1053,17 @@ func applyDashboardNodeRuntimeAggregates(
 	}
 
 	aggregate := aggregates[node.NodeId]
+	node.InstanceResources = &DashboardNodeResources{
+		InstanceCount:   aggregate.InstanceCount,
+		CpuAllocated:    aggregate.CpuAllocated,
+		CpuLoad:         aggregate.CpuLoad,
+		MemoryAllocated: aggregate.MemoryAllocated,
+		MemoryUsed:      aggregate.MemoryUsed,
+		DiskIoRead:      aggregate.DiskIoRead,
+		DiskIoWrite:     aggregate.DiskIoWrite,
+		NetworkIn:       aggregate.NetworkIn,
+		NetworkOut:      aggregate.NetworkOut,
+	}
 	totalNodes := 0
 	aliveNodes := 0
 	if dashboardCountsAsReportedNode(node) {

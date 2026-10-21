@@ -32,6 +32,18 @@
 
 插件不定义专属 Redis 配置命名空间，也不维护插件自有缓存后端。
 
+## 节点网络指标
+
+`GET /api/v1/media/dashboard/nodes/overview?rootNodeId=<nodeId>`返回指定节点子树，沿用既有管理端认证和`media:management:query`权限。每个节点包含：
+
+- `network_links`：按来源`machine_id`、`source_ip`和`destination_ip`区分的最新原始探测数据。每项包含毫秒单位的`rtt`和`jitter`、`0～1`比例的`packet_loss`、`status_code`、可空的`reachable`及`Unix`毫秒时间戳`report_time`。当前`net-flux`探测器的`packet_loss`实际表示`HTTP`探测失败比例。`extra.reachable`缺省或非法时保留为`null`，失败固定值按原值返回。
+- `instance_resources`：当前节点直属实例的资源汇总，包括实例数量、分配和已用`CPU`核数、`MB`单位的内存及`KB/s`单位的磁盘和网络速率，不包含子节点。既有顶层资源字段继续表示子树汇总。新的机器上报将`CPU`使用率百分比转换为已用核数，既有样本在下一次上报时刷新。
+- `network_links_limited`：仅响应根节点表示子树的原始链路明细是否超过共享的`10000`条上限，子节点为`false`。链路按所选子树通过一次数据库查询加载，资源复用已有实例分组聚合查询。
+
+`node_latency_map`继续提供目的地址到延迟的摘要，键是上报的`destination_ip`，不是节点`ID`。接口不计算质量评分、质量分级、候选路径排名或综合负载百分比。没有链路时返回空数组，没有直属实例时返回各字段为零的资源对象。
+
+部署本功能前需执行当前迭代的`manifest/sql/003-add-media-data-collection-server.sql`，幂等创建最新探测表`plugin_media_report_network_link`。新链路明细在后续网络上报后产生，旧的纯延迟记录无法恢复丢包率和抖动。
+
 ## 开发入口
 
 - 后端入口：`backend/plugin.go`

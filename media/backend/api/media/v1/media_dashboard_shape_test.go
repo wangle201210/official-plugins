@@ -104,6 +104,24 @@ func TestDashboardListRequestsDoNotExposePagination(t *testing.T) {
 	assertDashboardRequestMissingJSONField(t, GetDashboardTopologyReq{}, "status")
 }
 
+// TestDashboardNetworkMetricContract preserves raw zero values and optional reachability.
+func TestDashboardNetworkMetricContract(t *testing.T) {
+	unknown := mustMarshalDashboardShape(t, DashboardNetworkLink{ReportTime: 1791784485000})
+	assertDashboardExactKeys(t, unknown, "machine_id", "source_ip", "destination_ip", "rtt", "jitter", "packet_loss", "status_code", "reachable", "report_time")
+	if unknown["reachable"] != nil || unknown["packet_loss"] != float64(0) || unknown["jitter"] != float64(0) || unknown["report_time"] != float64(1791784485000) {
+		t.Fatalf("zero metrics and unknown reachability must be explicit: %#v", unknown)
+	}
+	failed := false
+	payload := mustMarshalDashboardShape(t, DashboardNetworkLink{Reachable: &failed, Rtt: 5000, Jitter: 5001, PacketLoss: 1})
+	if payload["reachable"] != false || payload["rtt"] != float64(5000) || payload["jitter"] != float64(5001) || payload["packet_loss"] != float64(1) {
+		t.Fatalf("failure sentinels must be returned without scoring: %#v", payload)
+	}
+	meta, ok := reflect.TypeOf(GetDashboardNodeOverviewReq{}).FieldByName("Meta")
+	if !ok || meta.Tag.Get("permission") != "media:management:query" {
+		t.Fatal("network metrics must retain the existing protected overview permission")
+	}
+}
+
 // TestDashboardTopologyRequestContract verifies the topology entry accepts one required device ID.
 func TestDashboardTopologyRequestContract(t *testing.T) {
 	payload := mustMarshalDashboardShape(t, GetDashboardTopologyReq{DeviceId: "device-a"})

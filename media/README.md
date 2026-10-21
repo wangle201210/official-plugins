@@ -32,6 +32,18 @@ Route memory reuses the host `pluginhost.HostServices.Cache()` service and keeps
 
 The plugin does not define a plugin-specific Redis configuration namespace or maintain a plugin-owned cache backend.
 
+## Node network metrics
+
+`GET /api/v1/media/dashboard/nodes/overview?rootNodeId=<nodeId>` returns the selected node subtree and requires the existing management authentication and `media:management:query` permission. Each node includes:
+
+- `network_links`: latest raw probes, distinguished by source `machine_id`, `source_ip`, and `destination_ip`. Each item includes `rtt` and `jitter` in milliseconds, `packet_loss` as a `0–1` fraction, `status_code`, nullable `reachable`, and `report_time` as a Unix millisecond timestamp. The current `net-flux` prober reports HTTP probe failure ratio as `packet_loss`. Missing or invalid `extra.reachable` remains `null`; failure sentinel values remain unchanged.
+- `instance_resources`: totals for instances attached directly to this node, including instance count, allocated/used CPU cores, memory in MB, and disk/network rates in KB/s. Child-node resources are excluded. Existing top-level resource fields continue to represent subtree totals. CPU usage percentages are converted to used cores on new machine reports; existing samples refresh with the next report.
+- `network_links_limited`: on the response root, indicates that the subtree's raw link details exceeded the shared 10,000-item limit. Child nodes report `false`. A single database query loads the selected subtree's links; resource aggregation reuses existing grouped instance queries.
+
+`node_latency_map` remains a destination-address-to-delay summary; its keys are the reported `destination_ip`, not node IDs. No quality score, quality grade, candidate-path ranking, or combined load percentage is calculated. Empty link results are arrays, and absent direct instance resources are zero-valued objects.
+
+Before deploying this feature, apply the current iteration's `manifest/sql/003-add-media-data-collection-server.sql`, which creates the idempotent latest-probe table `plugin_media_report_network_link`. The new link details become available after subsequent network reports; old latency-only records cannot reconstruct packet loss or jitter.
+
 ## Development
 
 - Backend entry: `backend/plugin.go`
