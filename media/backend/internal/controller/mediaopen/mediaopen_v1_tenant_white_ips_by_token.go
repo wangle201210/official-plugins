@@ -5,8 +5,6 @@ package mediaopen
 import (
 	"context"
 
-	"github.com/gogf/gf/v2/frame/g"
-
 	"lina-plugin-media/backend/api/mediaopen/v1"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
@@ -19,13 +17,8 @@ func (c *ControllerV1) TenantWhiteIPsByToken(ctx context.Context, req *v1.Tenant
 	if err != nil {
 		return nil, err
 	}
-	res = &v1.TenantWhiteIPsByTokenRes{
+	return &v1.TenantWhiteIPsByTokenRes{
 		TenantId: out.TenantId,
 		Ips:      out.Ips,
-	}
-	if request := g.RequestFromCtx(ctx); request != nil {
-		request.Response.WriteJson(res)
-		return nil, nil
-	}
-	return res, nil
+	}, nil
 }

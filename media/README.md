@@ -20,6 +20,8 @@ This module is intentionally Chinese-only for user-facing copy. It does not ship
 
 ## Configuration
 
+The whitelist endpoint `GET /api/v1/tenant-whites/ips?token=<token>` uses the same `code`/`message`/`data` response envelope as the strategy endpoints. On success, read the customer code from `data.tenantId` and the enabled IP list from `data.ips`; an unconfigured whitelist returns an empty array while preserving the tenant ID. Clients must check the business `code` instead of relying only on HTTP status.
+
 Mediaopen and HotGo-compatible APIs use a HotGo-style inner API key gate. Requests must send `X-Inner-Api-Key`, and the plugin compares it with `innerapi.apiKey` from the `media` plugin runtime config. When `innerapi.apiKey` is absent, the HotGo-compatible default is `media`; when it is explicitly blank, the key check is disabled for compatibility.
 
 Token-based media authorization calls the upstream Tieta OpenAPI service. Configure `tieta.baseUrl` in the `media` plugin runtime config before enabling Tieta-backed token APIs. `tieta.timeout` defaults to `3s` when omitted or invalid, and `tieta.mock: true` is only for deterministic local development.

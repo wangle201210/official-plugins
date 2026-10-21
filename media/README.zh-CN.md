@@ -20,6 +20,8 @@
 
 ## 配置说明
 
+白名单接口`GET /api/v1/tenant-whites/ips?token=<token>`与策略接口统一使用`code`、`message`和`data`响应包装。成功时从`data.tenantId`读取客户编码，从`data.ips`读取启用的 IP 白名单；未配置白名单时返回空数组，同时保留租户 ID。客户端必须检查业务`code`，不能只依赖 HTTP 状态。
+
 `mediaopen`和 HotGo 兼容接口使用类 HotGo 的内部 API Key 鉴权。请求必须携带`X-Inner-Api-Key`，插件会与`media`插件运行配置中的`innerapi.apiKey`比对。未配置`innerapi.apiKey`时，默认值与 HotGo 保持一致为`media`；当该配置显式为空时，为兼容旧部署会关闭 Key 校验。
 
 基于 token 的媒体鉴权会调用上游 Tieta OpenAPI 服务。启用 Tieta token 接口前，需要在`media`插件运行配置中设置`tieta.baseUrl`。`tieta.timeout`缺失或非法时默认使用`3s`，`tieta.mock: true`仅用于本地开发的确定性响应。

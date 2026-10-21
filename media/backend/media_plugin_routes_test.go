@@ -724,7 +724,7 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsTenantScopedIPs(t *testing.T
 	var authCalls atomic.Int32
 	middlewares := pluginhost.NewRouteMiddlewares(
 		mediaRouteNoOpMiddleware,
-		mediaRouteTestResponse,
+		ghttp.MiddlewareHandlerResponse,
 		mediaRouteNoOpMiddleware,
 		mediaRouteNoOpMiddleware,
 		mediaRouteNoOpMiddleware,
@@ -758,15 +758,40 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenReturnsTenantScopedIPs(t *testing.T
 	if response.status != http.StatusOK {
 		t.Fatalf("expected whitelist IP route to pass, got status=%d body=%s", response.status, response.body)
 	}
-	var out mediaopenv1.TenantWhiteIPsByTokenRes
-	if err := json.Unmarshal([]byte(response.body), &out); err != nil {
+	var envelope struct {
+		Code    *int                                  `json:"code"`
+		Message string                                `json:"message"`
+		Data    *mediaopenv1.TenantWhiteIPsByTokenRes `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(response.body), &envelope); err != nil {
 		t.Fatalf("expected tenant-scoped JSON response, got body=%s err=%v", response.body, err)
 	}
+	if envelope.Code == nil || *envelope.Code != 0 || envelope.Message == "" || envelope.Data == nil {
+		t.Fatalf("expected unified success envelope, got body=%s", response.body)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(response.body), &fields); err != nil {
+		t.Fatalf("decode response fields: %v", err)
+	}
+	if len(fields) != 3 || fields["tenantId"] != nil || fields["ips"] != nil {
+		t.Fatalf("business fields must be nested under data: %s", response.body)
+	}
+	out := envelope.Data
 	if out.TenantId != "1" {
 		t.Fatalf("expected mock token tenant ID 1, got %q", out.TenantId)
 	}
 	if len(out.Ips) != 1 || out.Ips[0] != "192.0.2.10" {
 		t.Fatalf("expected enabled tenant whitelist IPs, got %#v", out.Ips)
+	}
+	emptyResponse := doMediaRouteRequest(t, http.MethodGet,
+		baseURL+"/api/v1/tenant-whites/ips?token=tenant-without-whitelist", "",
+		map[string]string{mediaInnerAPIKeyHeader: mediaInnerAPIKeyDefault})
+	if err := json.Unmarshal([]byte(emptyResponse.body), &envelope); err != nil {
+		t.Fatalf("decode empty whitelist response: %v", err)
+	}
+	if emptyResponse.status != http.StatusOK || envelope.Code == nil || *envelope.Code != 0 || envelope.Data == nil ||
+		envelope.Data.TenantId != "tenant-without-whitelist" || envelope.Data.Ips == nil || len(envelope.Data.Ips) != 0 {
+		t.Fatalf("expected wrapped tenant with empty IP array, got %s", emptyResponse.body)
 	}
 	if authCalls.Load() != 0 {
 		t.Fatalf("expected mediaopen whitelist route to avoid host Auth, got %d calls", authCalls.Load())
@@ -892,7 +917,7 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken(t *testing.T) {
 
 	baseURL, shutdown := startMediaRouteTestServer(t, pluginhost.NewRouteMiddlewares(
 		mediaRouteNoOpMiddleware,
-		mediaRouteTestResponse,
+		ghttp.MiddlewareHandlerResponse,
 		mediaRouteNoOpMiddleware,
 		mediaRouteNoOpMiddleware,
 		mediaRouteNoOpMiddleware,
@@ -909,7 +934,18 @@ func TestMediaOpenRoutesTenantWhiteIPsByTokenRequiresToken(t *testing.T) {
 		"",
 		map[string]string{mediaInnerAPIKeyHeader: "media"},
 	)
-	if !strings.Contains(response.body, "token") {
+	var envelope struct {
+		Code    *int            `json:"code"`
+		Message string          `json:"message"`
+		Data    json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(response.body), &envelope); err != nil {
+		t.Fatalf("decode missing token response: %v", err)
+	}
+	if envelope.Code == nil || *envelope.Code == 0 || string(envelope.Data) != "null" {
+		t.Fatalf("expected unified error envelope without tenant data: %s", response.body)
+	}
+	if !strings.Contains(envelope.Message, "token") {
 		t.Fatalf("expected missing token response to mention token, got body=%s", response.body)
 	}
 }
