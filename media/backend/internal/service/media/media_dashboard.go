@@ -953,7 +953,7 @@ func dashboardNodeRuntimeAggregates(ctx context.Context) (map[string]dashboardNo
 func mergeDashboardInstanceAggregates(ctx context.Context, aggregates map[string]dashboardNodeRuntimeAggregate) error {
 	columns := dao.MediaReportInstance.Columns()
 	type row struct {
-		NodeId          string  `orm:"node_id"`
+		NodeId          string  `orm:"resolved_node_id"`
 		CpuAllocated    float64 `orm:"cpu_allocated"`
 		CpuLoad         float64 `orm:"cpu_load"`
 		MemoryAllocated float64 `orm:"memory_allocated"`
@@ -967,23 +967,27 @@ func mergeDashboardInstanceAggregates(ctx context.Context, aggregates map[string
 		InstanceCount   int     `orm:"instance_count"`
 	}
 
-	rows := make([]*row, 0)
-	err := dao.MediaReportInstance.Ctx(ctx).
+	var (
+		rows   = make([]*row, 0)
+		nodeID = "CASE WHEN i.node_id <> '' AND i.node_id <> i.instance_id THEN i.node_id ELSE COALESCE(ownership.node_id, '') END"
+	)
+	err := dao.MediaReportInstance.Ctx(ctx).As("i").
+		LeftJoin(dashboardNetworkOwnershipSQL(), "ownership", "ownership.machine_id = i.instance_id").
 		Fields(
-			columns.NodeId,
-			"SUM("+columns.CpuAllocated+") AS cpu_allocated",
-			"SUM("+columns.CpuLoad+") AS cpu_load",
-			"SUM("+columns.MemoryAllocated+") AS memory_allocated",
-			"SUM("+columns.MemoryUsed+") AS memory_used",
-			"SUM("+columns.DiskIoRead+") AS disk_io_read",
-			"SUM("+columns.DiskIoWrite+") AS disk_io_write",
-			"SUM("+columns.NetworkIn+") AS network_in",
-			"SUM("+columns.NetworkOut+") AS network_out",
-			"SUM("+columns.LiveStreams+") AS live_streams",
-			"SUM("+columns.Sessions+") AS sessions",
+			nodeID+" AS resolved_node_id",
+			"SUM(i."+columns.CpuAllocated+") AS cpu_allocated",
+			"SUM(i."+columns.CpuLoad+") AS cpu_load",
+			"SUM(i."+columns.MemoryAllocated+") AS memory_allocated",
+			"SUM(i."+columns.MemoryUsed+") AS memory_used",
+			"SUM(i."+columns.DiskIoRead+") AS disk_io_read",
+			"SUM(i."+columns.DiskIoWrite+") AS disk_io_write",
+			"SUM(i."+columns.NetworkIn+") AS network_in",
+			"SUM(i."+columns.NetworkOut+") AS network_out",
+			"SUM(i."+columns.LiveStreams+") AS live_streams",
+			"SUM(i."+columns.Sessions+") AS sessions",
 			"COUNT(*) AS instance_count",
 		).
-		Group(columns.NodeId).
+		Group(nodeID).
 		Scan(&rows)
 	if err != nil {
 		return bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)

@@ -5,6 +5,7 @@ package media
 
 import (
 	"context"
+	"fmt"
 
 	"lina-core/pkg/bizerr"
 	"lina-plugin-media/backend/internal/dao"
@@ -41,6 +42,29 @@ type DashboardNetworkLink struct {
 type dashboardNetworkLinkRow struct {
 	NodeId string
 	DashboardNetworkLink
+}
+
+// dashboardNetworkOwnershipSQL resolves the upstream instance-ID placeholder to
+// a business node using the unique latest probe timestamp across all nodes.
+// Grouping before the join prevents multiple probe destinations from multiplying
+// resource totals. Conflicting latest nodes and unreported ownership stay unknown.
+// Only generated table identifiers enter this SQL; request values never do.
+func dashboardNetworkOwnershipSQL() string {
+	return fmt.Sprintf(`
+SELECT probe.machine_id, MIN(probe.node_id) AS node_id
+FROM %[1]s probe
+INNER JOIN (
+    SELECT candidate.machine_id, MAX(candidate.report_time) AS report_time
+    FROM %[1]s candidate
+    INNER JOIN %[2]s instance ON instance.instance_id = candidate.machine_id
+    WHERE candidate.machine_id <> ''
+      AND (instance.node_id = '' OR instance.node_id = instance.instance_id)
+    GROUP BY candidate.machine_id
+) latest ON latest.machine_id = probe.machine_id AND latest.report_time = probe.report_time
+GROUP BY probe.machine_id
+HAVING MIN(probe.node_id) = MAX(probe.node_id)
+   AND MIN(probe.node_id) <> ''
+   AND MIN(probe.node_id) <> probe.machine_id`, dao.ReportNetworkLink.Table(), dao.MediaReportInstance.Table())
 }
 
 // dashboardNodeOverviewWithLinks loads all selected nodes' probes together, with a

@@ -408,3 +408,8 @@ COMMENT ON COLUMN plugin_media_report_network_link."packet_loss" IS '原始丢�
 COMMENT ON COLUMN plugin_media_report_network_link."status_code" IS '原始探测HTTP状态码';
 COMMENT ON COLUMN plugin_media_report_network_link."reachable" IS '原始extra.reachable布尔状态，未提供或无法解析时为空';
 COMMENT ON COLUMN plugin_media_report_network_link."report_time" IS '上报端采样时间，Unix毫秒时间戳';
+
+-- Purpose: Resolves source instances to their latest unambiguous business node.
+-- 用途：支撑实例标识占位时按来源机器的最新采样关联业务节点。
+CREATE INDEX IF NOT EXISTS idx_plugin_media_network_link_machine_report
+    ON plugin_media_report_network_link ("machine_id", "report_time" DESC, "node_id");

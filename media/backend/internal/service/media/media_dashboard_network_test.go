@@ -113,3 +113,76 @@ func TestDashboardNetworkLinksLimitReportsTruncation(t *testing.T) {
 		t.Fatal("exactly 10000 probes must not claim truncation")
 	}
 }
+
+// TestDashboardResourcesResolveReportedInstanceNodes reproduces net-flux's
+// instance-ID node placeholders and verifies unique latest ownership without N+1 reads.
+func TestDashboardResourcesResolveReportedInstanceNodes(t *testing.T) {
+	ctx := t.Context()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	if _, err := dao.MediaReportNode.Ctx(ctx).Data([]do.MediaReportNode{
+		{NodeId: "4", NodeName: "Node 4", ParentNodeId: "0", ReportTime: 1791784485000},
+		{NodeId: "5", NodeName: "Node 5", ParentNodeId: "0", ReportTime: 1791784485000},
+	}).Insert(); err != nil {
+		t.Fatalf("insert business nodes: %v", err)
+	}
+	writeProbe := func(nodeID, machineID, destination string, timestamp int64) {
+		t.Helper()
+		if _, err := dao.ReportNetworkLink.Ctx(ctx).Data(do.ReportNetworkLink{
+			NodeId: nodeID, MachineId: machineID, SourceIp: "192.0.2.1", DestinationIp: destination,
+			Rtt: 18, Jitter: 3, PacketLoss: 0.02, StatusCode: 200, ReportTime: timestamp,
+		}).Insert(); err != nil {
+			t.Fatalf("insert probe: %v", err)
+		}
+	}
+	svc := newTestMediaService(t)
+	assertResources := func(nodeID string, count int, cores float64) {
+		t.Helper()
+		out, err := svc.GetDashboardNodeOverview(ctx, DashboardNodeOverviewInput{RootNodeId: nodeID})
+		if err != nil {
+			t.Fatalf("get node %s: %v", nodeID, err)
+		}
+		resources := out.Node.InstanceResources
+		if resources == nil || resources.InstanceCount != count || resources.CpuAllocated != cores {
+			t.Fatalf("node %s expected count=%d cores=%v, got %#v", nodeID, count, cores, resources)
+		}
+	}
+	// Network-before-machine is initially empty and resolves as soon as resources arrive.
+	writeProbe("4", "pod-a", "192.0.2.10", 1791784485000)
+	assertResources("4", 0, 0)
+	if _, err := dao.MediaReportInstance.Ctx(ctx).Data([]do.MediaReportInstance{
+		{InstanceId: "pod-a", NodeId: "pod-a", CpuAllocated: 8, CpuLoad: 2, ReportTime: 1791784485000},
+		{InstanceId: "pod-b", NodeId: "", CpuAllocated: 4, CpuLoad: 1, ReportTime: 1791784485000},
+		{InstanceId: "explicit", NodeId: "5", CpuAllocated: 2, CpuLoad: 0.5, ReportTime: 1791784485000},
+		{InstanceId: "conflict", NodeId: "conflict", CpuAllocated: 64, CpuLoad: 32, ReportTime: 1791784485000},
+		{InstanceId: "unmapped", NodeId: "unmapped", CpuAllocated: 64, CpuLoad: 32, ReportTime: 1791784485000},
+	}).Insert(); err != nil {
+		t.Fatalf("insert instance resources: %v", err)
+	}
+	assertResources("4", 1, 8)
+	// More destinations cannot multiply pod-a; pod-b's machine-before-network order also resolves.
+	writeProbe("4", "pod-a", "192.0.2.11", 1791784485000)
+	writeProbe("4", "pod-b", "192.0.2.12", 1791784485001)
+	writeProbe("4", "explicit", "192.0.2.13", 1791784485001)
+	writeProbe("4", "conflict", "192.0.2.14", 1791784485001)
+	writeProbe("5", "conflict", "192.0.2.15", 1791784485001)
+	assertResources("4", 2, 12)
+	assertResources("5", 1, 2)
+	// Ownership must be selected globally before subtree filtering; pod-a has moved out of node 4.
+	writeProbe("5", "pod-a", "192.0.2.16", 1791784485002)
+	assertResources("4", 1, 4)
+	assertResources("5", 2, 10)
+	// A later resource report can retain the upstream placeholder without losing the derived node.
+	columns := dao.MediaReportInstance.Columns()
+	if _, err := dao.MediaReportInstance.Ctx(ctx).
+		Data(do.MediaReportInstance{InstanceId: "pod-a", NodeId: "pod-a", CpuAllocated: 16, ReportTime: 1791784485003}).
+		OnConflict(columns.InstanceId).
+		OnDuplicate(columns.NodeId, columns.CpuAllocated, columns.ReportTime).Save(); err != nil {
+		t.Fatalf("update placeholder resource report: %v", err)
+	}
+	assertResources("4", 1, 4)
+	assertResources("5", 2, 18)
+	// Resolve the formerly ambiguous machine only when a unique newer sample is available.
+	writeProbe("4", "conflict", "192.0.2.17", 1791784485004)
+	assertResources("4", 2, 68)
+}

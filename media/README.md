@@ -42,6 +42,8 @@ The plugin does not define a plugin-specific Redis configuration namespace or ma
 
 `node_latency_map` remains a destination-address-to-delay summary; its keys are the reported `destination_ip`, not node IDs. No quality score, quality grade, candidate-path ranking, or combined load percentage is calculated. Empty link results are arrays, and absent direct instance resources are zero-valued objects.
 
+For upstream machine reports whose `node_id` is empty or equals `instance_id`, resource aggregation resolves the business node from the latest network probes with matching `machine_id`. Explicit instance node IDs take priority. Multiple destinations do not duplicate resources; conflicting nodes at the same latest timestamp leave ownership unknown. Ownership is resolved across all nodes before subtree selection and is independent of the link-detail limit.
+
 Before deploying this feature, apply the current iteration's `manifest/sql/003-add-media-data-collection-server.sql`, which creates the idempotent latest-probe table `plugin_media_report_network_link`. The new link details become available after subsequent network reports; old latency-only records cannot reconstruct packet loss or jitter.
 
 ## Development
