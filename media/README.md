@@ -84,6 +84,19 @@ These routes retain the existing LinaPro/Tieta token authentication and manageme
 
 The media documentation page is `/api/v1/media/apidocs.html`; the OpenAPI JSON is `/api/v1/media/openapi.json`.
 
+## Active totals
+
+`GET /api/v1/media/dashboard/summary` takes no parameters and returns platform-wide active stream and session counts. It uses the existing LinaPro/Tieta management authentication chain and declares `media:management:query`. This is a platform monitoring API without tenant filtering; `X-Inner-Api-Key` alone does not authorize access.
+
+```json
+{
+  "active_stream_count": 128,
+  "active_session_count": 1024
+}
+```
+
+These integer fields appear inside the standard response's `data` object. Active means `close_time IS NULL` in each report table. Empty tables return `0`, closed records are excluded, and heartbeat age does not add an expiry condition. Both counts use one database statement, are unaffected by the 10,000-row list limit, and do not load details or raw payloads. No additional database migration is required.
+
 ## Development
 
 - Backend entry: `backend/plugin.go`

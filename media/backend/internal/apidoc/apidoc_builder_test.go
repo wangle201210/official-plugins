@@ -19,6 +19,49 @@ type documentationOnlyService struct {
 	mediasvc.Service
 }
 
+// TestBuildDashboardSummarySchema verifies the new parameterless summary route
+// publishes two int64 counters and inherits the management authentication scheme.
+func TestBuildDashboardSummarySchema(t *testing.T) {
+	document, err := Build(t.Context(), &documentationOnlyService{})
+	if err != nil {
+		t.Fatalf("build summary OpenAPI: %v", err)
+	}
+	operation := document.Paths["/api/v1/media/dashboard/summary"].Get
+	if operation == nil || operation.Security != nil || len(operation.Parameters) != 0 {
+		t.Fatalf("summary must be a parameterless GET inheriting bearer auth: %#v", operation)
+	}
+	typeName := reflect.TypeFor[v1.GetDashboardSummaryRes]().Name()
+	matches := 0
+	for name, schema := range document.Components.Schemas.Map() {
+		if name != typeName && !strings.HasSuffix(name, "."+typeName) {
+			continue
+		}
+		matches++
+		if schema.Value == nil || schema.Value.Properties == nil || len(schema.Value.Properties.Map()) != 2 {
+			t.Fatalf("summary must publish exactly two counters: %#v", schema)
+		}
+		for _, field := range []string{"active_stream_count", "active_session_count"} {
+			property := schema.Value.Properties.Get(field)
+			if property == nil || property.Value == nil || property.Value.Type != "integer" || property.Value.Format != "int64" {
+				t.Fatalf("%s must be documented as integer/int64: %#v", field, property)
+			}
+		}
+	}
+	if matches != 1 {
+		t.Fatalf("expected one summary response schema, got %d", matches)
+	}
+	meta, ok := reflect.TypeFor[v1.GetDashboardSummaryReq]().FieldByName("Meta")
+	if !ok || meta.Tag.Get("permission") != "media:management:query" {
+		t.Fatal("summary lost its management query permission")
+	}
+	if document.Security == nil || len(*document.Security) != 1 {
+		t.Fatal("summary document lost the default authentication requirement")
+	}
+	if _, ok := (*document.Security)[0]["BearerAuth"]; !ok {
+		t.Fatal("summary document no longer defaults to BearerAuth")
+	}
+}
+
 // TestBuildDashboardReportPayloadSchemas validates actual generated and serialized schema types.
 func TestBuildDashboardReportPayloadSchemas(t *testing.T) {
 	document, err := Build(t.Context(), &documentationOnlyService{})

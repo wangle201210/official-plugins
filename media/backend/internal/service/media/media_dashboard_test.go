@@ -11,9 +11,72 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/os/gtime"
 
+	"lina-core/pkg/bizerr"
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )
+
+// TestDashboardSummaryCountsActiveRows verifies exact, independent lifecycle totals across scopes.
+func TestDashboardSummaryCountsActiveRows(t *testing.T) {
+	ctx := t.Context()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	t.Cleanup(func() {
+		setupMediaDashboardReportTables(t, context.WithoutCancel(ctx))
+	})
+	svc := newTestMediaService(t)
+	assertCounts := func(streams, sessions int64) {
+		t.Helper()
+		out, err := svc.GetDashboardSummary(ctx)
+		if err != nil || out.ActiveStreamCount != streams || out.ActiveSessionCount != sessions {
+			t.Fatalf("expected streams=%d sessions=%d, got=%#v err=%v", streams, sessions, out, err)
+		}
+	}
+	assertCounts(0, 0)
+	insertDashboardReports(t, ctx, []any{
+		do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "active-a", TenantId: "tenant-a", NodeId: "node-a", Status: "running", CurrentActiveSessions: 999},
+		do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "active-b", TenantId: "tenant-b", NodeId: "node-b", Status: "paused"},
+		do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "closed", Status: "running", CloseTime: gtime.Now()},
+		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "one", StreamId: "active-a", TenantId: "tenant-a"},
+		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "two", StreamId: "active-a", TenantId: "tenant-b"},
+		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "orphan", StreamId: "not-reported", TenantId: "tenant-c"},
+		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "closed-session", StreamId: "active-a", CloseTime: gtime.Now()},
+	})
+	assertCounts(2, 3)
+	// Prove aggregates are not truncated at the dashboard list limit.
+	var (
+		streams  = make([]do.MediaReportStream, 0, dashboardReadLimit+1)
+		sessions = make([]do.MediaReportSession, 0, dashboardReadLimit+1)
+	)
+	for i := range dashboardReadLimit + 1 {
+		streams = append(streams, do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: fmt.Sprintf("summary-stream-%d", i)})
+		sessions = append(sessions, do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: fmt.Sprintf("summary-session-%d", i), StreamId: "active-a"})
+	}
+	if _, err := dao.MediaReportStream.Ctx(ctx).Data(streams).Batch(200).Insert(); err != nil {
+		t.Fatalf("insert stream count boundary: %v", err)
+	}
+	if _, err := dao.MediaReportSession.Ctx(ctx).Data(sessions).Batch(200).Insert(); err != nil {
+		t.Fatalf("insert session count boundary: %v", err)
+	}
+	assertCounts(int64(dashboardReadLimit+3), int64(dashboardReadLimit+4))
+}
+
+// TestDashboardSummaryQueryFailure must not report zero counts when a table is unavailable.
+func TestDashboardSummaryQueryFailure(t *testing.T) {
+	ctx := t.Context()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	t.Cleanup(func() {
+		setupMediaDashboardReportTables(t, context.WithoutCancel(ctx))
+	})
+	if _, err := dao.MediaReportSession.DB().Exec(ctx, "DROP TABLE "+dao.MediaReportSession.Table()); err != nil {
+		t.Fatalf("remove isolated fixture table: %v", err)
+	}
+	out, err := newTestMediaService(t).GetDashboardSummary(ctx)
+	if err == nil || out != nil || !bizerr.Is(err, CodeMediaDashboardQueryFailed) {
+		t.Fatalf("expected dashboard query failure, got=%#v err=%v", out, err)
+	}
+}
 
 // TestDashboardQueriesReadReportProjections verifies dashboard queries use report tables and decode nested JSON.
 func TestDashboardQueriesReadReportProjections(t *testing.T) {

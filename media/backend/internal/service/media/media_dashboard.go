@@ -28,6 +28,12 @@ const (
 	dashboardReadLimit          = maxPageSize
 )
 
+// DashboardSummaryOutput contains exact platform-wide active lifecycle counts.
+type DashboardSummaryOutput struct {
+	ActiveStreamCount  int64 `orm:"active_stream_count"`
+	ActiveSessionCount int64 `orm:"active_session_count"`
+}
+
 // DashboardNodeOverviewInput defines dashboard node overview filters.
 type DashboardNodeOverviewInput struct {
 	RootNodeId   string // RootNodeId optionally selects one node subtree.
@@ -246,6 +252,23 @@ type dashboardNodeRuntimeAggregate struct {
 	InstanceCount   int
 	DelaySum        int
 	DelayCount      int
+}
+
+// GetDashboardSummary counts unclosed rows in one statement, without loading payloads
+// or multiplying rows through a join. Only generated identifiers enter the SQL.
+func (s *serviceImpl) GetDashboardSummary(ctx context.Context) (*DashboardSummaryOutput, error) {
+	var (
+		out   = &DashboardSummaryOutput{}
+		query = fmt.Sprintf(`SELECT
+    (SELECT COUNT(*) FROM %s WHERE %s IS NULL) AS active_stream_count,
+    (SELECT COUNT(*) FROM %s WHERE %s IS NULL) AS active_session_count`,
+			dao.MediaReportStream.Table(), dao.MediaReportStream.Columns().CloseTime,
+			dao.MediaReportSession.Table(), dao.MediaReportSession.Columns().CloseTime)
+	)
+	if err := dao.MediaReportStream.DB().GetScan(ctx, out, query); err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
+	}
+	return out, nil
 }
 
 // GetDashboardNodeOverview returns a bounded node tree from latest report projections.

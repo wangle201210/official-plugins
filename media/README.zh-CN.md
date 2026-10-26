@@ -84,6 +84,19 @@
 
 媒体文档页面为`/api/v1/media/apidocs.html`，`OpenAPI JSON`为`/api/v1/media/openapi.json`。
 
+## 活跃总量查询
+
+`GET /api/v1/media/dashboard/summary`无需参数，返回全平台活跃流和会话总数，沿用现有媒体管理的`LinaPro`／铁塔鉴权链及`media:management:query`声明。该接口面向平台监控，不按租户筛选，不能仅凭`X-Inner-Api-Key`调用。
+
+```json
+{
+  "active_stream_count": 128,
+  "active_session_count": 1024
+}
+```
+
+以上字段位于统一响应的`data`内，均为整数。活跃口径是各自上报表的`close_time IS NULL`；没有记录返回`0`，已关闭记录不计入，不额外根据心跳时间剔除。两个总数在同一条数据库语句中统计，不受列表`10000`条上限影响，不读取明细或原始报文。本接口无需新增数据库迁移。
+
 ## 开发入口
 
 - 后端入口：`backend/plugin.go`
