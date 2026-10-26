@@ -63,9 +63,26 @@ Payloads retain original protobuf field names, default values, numeric enums, fu
 
 This stores one latest accepted report per existing business key, not an event history. Machine, stream and session reports keep the existing arrival-order replacement behavior; network links reject older sample timestamps. Different probe URLs sharing the existing link key still share one latest record. Invalid reports without required business keys are skipped; network reports without a destination do not create a full link record. Closed stream and session rows, including payloads, retain the existing 30-day cleanup policy. Lifecycle counters may update an instance row's `report_time`; the machine sample's original time remains in `report_payload.timestamp`.
 
-Apply the appended `ALTER TABLE` statements in `manifest/sql/003-add-media-data-collection-server.sql` before starting this version. They also convert any preliminary `report_payload JSONB` columns to `JSON`. Existing rows remain `NULL` until the next report; previously discarded data cannot be backfilled. Dashboard queries exclude the large raw payload and do not expose it through existing HTTP DTOs. Existing business-key lengths, IP formats and numeric projection constraints still apply; violations return errors and are not reported as successful persistence.
+Apply the appended `ALTER TABLE` statements in `manifest/sql/003-add-media-data-collection-server.sql` before starting this version. They also convert any preliminary `report_payload JSONB` columns to `JSON`. Existing rows remain `NULL` until the next report; previously discarded data cannot be backfilled. The four display queries below return the complete raw payload; unrelated summaries and topology projections continue to exclude it. Existing business-key lengths, IP formats and numeric projection constraints still apply; violations return errors and are not reported as successful persistence.
 
 The raw payload also preserves disk I/O counters. The current upstream collector reports cumulative disk bytes, while the existing dashboard projection labels the converted values as rates; that separate display-unit issue is not corrected by raw payload storage.
+
+## Third-party report queries
+
+The existing protected `GET` APIs return complete latest reports as JSON objects under `report_payload`, alongside their normalized display fields:
+
+| API path | Payload location in `data` |
+| --- | --- |
+| `/api/v1/media/dashboard/instances` | `instance_list[].report_payload` |
+| `/api/v1/media/dashboard/nodes/overview` | Each node's `network_links[].report_payload`, including child nodes |
+| `/api/v1/media/dashboard/streams` | `stream_list[].report_payload` |
+| `/api/v1/media/dashboard/sessions` | `protocol_list[].active_session_list[].report_payload` |
+
+Stream and session items also include `report_subcommand` (`0` when not recorded). A missing original report returns `null`; it is never reconstructed from display fields. The value is an object, not a JSON-encoded string. Original names, complete `extra`, nested hop fields, enum values, zero values and escaped characters are preserved. Protobuf 64-bit integers remain strings and original timestamp units remain unchanged inside the payload.
+
+These routes retain the existing LinaPro/Tieta token authentication and management permission declaration; the mediaopen `X-Inner-Api-Key` alone does not authorize them. Existing filters and 10,000-row limits remain. The session query still requires `streamId` and returns active sessions only. Use node, tenant, device, instance and stream filters to limit response size. Raw reports are loaded with their rows, without per-item database queries. No additional SQL migration is needed beyond the complete-report storage migration above.
+
+The media documentation page is `/api/v1/media/apidocs.html`; the OpenAPI JSON is `/api/v1/media/openapi.json`.
 
 ## Development
 

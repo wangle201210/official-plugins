@@ -63,9 +63,26 @@
 
 本功能按现有业务键保存一份最新有效报文，不提供逐次事件历史。机器、流和会话沿用按到达顺序覆盖的行为，网络链路拒绝较旧采样时间；共享现有链路键的不同探测 URL 仍共用一份最新内容。缺少必需业务键的无效报文继续跳过，缺少目的地址的网络报文不创建完整链路记录。关闭流和会话及其原始内容仍按既有`30`天规则清理。生命周期计数可能更新实例行的`report_time`，机器原始采样时间以`report_payload.timestamp`为准。
 
-启动新版前需执行`manifest/sql/003-add-media-data-collection-server.sql`末尾新增的`ALTER TABLE`语句，已提前创建为`JSONB`的原始内容列也会转为`JSON`。旧行在下次上报前保持`NULL`，此前丢弃的数据无法回填。看板查询排除大体积原始内容，既有 HTTP DTO 不暴露该字段。既有业务键长度、IP格式和数值投影约束仍执行，违反约束会返回错误，不会被报告为写入成功。
+启动新版前需执行`manifest/sql/003-add-media-data-collection-server.sql`末尾新增的`ALTER TABLE`语句，已提前创建为`JSONB`的原始内容列也会转为`JSON`。旧行在下次上报前保持`NULL`，此前丢弃的数据无法回填。下述四类展示查询返回完整原始内容，其他摘要和拓扑投影仍排除不需要的原始字段。既有业务键长度、IP格式和数值投影约束仍执行，违反约束会返回错误，不会被报告为写入成功。
 
 原始内容也保留磁盘 I/O 累计计数。当前上游采集的是累计字节，而既有看板投影把换算值标为速率；该独立的展示单位问题不会因增加原始存储而自动修正。
+
+## 第三方上报查询
+
+以下既有受保护`GET`接口在展示字段之外，通过`report_payload`返回完整最新上报`JSON`对象：
+
+| 接口路径 | `data`中的位置 |
+| --- | --- |
+| `/api/v1/media/dashboard/instances` | `instance_list[].report_payload` |
+| `/api/v1/media/dashboard/nodes/overview` | 各节点及子节点的`network_links[].report_payload` |
+| `/api/v1/media/dashboard/streams` | `stream_list[].report_payload` |
+| `/api/v1/media/dashboard/sessions` | `protocol_list[].active_session_list[].report_payload` |
+
+流和会话还返回`report_subcommand`，未记录时为`0`。旧记录没有原始报文时返回`null`，不根据展示字段伪造。该值是`JSON`对象，不是二次编码的字符串；原字段名、完整`extra`、嵌套跳点、枚举值、零值和转义字符均保留。载荷中的`protobuf`64位整数仍为字符串，时间单位保持上报原值。
+
+接口沿用既有`LinaPro`／铁塔`token`鉴权和管理权限声明，不能仅凭`mediaopen`的`X-Inner-Api-Key`调用。原筛选和`10000`条上限不变，会话接口仍必填`streamId`且只返回活跃会话。第三方应使用节点、租户、设备、实例和流筛选控制响应大小。原始内容与对应记录同批查询，不增加逐条数据库请求。本次接口返回补全无需新增`SQL`，前提是已经执行上文完整上报存储迁移。
+
+媒体文档页面为`/api/v1/media/apidocs.html`，`OpenAPI JSON`为`/api/v1/media/openapi.json`。
 
 ## 开发入口
 

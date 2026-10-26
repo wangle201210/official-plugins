@@ -5,7 +5,11 @@ package media
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"strings"
 
 	"lina-core/pkg/bizerr"
 	"lina-plugin-media/backend/internal/dao"
@@ -27,6 +31,7 @@ type DashboardNodeResources struct {
 // DashboardNetworkLink carries one raw probe for a source instance and destination.
 // Reachable is nil when the reporter did not supply a valid reachability value.
 type DashboardNetworkLink struct {
+	ReportPayload map[string]any // ReportPayload retains complete probe fields; nil means no stored payload.
 	MachineId     string
 	SourceIp      string
 	DestinationIp string
@@ -40,8 +45,34 @@ type DashboardNetworkLink struct {
 
 // dashboardNetworkLinkRow adds the database grouping key to the service projection.
 type dashboardNetworkLinkRow struct {
-	NodeId string
+	NodeId        string
+	ReportPayload string `orm:"report_payload"` // ReportPayload shadows the output map during database scanning.
 	DashboardNetworkLink
+}
+
+// decodeDashboardReportPayload returns one stored JSON object without rounding numbers.
+// Legacy SQL NULL/empty values and JSON null remain nil. Invalid, non-object or
+// trailing JSON content returns the established dashboard query error.
+func decodeDashboardReportPayload(raw string) (map[string]any, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var (
+		payload map[string]any
+		decoder = json.NewDecoder(strings.NewReader(raw))
+	)
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
+		return nil, bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err != nil {
+			return nil, bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
+		}
+		return nil, bizerr.NewCode(CodeMediaDashboardQueryFailed)
+	}
+	return payload, nil
 }
 
 // dashboardNetworkOwnershipSQL resolves the upstream instance-ID placeholder to
@@ -100,7 +131,8 @@ func (s *serviceImpl) dashboardNodeOverviewWithLinks(ctx context.Context, root *
 	)
 	err := dao.ReportNetworkLink.Ctx(ctx).
 		Fields(columns.NodeId, columns.MachineId, columns.SourceIp, columns.DestinationIp,
-			columns.Rtt, columns.Jitter, columns.PacketLoss, columns.StatusCode, columns.Reachable, columns.ReportTime).
+			columns.Rtt, columns.Jitter, columns.PacketLoss, columns.StatusCode, columns.Reachable, columns.ReportTime,
+			columns.ReportPayload).
 		WhereIn(columns.NodeId, nodeIDs).
 		OrderAsc(columns.NodeId).
 		OrderAsc(columns.MachineId).
@@ -120,6 +152,11 @@ func (s *serviceImpl) dashboardNodeOverviewWithLinks(ctx context.Context, root *
 			continue
 		}
 		if node := nodes[row.NodeId]; node != nil {
+			payload, err := decodeDashboardReportPayload(row.ReportPayload)
+			if err != nil {
+				return nil, err
+			}
+			row.DashboardNetworkLink.ReportPayload = payload
 			node.NetworkLinks = append(node.NetworkLinks, &row.DashboardNetworkLink)
 		}
 	}

@@ -3,6 +3,7 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -107,7 +108,7 @@ func TestDashboardListRequestsDoNotExposePagination(t *testing.T) {
 // TestDashboardNetworkMetricContract preserves raw zero values and optional reachability.
 func TestDashboardNetworkMetricContract(t *testing.T) {
 	unknown := mustMarshalDashboardShape(t, DashboardNetworkLink{ReportTime: 1791784485000})
-	assertDashboardExactKeys(t, unknown, "machine_id", "source_ip", "destination_ip", "rtt", "jitter", "packet_loss", "status_code", "reachable", "report_time")
+	assertDashboardExactKeys(t, unknown, "machine_id", "source_ip", "destination_ip", "rtt", "jitter", "packet_loss", "status_code", "reachable", "report_time", "report_payload")
 	if unknown["reachable"] != nil || unknown["packet_loss"] != float64(0) || unknown["jitter"] != float64(0) || unknown["report_time"] != float64(1791784485000) {
 		t.Fatalf("zero metrics and unknown reachability must be explicit: %#v", unknown)
 	}
@@ -119,6 +120,61 @@ func TestDashboardNetworkMetricContract(t *testing.T) {
 	meta, ok := reflect.TypeOf(GetDashboardNodeOverviewReq{}).FieldByName("Meta")
 	if !ok || meta.Tag.Get("permission") != "media:management:query" {
 		t.Fatal("network metrics must retain the existing protected overview permission")
+	}
+}
+
+// TestDashboardReportPayloadJSONContract verifies complete reports stay JSON objects
+// with exact raw values, while old records retain an explicit null field.
+func TestDashboardReportPayloadJSONContract(t *testing.T) {
+	report := map[string]any{
+		"timestamp":         "9007199254740993",
+		"cpu_usage":         json.Number("12.34567890123456789"),
+		"status_code":       json.Number("0"),
+		"watermark_enabled": false,
+		"extra":             map[string]any{"unknown": "first\x00second", "empty": ""},
+		"link_hops": []any{map[string]any{
+			"hop_id": "hop-1", "hop_name": "完整跳点", "hop_type": "gateway",
+			"node_id": "4", "node_name": "节点四", "latency": json.Number("12"),
+		}},
+	}
+	for _, test := range []struct {
+		name       string
+		current    any
+		legacy     any
+		subcommand string
+	}{
+		{name: "machine", current: DashboardInstanceItem{ReportPayload: report}, legacy: DashboardInstanceItem{}},
+		{name: "network", current: DashboardNetworkLink{ReportPayload: report}, legacy: DashboardNetworkLink{}},
+		{name: "stream", current: DashboardStreamItem{ReportPayload: report, ReportSubcommand: 22}, legacy: DashboardStreamItem{}, subcommand: "22"},
+		{name: "session", current: DashboardSessionItem{ReportPayload: report, ReportSubcommand: 32}, legacy: DashboardSessionItem{}, subcommand: "32"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			raw, err := json.Marshal(test.current)
+			if err != nil {
+				t.Fatalf("marshal populated report: %v", err)
+			}
+			var payload map[string]any
+			decoder := json.NewDecoder(bytes.NewReader(raw))
+			decoder.UseNumber()
+			if err := decoder.Decode(&payload); err != nil {
+				t.Fatalf("decode populated report: %v", err)
+			}
+			got, ok := payload["report_payload"].(map[string]any)
+			if !ok || !reflect.DeepEqual(got, report) {
+				t.Fatalf("report_payload must be an intact JSON object: got=%#v want=%#v", payload["report_payload"], report)
+			}
+			if test.subcommand != "" && payload["report_subcommand"] != json.Number(test.subcommand) {
+				t.Fatalf("report subcommand changed: %#v", payload["report_subcommand"])
+			}
+			legacy := mustMarshalDashboardShape(t, test.legacy)
+			value, exists := legacy["report_payload"]
+			if !exists || value != nil {
+				t.Fatalf("legacy report_payload must be present as null: %#v", legacy)
+			}
+			if test.subcommand != "" && legacy["report_subcommand"] != float64(0) {
+				t.Fatalf("legacy subcommand must remain zero: %#v", legacy)
+			}
+		})
 	}
 }
 

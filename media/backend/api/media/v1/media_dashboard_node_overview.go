@@ -58,13 +58,14 @@ type DashboardNodeResources struct {
 
 // DashboardNetworkLink exposes one latest source-instance-to-destination probe without scoring.
 type DashboardNetworkLink struct {
-	MachineId     string  `json:"machine_id" dc:"上报来源机器或实例标识；保留NetworkMetric.machine_id原值" eg:"gateway-01"`
-	SourceIp      string  `json:"source_ip" dc:"探测源地址" eg:"192.0.2.10"`
-	DestinationIp string  `json:"destination_ip" dc:"探测目的地址；可能为IP或上报端无法解析时保留的主机名，不等同于节点ID" eg:"192.0.2.55"`
-	Rtt           int     `json:"rtt" dc:"上报原始延迟，单位毫秒；探测失败时保留上游固定值，须结合reachable判断" eg:"18"`
-	Jitter        int     `json:"jitter" dc:"上报原始抖动，单位毫秒；探测失败时保留上游固定值" eg:"3"`
-	PacketLoss    float64 `json:"packet_loss" dc:"上报原始丢包比例，0表示无丢包、1表示全部失败；当前net-flux采集器实际按HTTP探测失败次数除以总次数计算" eg:"0.02"`
-	StatusCode    int     `json:"status_code" dc:"上报的探测状态码；当前HTTP采集器使用HTTP状态码，0表示未取得有效状态码" eg:"200"`
-	Reachable     *bool   `json:"reachable" dc:"上报extra.reachable：true可达、false不可达；缺省或无法解析时为null，不根据延迟或状态码推断" eg:"true"`
-	ReportTime    int64   `json:"report_time" dc:"本链路采样时间，Unix timestamp in milliseconds" eg:"1791784485000"`
+	MachineId     string         `json:"machine_id" dc:"上报来源机器或实例标识；保留NetworkMetric.machine_id原值" eg:"gateway-01"`
+	SourceIp      string         `json:"source_ip" dc:"探测源地址" eg:"192.0.2.10"`
+	DestinationIp string         `json:"destination_ip" dc:"探测目的地址；可能为IP或上报端无法解析时保留的主机名，不等同于节点ID" eg:"192.0.2.55"`
+	Rtt           int            `json:"rtt" dc:"上报原始延迟，单位毫秒；探测失败时保留上游固定值，须结合reachable判断" eg:"18"`
+	Jitter        int            `json:"jitter" dc:"上报原始抖动，单位毫秒；探测失败时保留上游固定值" eg:"3"`
+	PacketLoss    float64        `json:"packet_loss" dc:"上报原始丢包比例，0表示无丢包、1表示全部失败；当前net-flux采集器实际按HTTP探测失败次数除以总次数计算" eg:"0.02"`
+	StatusCode    int            `json:"status_code" dc:"上报的探测状态码；当前HTTP采集器使用HTTP状态码，0表示未取得有效状态码" eg:"200"`
+	Reachable     *bool          `json:"reachable" dc:"上报extra.reachable：true可达、false不可达；缺省或无法解析时为null，不根据延迟或状态码推断" eg:"true"`
+	ReportTime    int64          `json:"report_time" dc:"本链路采样时间，Unix timestamp in milliseconds" eg:"1791784485000"`
+	ReportPayload map[string]any `json:"report_payload" dc:"完整最新NetworkMetric原始JSON对象，包含全部已定义字段和extra；没有原始上报时为null。遵循protobuf JSON，64位整数为字符串，timestamp保留上报单位" eg:"{\"node_id\":\"4\",\"destination_ip\":\"192.0.2.55\",\"extra\":{}}"`
 }

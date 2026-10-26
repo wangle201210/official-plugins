@@ -5,6 +5,7 @@ package apidoc
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"reflect"
 	"strings"
@@ -51,7 +52,32 @@ func Build(_ context.Context, mediaSvc mediasvc.Service) (*goai.OpenApiV3, error
 		return nil, err
 	}
 	applySecurity(document, innerAPIKeyRoutes)
+	applyReportPayloadSchemas(document)
 	return document, nil
+}
+
+// applyReportPayloadSchemas describes original reports as nullable free-form
+// objects. GoFrame otherwise restricts map[string]any values to objects, which
+// rejects the report's scalar, array and null fields in generated clients.
+func applyReportPayloadSchemas(document *goai.OpenApiV3) {
+	document.Components.Schemas.Iterator(func(_ string, ref goai.SchemaRef) bool {
+		if ref.Value == nil || ref.Value.Properties == nil {
+			return true
+		}
+		payload := ref.Value.Properties.Get("report_payload")
+		if payload == nil || payload.Value == nil {
+			return true
+		}
+		payload.Value.Type = goai.TypeObject
+		payload.Value.Nullable = true
+		payload.Value.AdditionalProperties = nil
+		// GoFrame keeps map examples as strings. Embed the source JSON directly
+		// so examples match the response object without coercing numeric values.
+		if example, ok := payload.Value.Example.(string); ok {
+			payload.Value.Example = json.RawMessage(example)
+		}
+		return true
+	})
 }
 
 // newDocument creates the media plugin document metadata and security schemes.

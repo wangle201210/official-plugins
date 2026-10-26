@@ -91,6 +91,7 @@ type DashboardInstanceNodeInfo struct {
 
 // DashboardInstanceItem defines one dashboard instance row.
 type DashboardInstanceItem struct {
+	ReportPayload   map[string]any // ReportPayload is the complete stored report, or nil before a report is available.
 	InstanceId      string
 	InstanceName    string
 	Status          string
@@ -129,6 +130,8 @@ type ListDashboardStreamsOutput struct {
 
 // DashboardStreamItem defines one dashboard stream row.
 type DashboardStreamItem struct {
+	ReportPayload         map[string]any // ReportPayload preserves the original report fields and JSON number precision.
+	ReportSubcommand      int            // ReportSubcommand is the stored lifecycle command; zero means not recorded.
 	SourceUrl             string
 	StreamId              string
 	StreamName            string
@@ -194,6 +197,8 @@ type DashboardSessionProtocol struct {
 
 // DashboardSessionItem defines one dashboard session row.
 type DashboardSessionItem struct {
+	ReportPayload     map[string]any // ReportPayload preserves the original report fields and JSON number precision.
+	ReportSubcommand  int            // ReportSubcommand is the stored lifecycle command; zero means not recorded.
 	SessionId         string
 	DeviceId          string
 	ClientId          string
@@ -321,7 +326,7 @@ func (s *serviceImpl) ListDashboardInstances(ctx context.Context, in ListDashboa
 	}
 
 	columns := dao.MediaReportInstance.Columns()
-	model := dao.MediaReportInstance.Ctx(ctx).FieldsEx(columns.ReportPayload)
+	model := dao.MediaReportInstance.Ctx(ctx)
 	model = dashboardWhereEq(model, columns.NodeId, in.NodeId)
 	model = dashboardWhereEq(model, columns.Status, in.Status)
 	if keyword := strings.TrimSpace(in.Keyword); keyword != "" {
@@ -354,7 +359,11 @@ func (s *serviceImpl) ListDashboardInstances(ctx context.Context, in ListDashboa
 
 	list := make([]*DashboardInstanceItem, 0, len(items))
 	for _, item := range items {
-		list = append(list, buildDashboardInstanceItem(item))
+		output, err := buildDashboardInstanceItem(item)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, output)
 	}
 	return &ListDashboardInstancesOutput{NodeInfo: nodeInfo, List: list}, nil
 }
@@ -366,7 +375,7 @@ func (s *serviceImpl) ListDashboardStreams(ctx context.Context, in ListDashboard
 	}
 
 	columns := dao.MediaReportStream.Columns()
-	model := dao.MediaReportStream.Ctx(ctx).FieldsEx(columns.ReportPayload, columns.ReportSubcommand)
+	model := dao.MediaReportStream.Ctx(ctx)
 	model = dashboardWhereEq(model, columns.SourceType, in.SourceType)
 	model = dashboardWhereSourceID(model, in.SourceType, in.SourceId)
 	model = dashboardWhereEq(model, columns.TenantId, in.TenantId)
@@ -403,7 +412,11 @@ func (s *serviceImpl) ListDashboardStreams(ctx context.Context, in ListDashboard
 		return nil, err
 	}
 	for _, item := range items {
-		list = append(list, buildDashboardStreamItemWithCounts(item, sessionCounts[item.StreamId]))
+		output, err := buildDashboardStreamItemWithCounts(item, sessionCounts[item.StreamId])
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, output)
 	}
 	return &ListDashboardStreamsOutput{
 		SourceType: strings.TrimSpace(in.SourceType),
@@ -435,7 +448,6 @@ func (s *serviceImpl) ListDashboardSessions(ctx context.Context, in ListDashboar
 	columns := dao.MediaReportSession.Columns()
 	sessions := make([]*dashboardSessionEntity, 0)
 	err = dashboardSessionModel(ctx, in).
-		FieldsEx(columns.ReportPayload, columns.ReportSubcommand).
 		OrderAsc(columns.ProtocolType).
 		OrderDesc(columns.ReportTime).
 		OrderAsc(columns.SessionId).
@@ -446,7 +458,10 @@ func (s *serviceImpl) ListDashboardSessions(ctx context.Context, in ListDashboar
 	}
 
 	streamInfo := buildDashboardSessionStreamInfo(stream, sessions, in.StreamId)
-	protocols := buildDashboardSessionProtocols(stream, counts, sessions, in.ProtocolType)
+	protocols, err := buildDashboardSessionProtocols(stream, counts, sessions, in.ProtocolType)
+	if err != nil {
+		return nil, err
+	}
 	return &ListDashboardSessionsOutput{StreamInfo: streamInfo, Protocols: protocols}, nil
 }
 
@@ -654,12 +669,17 @@ func buildDashboardInstanceNodeInfoFromInstance(item *dashboardInstanceEntity) *
 	}
 }
 
-// buildDashboardInstanceItem converts one instance entity to dashboard output.
-func buildDashboardInstanceItem(item *dashboardInstanceEntity) *DashboardInstanceItem {
+// buildDashboardInstanceItem converts one instance entity and rejects malformed stored payloads.
+func buildDashboardInstanceItem(item *dashboardInstanceEntity) (*DashboardInstanceItem, error) {
 	if item == nil {
-		return &DashboardInstanceItem{}
+		return &DashboardInstanceItem{}, nil
+	}
+	payload, err := decodeDashboardReportPayload(item.ReportPayload)
+	if err != nil {
+		return nil, err
 	}
 	return &DashboardInstanceItem{
+		ReportPayload:   payload,
 		InstanceId:      item.InstanceId,
 		InstanceName:    item.InstanceName,
 		Status:          item.Status,
@@ -675,16 +695,20 @@ func buildDashboardInstanceItem(item *dashboardInstanceEntity) *DashboardInstanc
 		Sessions:        item.Sessions,
 		StartTime:       formatTime(item.StartTime),
 		Version:         item.Version,
-	}
+	}, nil
 }
 
 // buildDashboardStreamItemWithCounts converts one stream entity and active session counts to dashboard output.
 func buildDashboardStreamItemWithCounts(
 	item *dashboardStreamEntity,
 	activeSessionCounts dashboardStreamActiveSessionCounts,
-) *DashboardStreamItem {
+) (*DashboardStreamItem, error) {
 	if item == nil {
-		return &DashboardStreamItem{ProtocolSummary: []*DashboardProtocolItem{}}
+		return &DashboardStreamItem{ProtocolSummary: []*DashboardProtocolItem{}}, nil
+	}
+	payload, err := decodeDashboardReportPayload(item.ReportPayload)
+	if err != nil {
+		return nil, err
 	}
 	protocolSummary := decodeDashboardProtocolSummary(item.ProtocolSummary)
 	protocolSummary = mergeDashboardProtocolSessionCounts(protocolSummary, activeSessionCounts)
@@ -695,6 +719,8 @@ func buildDashboardStreamItemWithCounts(
 		item.CurrentActiveSessions,
 	)
 	return &DashboardStreamItem{
+		ReportPayload:         payload,
+		ReportSubcommand:      item.ReportSubcommand,
 		SourceUrl:             item.SourceUrl,
 		StreamId:              item.StreamId,
 		StreamName:            item.StreamName,
@@ -712,7 +738,7 @@ func buildDashboardStreamItemWithCounts(
 		CurrentActiveSessions: currentActiveSessions,
 		WatermarkEnabled:      item.WatermarkEnabled,
 		ProtocolSummary:       protocolSummary,
-	}
+	}, nil
 }
 
 // dashboardStreamEntityIDs returns non-empty stream IDs from a bounded stream result set.
@@ -847,7 +873,7 @@ func buildDashboardSessionProtocols(
 	counts map[string]int,
 	sessions []*dashboardSessionEntity,
 	protocolFilter string,
-) []*DashboardSessionProtocol {
+) ([]*DashboardSessionProtocol, error) {
 	protocolFilter = strings.TrimSpace(protocolFilter)
 	orderedProtocols := make([]string, 0)
 	seen := make(map[string]struct{})
@@ -874,6 +900,7 @@ func buildDashboardSessionProtocols(
 		if _, ok := seen[protocol]; ok {
 			continue
 		}
+		seen[protocol] = struct{}{}
 		countProtocols = append(countProtocols, protocol)
 	}
 	sort.Strings(countProtocols)
@@ -892,7 +919,11 @@ func buildDashboardSessionProtocols(
 			seen[protocol] = struct{}{}
 			orderedProtocols = append(orderedProtocols, protocol)
 		}
-		sessionsByProtocol[protocol] = append(sessionsByProtocol[protocol], buildDashboardSessionItem(session))
+		item, err := buildDashboardSessionItem(session)
+		if err != nil {
+			return nil, err
+		}
+		sessionsByProtocol[protocol] = append(sessionsByProtocol[protocol], item)
 	}
 
 	protocols := make([]*DashboardSessionProtocol, 0, len(orderedProtocols))
@@ -909,16 +940,22 @@ func buildDashboardSessionProtocols(
 			Sessions:     sessionsByProtocol[protocol],
 		})
 	}
-	return protocols
+	return protocols, nil
 }
 
-// buildDashboardSessionItem converts one session entity to dashboard output.
-func buildDashboardSessionItem(item *dashboardSessionEntity) *DashboardSessionItem {
+// buildDashboardSessionItem converts one session entity and rejects malformed stored payloads.
+func buildDashboardSessionItem(item *dashboardSessionEntity) (*DashboardSessionItem, error) {
 	if item == nil {
-		return &DashboardSessionItem{LinkHops: []*DashboardLinkHopItem{}}
+		return &DashboardSessionItem{LinkHops: []*DashboardLinkHopItem{}}, nil
+	}
+	payload, err := decodeDashboardReportPayload(item.ReportPayload)
+	if err != nil {
+		return nil, err
 	}
 	linkHops := decodeDashboardLinkHops(item.LinkHops)
 	return &DashboardSessionItem{
+		ReportPayload:     payload,
+		ReportSubcommand:  item.ReportSubcommand,
 		SessionId:         item.SessionId,
 		DeviceId:          item.DeviceId,
 		ClientId:          item.ClientId,
@@ -936,7 +973,7 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) *DashboardSessionIt
 		InstanceId:        item.InstanceId,
 		LinkHops:          linkHops,
 		TotalLinkLatency:  dashboardTotalLinkLatency(linkHops, item.TotalLinkLatency),
-	}
+	}, nil
 }
 
 // dashboardNodeRuntimeAggregates reads node runtime values derivable from instance and stream projections.

@@ -43,6 +43,8 @@ type DashboardStreamItem struct {
 	CurrentActiveSessions int                      `json:"current_active_sessions" dc:"当前仍在线的会话数" eg:"85"`
 	WatermarkEnabled      bool                     `json:"watermark_enabled" dc:"是否启用水印" eg:"true"`
 	ProtocolSummary       []*DashboardProtocolItem `json:"protocol_summary" dc:"按协议统计" eg:"[]"`
+	ReportPayload         map[string]any           `json:"report_payload" dc:"完整最新StreamMetric原始JSON对象，包含编码、服务器类型、全部已定义字段和extra；没有原始上报时为null。遵循protobuf JSON，64位整数为字符串，时间保留上报单位" eg:"{\"stream_id\":\"stream12345\",\"video_codec\":1,\"extra\":{}}"`
+	ReportSubcommand      int                      `json:"report_subcommand" dc:"原始流上报子命令：0未记录或保留值，20新增，21删除，22状态，23失败，24流查询请求，25流查询响应；其他值保留上报原值" eg:"22"`
 }
 
 // DashboardProtocolItem defines one dashboard protocol summary row.

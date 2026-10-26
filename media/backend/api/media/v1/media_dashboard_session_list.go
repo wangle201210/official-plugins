@@ -56,6 +56,8 @@ type DashboardSessionItem struct {
 	InstanceId        string                  `json:"instance_id" dc:"当前处理实例" eg:"inst-003"`
 	LinkHops          []*DashboardLinkHopItem `json:"link_hops" dc:"会话实际链路" eg:"[]"`
 	TotalLinkLatency  int                     `json:"total_link_latency" dc:"链路总延迟，单位毫秒" eg:"28"`
+	ReportPayload     map[string]any          `json:"report_payload" dc:"完整最新SessionMetric原始JSON对象，包含全部已定义字段、完整extra和link_hops；没有原始上报时为null。遵循protobuf JSON，64位整数为字符串，时间保留上报单位" eg:"{\"session_id\":\"sess-9f3a1c8e\",\"link_hops\":[],\"extra\":{}}"`
+	ReportSubcommand  int                     `json:"report_subcommand" dc:"原始会话上报子命令：0未记录或保留值，30新增，31删除，32状态，33失败，40会话查询请求，41会话查询响应；其他值保留上报原值" eg:"32"`
 }
 
 // DashboardLinkHopItem defines one session link hop.

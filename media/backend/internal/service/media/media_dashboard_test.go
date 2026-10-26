@@ -340,7 +340,7 @@ func TestDashboardTopologyRejectsMissingDeviceID(t *testing.T) {
 
 // TestBuildDashboardStreamItemUsesActiveSessionCounts verifies stream counters are recalculated.
 func TestBuildDashboardStreamItemUsesActiveSessionCounts(t *testing.T) {
-	item := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+	item, err := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
 		StreamId:              "stream-a",
 		ProtocolCount:         2,
 		TotalSessionsLifetime: 30,
@@ -353,6 +353,9 @@ func TestBuildDashboardStreamItemUsesActiveSessionCounts(t *testing.T) {
 			"RTMP": 1,
 		},
 	})
+	if err != nil {
+		t.Fatalf("build stream projection: %v", err)
+	}
 	if item.ProtocolCount != 2 || item.TotalSessionsLifetime != 30 || item.CurrentActiveSessions != 3 {
 		t.Fatalf("expected stream counters from protocol summary and active sessions, got %#v", item)
 	}
@@ -363,13 +366,16 @@ func TestBuildDashboardStreamItemUsesActiveSessionCounts(t *testing.T) {
 
 // TestBuildDashboardStreamItemKeepsFallbackLifetime verifies current counts do not become lifetime totals.
 func TestBuildDashboardStreamItemKeepsFallbackLifetime(t *testing.T) {
-	item := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+	item, err := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
 		StreamId:              "stream-a",
 		ProtocolCount:         1,
 		TotalSessionsLifetime: 42,
 		CurrentActiveSessions: 999,
 		ProtocolSummary:       `[]`,
 	}, dashboardStreamActiveSessionCounts{Loaded: true, Counts: map[string]int{"HLS": 3}})
+	if err != nil {
+		t.Fatalf("build stream projection: %v", err)
+	}
 	if item.ProtocolCount != 1 || item.TotalSessionsLifetime != 42 || item.CurrentActiveSessions != 3 {
 		t.Fatalf("expected fallback lifetime and active session count, got %#v", item)
 	}
@@ -380,13 +386,16 @@ func TestBuildDashboardStreamItemKeepsFallbackLifetime(t *testing.T) {
 
 // TestBuildDashboardStreamItemClearsStaleActiveCounts verifies stale report summary current counts are not authoritative.
 func TestBuildDashboardStreamItemClearsStaleActiveCounts(t *testing.T) {
-	item := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+	item, err := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
 		StreamId:              "stream-a",
 		ProtocolCount:         1,
 		TotalSessionsLifetime: 1,
 		CurrentActiveSessions: 1,
 		ProtocolSummary:       `[{"protocol_type":"HLS","total_sessions":1,"current_sessions":1}]`,
 	}, dashboardStreamActiveSessionCounts{Loaded: true, Counts: map[string]int{}})
+	if err != nil {
+		t.Fatalf("build stream projection: %v", err)
+	}
 	if item.ProtocolCount != 1 || item.TotalSessionsLifetime != 1 || item.CurrentActiveSessions != 0 {
 		t.Fatalf("expected active session counts to clear stale stream counters, got %#v", item)
 	}
@@ -399,20 +408,22 @@ func TestBuildDashboardStreamItemClearsStaleActiveCounts(t *testing.T) {
 func TestDashboardElapsedSecondsFallsBackToReportedDuration(t *testing.T) {
 	futureStartTime := gtime.NewFromTime(time.Now().Add(time.Hour))
 
-	if duration := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+	stream, err := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
 		StreamId:  "stream-a",
 		StartTime: futureStartTime,
 		Duration:  60,
-	}, dashboardStreamActiveSessionCounts{}).Duration; duration != 60 {
-		t.Fatalf("expected stream explicit duration fallback, got %d", duration)
+	}, dashboardStreamActiveSessionCounts{})
+	if err != nil || stream.Duration != 60 {
+		t.Fatalf("expected stream explicit duration fallback, got %#v err=%v", stream, err)
 	}
 
-	if duration := buildDashboardSessionItem(&dashboardSessionEntity{
+	session, err := buildDashboardSessionItem(&dashboardSessionEntity{
 		SessionId:    "session-a",
 		StartTime:    futureStartTime,
 		PlayDuration: 60,
-	}).PlayDuration; duration != 60 {
-		t.Fatalf("expected session explicit duration fallback, got %d", duration)
+	})
+	if err != nil || session.PlayDuration != 60 {
+		t.Fatalf("expected session explicit duration fallback, got %#v err=%v", session, err)
 	}
 }
 

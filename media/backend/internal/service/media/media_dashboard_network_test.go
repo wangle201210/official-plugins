@@ -4,12 +4,123 @@
 package media
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/gogf/gf/v2/os/gtime"
 
 	"lina-plugin-media/backend/internal/dao"
 	"lina-plugin-media/backend/internal/model/do"
 )
+
+// TestDecodeDashboardReportPayload verifies full objects retain numeric precision and invalid data fails explicitly.
+func TestDecodeDashboardReportPayload(t *testing.T) {
+	for _, raw := range []string{"", "  ", "null"} {
+		got, err := decodeDashboardReportPayload(raw)
+		if err != nil || got != nil {
+			t.Fatalf("missing raw report must return nil: input=%q got=%#v err=%v", raw, got, err)
+		}
+	}
+	for _, raw := range []string{`[]`, `"text"`, `1`, `{`, `{} {}`, `{} garbage`} {
+		if got, err := decodeDashboardReportPayload(raw); err == nil {
+			t.Fatalf("invalid or non-object report must fail: input=%q got=%#v", raw, got)
+		}
+	}
+	got, err := decodeDashboardReportPayload(`{"counter":9007199254740993,"int64":"9007199254740993","extra":{"nul":"a\u0000b"},"zero":0,"flag":false}`)
+	if err != nil {
+		t.Fatalf("decode complete object: %v", err)
+	}
+	if got["counter"] != json.Number("9007199254740993") || got["int64"] != "9007199254740993" ||
+		got["extra"].(map[string]any)["nul"] != "a\x00b" || got["zero"] != json.Number("0") || got["flag"] != false {
+		t.Fatalf("payload field types or values changed: %#v", got)
+	}
+}
+
+// TestDashboardQueriesReturnCompletePayloads exercises real SQL selection and source grouping for all four queries.
+func TestDashboardQueriesReturnCompletePayloads(t *testing.T) {
+	ctx := t.Context()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	insertDashboardReportNodes(t, ctx)
+	const (
+		machinePayload = `{"machine_id":"machine-original","instance_id":"inst-a","cpu_usage":0,"disk_read_count":"9007199254740993","extra":{"vendor":"a\u0000b"}}`
+		networkPayload = `{"node_id":"node-a","machine_id":"machine-original","rtt":18,"jitter":0,"packet_loss":0.01,"timestamp":"1791784485","extra":{"url":"https://probe.test","reachable":"true"}}`
+		streamPayload  = `{"stream_id":"stream-a","machine_type":777,"video_codec":779,"audio_codec":780,"total_sessions_lifetime":"9007199254740993","extra":{"vendor":"stream-extra"}}`
+		sessionPayload = `{"session_id":"session-a","client_type":"custom","current_fps":29.97654321,"extra":{"vendor":"session-extra"},"link_hops":[{"hop_id":"hop-a","hop_name":"完整跳点","hop_type":"gateway","node_id":"4","node_name":"节点四","latency":0}]}`
+	)
+	insertDashboardReports(t, ctx, []any{
+		do.MediaReportInstance{InstanceId: "inst-a", NodeId: "node-a", Status: "running", ReportTime: int64(1791784485000), ReportPayload: machinePayload},
+		do.MediaReportInstance{InstanceId: "inst-legacy", NodeId: "node-a", Status: "running", ReportTime: int64(1791784485000)},
+		do.MediaReportInstance{InstanceId: "inst-other", NodeId: "node-b", Status: "running", ReportTime: int64(1791784485000), ReportPayload: `{"scope":"other"}`},
+		do.MediaReportStream{StreamId: "stream-a", NodeId: "node-a", TenantId: "tenant-a", DeviceId: "device-a", InstanceId: "inst-a", ProtocolType: "HLS", Status: "running", ReportTime: int64(1791784485000), ReportPayload: streamPayload, ReportSubcommand: 22},
+		do.MediaReportStream{StreamId: "stream-other", NodeId: "node-b", TenantId: "tenant-b", ProtocolType: "HLS", Status: "running", ReportTime: int64(1791784485000), ReportPayload: `{"scope":"other"}`},
+		do.MediaReportSession{SessionId: "session-a", StreamId: "stream-a", TenantId: "tenant-a", NodeId: "node-a", InstanceId: "inst-a", ProtocolType: "HLS", ReportTime: int64(1791784485000), ReportPayload: sessionPayload, ReportSubcommand: 32},
+		do.MediaReportSession{SessionId: "session-legacy", StreamId: "stream-a", TenantId: "tenant-a", NodeId: "node-a", ProtocolType: "HLS", ReportTime: int64(1791784485000)},
+		do.MediaReportSession{SessionId: "session-other", StreamId: "stream-other", TenantId: "tenant-b", NodeId: "node-b", ProtocolType: "HLS", ReportTime: int64(1791784485000), ReportPayload: `{"scope":"other"}`},
+		do.MediaReportSession{SessionId: "session-closed", StreamId: "stream-a", TenantId: "tenant-a", NodeId: "node-a", ProtocolType: "HLS", CloseTime: gtime.Now(), ReportTime: int64(1791784485000), ReportPayload: `{"scope":"closed"}`, ReportSubcommand: 31},
+	})
+	if _, err := dao.ReportNetworkLink.Ctx(ctx).Data([]do.ReportNetworkLink{
+		{NodeId: "node-a", MachineId: "inst-a", SourceIp: "192.0.2.1", DestinationIp: "192.0.2.2", Rtt: 18, Jitter: 0, PacketLoss: 0.01, StatusCode: 200, ReportTime: int64(1791784485000), ReportPayload: networkPayload},
+		{NodeId: "node-a", MachineId: "inst-legacy", SourceIp: "192.0.2.1", DestinationIp: "192.0.2.3", Rtt: 0, Jitter: 0, PacketLoss: 0, StatusCode: 0, ReportTime: int64(1791784485000)},
+		{NodeId: "node-b", MachineId: "inst-other", SourceIp: "192.0.2.4", DestinationIp: "192.0.2.5", Rtt: 0, Jitter: 0, PacketLoss: 0, StatusCode: 0, ReportTime: int64(1791784485000), ReportPayload: `{"scope":"other"}`},
+	}).Insert(); err != nil {
+		t.Fatalf("insert network reports: %v", err)
+	}
+	assertPayload := func(got map[string]any, want string) {
+		t.Helper()
+		decoder := json.NewDecoder(strings.NewReader(want))
+		decoder.UseNumber()
+		var expected map[string]any
+		if err := decoder.Decode(&expected); err != nil {
+			t.Fatalf("decode expected raw fixture: %v", err)
+		}
+		if !reflect.DeepEqual(got, expected) {
+			t.Fatalf("raw fields were omitted or converted: got=%#v want=%#v", got, expected)
+		}
+	}
+	svc := newTestMediaService(t)
+	instances, err := svc.ListDashboardInstances(ctx, ListDashboardInstancesInput{NodeId: "node-a"})
+	if err != nil || len(instances.List) != 2 {
+		t.Fatalf("instance scope changed: result=%#v err=%v", instances, err)
+	}
+	assertPayload(instances.List[0].ReportPayload, machinePayload)
+	if instances.List[1].ReportPayload != nil {
+		t.Fatal("legacy instance must retain a nil payload")
+	}
+	streams, err := svc.ListDashboardStreams(ctx, ListDashboardStreamsInput{TenantId: "tenant-a", DeviceId: "device-a"})
+	if err != nil || len(streams.List) != 1 {
+		t.Fatalf("stream scope changed: result=%#v err=%v", streams, err)
+	}
+	assertPayload(streams.List[0].ReportPayload, streamPayload)
+	if streams.List[0].ReportSubcommand != 22 {
+		t.Fatal("stream command was omitted")
+	}
+	sessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{StreamId: "stream-a", TenantId: "tenant-a"})
+	if err != nil || len(sessions.Protocols) != 1 || len(sessions.Protocols[0].Sessions) != 2 {
+		t.Fatalf("session active/scope filters changed: result=%#v err=%v", sessions, err)
+	}
+	assertPayload(sessions.Protocols[0].Sessions[0].ReportPayload, sessionPayload)
+	if sessions.Protocols[0].Sessions[0].ReportSubcommand != 32 || sessions.Protocols[0].Sessions[1].ReportPayload != nil || sessions.Protocols[0].Sessions[1].ReportSubcommand != 0 {
+		t.Fatal("session command or legacy-null semantics changed")
+	}
+	nodes, err := svc.GetDashboardNodeOverview(ctx, DashboardNodeOverviewInput{RootNodeId: "node-a"})
+	if err != nil || len(nodes.Node.NetworkLinks) != 2 {
+		t.Fatalf("network grouping changed: result=%#v err=%v", nodes, err)
+	}
+	assertPayload(nodes.Node.NetworkLinks[0].ReportPayload, networkPayload)
+	if nodes.Node.NetworkLinks[1].ReportPayload != nil {
+		t.Fatal("legacy network link must retain a nil payload")
+	}
+	// The stream summary used for grouping still avoids loading unrelated raw content.
+	impl := svc.(*serviceImpl)
+	summary, err := impl.dashboardStreamEntity(ctx, "stream-a")
+	if err != nil || summary.ReportPayload != "" {
+		t.Fatalf("summary unnecessarily selected raw payload: summary=%#v err=%v", summary, err)
+	}
+}
 
 // TestDashboardNetworkLinksAreScopedAndKeepRawMetrics exercises real database projections.
 func TestDashboardNetworkLinksAreScopedAndKeepRawMetrics(t *testing.T) {

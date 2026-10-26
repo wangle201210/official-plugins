@@ -84,6 +84,7 @@ func dashboardNetworkLinksToDTO(items []*mediasvc.DashboardNetworkLink) []*v1.Da
 			StatusCode:    item.StatusCode,
 			Reachable:     item.Reachable,
 			ReportTime:    item.ReportTime,
+			ReportPayload: item.ReportPayload,
 		})
 	}
 	return result
@@ -321,6 +322,7 @@ func dashboardInstanceToDTO(item *mediasvc.DashboardInstanceItem) *v1.DashboardI
 		Sessions:        item.Sessions,
 		StartTime:       item.StartTime,
 		Version:         item.Version,
+		ReportPayload:   item.ReportPayload,
 	}
 }
 
@@ -354,6 +356,8 @@ func dashboardStreamToDTO(item *mediasvc.DashboardStreamItem) *v1.DashboardStrea
 		CurrentActiveSessions: item.CurrentActiveSessions,
 		WatermarkEnabled:      item.WatermarkEnabled,
 		ProtocolSummary:       dashboardProtocolSummaryToDTO(item.ProtocolSummary),
+		ReportPayload:         item.ReportPayload,
+		ReportSubcommand:      item.ReportSubcommand,
 	}
 }
 
@@ -434,6 +438,8 @@ func dashboardSessionToDTO(item *mediasvc.DashboardSessionItem) *v1.DashboardSes
 		InstanceId:        item.InstanceId,
 		LinkHops:          dashboardLinkHopsToDTO(item.LinkHops),
 		TotalLinkLatency:  item.TotalLinkLatency,
+		ReportPayload:     item.ReportPayload,
+		ReportSubcommand:  item.ReportSubcommand,
 	}
 }
 

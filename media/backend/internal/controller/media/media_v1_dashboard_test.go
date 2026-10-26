@@ -3,8 +3,10 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"lina-plugin-media/backend/api/media/v1"
@@ -80,6 +82,19 @@ func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 	if sessions.StreamInfo.DeviceId != "device-a" || sessions.ProtocolList[0].ActiveSessionList[0].DeviceId != "device-a" {
 		t.Fatalf("expected session device id projection, got %#v", sessions)
 	}
+	for _, item := range []any{node.NetworkLinks[0], instances.InstanceList[0], streams.StreamList[0], sessions.ProtocolList[0].ActiveSessionList[0]} {
+		assertDashboardControllerReportPayload(t, item)
+	}
+	if streams.StreamList[0].ReportSubcommand != 22 || sessions.ProtocolList[0].ActiveSessionList[0].ReportSubcommand != 32 {
+		t.Fatal("controller mapping lost stream or session report subcommand")
+	}
+	for _, item := range []any{node.ChildNodes[0].NetworkLinks[0], instances.InstanceList[1], streams.StreamList[1], sessions.ProtocolList[0].ActiveSessionList[1]} {
+		payload := mustMarshalDashboardControllerShape(t, item)
+		value, exists := payload["report_payload"]
+		if !exists || value != nil {
+			t.Fatalf("controller must preserve explicit null for legacy records: %#v", payload)
+		}
+	}
 
 	topology, err := controller.GetDashboardTopology(ctx, &v1.GetDashboardTopologyReq{DeviceId: "device-a"})
 	if err != nil {
@@ -121,11 +136,11 @@ func (s *dashboardControllerService) GetDashboardNodeOverview(context.Context, m
 		ReportTime:     1780000000000,
 		NodeLatencyMap: map[string]int{"node-b": 12, "node-c": 24},
 		NetworkLinks: []*mediasvc.DashboardNetworkLink{
-			{MachineId: "inst-a", SourceIp: "192.0.2.10", DestinationIp: "192.0.2.55", Rtt: 18, Jitter: 3, PacketLoss: 0.02, StatusCode: 200, ReportTime: 1791784485000},
+			{MachineId: "inst-a", SourceIp: "192.0.2.10", DestinationIp: "192.0.2.55", Rtt: 18, Jitter: 3, PacketLoss: 0.02, StatusCode: 200, ReportTime: 1791784485000, ReportPayload: dashboardControllerReportPayload()},
 		},
 		InstanceResources: &mediasvc.DashboardNodeResources{InstanceCount: 2, CpuAllocated: 8, CpuLoad: 2.5},
 		ChildNodes: []*mediasvc.DashboardNodeOverviewItem{
-			{NodeId: "node-b", NodeName: "Node B", ParentNodeId: "node-a", NodeLatencyMap: map[string]int{}, ChildNodes: []*mediasvc.DashboardNodeOverviewItem{}},
+			{NodeId: "node-b", NodeName: "Node B", ParentNodeId: "node-a", NodeLatencyMap: map[string]int{}, NetworkLinks: []*mediasvc.DashboardNetworkLink{{MachineId: "legacy"}}, ChildNodes: []*mediasvc.DashboardNodeOverviewItem{}},
 			{NodeId: "node-c", NodeName: "Node C", ParentNodeId: "node-a", NodeLatencyMap: map[string]int{}, ChildNodes: []*mediasvc.DashboardNodeOverviewItem{}},
 		},
 	}}, nil
@@ -136,7 +151,7 @@ func (s *dashboardControllerService) ListDashboardInstances(context.Context, med
 	return &mediasvc.ListDashboardInstancesOutput{
 		NodeInfo: &mediasvc.DashboardInstanceNodeInfo{NodeId: "node-a", NodeName: "Node A", Region: "East", Status: "healthy"},
 		List: []*mediasvc.DashboardInstanceItem{
-			{InstanceId: "inst-a", InstanceName: "Transcoder A", Status: "running", StartTime: &startTime, LiveStreams: 3, Sessions: 8, Version: "v1.0.0"},
+			{InstanceId: "inst-a", InstanceName: "Transcoder A", Status: "running", StartTime: &startTime, LiveStreams: 3, Sessions: 8, Version: "v1.0.0", ReportPayload: dashboardControllerReportPayload()},
 			{InstanceId: "inst-b", InstanceName: "Recorder B", Status: "stopped", StartTime: &startTime, Version: "v1.0.1"},
 		},
 	}, nil
@@ -201,6 +216,8 @@ func (s *dashboardControllerService) ListDashboardStreams(context.Context, media
 				ProtocolCount:         2,
 				TotalSessionsLifetime: 30,
 				CurrentActiveSessions: 3,
+				ReportPayload:         dashboardControllerReportPayload(),
+				ReportSubcommand:      22,
 				ProtocolSummary: []*mediasvc.DashboardProtocolItem{
 					{ProtocolType: "HLS", TotalSessions: 20, CurrentSessions: 2},
 					{ProtocolType: "RTMP", TotalSessions: 10, CurrentSessions: 1},
@@ -221,13 +238,45 @@ func (s *dashboardControllerService) ListDashboardSessions(context.Context, medi
 				Status:       "active",
 				SessionCount: 2,
 				Sessions: []*mediasvc.DashboardSessionItem{
-					{SessionId: "session-a", DeviceId: "device-a", ClientId: "client-a", TenantId: "tenant-a", ProtocolType: "HLS", StartTime: &startTime, LinkHops: []*mediasvc.DashboardLinkHopItem{{HopIndex: 1, NodeId: "node-a", LatencyMs: 12}}},
+					{SessionId: "session-a", DeviceId: "device-a", ClientId: "client-a", TenantId: "tenant-a", ProtocolType: "HLS", StartTime: &startTime, LinkHops: []*mediasvc.DashboardLinkHopItem{{HopIndex: 1, NodeId: "node-a", LatencyMs: 12}}, ReportPayload: dashboardControllerReportPayload(), ReportSubcommand: 32},
 					{SessionId: "session-b", DeviceId: "device-a", ClientId: "client-b", TenantId: "tenant-a", ProtocolType: "HLS", StartTime: &startTime, LinkHops: []*mediasvc.DashboardLinkHopItem{{HopIndex: 1, NodeId: "node-b", LatencyMs: 20}}},
 				},
 			},
 			{ProtocolType: "RTMP", Status: "active", SessionCount: 1, Sessions: []*mediasvc.DashboardSessionItem{{SessionId: "session-c", ProtocolType: "RTMP", StartTime: &startTime}}},
 		},
 	}, nil
+}
+
+// dashboardControllerReportPayload creates independent raw values beyond normalized DTO fields.
+func dashboardControllerReportPayload() map[string]any {
+	return map[string]any{
+		"timestamp":   "9007199254740993",
+		"packet_loss": json.Number("0.1234567890123456789"),
+		"status_code": json.Number("0"),
+		"extra":       map[string]any{"opaque": "before\x00after", "empty": ""},
+		"link_hops": []any{map[string]any{
+			"hop_id": "hop-a", "hop_name": "完整跳点", "hop_type": "gateway",
+			"node_id": "4", "node_name": "节点四", "latency": json.Number("12"),
+		}},
+	}
+}
+
+// assertDashboardControllerReportPayload checks the serialized API boundary without float64 rounding.
+func assertDashboardControllerReportPayload(t *testing.T, item any) {
+	t.Helper()
+	raw, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("marshal controller report payload: %v", err)
+	}
+	var payload map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
+		t.Fatalf("decode controller report payload: %v", err)
+	}
+	if !reflect.DeepEqual(payload["report_payload"], dashboardControllerReportPayload()) {
+		t.Fatalf("controller changed raw report content or JSON shape: %#v", payload["report_payload"])
+	}
 }
 
 func mustMarshalDashboardControllerShape(t *testing.T, value any) map[string]any {
