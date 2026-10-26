@@ -34,4 +34,6 @@ type MediaReportSession struct {
 	TotalLinkLatency  int         `json:"totalLinkLatency"  orm:"total_link_latency" description:"会话链路总延迟，单位毫秒"`
 	ReportTime        int64       `json:"reportTime"        orm:"report_time"        description:"上报端采样时间"`
 	UpdatedAt         *gtime.Time `json:"updatedAt"         orm:"updated_at"         description:"记录更新时间"`
+	ReportPayload     string      `json:"reportPayload"     orm:"report_payload"     description:"未经业务归一化的最新完整SessionMetric protobuf JSON，保存全部已定义字段和嵌套跳点；旧行未接收新报文时为NULL"`
+	ReportSubcommand  int         `json:"reportSubcommand"  orm:"report_subcommand"  description:"对应原始会话上报子命令数值，0表示尚未记录"`
 }

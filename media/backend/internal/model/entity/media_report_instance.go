@@ -31,4 +31,5 @@ type MediaReportInstance struct {
 	Version         string      `json:"version"         orm:"version"          description:"实例版本号"`
 	ReportTime      int64       `json:"reportTime"      orm:"report_time"      description:"上报端采样时间"`
 	UpdatedAt       *gtime.Time `json:"updatedAt"       orm:"updated_at"       description:"记录更新时间"`
+	ReportPayload   string      `json:"reportPayload"   orm:"report_payload"   description:"未经业务归一化的最新完整MachineMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL"`
 }

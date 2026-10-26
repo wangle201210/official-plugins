@@ -16,4 +16,5 @@ type ReportNetworkLink struct {
 	StatusCode    int     `json:"statusCode"    orm:"status_code"    description:"原始探测HTTP状态码"`
 	Reachable     *bool   `json:"reachable"     orm:"reachable"      description:"原始extra.reachable布尔状态，未提供或无法解析时为空"`
 	ReportTime    int64   `json:"reportTime"    orm:"report_time"    description:"上报端采样时间，Unix毫秒时间戳"`
+	ReportPayload string  `json:"reportPayload" orm:"report_payload" description:"未经业务归一化的最新完整NetworkMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL"`
 }

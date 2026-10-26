@@ -413,3 +413,36 @@ COMMENT ON COLUMN plugin_media_report_network_link."report_time" IS '上报端�
 -- 用途：支撑实例标识占位时按来源机器的最新采样关联业务节点。
 CREATE INDEX IF NOT EXISTS idx_plugin_media_network_link_machine_report
     ON plugin_media_report_network_link ("machine_id", "report_time" DESC, "node_id");
+
+-- Purpose: Retains complete latest protobuf JSON alongside dashboard projections.
+-- 用途：保留未经业务归一化的最新完整上报，旧行不回填，流和会话同时记录上报子命令。
+ALTER TABLE media_report_instance
+    ADD COLUMN IF NOT EXISTS "report_payload" JSON DEFAULT NULL;
+ALTER TABLE media_report_stream
+    ADD COLUMN IF NOT EXISTS "report_payload" JSON DEFAULT NULL;
+ALTER TABLE media_report_stream
+    ADD COLUMN IF NOT EXISTS "report_subcommand" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE media_report_session
+    ADD COLUMN IF NOT EXISTS "report_payload" JSON DEFAULT NULL;
+ALTER TABLE media_report_session
+    ADD COLUMN IF NOT EXISTS "report_subcommand" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plugin_media_report_network_link
+    ADD COLUMN IF NOT EXISTS "report_payload" JSON DEFAULT NULL;
+
+-- JSON preserves valid protobuf strings containing an escaped U+0000; JSONB rejects them.
+-- JSON保留含转义空字符的合法协议字符串，JSONB会拒绝这些值。
+ALTER TABLE media_report_instance
+    ALTER COLUMN "report_payload" TYPE JSON USING "report_payload"::JSON;
+ALTER TABLE media_report_stream
+    ALTER COLUMN "report_payload" TYPE JSON USING "report_payload"::JSON;
+ALTER TABLE media_report_session
+    ALTER COLUMN "report_payload" TYPE JSON USING "report_payload"::JSON;
+ALTER TABLE plugin_media_report_network_link
+    ALTER COLUMN "report_payload" TYPE JSON USING "report_payload"::JSON;
+
+COMMENT ON COLUMN media_report_instance."report_payload" IS '未经业务归一化的最新完整MachineMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL';
+COMMENT ON COLUMN media_report_stream."report_payload" IS '未经业务归一化的最新完整StreamMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL';
+COMMENT ON COLUMN media_report_stream."report_subcommand" IS '对应原始流上报子命令数值，0表示尚未记录';
+COMMENT ON COLUMN media_report_session."report_payload" IS '未经业务归一化的最新完整SessionMetric protobuf JSON，保存全部已定义字段和嵌套跳点；旧行未接收新报文时为NULL';
+COMMENT ON COLUMN media_report_session."report_subcommand" IS '对应原始会话上报子命令数值，0表示尚未记录';
+COMMENT ON COLUMN plugin_media_report_network_link."report_payload" IS '未经业务归一化的最新完整NetworkMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL';

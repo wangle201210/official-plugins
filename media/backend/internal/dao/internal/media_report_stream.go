@@ -48,6 +48,8 @@ type MediaReportStreamColumns struct {
 	ProtocolSummary       string // 协议摘要JSON数组，结构来自接口protocol_summary
 	ReportTime            string // 上报端采样时间
 	UpdatedAt             string // 记录更新时间
+	ReportPayload         string // 未经业务归一化的最新完整StreamMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL
+	ReportSubcommand      string // 对应原始流上报子命令数值，0表示尚未记录
 }
 
 // mediaReportStreamColumns holds the columns for the table media_report_stream.
@@ -79,6 +81,8 @@ var mediaReportStreamColumns = MediaReportStreamColumns{
 	ProtocolSummary:       "protocol_summary",
 	ReportTime:            "report_time",
 	UpdatedAt:             "updated_at",
+	ReportPayload:         "report_payload",
+	ReportSubcommand:      "report_subcommand",
 }
 
 // NewMediaReportStreamDao creates and returns a new DAO object for table data access.

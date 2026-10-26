@@ -62,6 +62,7 @@ type (
 
 // networkReport carries one normalized node network projection update.
 type networkReport struct {
+	payload         string // payload retains all original protocol fields without normalization.
 	nodeID          string
 	machineID       string
 	sourceIP        string
@@ -80,6 +81,8 @@ type networkReport struct {
 
 // streamReport carries one normalized stream projection update.
 type streamReport struct {
+	payload               string // payload retains all original protocol fields without normalization.
+	subcommand            uint8  // subcommand identifies the last report event stored with payload.
 	streamID              string
 	sourceType            reportSourceType
 	tenantID              string
@@ -110,6 +113,7 @@ type streamReport struct {
 
 // instanceReport carries one normalized instance projection update.
 type instanceReport struct {
+	payload         string // payload retains all original protocol fields without normalization.
 	instanceID      string
 	instanceName    string
 	nodeID          string
@@ -132,6 +136,8 @@ type instanceReport struct {
 
 // sessionReport carries one normalized session projection update.
 type sessionReport struct {
+	payload           string // payload retains all original protocol fields without normalization.
+	subcommand        uint8  // subcommand identifies the last report event stored with payload.
 	sessionID         string
 	streamID          string
 	streamName        string

@@ -52,6 +52,11 @@ func (w *reportRuntime) HandleMachineMetric(ctx context.Context, metric *gen.Mac
 	if !ok {
 		return nil
 	}
+	payload, err := encodeReportPayload(metric)
+	if err != nil {
+		return err
+	}
+	report.payload = payload
 	return upsertReportInstance(ctx, report)
 }
 
@@ -61,6 +66,11 @@ func (w *reportRuntime) HandleNetworkMetric(ctx context.Context, metric *gen.Net
 	if !ok {
 		return nil
 	}
+	payload, err := encodeReportPayload(metric)
+	if err != nil {
+		return err
+	}
+	report.payload = payload
 	if err := upsertReportNodeNetwork(ctx, report); err != nil {
 		return err
 	}
@@ -102,6 +112,7 @@ func upsertReportNetworkLink(ctx context.Context, report networkReport) error {
 			PacketLoss:    report.packetLoss,
 			StatusCode:    report.statusCode,
 			ReportTime:    reportTimestampToMillis(report.reportTime),
+			ReportPayload: report.payload,
 		},
 		Reachable: reachable,
 	}
@@ -122,6 +133,12 @@ func (w *reportRuntime) HandleStreamMetric(ctx context.Context, subcmd uint8, me
 	if !ok {
 		return nil
 	}
+	payload, err := encodeReportPayload(metric)
+	if err != nil {
+		return err
+	}
+	report.payload = payload
+	report.subcommand = subcmd
 	isDelete := subcmd == uint8(gen.SCMDDataReport_STREAM_DELETE)
 	if subcmd != uint8(gen.SCMDDataReport_STREAM_ADD) && subcmd != uint8(gen.SCMDDataReport_STREAM_DELETE) {
 		return upsertReportStream(ctx, report)
@@ -133,8 +150,10 @@ func (w *reportRuntime) HandleStreamMetric(ctx context.Context, subcmd uint8, me
 		if err := clearReportStreamCloseTime(ctx, report.streamID); err != nil {
 			return err
 		}
+	} else if err := storeDeletedStreamPayload(ctx, report); err != nil {
+		return err
 	}
-	_, err := w.applyCounterEvent(ctx, counterEvent{
+	_, err = w.applyCounterEvent(ctx, counterEvent{
 		kind:       counterEventKindStream,
 		add:        !isDelete,
 		resourceID: report.streamID,
@@ -156,6 +175,12 @@ func (w *reportRuntime) HandleSessionMetric(ctx context.Context, subcmd uint8, m
 	if !ok {
 		return nil
 	}
+	payload, err := encodeReportPayload(metric)
+	if err != nil {
+		return err
+	}
+	report.payload = payload
+	report.subcommand = subcmd
 	isDelete := subcmd == uint8(gen.SCMDDataReport_SESSION_DELETE)
 	if subcmd != uint8(gen.SCMDDataReport_SESSION_ADD) && subcmd != uint8(gen.SCMDDataReport_SESSION_DELETE) {
 		return upsertReportSession(ctx, report)
@@ -167,8 +192,10 @@ func (w *reportRuntime) HandleSessionMetric(ctx context.Context, subcmd uint8, m
 		if err := clearReportSessionCloseTime(ctx, report.sessionID); err != nil {
 			return err
 		}
+	} else if err := storeDeletedSessionPayload(ctx, report); err != nil {
+		return err
 	}
-	_, err := w.applyCounterEvent(ctx, counterEvent{
+	_, err = w.applyCounterEvent(ctx, counterEvent{
 		kind:       counterEventKindSession,
 		add:        !isDelete,
 		resourceID: report.sessionID,
@@ -207,6 +234,7 @@ func upsertReportInstance(ctx context.Context, report instanceReport) error {
 			StartTime:       report.startTime,
 			Version:         report.version,
 			ReportTime:      report.reportTime,
+			ReportPayload:   report.payload,
 		}).
 		OnConflict(cols.InstanceId).
 		OnDuplicate(
@@ -227,6 +255,7 @@ func upsertReportInstance(ctx context.Context, report instanceReport) error {
 			cols.StartTime,
 			cols.Version,
 			cols.ReportTime,
+			cols.ReportPayload,
 		).
 		Save()
 	return err
@@ -659,6 +688,8 @@ func upsertReportStream(ctx context.Context, report streamReport) error {
 			WatermarkEnabled:      report.watermarkEnabled,
 			ProtocolSummary:       report.protocolSummary,
 			ReportTime:            report.reportTime,
+			ReportPayload:         report.payload,
+			ReportSubcommand:      report.subcommand,
 		}).
 		OnConflict(cols.StreamId).
 		OnDuplicate(
@@ -686,6 +717,8 @@ func upsertReportStream(ctx context.Context, report streamReport) error {
 			cols.WatermarkEnabled,
 			cols.ProtocolSummary,
 			cols.ReportTime,
+			cols.ReportPayload,
+			cols.ReportSubcommand,
 		).
 		Save()
 	return err
@@ -716,6 +749,8 @@ func upsertReportSession(ctx context.Context, report sessionReport) error {
 		LinkHops:          report.linkHops,
 		TotalLinkLatency:  report.totalLinkLatency,
 		ReportTime:        report.reportTime,
+		ReportPayload:     report.payload,
+		ReportSubcommand:  report.subcommand,
 	}
 	duplicateCols := []any{
 		cols.StreamId,
@@ -738,6 +773,8 @@ func upsertReportSession(ctx context.Context, report sessionReport) error {
 		cols.LinkHops,
 		cols.TotalLinkLatency,
 		cols.ReportTime,
+		cols.ReportPayload,
+		cols.ReportSubcommand,
 	}
 	if report.clientIP != "" {
 		data.ClientIp = report.clientIP
@@ -784,7 +821,7 @@ func markReportStreamClosed(ctx context.Context, streamID string, reportTime int
 	}
 	cols := dao.MediaReportStream.Columns()
 	var stream *entity.MediaReportStream
-	if err := dao.MediaReportStream.Ctx(ctx).Where(cols.StreamId, streamID).Scan(&stream); err != nil {
+	if err := dao.MediaReportStream.Ctx(ctx).Fields(cols.ProtocolSummary).Where(cols.StreamId, streamID).Scan(&stream); err != nil {
 		return err
 	}
 	protocolSummary := zeroReportProtocolCurrentSessions(streamProtocolSummary(stream))

@@ -31,6 +31,7 @@ type ReportNetworkLinkColumns struct {
 	StatusCode    string // 原始探测HTTP状态码
 	Reachable     string // 原始extra.reachable布尔状态，未提供或无法解析时为空
 	ReportTime    string // 上报端采样时间，Unix毫秒时间戳
+	ReportPayload string // 未经业务归一化的最新完整NetworkMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL
 }
 
 // reportNetworkLinkColumns holds the columns for the table plugin_media_report_network_link.
@@ -45,6 +46,7 @@ var reportNetworkLinkColumns = ReportNetworkLinkColumns{
 	StatusCode:    "status_code",
 	Reachable:     "reachable",
 	ReportTime:    "report_time",
+	ReportPayload: "report_payload",
 }
 
 // NewReportNetworkLinkDao creates and returns a new DAO object for table data access.

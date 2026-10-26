@@ -48,6 +48,25 @@
 
 部署本功能前需执行当前迭代的`manifest/sql/003-add-media-data-collection-server.sql`，幂等创建最新探测表`plugin_media_report_network_link`。新链路明细在后续网络上报后产生，旧的纯延迟记录无法恢复丢包率和抖动。
 
+## 完整最新上报
+
+采集服务收到有效对象报文后，在以下表的可空`report_payload JSON`列保存其完整最新已定义协议内容。使用 PostgreSQL `JSON`是为了保留原始扩展字符串中的转义`U+0000`，`JSONB`会拒绝该值：
+
+| 上报 | 数据表 |
+| --- | --- |
+| `MachineMetric` | `media_report_instance` |
+| `NetworkMetric` | `plugin_media_report_network_link` |
+| `StreamMetric` | `media_report_stream` |
+| `SessionMetric` | `media_report_session` |
+
+原始内容保留`protobuf`字段名、默认值、枚举数值、完整`extra`及全部嵌套`LinkHop`字段，直接从输入报文序列化，保留单位转换和标识合并之前的数据。`protobuf JSON`使用字符串保存`64`位整数以避免精度丢失，不保留未知的`protobuf wire`字段。流和会话另存`report_subcommand`，删除事件也记录完整内容；首次收到删除事件时创建已关闭记录，稀疏删除报文不会清空已有展示字段。
+
+本功能按现有业务键保存一份最新有效报文，不提供逐次事件历史。机器、流和会话沿用按到达顺序覆盖的行为，网络链路拒绝较旧采样时间；共享现有链路键的不同探测 URL 仍共用一份最新内容。缺少必需业务键的无效报文继续跳过，缺少目的地址的网络报文不创建完整链路记录。关闭流和会话及其原始内容仍按既有`30`天规则清理。生命周期计数可能更新实例行的`report_time`，机器原始采样时间以`report_payload.timestamp`为准。
+
+启动新版前需执行`manifest/sql/003-add-media-data-collection-server.sql`末尾新增的`ALTER TABLE`语句，已提前创建为`JSONB`的原始内容列也会转为`JSON`。旧行在下次上报前保持`NULL`，此前丢弃的数据无法回填。看板查询排除大体积原始内容，既有 HTTP DTO 不暴露该字段。既有业务键长度、IP格式和数值投影约束仍执行，违反约束会返回错误，不会被报告为写入成功。
+
+原始内容也保留磁盘 I/O 累计计数。当前上游采集的是累计字节，而既有看板投影把换算值标为速率；该独立的展示单位问题不会因增加原始存储而自动修正。
+
 ## 开发入口
 
 - 后端入口：`backend/plugin.go`

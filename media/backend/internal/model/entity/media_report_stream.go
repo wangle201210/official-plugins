@@ -37,4 +37,6 @@ type MediaReportStream struct {
 	ProtocolSummary       string      `json:"protocolSummary"       orm:"protocol_summary"        description:"协议摘要JSON数组，结构来自接口protocol_summary"`
 	ReportTime            int64       `json:"reportTime"            orm:"report_time"             description:"上报端采样时间"`
 	UpdatedAt             *gtime.Time `json:"updatedAt"             orm:"updated_at"              description:"记录更新时间"`
+	ReportPayload         string      `json:"reportPayload"         orm:"report_payload"          description:"未经业务归一化的最新完整StreamMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL"`
+	ReportSubcommand      int         `json:"reportSubcommand"      orm:"report_subcommand"       description:"对应原始流上报子命令数值，0表示尚未记录"`
 }

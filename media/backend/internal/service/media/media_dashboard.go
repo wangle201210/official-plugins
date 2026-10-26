@@ -321,7 +321,7 @@ func (s *serviceImpl) ListDashboardInstances(ctx context.Context, in ListDashboa
 	}
 
 	columns := dao.MediaReportInstance.Columns()
-	model := dao.MediaReportInstance.Ctx(ctx)
+	model := dao.MediaReportInstance.Ctx(ctx).FieldsEx(columns.ReportPayload)
 	model = dashboardWhereEq(model, columns.NodeId, in.NodeId)
 	model = dashboardWhereEq(model, columns.Status, in.Status)
 	if keyword := strings.TrimSpace(in.Keyword); keyword != "" {
@@ -366,7 +366,7 @@ func (s *serviceImpl) ListDashboardStreams(ctx context.Context, in ListDashboard
 	}
 
 	columns := dao.MediaReportStream.Columns()
-	model := dao.MediaReportStream.Ctx(ctx)
+	model := dao.MediaReportStream.Ctx(ctx).FieldsEx(columns.ReportPayload, columns.ReportSubcommand)
 	model = dashboardWhereEq(model, columns.SourceType, in.SourceType)
 	model = dashboardWhereSourceID(model, in.SourceType, in.SourceId)
 	model = dashboardWhereEq(model, columns.TenantId, in.TenantId)
@@ -435,6 +435,7 @@ func (s *serviceImpl) ListDashboardSessions(ctx context.Context, in ListDashboar
 	columns := dao.MediaReportSession.Columns()
 	sessions := make([]*dashboardSessionEntity, 0)
 	err = dashboardSessionModel(ctx, in).
+		FieldsEx(columns.ReportPayload, columns.ReportSubcommand).
 		OrderAsc(columns.ProtocolType).
 		OrderDesc(columns.ReportTime).
 		OrderAsc(columns.SessionId).
@@ -561,6 +562,7 @@ func (s *serviceImpl) dashboardNodeInfo(ctx context.Context, nodeID string) (*Da
 func (s *serviceImpl) dashboardStreamEntity(ctx context.Context, streamID string) (*dashboardStreamEntity, error) {
 	var stream *dashboardStreamEntity
 	err := dao.MediaReportStream.Ctx(ctx).
+		FieldsEx(dao.MediaReportStream.Columns().ReportPayload, dao.MediaReportStream.Columns().ReportSubcommand).
 		Where(dao.MediaReportStream.Columns().StreamId, streamID).
 		Scan(&stream)
 	if err != nil {

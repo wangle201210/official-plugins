@@ -498,6 +498,7 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			status_code INTEGER NOT NULL,
 			reachable BOOLEAN,
 			report_time INTEGER NOT NULL,
+			report_payload TEXT,
 			PRIMARY KEY (node_id, machine_id, source_ip, destination_ip)
 		)`,
 		`CREATE TABLE IF NOT EXISTS media_report_node (
@@ -545,7 +546,8 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			start_time TEXT,
 			version TEXT NOT NULL DEFAULT '',
 			report_time INTEGER NOT NULL,
-			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			report_payload TEXT
 		)`,
 		`CREATE TABLE IF NOT EXISTS media_report_stream (
 			stream_id TEXT PRIMARY KEY,
@@ -574,7 +576,9 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			watermark_enabled INTEGER NOT NULL DEFAULT 0,
 			protocol_summary TEXT NOT NULL DEFAULT '[]',
 			report_time INTEGER NOT NULL,
-			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			report_payload TEXT,
+			report_subcommand INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE TABLE IF NOT EXISTS media_report_session (
 			session_id TEXT PRIMARY KEY,
@@ -600,7 +604,9 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			link_hops TEXT NOT NULL DEFAULT '[]',
 			total_link_latency INTEGER NOT NULL DEFAULT 0,
 			report_time INTEGER NOT NULL,
-			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			report_payload TEXT,
+			report_subcommand INTEGER NOT NULL DEFAULT 0
 		)`,
 	}
 	for _, statement := range statements {

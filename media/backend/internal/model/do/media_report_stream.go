@@ -39,4 +39,6 @@ type MediaReportStream struct {
 	ProtocolSummary       any         // 协议摘要JSON数组，结构来自接口protocol_summary
 	ReportTime            any         // 上报端采样时间
 	UpdatedAt             *gtime.Time // 记录更新时间
+	ReportPayload         any         // 未经业务归一化的最新完整StreamMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL
+	ReportSubcommand      any         // 对应原始流上报子命令数值，0表示尚未记录
 }

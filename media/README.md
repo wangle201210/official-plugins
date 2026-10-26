@@ -48,6 +48,25 @@ For upstream machine reports whose `node_id` is empty or equals `instance_id`, r
 
 Before deploying this feature, apply the current iteration's `manifest/sql/003-add-media-data-collection-server.sql`, which creates the idempotent latest-probe table `plugin_media_report_network_link`. The new link details become available after subsequent network reports; old latency-only records cannot reconstruct packet loss or jitter.
 
+## Complete latest reports
+
+The collector preserves each valid object's complete latest known protobuf report in the nullable `report_payload` JSON column. PostgreSQL `JSON` is used because it preserves escaped `U+0000` in original extension strings, which `JSONB` rejects:
+
+| Report | Table |
+| --- | --- |
+| `MachineMetric` | `media_report_instance` |
+| `NetworkMetric` | `plugin_media_report_network_link` |
+| `StreamMetric` | `media_report_stream` |
+| `SessionMetric` | `media_report_session` |
+
+Payloads retain original protobuf field names, default values, numeric enums, full `extra` maps and all nested `LinkHop` fields. They are serialized from the incoming message before business normalization changes units or combines identifiers. Protobuf JSON represents 64-bit integers as strings to preserve precision. It does not preserve unknown protobuf wire fields. Stream and session rows also store `report_subcommand`, including delete events; a first-seen delete creates a closed row, and a sparse delete does not erase existing display fields.
+
+This stores one latest accepted report per existing business key, not an event history. Machine, stream and session reports keep the existing arrival-order replacement behavior; network links reject older sample timestamps. Different probe URLs sharing the existing link key still share one latest record. Invalid reports without required business keys are skipped; network reports without a destination do not create a full link record. Closed stream and session rows, including payloads, retain the existing 30-day cleanup policy. Lifecycle counters may update an instance row's `report_time`; the machine sample's original time remains in `report_payload.timestamp`.
+
+Apply the appended `ALTER TABLE` statements in `manifest/sql/003-add-media-data-collection-server.sql` before starting this version. They also convert any preliminary `report_payload JSONB` columns to `JSON`. Existing rows remain `NULL` until the next report; previously discarded data cannot be backfilled. Dashboard queries exclude the large raw payload and do not expose it through existing HTTP DTOs. Existing business-key lengths, IP formats and numeric projection constraints still apply; violations return errors and are not reported as successful persistence.
+
+The raw payload also preserves disk I/O counters. The current upstream collector reports cumulative disk bytes, while the existing dashboard projection labels the converted values as rates; that separate display-unit issue is not corrected by raw payload storage.
+
 ## Development
 
 - Backend entry: `backend/plugin.go`

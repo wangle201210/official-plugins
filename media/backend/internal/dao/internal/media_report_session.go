@@ -45,6 +45,8 @@ type MediaReportSessionColumns struct {
 	TotalLinkLatency  string // 会话链路总延迟，单位毫秒
 	ReportTime        string // 上报端采样时间
 	UpdatedAt         string // 记录更新时间
+	ReportPayload     string // 未经业务归一化的最新完整SessionMetric protobuf JSON，保存全部已定义字段和嵌套跳点；旧行未接收新报文时为NULL
+	ReportSubcommand  string // 对应原始会话上报子命令数值，0表示尚未记录
 }
 
 // mediaReportSessionColumns holds the columns for the table media_report_session.
@@ -73,6 +75,8 @@ var mediaReportSessionColumns = MediaReportSessionColumns{
 	TotalLinkLatency:  "total_link_latency",
 	ReportTime:        "report_time",
 	UpdatedAt:         "updated_at",
+	ReportPayload:     "report_payload",
+	ReportSubcommand:  "report_subcommand",
 }
 
 // NewMediaReportSessionDao creates and returns a new DAO object for table data access.

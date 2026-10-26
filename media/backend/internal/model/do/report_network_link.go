@@ -21,4 +21,5 @@ type ReportNetworkLink struct {
 	StatusCode    any   // 原始探测HTTP状态码
 	Reachable     *bool // 原始extra.reachable布尔状态，未提供或无法解析时为空
 	ReportTime    any   // 上报端采样时间，Unix毫秒时间戳
+	ReportPayload any   // 未经业务归一化的最新完整NetworkMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL
 }

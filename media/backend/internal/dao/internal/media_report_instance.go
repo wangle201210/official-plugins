@@ -42,6 +42,7 @@ type MediaReportInstanceColumns struct {
 	Version         string // 实例版本号
 	ReportTime      string // 上报端采样时间
 	UpdatedAt       string // 记录更新时间
+	ReportPayload   string // 未经业务归一化的最新完整MachineMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL
 }
 
 // mediaReportInstanceColumns holds the columns for the table media_report_instance.
@@ -67,6 +68,7 @@ var mediaReportInstanceColumns = MediaReportInstanceColumns{
 	Version:         "version",
 	ReportTime:      "report_time",
 	UpdatedAt:       "updated_at",
+	ReportPayload:   "report_payload",
 }
 
 // NewMediaReportInstanceDao creates and returns a new DAO object for table data access.
