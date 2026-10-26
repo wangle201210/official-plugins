@@ -615,6 +615,8 @@ func upsertReportNodeNetwork(ctx context.Context, report networkReport) error {
 			cols.AvgDelay,
 			cols.LastHeartbeat,
 			cols.ReportTime,
+			// Preserve GoFrame's automatic timestamp on the conflict-update path.
+			cols.UpdatedAt,
 		).
 		Save()
 	return err

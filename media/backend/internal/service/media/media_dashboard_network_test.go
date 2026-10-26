@@ -46,13 +46,13 @@ func TestDashboardQueriesReturnCompletePayloads(t *testing.T) {
 	setupMediaDashboardReportTables(t, ctx)
 	insertDashboardReportNodes(t, ctx)
 	const (
-		machinePayload = `{"machine_id":"machine-original","instance_id":"inst-a","cpu_usage":0,"disk_read_count":"9007199254740993","extra":{"vendor":"a\u0000b"}}`
+		machinePayload = `{"machine_id":"machine-original","instance_id":"inst-a","timestamp":"1791784485","cpu_usage":0,"disk_read_count":"9007199254740993","extra":{"vendor":"a\u0000b"}}`
 		networkPayload = `{"node_id":"node-a","machine_id":"machine-original","rtt":18,"jitter":0,"packet_loss":0.01,"timestamp":"1791784485","extra":{"url":"https://probe.test","reachable":"true"}}`
 		streamPayload  = `{"stream_id":"stream-a","machine_type":777,"video_codec":779,"audio_codec":780,"total_sessions_lifetime":"9007199254740993","extra":{"vendor":"stream-extra"}}`
 		sessionPayload = `{"session_id":"session-a","client_type":"custom","current_fps":29.97654321,"extra":{"vendor":"session-extra"},"link_hops":[{"hop_id":"hop-a","hop_name":"完整跳点","hop_type":"gateway","node_id":"4","node_name":"节点四","latency":0}]}`
 	)
 	insertDashboardReports(t, ctx, []any{
-		do.MediaReportInstance{InstanceId: "inst-a", NodeId: "node-a", Status: "running", ReportTime: int64(1791784485000), ReportPayload: machinePayload},
+		do.MediaReportInstance{InstanceId: "inst-a", NodeId: "node-a", Status: "running", ReportTime: int64(1791789999000), ReportPayload: machinePayload},
 		do.MediaReportInstance{InstanceId: "inst-legacy", NodeId: "node-a", Status: "running", ReportTime: int64(1791784485000)},
 		do.MediaReportInstance{InstanceId: "inst-other", NodeId: "node-b", Status: "running", ReportTime: int64(1791784485000), ReportPayload: `{"scope":"other"}`},
 		do.MediaReportStream{StreamId: "stream-a", NodeId: "node-a", TenantId: "tenant-a", DeviceId: "device-a", InstanceId: "inst-a", ProtocolType: "HLS", Status: "running", ReportTime: int64(1791784485000), ReportPayload: streamPayload, ReportSubcommand: 22},
@@ -87,8 +87,20 @@ func TestDashboardQueriesReturnCompletePayloads(t *testing.T) {
 		t.Fatalf("instance scope changed: result=%#v err=%v", instances, err)
 	}
 	assertPayload(instances.List[0].ReportPayload, machinePayload)
+	var storedInstance dashboardInstanceEntity
+	if err := dao.MediaReportInstance.Ctx(ctx).Where(do.MediaReportInstance{InstanceId: "inst-a"}).Scan(&storedInstance); err != nil {
+		t.Fatalf("read stored timestamp fixture: %v", err)
+	}
+	if instances.List[0].ReportTime == nil || *instances.List[0].ReportTime != 1791784485000 ||
+		storedInstance.UpdatedAt == nil || instances.List[0].UpdatedAt == nil ||
+		*instances.List[0].UpdatedAt != storedInstance.UpdatedAt.TimestampMilli() {
+		t.Fatalf("query must return raw sample time and stored update time: %#v", instances.List[0])
+	}
 	if instances.List[1].ReportPayload != nil {
 		t.Fatal("legacy instance must retain a nil payload")
+	}
+	if instances.List[1].ReportTime != nil {
+		t.Fatal("legacy instance must not use row report_time as raw sample time")
 	}
 	streams, err := svc.ListDashboardStreams(ctx, ListDashboardStreamsInput{TenantId: "tenant-a", DeviceId: "device-a"})
 	if err != nil || len(streams.List) != 1 {

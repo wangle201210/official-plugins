@@ -6,12 +6,83 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"math"
 	"reflect"
 	"testing"
 
 	"lina-plugin-media/backend/api/media/v1"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
+
+// TestDashboardNetworkRatesUseDecimalKilobits exercises every public resource
+// projection while preserving stored values, disk units and raw bps reports.
+func TestDashboardNetworkRatesUseDecimalKilobits(t *testing.T) {
+	for _, test := range []struct {
+		name                    string
+		storedIn, storedOut     float64
+		wantInKbps, wantOutKbps float64
+	}{
+		{name: "zero"},
+		{name: "fractional", storedIn: 0.125, storedOut: 0.25, wantInKbps: 1.024, wantOutKbps: 2.048},
+		{name: "eight_megabits", storedIn: 976.5625, storedOut: 488.28125, wantInKbps: 8000, wantOutKbps: 4000},
+		{name: "stored_two_decimals", storedIn: 976.56, storedOut: 488.28, wantInKbps: 7999.97952, wantOutKbps: 3999.98976},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			const diskRead, diskWrite = 7.25, 11.5
+			var (
+				rawReport = map[string]any{"network_in": json.Number("8000000"), "network_out": json.Number("4000000")}
+				child     = &mediasvc.DashboardNodeOverviewItem{
+					NodeId: "child", NetworkIn: test.storedOut, NetworkOut: test.storedIn,
+					DiskIoRead: diskRead, DiskIoWrite: diskWrite,
+					InstanceResources: &mediasvc.DashboardNodeResources{
+						NetworkIn: test.storedOut * 2, NetworkOut: test.storedIn * 2, DiskIoRead: diskRead, DiskIoWrite: diskWrite,
+					},
+				}
+				root = &mediasvc.DashboardNodeOverviewItem{
+					NodeId: "0", NetworkIn: test.storedIn, NetworkOut: test.storedOut,
+					DiskIoRead: diskRead, DiskIoWrite: diskWrite,
+					InstanceResources: &mediasvc.DashboardNodeResources{
+						NetworkIn: test.storedIn / 2, NetworkOut: test.storedOut / 2, DiskIoRead: diskRead, DiskIoWrite: diskWrite,
+					},
+					ChildNodes:   []*mediasvc.DashboardNodeOverviewItem{child},
+					NetworkLinks: []*mediasvc.DashboardNetworkLink{{ReportPayload: rawReport}},
+				}
+				instance = &mediasvc.DashboardInstanceItem{
+					InstanceId: "instance", NetworkIn: test.storedIn, NetworkOut: test.storedOut,
+					DiskIoRead: diskRead, DiskIoWrite: diskWrite, ReportPayload: rawReport,
+				}
+				nodeDTO     = dashboardNodeOverviewToDTO(root)
+				instanceDTO = dashboardInstanceListToDTO([]*mediasvc.DashboardInstanceItem{instance})[0]
+			)
+			for _, projection := range []struct {
+				name                                  string
+				in, out, read, write, wantIn, wantOut float64
+			}{
+				{"root", nodeDTO.NetworkIn, nodeDTO.NetworkOut, nodeDTO.DiskIoRead, nodeDTO.DiskIoWrite, test.wantInKbps, test.wantOutKbps},
+				{"child", nodeDTO.ChildNodes[0].NetworkIn, nodeDTO.ChildNodes[0].NetworkOut, nodeDTO.ChildNodes[0].DiskIoRead, nodeDTO.ChildNodes[0].DiskIoWrite, test.wantOutKbps, test.wantInKbps},
+				{"root_resources", nodeDTO.InstanceResources.NetworkIn, nodeDTO.InstanceResources.NetworkOut, nodeDTO.InstanceResources.DiskIoRead, nodeDTO.InstanceResources.DiskIoWrite, test.wantInKbps / 2, test.wantOutKbps / 2},
+				{"child_resources", nodeDTO.ChildNodes[0].InstanceResources.NetworkIn, nodeDTO.ChildNodes[0].InstanceResources.NetworkOut, nodeDTO.ChildNodes[0].InstanceResources.DiskIoRead, nodeDTO.ChildNodes[0].InstanceResources.DiskIoWrite, test.wantOutKbps * 2, test.wantInKbps * 2},
+				{"instance_list", instanceDTO.NetworkIn, instanceDTO.NetworkOut, instanceDTO.DiskIoRead, instanceDTO.DiskIoWrite, test.wantInKbps, test.wantOutKbps},
+			} {
+				if math.Abs(projection.in-projection.wantIn) > 1e-9 || math.Abs(projection.out-projection.wantOut) > 1e-9 {
+					t.Fatalf("%s network rate must use decimal Kbps: got=(%v,%v) want=(%v,%v)", projection.name, projection.in, projection.out, projection.wantIn, projection.wantOut)
+				}
+				if projection.read != diskRead || projection.write != diskWrite {
+					t.Fatalf("%s disk IO units changed during network conversion", projection.name)
+				}
+			}
+			for _, payload := range []map[string]any{nodeDTO.NetworkLinks[0].ReportPayload, instanceDTO.ReportPayload} {
+				if payload["network_in"] != json.Number("8000000") || payload["network_out"] != json.Number("4000000") {
+					t.Fatalf("raw report must retain its original bps values: %#v", payload)
+				}
+			}
+			if root.NetworkIn != test.storedIn || root.NetworkOut != test.storedOut || child.NetworkIn != test.storedOut ||
+				instance.NetworkIn != test.storedIn || instance.NetworkOut != test.storedOut {
+				t.Fatal("DTO mapping mutated service values or would convert them twice on a later read")
+			}
+		})
+	}
+}
 
 // TestDashboardControllerReturnsFrontendDataShape verifies dashboard controller projection with multi-row mocks.
 func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
@@ -53,6 +124,18 @@ func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 	assertDashboardControllerMissingKey(t, instancePayload, "total")
 	if instances.NodeInfo == nil || instances.NodeInfo.NodeId != "node-a" || len(instances.InstanceList) != 2 {
 		t.Fatalf("unexpected instance response %#v", instances)
+	}
+	for index, expected := range []map[string]any{
+		{"report_time": float64(1791784485000), "updated_at": float64(1791784490123)},
+		{"report_time": nil, "updated_at": nil},
+	} {
+		item := mustMarshalDashboardControllerShape(t, instances.InstanceList[index])
+		for field, want := range expected {
+			got, exists := item[field]
+			if !exists || got != want {
+				t.Fatalf("instance %d must preserve %s as a millisecond number or explicit null: got=%#v exists=%v want=%#v", index, field, got, exists, want)
+			}
+		}
 	}
 
 	streams, err := controller.ListDashboardStreams(ctx, &v1.ListDashboardStreamsReq{TenantId: "tenant-a"})
@@ -147,11 +230,15 @@ func (s *dashboardControllerService) GetDashboardNodeOverview(context.Context, m
 }
 
 func (s *dashboardControllerService) ListDashboardInstances(context.Context, mediasvc.ListDashboardInstancesInput) (*mediasvc.ListDashboardInstancesOutput, error) {
-	startTime := int64(1780000000000)
+	var (
+		startTime  = int64(1780000000000)
+		reportTime = int64(1791784485000)
+		updatedAt  = int64(1791784490123)
+	)
 	return &mediasvc.ListDashboardInstancesOutput{
 		NodeInfo: &mediasvc.DashboardInstanceNodeInfo{NodeId: "node-a", NodeName: "Node A", Region: "East", Status: "healthy"},
 		List: []*mediasvc.DashboardInstanceItem{
-			{InstanceId: "inst-a", InstanceName: "Transcoder A", Status: "running", StartTime: &startTime, LiveStreams: 3, Sessions: 8, Version: "v1.0.0", ReportPayload: dashboardControllerReportPayload()},
+			{InstanceId: "inst-a", InstanceName: "Transcoder A", Status: "running", StartTime: &startTime, ReportTime: &reportTime, UpdatedAt: &updatedAt, LiveStreams: 3, Sessions: 8, Version: "v1.0.0", ReportPayload: dashboardControllerReportPayload()},
 			{InstanceId: "inst-b", InstanceName: "Recorder B", Status: "stopped", StartTime: &startTime, Version: "v1.0.1"},
 		},
 	}, nil

@@ -120,7 +120,7 @@ type Service interface {
 	UpdateTenantStreamConfig(ctx context.Context, oldTenantID string, oldNodeNum int, in TenantStreamConfigMutationInput) (*TenantStreamConfigMutationOutput, error)
 	// DeleteTenantStreamConfig deletes one tenant stream config by tenant ID and node number.
 	DeleteTenantStreamConfig(ctx context.Context, tenantID string, nodeNum int) (*TenantStreamConfigMutationOutput, error)
-	// GetDashboardSummary returns platform-wide counts of unclosed streams and sessions in one database statement.
+	// GetDashboardSummary counts alive reported nodes, running unclosed streams and their unclosed sessions in one statement.
 	// Callers must use the media management authentication boundary; counts are not tenant-scoped or list-limited.
 	// Empty tables return zero counts; database failures return CodeMediaDashboardQueryFailed.
 	GetDashboardSummary(ctx context.Context) (*DashboardSummaryOutput, error)

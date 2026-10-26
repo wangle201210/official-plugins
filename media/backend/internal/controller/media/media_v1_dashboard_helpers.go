@@ -7,6 +7,12 @@ import (
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
+// dashboardNetworkKbps converts the stored KiB/s projection to decimal Kbps
+// at the API boundary. Raw report payloads retain their original bps values.
+func dashboardNetworkKbps(kibibytesPerSecond float64) float64 {
+	return kibibytesPerSecond * 1024 * 8 / 1000
+}
+
 func dashboardNodeOverviewToDTO(item *mediasvc.DashboardNodeOverviewItem) *v1.DashboardNodeOverviewItem {
 	if item == nil {
 		return &v1.DashboardNodeOverviewItem{
@@ -34,8 +40,8 @@ func dashboardNodeOverviewToDTO(item *mediasvc.DashboardNodeOverviewItem) *v1.Da
 		MemoryUsed:          item.MemoryUsed,
 		DiskIoRead:          item.DiskIoRead,
 		DiskIoWrite:         item.DiskIoWrite,
-		NetworkIn:           item.NetworkIn,
-		NetworkOut:          item.NetworkOut,
+		NetworkIn:           dashboardNetworkKbps(item.NetworkIn),
+		NetworkOut:          dashboardNetworkKbps(item.NetworkOut),
 		LiveStreams:         item.LiveStreams,
 		Sessions:            item.Sessions,
 		AvgDelay:            item.AvgDelay,
@@ -62,8 +68,8 @@ func dashboardNodeResourcesToDTO(item *mediasvc.DashboardNodeResources) *v1.Dash
 		MemoryUsed:      item.MemoryUsed,
 		DiskIoRead:      item.DiskIoRead,
 		DiskIoWrite:     item.DiskIoWrite,
-		NetworkIn:       item.NetworkIn,
-		NetworkOut:      item.NetworkOut,
+		NetworkIn:       dashboardNetworkKbps(item.NetworkIn),
+		NetworkOut:      dashboardNetworkKbps(item.NetworkOut),
 	}
 }
 
@@ -316,11 +322,13 @@ func dashboardInstanceToDTO(item *mediasvc.DashboardInstanceItem) *v1.DashboardI
 		MemoryUsed:      item.MemoryUsed,
 		DiskIoRead:      item.DiskIoRead,
 		DiskIoWrite:     item.DiskIoWrite,
-		NetworkIn:       item.NetworkIn,
-		NetworkOut:      item.NetworkOut,
+		NetworkIn:       dashboardNetworkKbps(item.NetworkIn),
+		NetworkOut:      dashboardNetworkKbps(item.NetworkOut),
 		LiveStreams:     item.LiveStreams,
 		Sessions:        item.Sessions,
 		StartTime:       item.StartTime,
+		ReportTime:      item.ReportTime,
+		UpdatedAt:       item.UpdatedAt,
 		Version:         item.Version,
 		ReportPayload:   item.ReportPayload,
 	}

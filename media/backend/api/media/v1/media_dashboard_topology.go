@@ -34,7 +34,7 @@ type DashboardTopologyDevice struct {
 type DashboardTopologyStream struct {
 	StreamId     string                         `json:"stream_id" dc:"Unique stream ID." eg:"stream12345"`
 	StreamName   string                         `json:"stream_name" dc:"Stream display name." eg:"Camera A Stream"`
-	Status       string                         `json:"status" dc:"Stream status, such as playing, paused, or error." eg:"playing"`
+	Status       string                         `json:"status" dc:"Stored stream status. Collector values: universal (unknown), running, inactive, error, closed, timeout, cancelled, failed. This status is independent of close_time; topology activity is based on unclosed records." eg:"running"`
 	BasePlatform *DashboardTopologyBasePlatform `json:"base_platform" dc:"Upstream base-platform node data." eg:"{}"`
 	Gateway      *DashboardTopologyGateway      `json:"gateway" dc:"Media gateway node data." eg:"{}"`
 	Protocols    []*DashboardTopologyProtocol   `json:"protocols" dc:"Protocol topology node list." eg:"[]"`

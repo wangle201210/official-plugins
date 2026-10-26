@@ -39,7 +39,7 @@ The plugin does not define a plugin-specific Redis configuration namespace or ma
 `GET /api/v1/media/dashboard/nodes/overview?rootNodeId=<nodeId>` returns the selected node subtree and requires the existing management authentication and `media:management:query` permission. Each node includes:
 
 - `network_links`: latest raw probes, distinguished by source `machine_id`, `source_ip`, and `destination_ip`. Each item includes `rtt` and `jitter` in milliseconds, `packet_loss` as a `0–1` fraction, `status_code`, nullable `reachable`, and `report_time` as a Unix millisecond timestamp. The current `net-flux` prober reports HTTP probe failure ratio as `packet_loss`. Missing or invalid `extra.reachable` remains `null`; failure sentinel values remain unchanged.
-- `instance_resources`: totals for instances attached directly to this node, including instance count, allocated/used CPU cores, memory in MB, and disk/network rates in KB/s. Child-node resources are excluded. Existing top-level resource fields continue to represent subtree totals. CPU usage percentages are converted to used cores on new machine reports; existing samples refresh with the next report.
+- `instance_resources`: totals for instances attached directly to this node, including instance count, allocated/used CPU cores, memory in MB, and disk rates in KB/s and network rates in Kbps. Child-node resources are excluded. Existing top-level resource fields continue to represent subtree totals. CPU usage percentages are converted to used cores on new machine reports; existing samples refresh with the next report.
 - `network_links_limited`: on the response root, indicates that the subtree's raw link details exceeded the shared 10,000-item limit. Child nodes report `false`. A single database query loads the selected subtree's links; resource aggregation reuses existing grouped instance queries.
 
 `node_latency_map` remains a destination-address-to-delay summary; its keys are the reported `destination_ip`, not node IDs. No quality score, quality grade, candidate-path ranking, or combined load percentage is calculated. Empty link results are arrays, and absent direct instance resources are zero-valued objects.
@@ -47,6 +47,8 @@ The plugin does not define a plugin-specific Redis configuration namespace or ma
 For upstream machine reports whose `node_id` is empty or equals `instance_id`, resource aggregation resolves the business node from the latest network probes with matching `machine_id`. Explicit instance node IDs take priority. Multiple destinations do not duplicate resources; conflicting nodes at the same latest timestamp leave ownership unknown. Ownership is resolved across all nodes before subtree selection and is independent of the link-detail limit.
 
 Before deploying this feature, apply the current iteration's `manifest/sql/003-add-media-data-collection-server.sql`, which creates the idempotent latest-probe table `plugin_media_report_network_link`. The new link details become available after subsequent network reports; old latency-only records cannot reconstruct packet loss or jitter.
+
+Node overview fields (including all child nodes and `instance_resources`) and `GET /api/v1/media/dashboard/instances` expose `network_in/network_out` in Kbps, where `1000 bps = 1 Kbps`. The API multiplies existing KiB/s projections by `8.192` at the response boundary. For example, a projection of `1000 KiB/s` produces `8192 Kbps`. Existing projection storage rounding remains unchanged. Raw `report_payload` values remain in bps, disk units stay unchanged, and no database migration is required.
 
 ## Complete latest reports
 
@@ -84,18 +86,48 @@ These routes retain the existing LinaPro/Tieta token authentication and manageme
 
 The media documentation page is `/api/v1/media/apidocs.html`; the OpenAPI JSON is `/api/v1/media/openapi.json`.
 
+Each instance-list item also exposes nullable Unix millisecond timestamps `report_time` and `updated_at`. `report_time` comes from the original machine report's `timestamp`, converting seconds to milliseconds; missing, non-positive or invalid values return `null`. It does not fall back to the database `report_time`, which can change on stream/session counter events. `updated_at` is the instance row's database update time, or `null` when absent. The original `report_payload.timestamp` keeps its reported type and unit. No new database columns are required.
+
+## Stream status and list filters
+
+`GET /api/v1/media/dashboard/streams` returns all matching latest stream projections by default, including closed records awaiting cleanup. An omitted or blank `status` adds no status filter; supplied values match the stored string exactly after trimming whitespace. Collector status values are:
+
+| `status` | Meaning |
+| --- | --- |
+| `universal` | Unspecified or unknown |
+| `running` | Running |
+| `inactive` | Inactive |
+| `error` | Error |
+| `closed` | Closed |
+| `timeout` | Timed out |
+| `cancelled` | Cancelled |
+| `failed` | Failed |
+
+Example: `GET /api/v1/media/dashboard/streams?status=running`. This list filter checks status only; `summary` also excludes closed streams. The list returns at most 10,000 rows ordered by report time descending and stream ID ascending, without pagination or `total`.
+
+`GET /api/v1/media/dashboard/sessions?streamId=<streamId>` requires `streamId` and returns only unclosed sessions. `protocolType` matches the stored string exactly. Standard values are `UNIVERSAL`, `RTMP`, `RTSP`, `HLS`, `HTTP_FLV`, `WS_FLV`, `HTTPS_FLV`, `WSS_FLV` and `GB28181`; `FLV` is not expanded automatically. Filters combine with AND. All protocols share a 10,000-row detail limit; `session_count` covers the full filtered scope and may exceed the `active_session_list` length. Protocol-group `active/inactive` only describes whether the matching session count is positive, not the stream status.
+
+`sourceType=node` also restricts the stream's source type. Use `nodeId` to retrieve streams from all source types on a node. A standalone `sourceId` filters by node ID, while `sourceType=instance` interprets it as instance ID. Response `source_type/source_id` echo the request values.
+
 ## Active totals
 
-`GET /api/v1/media/dashboard/summary` takes no parameters and returns platform-wide active stream and session counts. It uses the existing LinaPro/Tieta management authentication chain and declares `media:management:query`. This is a platform monitoring API without tenant filtering; `X-Inner-Api-Key` alone does not authorize access.
+`GET /api/v1/media/dashboard/summary` takes no parameters and returns platform-wide alive node, active stream and session counts. It uses the existing LinaPro/Tieta management authentication chain and declares `media:management:query`. This is a platform monitoring API without tenant filtering; `X-Inner-Api-Key` alone does not authorize access.
 
 ```json
 {
   "active_stream_count": 128,
-  "active_session_count": 1024
+  "active_session_count": 1024,
+  "alive_node_count": 14
 }
 ```
 
-These integer fields appear inside the standard response's `data` object. Active means `close_time IS NULL` in each report table. Empty tables return `0`, closed records are excluded, and heartbeat age does not add an expiry condition. Both counts use one database statement, are unaffected by the 10,000-row list limit, and do not load details or raw payloads. No additional database migration is required.
+These integer fields appear inside the standard response's `data` object. Streams must have `status=running` and `close_time IS NULL`. Sessions must be unclosed and refer to those running streams through `stream_id`. Sessions belonging to non-running or closed streams, and orphan sessions, are excluded. No matches return `0`; heartbeat age does not add an expiry condition. All three counts use one database statement, are unaffected by the 10,000-row list limit, and do not load details or raw payloads. `alive_node_count` counts nodes whose server-maintained `updated_at` falls within the last three minutes, including both bounds. Node status and client `report_time` do not affect the result, so delayed samples still refresh receipt-based liveness. Each node counts once without summing `alive_nodes` or requiring running streams. Missing, expired or future update times are excluded. Machine metrics update instance rows only; direct edits to the node table also affect its update time. Apply this index when deploying the optimization:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_media_report_node_updated_at
+    ON media_report_node (updated_at DESC);
+```
+
 
 ## Development
 

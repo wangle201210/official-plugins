@@ -4,10 +4,12 @@ package collection
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
 	"github.com/gogf/gf/v2/database/gdb"
@@ -17,6 +19,70 @@ import (
 	"lina-plugin-media/backend/internal/model/do"
 	"lina-plugin-media/backend/internal/model/entity"
 )
+
+// TestReportRuntimeRefreshesNodeReceiveTimePostgres verifies both network write
+// paths maintain a server receive clock independently of unchanged old samples.
+func TestReportRuntimeRefreshesNodeReceiveTimePostgres(t *testing.T) {
+	if os.Getenv("LINAPRO_TEST_POSTGRES") != "1" {
+		t.Skip("set LINAPRO_TEST_POSTGRES=1 to run against a local PostgreSQL database")
+	}
+	for _, test := range []struct {
+		name        string
+		destination string
+	}{
+		{name: "without_destination"},
+		{name: "with_destination", destination: "192.0.2.2"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var (
+				ctx    = t.Context()
+				nodeID = "receive-clock-" + rand.Text()[:10]
+				writer = newReportRuntime(newMemoryCollectionCache())
+			)
+			const sampledAt int64 = 1_600_000_000
+			setupCollectionReportPostgres(t, ctx)
+			t.Cleanup(func() {
+				cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+				defer cancel()
+				cleanupCollectionReportRows(t, cleanupCtx, nodeID, "", "", "")
+			})
+			metric := &gen.NetworkMetric{
+				NodeId: nodeID, MachineId: nodeID + "-machine", SourceIp: "192.0.2.1",
+				DestinationIp: test.destination, Rtt: 18, Timestamp: sampledAt,
+			}
+			readReceiveTime := func(after time.Time) int64 {
+				t.Helper()
+				var row *entity.MediaReportNode
+				if err := dao.MediaReportNode.Ctx(ctx).Where(do.MediaReportNode{NodeId: nodeID}).Scan(&row); err != nil {
+					t.Fatalf("read node receive time: %v", err)
+				}
+				if row == nil || row.UpdatedAt == nil || row.ReportTime != sampledAt {
+					t.Fatalf("receive time must exist while the old sample stays unchanged: %#v", row)
+				}
+				updatedMillis := row.UpdatedAt.TimestampMilli()
+				if updatedMillis < after.Truncate(time.Second).UnixMilli() || updatedMillis > time.Now().Add(time.Second).UnixMilli() {
+					t.Fatalf("updated_at must use the server write clock: got=%d write_started=%d sample=%d", updatedMillis, after.UnixMilli(), sampledAt)
+				}
+				return updatedMillis
+			}
+			firstStarted := time.Now()
+			if err := writer.HandleNetworkMetric(ctx, metric); err != nil {
+				t.Fatalf("write first network report: %v", err)
+			}
+			firstUpdated := readReceiveTime(firstStarted)
+			// GoFrame's automatic SQL time formatting can use whole seconds. Cross
+			// that boundary without changing the client sampling timestamp or data.
+			time.Sleep(1100 * time.Millisecond)
+			repeatStarted := time.Now()
+			if err := writer.HandleNetworkMetric(ctx, metric); err != nil {
+				t.Fatalf("repeat identical network report: %v", err)
+			}
+			if repeatedUpdated := readReceiveTime(repeatStarted); repeatedUpdated <= firstUpdated {
+				t.Fatalf("repeated report must advance updated_at: first=%d repeated=%d", firstUpdated, repeatedUpdated)
+			}
+		})
+	}
+}
 
 // TestReportRuntimePersistsMetrics verifies metric reports are written into dashboard projections.
 func TestReportRuntimePersistsMetrics(t *testing.T) {

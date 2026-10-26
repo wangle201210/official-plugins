@@ -39,7 +39,7 @@
 `GET /api/v1/media/dashboard/nodes/overview?rootNodeId=<nodeId>`返回指定节点子树，沿用既有管理端认证和`media:management:query`权限。每个节点包含：
 
 - `network_links`：按来源`machine_id`、`source_ip`和`destination_ip`区分的最新原始探测数据。每项包含毫秒单位的`rtt`和`jitter`、`0～1`比例的`packet_loss`、`status_code`、可空的`reachable`及`Unix`毫秒时间戳`report_time`。当前`net-flux`探测器的`packet_loss`实际表示`HTTP`探测失败比例。`extra.reachable`缺省或非法时保留为`null`，失败固定值按原值返回。
-- `instance_resources`：当前节点直属实例的资源汇总，包括实例数量、分配和已用`CPU`核数、`MB`单位的内存及`KB/s`单位的磁盘和网络速率，不包含子节点。既有顶层资源字段继续表示子树汇总。新的机器上报将`CPU`使用率百分比转换为已用核数，既有样本在下一次上报时刷新。
+- `instance_resources`：当前节点直属实例的资源汇总，包括实例数量、分配和已用`CPU`核数、`MB`单位的内存及`KB/s`单位的磁盘速率及`Kbps`单位的网络速率，不包含子节点。既有顶层资源字段继续表示子树汇总。新的机器上报将`CPU`使用率百分比转换为已用核数，既有样本在下一次上报时刷新。
 - `network_links_limited`：仅响应根节点表示子树的原始链路明细是否超过共享的`10000`条上限，子节点为`false`。链路按所选子树通过一次数据库查询加载，资源复用已有实例分组聚合查询。
 
 `node_latency_map`继续提供目的地址到延迟的摘要，键是上报的`destination_ip`，不是节点`ID`。接口不计算质量评分、质量分级、候选路径排名或综合负载百分比。没有链路时返回空数组，没有直属实例时返回各字段为零的资源对象。
@@ -47,6 +47,8 @@
 对于上游机器上报中`node_id`为空或等于`instance_id`的情况，资源聚合通过相同`machine_id`的最新网络上报确定业务节点，明确的实例节点优先保留。多目的端不会重复累加资源；最新采样同刻指向多个节点时保持归属未知。归属先在全部节点范围内确定，再按子树展示，不受链路明细上限影响。
 
 部署本功能前需执行当前迭代的`manifest/sql/003-add-media-data-collection-server.sql`，幂等创建最新探测表`plugin_media_report_network_link`。新链路明细在后续网络上报后产生，旧的纯延迟记录无法恢复丢包率和抖动。
+
+节点总览（含所有子节点和`instance_resources`）及实例列表`GET /api/v1/media/dashboard/instances`的`network_in/network_out`均以`Kbps`返回，`1000 bps = 1 Kbps`。接口在输出时将已有`KiB/s`投影乘以`8.192`；例如投影值`1000 KiB/s`，展示字段返回`8192 Kbps`；现有投影的存储舍入精度保持不变。原始`report_payload`仍保留客户端的`bps`值，磁盘速率单位不变，无需更新数据库。
 
 ## 完整最新上报
 
@@ -84,18 +86,48 @@
 
 媒体文档页面为`/api/v1/media/apidocs.html`，`OpenAPI JSON`为`/api/v1/media/openapi.json`。
 
+实例列表每项另返回`report_time`和`updated_at`，两者均为可空的`Unix`毫秒时间戳。`report_time`取原始机器报文的`timestamp`，秒级值转换为毫秒，缺失、非正或非法时为`null`；不回退到可能随流／会话计数事件变化的数据库`report_time`。`updated_at`表示该实例数据库记录的更新时间，缺失时为`null`。原始`report_payload.timestamp`保留上报类型和单位，无需新增数据库字段。
+
+## 流状态与列表筛选
+
+`GET /api/v1/media/dashboard/streams`默认返回所有匹配的流最新投影，包含尚未清理的已关闭流。`status`不传或为空时不限制状态，传入时按去除首尾空白后的存储字符串精确匹配。采集端标准状态如下：
+
+| `status` | 含义 |
+| --- | --- |
+| `universal` | 未指定或未知 |
+| `running` | 运行中 |
+| `inactive` | 非活动 |
+| `error` | 异常 |
+| `closed` | 已关闭 |
+| `timeout` | 超时 |
+| `cancelled` | 已取消 |
+| `failed` | 失败 |
+
+运行状态筛选示例：`GET /api/v1/media/dashboard/streams?status=running`。此列表仅按状态筛选，`summary`另外排除已关闭流。流列表按上报时间降序、流`ID`升序返回最多`10000`条，无分页和`total`。
+
+`GET /api/v1/media/dashboard/sessions?streamId=<streamId>`必填`streamId`，仅返回未关闭会话。`protocolType`按存储字符串精确匹配，标准值为`UNIVERSAL`、`RTMP`、`RTSP`、`HLS`、`HTTP_FLV`、`WS_FLV`、`HTTPS_FLV`、`WSS_FLV`、`GB28181`，不自动展开`FLV`。多个筛选条件取交集。全部协议共享最多`10000`条会话明细；`session_count`为当前范围完整计数，可能大于`active_session_list`长度。协议分组的`active/inactive`仅说明当前匹配会话数是否大于零，不表示流状态。
+
+`sourceType=node`会额外限制流来源类型；如需某节点下全部来源的流，应使用`nodeId`。只传`sourceId`时默认按节点`ID`匹配，`sourceType=instance`时按实例`ID`匹配。响应的`source_type/source_id`回显请求值。
+
 ## 活跃总量查询
 
-`GET /api/v1/media/dashboard/summary`无需参数，返回全平台活跃流和会话总数，沿用现有媒体管理的`LinaPro`／铁塔鉴权链及`media:management:query`声明。该接口面向平台监控，不按租户筛选，不能仅凭`X-Inner-Api-Key`调用。
+`GET /api/v1/media/dashboard/summary`无需参数，返回全平台存活节点数、活跃流和会话总数，沿用现有媒体管理的`LinaPro`／铁塔鉴权链及`media:management:query`声明。该接口面向平台监控，不按租户筛选，不能仅凭`X-Inner-Api-Key`调用。
 
 ```json
 {
   "active_stream_count": 128,
-  "active_session_count": 1024
+  "active_session_count": 1024,
+  "alive_node_count": 14
 }
 ```
 
-以上字段位于统一响应的`data`内，均为整数。活跃口径是各自上报表的`close_time IS NULL`；没有记录返回`0`，已关闭记录不计入，不额外根据心跳时间剔除。两个总数在同一条数据库语句中统计，不受列表`10000`条上限影响，不读取明细或原始报文。本接口无需新增数据库迁移。
+以上字段位于统一响应的`data`内，均为整数。流计数要求`status=running`且`close_time IS NULL`；会话计数要求自身未关闭，并通过`stream_id`关联上述运行中流。非运行中流、已关闭流及没有对应流的会话均不计入；无匹配数据返回`0`，不额外根据心跳时间剔除。三个总数在同一条数据库语句中统计，不受列表`10000`条上限影响，不读取明细或原始报文。`alive_node_count`按节点表的服务端更新时间`updated_at`统计最近`3`分钟内有网络上报的节点，边界包含当前时间和三分钟前；不看节点`status`，也不依赖客户端`report_time`，迟到采样不影响本次接收的存活判断。每条节点只计一次，不累加`alive_nodes`，不要求承载运行中流；缺失、过期和未来更新时间不计入。机器指标上报只写实例表，不会单独刷新节点时间；直接修改节点表也会影响更新时间。部署本次优化需执行：
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_media_report_node_updated_at
+    ON media_report_node (updated_at DESC);
+```
+
 
 ## 开发入口
 

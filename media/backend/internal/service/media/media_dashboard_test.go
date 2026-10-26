@@ -16,7 +16,53 @@ import (
 	"lina-plugin-media/backend/internal/model/do"
 )
 
-// TestDashboardSummaryCountsActiveRows verifies exact, independent lifecycle totals across scopes.
+// TestDashboardInstanceTimes separates raw sampling time from row/lifecycle updates.
+func TestDashboardInstanceTimes(t *testing.T) {
+	updatedAt := gtime.NewFromTime(time.UnixMilli(1791784486123))
+	for _, test := range []struct {
+		name, payload  string
+		wantReportTime int64
+	}{
+		{name: "seconds_string", payload: `{"timestamp":"1791784485"}`, wantReportTime: 1791784485000},
+		{name: "milliseconds_string", payload: `{"timestamp":"1791784485123"}`, wantReportTime: 1791784485123},
+		{name: "seconds_number", payload: `{"timestamp":1791784485}`, wantReportTime: 1791784485000},
+		{name: "milliseconds_number", payload: `{"timestamp":1791784485123}`, wantReportTime: 1791784485123},
+		{name: "large_integer", payload: `{"timestamp":"9007199254740993"}`, wantReportTime: 9007199254740993},
+		{name: "legacy"},
+		{name: "missing", payload: `{}`},
+		{name: "null", payload: `{"timestamp":null}`},
+		{name: "zero", payload: `{"timestamp":"0"}`},
+		{name: "negative", payload: `{"timestamp":-1}`},
+		{name: "invalid", payload: `{"timestamp":"invalid"}`},
+		{name: "fractional", payload: `{"timestamp":1.5}`},
+		{name: "overflow", payload: `{"timestamp":"9223372036854775808"}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			out, err := buildDashboardInstanceItem(&dashboardInstanceEntity{
+				ReportPayload: test.payload, ReportTime: 1791789999999, UpdatedAt: updatedAt,
+			})
+			if err != nil {
+				t.Fatalf("build instance timestamps: %v", err)
+			}
+			if test.wantReportTime == 0 {
+				if out.ReportTime != nil {
+					t.Fatalf("unavailable raw time must stay null, got %d", *out.ReportTime)
+				}
+			} else if out.ReportTime == nil || *out.ReportTime != test.wantReportTime {
+				t.Fatalf("raw sampling time must be milliseconds: got=%v want=%d", out.ReportTime, test.wantReportTime)
+			}
+			if out.UpdatedAt == nil || *out.UpdatedAt != 1791784486123 {
+				t.Fatalf("row update time lost millisecond precision: %v", out.UpdatedAt)
+			}
+		})
+	}
+	legacy, err := buildDashboardInstanceItem(&dashboardInstanceEntity{})
+	if err != nil || legacy.UpdatedAt != nil || legacy.ReportTime != nil {
+		t.Fatalf("missing times must stay null: out=%#v err=%v", legacy, err)
+	}
+}
+
+// TestDashboardSummaryCountsActiveRows verifies running stream totals and their associated live sessions.
 func TestDashboardSummaryCountsActiveRows(t *testing.T) {
 	ctx := t.Context()
 	setupMediaStrategySQLite(t, ctx)
@@ -35,21 +81,29 @@ func TestDashboardSummaryCountsActiveRows(t *testing.T) {
 	assertCounts(0, 0)
 	insertDashboardReports(t, ctx, []any{
 		do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "active-a", TenantId: "tenant-a", NodeId: "node-a", Status: "running", CurrentActiveSessions: 999},
-		do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "active-b", TenantId: "tenant-b", NodeId: "node-b", Status: "paused"},
+		do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "active-b", TenantId: "tenant-b", NodeId: "node-b", Status: "error"},
 		do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "closed", Status: "running", CloseTime: gtime.Now()},
 		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "one", StreamId: "active-a", TenantId: "tenant-a"},
 		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "two", StreamId: "active-a", TenantId: "tenant-b"},
 		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "orphan", StreamId: "not-reported", TenantId: "tenant-c"},
+		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "error-stream-session", StreamId: "active-b", TenantId: "tenant-b"},
+		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "closed-stream-session", StreamId: "closed"},
 		do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "closed-session", StreamId: "active-a", CloseTime: gtime.Now()},
 	})
-	assertCounts(2, 3)
+	for _, status := range []string{"universal", "inactive", "closed", "timeout", "cancelled", "failed"} {
+		insertDashboardReports(t, ctx, []any{
+			do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: "status-" + status, Status: status},
+			do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: "status-" + status, StreamId: "status-" + status},
+		})
+	}
+	assertCounts(1, 2)
 	// Prove aggregates are not truncated at the dashboard list limit.
 	var (
 		streams  = make([]do.MediaReportStream, 0, dashboardReadLimit+1)
 		sessions = make([]do.MediaReportSession, 0, dashboardReadLimit+1)
 	)
 	for i := range dashboardReadLimit + 1 {
-		streams = append(streams, do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: fmt.Sprintf("summary-stream-%d", i)})
+		streams = append(streams, do.MediaReportStream{ReportTime: int64(1791784485000), StreamId: fmt.Sprintf("summary-stream-%d", i), Status: "running"})
 		sessions = append(sessions, do.MediaReportSession{ReportTime: int64(1791784485000), SessionId: fmt.Sprintf("summary-session-%d", i), StreamId: "active-a"})
 	}
 	if _, err := dao.MediaReportStream.Ctx(ctx).Data(streams).Batch(200).Insert(); err != nil {
@@ -58,7 +112,66 @@ func TestDashboardSummaryCountsActiveRows(t *testing.T) {
 	if _, err := dao.MediaReportSession.Ctx(ctx).Data(sessions).Batch(200).Insert(); err != nil {
 		t.Fatalf("insert session count boundary: %v", err)
 	}
-	assertCounts(int64(dashboardReadLimit+3), int64(dashboardReadLimit+4))
+	assertCounts(int64(dashboardReadLimit+2), int64(dashboardReadLimit+3))
+}
+
+// TestDashboardSummaryCountsAliveNodes verifies server-receipt freshness at both
+// time boundaries, independently of client time, status, topology and list limits.
+func TestDashboardSummaryCountsAliveNodes(t *testing.T) {
+	var (
+		ctx    = t.Context()
+		now    = time.Date(2026, 10, 26, 16, 0, 0, 123456000, time.UTC)
+		cutoff = now.Add(-3 * time.Minute)
+	)
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	t.Cleanup(func() {
+		setupMediaDashboardReportTables(t, context.WithoutCancel(ctx))
+	})
+	svc := newTestMediaService(t).(*serviceImpl)
+	assertNodes := func(want int64) {
+		t.Helper()
+		out, err := svc.dashboardSummaryAt(ctx, now)
+		if err != nil || out.AliveNodeCount != want || out.ActiveStreamCount != 0 || out.ActiveSessionCount != 0 {
+			t.Fatalf("expected independent recent nodes=%d, got=%#v err=%v", want, out, err)
+		}
+	}
+	assertNodes(0)
+	// Raw SQL sets fixture times intentionally; production timestamps remain ORM-owned.
+	for _, row := range []struct {
+		id, status string
+		updatedAt  time.Time
+		reportTime int64
+	}{
+		{id: "recent-offline", status: "offline", updatedAt: now.Add(-time.Minute), reportTime: 1},
+		{id: "recent-empty", updatedAt: now.Add(-time.Second), reportTime: now.Add(time.Hour).UnixMilli()},
+		{id: "lower-bound", status: "error", updatedAt: cutoff},
+		{id: "upper-bound", status: "offline", updatedAt: now},
+		{id: "0", status: "offline", updatedAt: now.Add(-time.Minute)},
+		{id: "expired", status: "healthy", updatedAt: cutoff.Add(-time.Microsecond), reportTime: now.UnixMilli()},
+		{id: "future", status: "healthy", updatedAt: now.Add(time.Microsecond), reportTime: now.UnixMilli()},
+	} {
+		if _, err := dao.MediaReportNode.DB().Exec(ctx,
+			"INSERT INTO "+dao.MediaReportNode.Table()+" (node_id, status, report_time, alive_nodes, updated_at) VALUES (?, ?, ?, ?, ?)",
+			row.id, row.status, row.reportTime, 999, row.updatedAt); err != nil {
+			t.Fatalf("insert timed node fixture: %v", err)
+		}
+	}
+	assertNodes(5)
+	// Large result sets must not use the capped node-overview list for counts.
+	rows := make([]do.MediaReportNode, 0, dashboardReadLimit+1)
+	for i := range dashboardReadLimit + 1 {
+		rows = append(rows, do.MediaReportNode{NodeId: fmt.Sprintf("bulk-node-%d", i), Status: "offline", ReportTime: int64(1)})
+	}
+	if _, err := dao.MediaReportNode.Ctx(ctx).Data(rows).Batch(200).Insert(); err != nil {
+		t.Fatalf("insert node count boundary: %v", err)
+	}
+	// Shift only this test's bulk fixtures to the same deterministic receipt time.
+	if _, err := dao.MediaReportNode.DB().Exec(ctx,
+		"UPDATE "+dao.MediaReportNode.Table()+" SET updated_at = ? WHERE node_id LIKE ?", now.Add(-time.Minute), "bulk-node-%"); err != nil {
+		t.Fatalf("set bulk fixture receipt time: %v", err)
+	}
+	assertNodes(int64(dashboardReadLimit + 6))
 }
 
 // TestDashboardSummaryQueryFailure must not report zero counts when a table is unavailable.

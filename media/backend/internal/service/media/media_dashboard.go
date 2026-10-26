@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,12 +27,20 @@ const (
 	dashboardSourceTypeNode     = "node"
 	dashboardSourceTypeInstance = "instance"
 	dashboardReadLimit          = maxPageSize
+	// dashboardStreamStatusRunning matches the collector's normalized running status.
+	dashboardStreamStatusRunning dashboardStreamStatus = "running"
+	// dashboardNodeAliveWindow is the maximum age of a node report counted by summary.
+	dashboardNodeAliveWindow = 3 * time.Minute
 )
+
+// dashboardStreamStatus identifies a normalized stream status used by dashboard filters.
+type dashboardStreamStatus string
 
 // DashboardSummaryOutput contains exact platform-wide active lifecycle counts.
 type DashboardSummaryOutput struct {
 	ActiveStreamCount  int64 `orm:"active_stream_count"`
 	ActiveSessionCount int64 `orm:"active_session_count"`
+	AliveNodeCount     int64 `orm:"alive_node_count"`
 }
 
 // DashboardNodeOverviewInput defines dashboard node overview filters.
@@ -112,6 +121,8 @@ type DashboardInstanceItem struct {
 	LiveStreams     int
 	Sessions        int
 	StartTime       *int64
+	ReportTime      *int64 // ReportTime is the original machine sample time in milliseconds, or nil when unavailable.
+	UpdatedAt       *int64 // UpdatedAt is the projection row update time in milliseconds, independent of sampling.
 	Version         string
 }
 
@@ -254,18 +265,37 @@ type dashboardNodeRuntimeAggregate struct {
 	DelayCount      int
 }
 
-// GetDashboardSummary counts unclosed rows in one statement, without loading payloads
-// or multiplying rows through a join. Only generated identifiers enter the SQL.
+// GetDashboardSummary counts recently reporting nodes, running unclosed streams
+// and their unclosed sessions using one clock reading and one database statement.
 func (s *serviceImpl) GetDashboardSummary(ctx context.Context) (*DashboardSummaryOutput, error) {
+	return s.dashboardSummaryAt(ctx, time.Now())
+}
+
+// dashboardSummaryAt uses the indexed server-side update time for node freshness,
+// independent of client clock or timestamp units. Bounds are inclusive.
+// Only generated identifiers enter the SQL; status and time values are parameters.
+func (s *serviceImpl) dashboardSummaryAt(ctx context.Context, now time.Time) (*DashboardSummaryOutput, error) {
 	var (
-		out   = &DashboardSummaryOutput{}
+		out             = &DashboardSummaryOutput{}
+		streamColumns   = dao.MediaReportStream.Columns()
+		sessionColumns  = dao.MediaReportSession.Columns()
+		nodeColumns     = dao.MediaReportNode.Columns()
+		aliveNodesQuery = fmt.Sprintf(`SELECT COUNT(*) FROM %s
+    WHERE %s >= ? AND %s <= ?`,
+			dao.MediaReportNode.Table(), nodeColumns.UpdatedAt, nodeColumns.UpdatedAt)
 		query = fmt.Sprintf(`SELECT
-    (SELECT COUNT(*) FROM %s WHERE %s IS NULL) AS active_stream_count,
-    (SELECT COUNT(*) FROM %s WHERE %s IS NULL) AS active_session_count`,
-			dao.MediaReportStream.Table(), dao.MediaReportStream.Columns().CloseTime,
-			dao.MediaReportSession.Table(), dao.MediaReportSession.Columns().CloseTime)
+    (SELECT COUNT(*) FROM %[1]s WHERE %[2]s IS NULL AND %[3]s = ?) AS active_stream_count,
+    (SELECT COUNT(*) FROM %[4]s session WHERE session.%[5]s IS NULL AND EXISTS (
+        SELECT 1 FROM %[1]s stream WHERE stream.%[6]s = session.%[7]s
+          AND stream.%[2]s IS NULL AND stream.%[3]s = ?
+    )) AS active_session_count,
+    (%[8]s) AS alive_node_count`,
+			dao.MediaReportStream.Table(), streamColumns.CloseTime, streamColumns.Status,
+			dao.MediaReportSession.Table(), sessionColumns.CloseTime, streamColumns.StreamId, sessionColumns.StreamId, aliveNodesQuery)
 	)
-	if err := dao.MediaReportStream.DB().GetScan(ctx, out, query); err != nil {
+	if err := dao.MediaReportStream.DB().GetScan(ctx, out, query,
+		dashboardStreamStatusRunning, dashboardStreamStatusRunning,
+		gtime.NewFromTime(now.Add(-dashboardNodeAliveWindow)), gtime.NewFromTime(now)); err != nil {
 		return nil, bizerr.WrapCode(err, CodeMediaDashboardQueryFailed)
 	}
 	return out, nil
@@ -717,8 +747,33 @@ func buildDashboardInstanceItem(item *dashboardInstanceEntity) (*DashboardInstan
 		LiveStreams:     item.LiveStreams,
 		Sessions:        item.Sessions,
 		StartTime:       formatTime(item.StartTime),
+		ReportTime:      dashboardReportTime(payload),
+		UpdatedAt:       formatTime(item.UpdatedAt),
 		Version:         item.Version,
 	}, nil
+}
+
+// dashboardReportTime reads a positive protobuf/JSON integer timestamp without
+// float rounding. It follows the collector's seconds/milliseconds convention and
+// leaves unavailable values null instead of substituting lifecycle update times.
+func dashboardReportTime(payload map[string]any) *int64 {
+	var raw string
+	switch value := payload["timestamp"].(type) {
+	case string:
+		raw = value
+	case json.Number:
+		raw = value.String()
+	default:
+		return nil
+	}
+	timestamp, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || timestamp <= 0 {
+		return nil
+	}
+	if timestamp < 1_000_000_000_000 {
+		timestamp *= 1000
+	}
+	return &timestamp
 }
 
 // buildDashboardStreamItemWithCounts converts one stream entity and active session counts to dashboard output.

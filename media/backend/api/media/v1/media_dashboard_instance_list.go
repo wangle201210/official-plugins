@@ -37,11 +37,13 @@ type DashboardInstanceItem struct {
 	MemoryUsed      float64        `json:"memory_used" dc:"实例内存使用量，单位MB" eg:"5324.8"`
 	DiskIoRead      float64        `json:"disk_io_read" dc:"实例磁盘读速率，单位KB/S" eg:"120"`
 	DiskIoWrite     float64        `json:"disk_io_write" dc:"实例磁盘写速率，单位KB/S" eg:"80"`
-	NetworkIn       float64        `json:"network_in" dc:"实例入流量，单位KB/S" eg:"1054.6"`
-	NetworkOut      float64        `json:"network_out" dc:"实例出流量，单位KB/S" eg:"3025.5"`
+	NetworkIn       float64        `json:"network_in" dc:"实例网络入站速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"8000"`
+	NetworkOut      float64        `json:"network_out" dc:"实例网络出站速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"16000"`
 	LiveStreams     int            `json:"live_streams" dc:"实例内存活直播流数" eg:"8"`
 	Sessions        int            `json:"sessions" dc:"实例内会话数" eg:"120"`
 	StartTime       *int64         `json:"start_time" dc:"实例启动时间，Unix timestamp in milliseconds" eg:"1779245700000"`
+	ReportTime      *int64         `json:"report_time" nullable:"true" format:"int64" dc:"原始机器采集时间，取report_payload.timestamp并统一为Unix timestamp in milliseconds；秒级上报转换为毫秒。缺失、非正或无法解析时为null，不使用生命周期计数更新时间兜底" eg:"1791784485000"`
+	UpdatedAt       *int64         `json:"updated_at" nullable:"true" format:"int64" dc:"实例记录在数据库的更新时间，Unix timestamp in milliseconds；缺失时为null，可能由机器上报或流与会话计数更新触发" eg:"1791784486123"`
 	Version         string         `json:"version" dc:"实例版本号" eg:"v2.3.1"`
 	ReportPayload   map[string]any `json:"report_payload" dc:"完整最新MachineMetric原始JSON对象，包含全部已定义字段和extra；没有原始上报时为null。遵循protobuf JSON，64位整数为字符串，时间保留上报单位" eg:"{\"instance_id\":\"inst-001\",\"disk_used\":\"1024\",\"extra\":{}}"`
 }

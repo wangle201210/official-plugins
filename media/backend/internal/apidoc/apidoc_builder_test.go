@@ -6,8 +6,11 @@ package apidoc
 import (
 	"encoding/json"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/gogf/gf/v2/net/goai"
 
 	v1 "lina-plugin-media/backend/api/media/v1"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
@@ -19,8 +22,93 @@ type documentationOnlyService struct {
 	mediasvc.Service
 }
 
+// TestBuildDashboardInstanceTimestampSchemas checks actual serialized OpenAPI
+// types, explicit nullability and the units third-party clients must consume.
+func TestBuildDashboardInstanceTimestampSchemas(t *testing.T) {
+	document, err := Build(t.Context(), &documentationOnlyService{})
+	if err != nil {
+		t.Fatalf("build instance timestamp documentation: %v", err)
+	}
+	raw, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("serialize instance timestamp documentation: %v", err)
+	}
+	var rendered struct {
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]struct {
+					Type        string `json:"type"`
+					Format      string `json:"format"`
+					Nullable    bool   `json:"nullable"`
+					Description string `json:"description"`
+				} `json:"properties"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(raw, &rendered); err != nil {
+		t.Fatalf("decode instance timestamp documentation: %v", err)
+	}
+	typeName := reflect.TypeFor[v1.DashboardInstanceItem]().Name()
+	matches := 0
+	for name, schema := range rendered.Components.Schemas {
+		if name != typeName && !strings.HasSuffix(name, "."+typeName) {
+			continue
+		}
+		matches++
+		for _, field := range []string{"report_time", "updated_at"} {
+			property, exists := schema.Properties[field]
+			if !exists || property.Type != "integer" || property.Format != "int64" || !property.Nullable {
+				t.Fatalf("instance %s must be a nullable integer/int64: exists=%v schema=%+v", field, exists, property)
+			}
+			if !strings.Contains(property.Description, "Unix timestamp in milliseconds") || !strings.Contains(property.Description, "null") {
+				t.Fatalf("instance %s must explain milliseconds and unavailable timestamps: %q", field, property.Description)
+			}
+		}
+	}
+	if matches != 1 {
+		t.Fatalf("expected one instance response schema, got %d", matches)
+	}
+}
+
+// TestBuildDashboardNetworkRateUnits checks actual generated schema documentation
+// for all network resource projections, including the nested direct resources.
+func TestBuildDashboardNetworkRateUnits(t *testing.T) {
+	document, err := Build(t.Context(), &documentationOnlyService{})
+	if err != nil {
+		t.Fatalf("build network throughput documentation: %v", err)
+	}
+	for _, typeName := range []string{"DashboardNodeOverviewItem", "DashboardNodeResources", "DashboardInstanceItem"} {
+		matches := 0
+		for name, schema := range document.Components.Schemas.Map() {
+			if name != typeName && !strings.HasSuffix(name, "."+typeName) {
+				continue
+			}
+			matches++
+			if schema.Value == nil || schema.Value.Properties == nil {
+				t.Fatalf("missing properties for network resource schema %s", name)
+			}
+			for _, field := range []string{"network_in", "network_out"} {
+				property := schema.Value.Properties.Get(field)
+				if property == nil || property.Value == nil {
+					t.Fatalf("missing %s.%s network field", name, field)
+				}
+				description := property.Value.Description
+				if !strings.Contains(description, "Kbps") || !strings.Contains(description, "1000") || strings.Contains(strings.ToUpper(description), "KB/S") {
+					t.Fatalf("%s.%s must describe decimal Kbps without the old byte-rate unit: %q", name, field, description)
+				}
+				if property.Value.Type != "number" {
+					t.Fatalf("%s.%s must retain fractional numeric values: %#v", name, field, property.Value)
+				}
+			}
+		}
+		if matches != 1 {
+			t.Fatalf("expected one %s schema, got %d", typeName, matches)
+		}
+	}
+}
+
 // TestBuildDashboardSummarySchema verifies the new parameterless summary route
-// publishes two int64 counters and inherits the management authentication scheme.
+// publishes three int64 counters and inherits the management authentication scheme.
 func TestBuildDashboardSummarySchema(t *testing.T) {
 	document, err := Build(t.Context(), &documentationOnlyService{})
 	if err != nil {
@@ -30,6 +118,10 @@ func TestBuildDashboardSummarySchema(t *testing.T) {
 	if operation == nil || operation.Security != nil || len(operation.Parameters) != 0 {
 		t.Fatalf("summary must be a parameterless GET inheriting bearer auth: %#v", operation)
 	}
+	if !strings.Contains(operation.Description, "running") || !strings.Contains(operation.Description, "close_time") ||
+		!strings.Contains(operation.Description, "关联") || !strings.Contains(operation.Description, "10000") {
+		t.Fatalf("summary must explain running-stream session association and uncapped totals: %q", operation.Description)
+	}
 	typeName := reflect.TypeFor[v1.GetDashboardSummaryRes]().Name()
 	matches := 0
 	for name, schema := range document.Components.Schemas.Map() {
@@ -37,13 +129,21 @@ func TestBuildDashboardSummarySchema(t *testing.T) {
 			continue
 		}
 		matches++
-		if schema.Value == nil || schema.Value.Properties == nil || len(schema.Value.Properties.Map()) != 2 {
-			t.Fatalf("summary must publish exactly two counters: %#v", schema)
+		if schema.Value == nil || schema.Value.Properties == nil || len(schema.Value.Properties.Map()) != 3 {
+			t.Fatalf("summary must publish exactly three counters: %#v", schema)
 		}
-		for _, field := range []string{"active_stream_count", "active_session_count"} {
+		for _, field := range []string{"active_stream_count", "active_session_count", "alive_node_count"} {
 			property := schema.Value.Properties.Get(field)
 			if property == nil || property.Value == nil || property.Value.Type != "integer" || property.Value.Format != "int64" {
 				t.Fatalf("%s must be documented as integer/int64: %#v", field, property)
+			}
+			if field == "alive_node_count" {
+				description := property.Value.Description
+				if !strings.Contains(description, "updated_at") || !strings.Contains(description, "3分钟") || !strings.Contains(description, "服务端") ||
+					(!strings.Contains(description, "不按状态") && !strings.Contains(description, "不按status")) ||
+					strings.Contains(description, "status=running") || strings.Contains(description, "close_time IS NULL") {
+					t.Fatalf("alive node count must document its three-minute server-update window independently of status: %q", description)
+				}
 			}
 		}
 	}
@@ -59,6 +159,89 @@ func TestBuildDashboardSummarySchema(t *testing.T) {
 	}
 	if _, ok := (*document.Security)[0]["BearerAuth"]; !ok {
 		t.Fatal("summary document no longer defaults to BearerAuth")
+	}
+}
+
+// TestBuildDashboardFilterDocumentation verifies generated filter and response
+// descriptions use collector values and distinguish limited details from counts.
+func TestBuildDashboardFilterDocumentation(t *testing.T) {
+	document, err := Build(t.Context(), &documentationOnlyService{})
+	if err != nil {
+		t.Fatalf("build dashboard filter documentation: %v", err)
+	}
+	parameter := func(path, name string) *goai.Parameter {
+		t.Helper()
+		operation := document.Paths[path].Get
+		if operation == nil {
+			t.Fatalf("missing documented GET %s", path)
+		}
+		for _, ref := range operation.Parameters {
+			if ref.Value != nil && ref.Value.Name == name {
+				return ref.Value
+			}
+		}
+		t.Fatalf("missing %s parameter on %s", name, path)
+		return nil
+	}
+	property := func(typeName, name string) *goai.Schema {
+		t.Helper()
+		for key, schema := range document.Components.Schemas.Map() {
+			if key != typeName && !strings.HasSuffix(key, "."+typeName) {
+				continue
+			}
+			if schema.Value != nil && schema.Value.Properties != nil {
+				ref := schema.Value.Properties.Get(name)
+				if ref != nil && ref.Value != nil {
+					return ref.Value
+				}
+			}
+		}
+		t.Fatalf("missing documented %s.%s", typeName, name)
+		return nil
+	}
+	assertValues := func(description string, expected []string) {
+		t.Helper()
+		words := strings.FieldsFunc(description, func(char rune) bool {
+			return !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_')
+		})
+		for _, value := range expected {
+			if !slices.Contains(words, value) {
+				t.Fatalf("description omitted collector value %q: %q", value, description)
+			}
+		}
+	}
+	statuses := []string{"universal", "running", "inactive", "error", "closed", "timeout", "cancelled", "failed"}
+	statusParameter := parameter("/api/v1/media/dashboard/streams", "status")
+	assertValues(statusParameter.Description, statuses)
+	if statusParameter.Example != "running" || statusParameter.Required {
+		t.Fatalf("stream status must remain optional with the running example: %#v", statusParameter)
+	}
+	for _, typeName := range []string{"DashboardStreamItem", "DashboardTopologyStream"} {
+		status := property(typeName, "status")
+		assertValues(status.Description, statuses)
+		if status.Example != "running" {
+			t.Fatalf("%s.status must use the actual running value, got %#v", typeName, status.Example)
+		}
+	}
+	protocols := []string{"UNIVERSAL", "RTMP", "RTSP", "HLS", "HTTP_FLV", "WS_FLV", "HTTPS_FLV", "WSS_FLV", "GB28181"}
+	protocol := parameter("/api/v1/media/dashboard/sessions", "protocolType")
+	assertValues(protocol.Description, protocols)
+	if protocol.Required {
+		t.Fatal("session protocol filter must remain optional")
+	}
+	streamID := parameter("/api/v1/media/dashboard/sessions", "streamId")
+	if !streamID.Required || streamID.In != "query" {
+		t.Fatalf("sessions must document a required streamId query parameter: %#v", streamID)
+	}
+	sessionDescription := document.Paths["/api/v1/media/dashboard/sessions"].Get.Description
+	if !strings.Contains(sessionDescription, "10000") || !strings.Contains(sessionDescription, "session_count") ||
+		!strings.Contains(sessionDescription, "完整计数") || !strings.Contains(sessionDescription, "明细") {
+		t.Fatalf("sessions must distinguish detail limits from complete counts: %q", sessionDescription)
+	}
+	countDescription := property("DashboardSessionProtocol", "session_count").Description
+	if !strings.Contains(countDescription, "10000") || !strings.Contains(countDescription, "不受") ||
+		!strings.Contains(countDescription, "active_session_list") {
+		t.Fatalf("session count description must explain why it can exceed returned details: %q", countDescription)
 	}
 }
 

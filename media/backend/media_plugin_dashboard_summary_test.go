@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
@@ -23,8 +24,8 @@ import (
 	"lina-plugin-media/backend/internal/model/do"
 )
 
-// TestMediaDashboardSummaryRoute returns exact global active counts and rejects
-// requests when both host authentication and the existing fallback fail.
+// TestMediaDashboardSummaryRoute counts running streams, their unclosed sessions
+// and recently updated node records independently of client timestamps or status.
 func TestMediaDashboardSummaryRoute(t *testing.T) {
 	// g.DB caches the default driver separately from gdb.SetConfig. Isolate this
 	// fixture so its temporary SQLite file cannot become later tests' cached DB.
@@ -53,8 +54,12 @@ func TestMediaDashboardSummaryRoute(t *testing.T) {
 			node_id TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '', close_time TIMESTAMP
 		)`,
 		`CREATE TABLE media_report_session (
-			session_id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL DEFAULT '',
+			session_id TEXT PRIMARY KEY, stream_id TEXT NOT NULL DEFAULT '', tenant_id TEXT NOT NULL DEFAULT '',
 			node_id TEXT NOT NULL DEFAULT '', close_time TIMESTAMP
+		)`,
+		`CREATE TABLE media_report_node (
+			node_id TEXT PRIMARY KEY, node_name TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '',
+			report_time INTEGER NOT NULL DEFAULT 0, alive_nodes INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMP
 		)`,
 	} {
 		if _, err := g.DB().Exec(ctx, statement); err != nil {
@@ -89,7 +94,7 @@ func TestMediaDashboardSummaryRoute(t *testing.T) {
 	)
 	baseURL, shutdown := startMediaRouteTestServer(t, middlewares)
 	defer shutdown()
-	assertSummary := func(streams, sessions int64) {
+	assertSummary := func(streams, sessions, nodes int64) {
 		t.Helper()
 		response := doMediaRouteRequest(t, http.MethodGet, baseURL+"/api/v1/media/dashboard/summary", "",
 			map[string]string{"Authorization": "Bearer summary-host"})
@@ -100,41 +105,88 @@ func TestMediaDashboardSummaryRoute(t *testing.T) {
 		if err := json.Unmarshal([]byte(response.body), &counts); err != nil {
 			t.Fatalf("decode summary count response: %v; body=%s", err, response.body)
 		}
-		want := map[string]int64{"active_stream_count": streams, "active_session_count": sessions}
+		want := map[string]int64{"active_stream_count": streams, "active_session_count": sessions, "alive_node_count": nodes}
 		if !reflect.DeepEqual(counts, want) {
 			t.Fatalf("summary must contain only exact active counts: got=%v want=%v", counts, want)
 		}
 	}
-	assertSummary(0, 0)
+	assertSummary(0, 0, 0)
+	sampledAt := time.Now()
+	// Raw fixture SQL intentionally bypasses ORM automatic updated_at maintenance
+	// so recent, stale, future and missing server timestamps remain distinguishable.
+	for _, node := range []struct {
+		id, status string
+		reportTime int64
+		aliveNodes int
+		updatedAt  any
+	}{
+		{"recent-offline", "offline", 1, 900, sampledAt.Add(-time.Minute).Format(time.DateTime)},
+		{"recent-empty", "", sampledAt.Add(time.Hour).UnixMilli(), 800, sampledAt.Add(-time.Minute).Format(time.DateTime)},
+		{"recent-error", "error", 0, 700, sampledAt.Add(-time.Minute).Format(time.DateTime)},
+		{"old-healthy", "healthy", sampledAt.UnixMilli(), 600, sampledAt.Add(-4 * time.Minute).Format(time.DateTime)},
+		{"future-update", "healthy", sampledAt.Unix(), 500, sampledAt.Add(time.Minute).Format(time.DateTime)},
+		{"missing-update", "healthy", sampledAt.UnixMilli(), 400, nil},
+		{"0", "healthy", 0, 300, nil},
+	} {
+		if _, err := g.DB().Exec(ctx,
+			`INSERT INTO media_report_node (node_id, status, report_time, alive_nodes, updated_at) VALUES (?, ?, ?, ?, ?)`,
+			node.id, node.status, node.reportTime, node.aliveNodes, node.updatedAt); err != nil {
+			t.Fatalf("insert node fixture %s: %v", node.id, err)
+		}
+	}
+	// Recent server updates count even for offline nodes or incorrect client
+	// clocks; recent client reports cannot rescue stale or missing server updates.
+	assertSummary(0, 0, 3)
 	if _, err := dao.MediaReportStream.Ctx(ctx).Data([]do.MediaReportStream{
 		{StreamId: "active-a", TenantId: "tenant-a", NodeId: "4", Status: "running"},
-		{StreamId: "active-b", TenantId: "tenant-b", NodeId: "5", Status: "inactive"},
+		{StreamId: "active-b", TenantId: "tenant-b", NodeId: "5", Status: "running"},
+		{StreamId: "error-stream", TenantId: "tenant-c", NodeId: "6", Status: "error"},
+		{StreamId: "inactive-stream", TenantId: "tenant-d", NodeId: "7", Status: "inactive"},
 		{StreamId: "closed", TenantId: "tenant-c", NodeId: "6", Status: "running", CloseTime: gtime.New("2026-01-01 00:00:00")},
 	}).Insert(); err != nil {
 		t.Fatalf("insert stream fixtures: %v", err)
 	}
 	if _, err := dao.MediaReportSession.Ctx(ctx).Data([]do.MediaReportSession{
-		{SessionId: "active-a", TenantId: "tenant-a", NodeId: "4"},
-		{SessionId: "active-b", TenantId: "tenant-b", NodeId: "5"},
-		{SessionId: "active-c", TenantId: "tenant-c", NodeId: "6"},
-		{SessionId: "closed", TenantId: "tenant-d", NodeId: "7", CloseTime: gtime.New("2026-01-01 00:00:00")},
+		{SessionId: "active-a", StreamId: "active-a", TenantId: "tenant-a", NodeId: "4"},
+		{SessionId: "active-a-second", StreamId: "active-a", TenantId: "tenant-a", NodeId: "4"},
+		{SessionId: "active-b", StreamId: "active-b", TenantId: "tenant-b", NodeId: "5"},
+		{SessionId: "error-session", StreamId: "error-stream", TenantId: "tenant-c", NodeId: "6"},
+		{SessionId: "inactive-session", StreamId: "inactive-stream", TenantId: "tenant-d", NodeId: "7"},
+		{SessionId: "closed-stream-session", StreamId: "closed", TenantId: "tenant-c", NodeId: "6"},
+		{SessionId: "orphan-session", StreamId: "missing", TenantId: "tenant-d", NodeId: "7"},
+		{SessionId: "closed", StreamId: "active-a", TenantId: "tenant-a", NodeId: "4", CloseTime: gtime.New("2026-01-01 00:00:00")},
 	}).Insert(); err != nil {
 		t.Fatalf("insert session fixtures: %v", err)
 	}
-	assertSummary(2, 3)
+	assertSummary(2, 3, 3)
+	if _, err := dao.MediaReportStream.Ctx(ctx).Where(do.MediaReportStream{StreamId: "error-stream"}).
+		Data(do.MediaReportStream{Status: "running"}).Update(); err != nil {
+		t.Fatalf("recover stream fixture: %v", err)
+	}
+	assertSummary(3, 4, 3)
 	if _, err := dao.MediaReportStream.Ctx(ctx).Where(do.MediaReportStream{StreamId: "active-a"}).
 		Data(do.MediaReportStream{CloseTime: gtime.New("2026-01-02 00:00:00")}).Update(); err != nil {
 		t.Fatalf("close stream fixture: %v", err)
 	}
-	assertSummary(1, 3)
-	if authCalls.Load() != 3 || tenancyCalls.Load() != 3 || permissionCalls.Load() != 3 {
+	assertSummary(2, 2, 3)
+	if _, err := g.DB().Exec(ctx, `UPDATE media_report_node SET updated_at = ?, status = ? WHERE node_id = ?`,
+		sampledAt.Add(-time.Minute).Format(time.DateTime), "offline", "0"); err != nil {
+		t.Fatalf("give zero node a recent server update: %v", err)
+	}
+	assertSummary(2, 2, 4)
+	if _, err := g.DB().Exec(ctx, `UPDATE media_report_node SET updated_at = ?, report_time = ?, node_name = ? WHERE node_id = ?`,
+		sampledAt.Add(-4*time.Minute).Format(time.DateTime), sampledAt.UnixMilli(), "Real zero node", "0"); err != nil {
+		t.Fatalf("expire the zero node's server update: %v", err)
+	}
+	assertSummary(2, 2, 3)
+	if authCalls.Load() != 7 || tenancyCalls.Load() != 7 || permissionCalls.Load() != 7 {
 		t.Fatalf("summary skipped management middleware: auth=%d tenancy=%d permission=%d", authCalls.Load(), tenancyCalls.Load(), permissionCalls.Load())
 	}
 	denied := doMediaRouteRequest(t, http.MethodGet, baseURL+"/api/v1/media/dashboard/summary", "")
-	if denied.status != http.StatusUnauthorized || strings.Contains(denied.body, "active_stream_count") || strings.Contains(denied.body, "active_session_count") {
+	if denied.status != http.StatusUnauthorized || strings.Contains(denied.body, "active_stream_count") || strings.Contains(denied.body, "active_session_count") || strings.Contains(denied.body, "alive_node_count") {
 		t.Fatalf("both auth paths failing must not expose counts: status=%d body=%s", denied.status, denied.body)
 	}
-	if authCalls.Load() != 4 || tenancyCalls.Load() != 3 || permissionCalls.Load() != 3 {
+	if authCalls.Load() != 8 || tenancyCalls.Load() != 7 || permissionCalls.Load() != 7 {
 		t.Fatal("unauthorized summary request continued through the protected host chain")
 	}
 	request := reflect.TypeFor[v1.GetDashboardSummaryReq]()

@@ -29,8 +29,8 @@ type DashboardNodeOverviewItem struct {
 	MemoryUsed          float64                      `json:"memory_used" dc:"当前节点内存使用量，单位MB" eg:"186675.2"`
 	DiskIoRead          float64                      `json:"disk_io_read" dc:"当前节点磁盘读速率，单位KB/S" eg:"120"`
 	DiskIoWrite         float64                      `json:"disk_io_write" dc:"当前节点磁盘写速率，单位KB/S" eg:"80"`
-	NetworkIn           float64                      `json:"network_in" dc:"当前节点入流量，单位KB/S" eg:"1054.6"`
-	NetworkOut          float64                      `json:"network_out" dc:"当前节点出流量，单位KB/S" eg:"3025.5"`
+	NetworkIn           float64                      `json:"network_in" dc:"当前节点网络入站速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"8000"`
+	NetworkOut          float64                      `json:"network_out" dc:"当前节点网络出站速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"16000"`
 	LiveStreams         int                          `json:"live_streams" dc:"当前节点全局存活直播流数" eg:"156"`
 	Sessions            int                          `json:"sessions" dc:"当前节点全局会话数" eg:"2340"`
 	AvgDelay            int                          `json:"avg_delay" dc:"当前节点全局平均流延迟，单位毫秒" eg:"280"`
@@ -52,8 +52,8 @@ type DashboardNodeResources struct {
 	MemoryUsed      float64 `json:"memory_used" dc:"直属实例已用内存总量，单位MB" eg:"4096"`
 	DiskIoRead      float64 `json:"disk_io_read" dc:"直属实例磁盘读取总速率，单位KB/S" eg:"120"`
 	DiskIoWrite     float64 `json:"disk_io_write" dc:"直属实例磁盘写入总速率，单位KB/S" eg:"80"`
-	NetworkIn       float64 `json:"network_in" dc:"直属实例网络入站总速率，单位KB/S" eg:"1024"`
-	NetworkOut      float64 `json:"network_out" dc:"直属实例网络出站总速率，单位KB/S" eg:"2048"`
+	NetworkIn       float64 `json:"network_in" dc:"直属实例网络入站总速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"8000"`
+	NetworkOut      float64 `json:"network_out" dc:"直属实例网络出站总速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"16000"`
 }
 
 // DashboardNetworkLink exposes one latest source-instance-to-destination probe without scoring.

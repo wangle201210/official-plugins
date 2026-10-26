@@ -446,3 +446,8 @@ COMMENT ON COLUMN media_report_stream."report_subcommand" IS '对应原始流上
 COMMENT ON COLUMN media_report_session."report_payload" IS '未经业务归一化的最新完整SessionMetric protobuf JSON，保存全部已定义字段和嵌套跳点；旧行未接收新报文时为NULL';
 COMMENT ON COLUMN media_report_session."report_subcommand" IS '对应原始会话上报子命令数值，0表示尚未记录';
 COMMENT ON COLUMN plugin_media_report_network_link."report_payload" IS '未经业务归一化的最新完整NetworkMetric protobuf JSON，保存全部已定义字段；旧行未接收新报文时为NULL';
+
+-- Purpose: Supports recent node-report receipt counts without scanning stale nodes.
+-- 用途：按服务端记录更新时间查询最近三分钟上报的节点。
+CREATE INDEX IF NOT EXISTS idx_media_report_node_updated_at
+    ON media_report_node ("updated_at" DESC);
