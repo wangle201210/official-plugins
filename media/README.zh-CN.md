@@ -34,6 +34,18 @@
 
 插件不定义专属 Redis 配置命名空间，也不维护插件自有缓存后端。
 
+## 全量节点配置查询
+
+节点管理的全部配置可通过以下内部接口读取：
+
+| 文档分组 | 接口 | 鉴权 |
+| --- | --- | --- |
+| 内部接口 | `GET /api/v1/nodes/all` | 现有`X-Inner-Api-Key`规则 |
+
+接口查询`media_node`配置表，无需分页或筛选参数，按`nodeNum`升序返回完整`data.list`；无记录时为`[]`。节点编号受唯一及`0..255`约束，最多`256`条，不按分页默认值截断。每项包含`id`、`nodeNum`、`name`、`qnUrl`、`basicUrl`、`dnUrl`、`creatorId`、`createTime`、`updaterId`、`updateTime`，时间为`Unix`毫秒数值，缺失时为`null`。
+
+该查询用于节点管理配置。采集上报状态和资源指标继续通过`/api/v1/media/dashboard/nodes/overview`查询。原`/api/v1/media/nodes`仍提供分页管理列表，无需更新数据库。
+
 ## 节点网络指标
 
 `GET /api/v1/media/dashboard/nodes/overview?rootNodeId=<nodeId>`返回指定节点子树，沿用既有管理端认证和`media:management:query`权限。每个节点包含：

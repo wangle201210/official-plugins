@@ -34,6 +34,18 @@ Route memory reuses the host `pluginhost.HostServices.Cache()` service and keeps
 
 The plugin does not define a plugin-specific Redis configuration namespace or maintain a plugin-owned cache backend.
 
+## Complete node configuration queries
+
+All node-management configurations are available through the internal API:
+
+| Documentation group | API | Authentication |
+| --- | --- | --- |
+| 内部接口 | `GET /api/v1/nodes/all` | Existing `X-Inner-Api-Key` rules |
+
+The endpoint queries the `media_node` configuration table, accepts no pagination or filter parameters, and returns the complete `data.list` ordered by `nodeNum` ascending. Empty results are `[]`. The unique node-number constraint and `0..255` range bound the set to 256 records; no default page size truncates it. Each item contains `id`, `nodeNum`, `name`, `qnUrl`, `basicUrl`, `dnUrl`, `creatorId`, `createTime`, `updaterId` and `updateTime`. Times are Unix millisecond numbers, or `null` when missing.
+
+This endpoint returns node-management configuration. Use `/api/v1/media/dashboard/nodes/overview` for reported state and resource metrics. The original `/api/v1/media/nodes` remains the paginated management list. No database migration is required.
+
 ## Node network metrics
 
 `GET /api/v1/media/dashboard/nodes/overview?rootNodeId=<nodeId>` returns the selected node subtree and requires the existing management authentication and `media:management:query` permission. Each node includes:

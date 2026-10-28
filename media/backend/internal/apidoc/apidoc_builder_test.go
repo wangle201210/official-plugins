@@ -13,6 +13,7 @@ import (
 	"github.com/gogf/gf/v2/net/goai"
 
 	v1 "lina-plugin-media/backend/api/media/v1"
+	mediaopenv1 "lina-plugin-media/backend/api/mediaopen/v1"
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
@@ -20,6 +21,105 @@ import (
 // business methods: building documentation must never invoke those methods.
 type documentationOnlyService struct {
 	mediasvc.Service
+}
+
+// TestBuildInternalAllNodesSchema checks the sole complete-node entry point
+// retains API key authentication and matches the management list row contract.
+func TestBuildInternalAllNodesSchema(t *testing.T) {
+	document, err := Build(t.Context(), &documentationOnlyService{})
+	if err != nil {
+		t.Fatalf("build full node list documentation: %v", err)
+	}
+	if _, exists := document.Paths["/api/v1/media/dashboard/nodes/all"]; exists {
+		t.Fatal("removed dashboard full-node route must not appear in OpenAPI")
+	}
+	operation := document.Paths["/api/v1/nodes/all"].Get
+	if operation == nil || !reflect.DeepEqual(operation.Tags, []string{"内部接口"}) {
+		t.Fatalf("internal node route has incorrect tag or method: %#v", operation)
+	}
+	if len(operation.Parameters) != 1 || operation.Parameters[0].Value == nil ||
+		operation.Parameters[0].Value.In != "header" || operation.Parameters[0].Value.Name != "X-Inner-Api-Key" {
+		t.Fatalf("internal full-node route must expose only its key header, without pagination or filters: %#v", operation.Parameters)
+	}
+	if operation.Security == nil || len(*operation.Security) != 1 || len((*operation.Security)[0]) != 1 {
+		t.Fatalf("internal node route lost its API key requirement: %#v", operation)
+	}
+	if _, ok := (*operation.Security)[0]["InnerApiKeyAuth"]; !ok {
+		t.Fatal("internal node route must retain InnerApiKeyAuth")
+	}
+	if document.Security == nil || len(*document.Security) != 1 {
+		t.Fatal("management routes require document-level authentication")
+	}
+	if _, ok := (*document.Security)[0]["BearerAuth"]; !ok {
+		t.Fatal("management routes must retain BearerAuth")
+	}
+	paged := document.Paths["/api/v1/media/nodes"].Get
+	if paged == nil || !reflect.DeepEqual(paged.Tags, []string{"节点管理"}) || paged.Security != nil {
+		t.Fatalf("management node route must remain available and inherit BearerAuth: %#v", paged)
+	}
+	var queryNames []string
+	for _, parameter := range paged.Parameters {
+		if parameter.Value != nil && parameter.Value.In == "query" {
+			queryNames = append(queryNames, parameter.Value.Name)
+		}
+	}
+	slices.Sort(queryNames)
+	if !reflect.DeepEqual(queryNames, []string{"keyword", "pageNum", "pageSize"}) {
+		t.Fatalf("management node route must retain pagination and filtering: %v", queryNames)
+	}
+	var propertySets []map[string]json.RawMessage
+	for _, typeName := range []string{reflect.TypeFor[v1.NodeListItem]().Name(), reflect.TypeFor[mediaopenv1.NodeInfo]().Name()} {
+		matches := 0
+		for name, schema := range document.Components.Schemas.Map() {
+			if name != typeName && !strings.HasSuffix(name, "."+typeName) {
+				continue
+			}
+			matches++
+			if schema.Value == nil || schema.Value.Properties == nil {
+				t.Fatalf("missing full-node schema %s", name)
+			}
+			raw, err := json.Marshal(schema.Value.Properties)
+			if err != nil {
+				t.Fatalf("serialize node schema %s: %v", name, err)
+			}
+			var properties map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &properties); err != nil {
+				t.Fatalf("decode node schema %s: %v", name, err)
+			}
+			if len(properties) != 10 {
+				t.Fatalf("%s must publish all ten node fields, got %d", name, len(properties))
+			}
+			for _, field := range []string{"id", "nodeNum", "name", "qnUrl", "basicUrl", "dnUrl", "creatorId", "createTime", "updaterId", "updateTime"} {
+				if properties[field] == nil {
+					t.Fatalf("%s omitted field %s", name, field)
+				}
+			}
+			for _, field := range []string{"createTime", "updateTime"} {
+				var timestamp struct {
+					Type        string `json:"type"`
+					Format      string `json:"format"`
+					Nullable    bool   `json:"nullable"`
+					Description string `json:"description"`
+				}
+				if err := json.Unmarshal(properties[field], &timestamp); err != nil {
+					t.Fatalf("decode %s.%s schema: %v", name, field, err)
+				}
+				if timestamp.Type != "integer" || timestamp.Format != "int64" || !timestamp.Nullable {
+					t.Fatalf("%s.%s must be nullable integer/int64: %+v", name, field, timestamp)
+				}
+				if !strings.Contains(timestamp.Description, "Unix timestamp in milliseconds") || !strings.Contains(timestamp.Description, "null") {
+					t.Fatalf("%s.%s must document milliseconds and null: %q", name, field, timestamp.Description)
+				}
+			}
+			propertySets = append(propertySets, properties)
+		}
+		if matches != 1 {
+			t.Fatalf("expected exactly one %s schema, got %d", typeName, matches)
+		}
+	}
+	if !reflect.DeepEqual(propertySets[0], propertySets[1]) {
+		t.Fatalf("management and internal node schemas must expose identical fields: management=%v internal=%v", propertySets[0], propertySets[1])
+	}
 }
 
 // TestBuildDashboardInstanceTimestampSchemas checks actual serialized OpenAPI

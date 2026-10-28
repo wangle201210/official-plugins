@@ -27,7 +27,7 @@ type NodeListItem struct {
 	BasicUrl   string `json:"basicUrl" dc:"基础平台网关地址" eg:"https://basic.example.com"`
 	DnUrl      string `json:"dnUrl" dc:"属地网关地址" eg:"https://dn.example.com"`
 	CreatorId  int    `json:"creatorId" dc:"创建人ID" eg:"1"`
-	CreateTime *int64 `json:"createTime" dc:"创建时间，Unix timestamp in milliseconds" eg:"1778733600000"`
+	CreateTime *int64 `json:"createTime" nullable:"true" format:"int64" dc:"创建时间，Unix timestamp in milliseconds；缺失时为null" eg:"1778733600000"`
 	UpdaterId  int    `json:"updaterId" dc:"修改人ID" eg:"1"`
-	UpdateTime *int64 `json:"updateTime" dc:"修改时间，Unix timestamp in milliseconds" eg:"1778733600000"`
+	UpdateTime *int64 `json:"updateTime" nullable:"true" format:"int64" dc:"修改时间，Unix timestamp in milliseconds；缺失时为null" eg:"1778733600000"`
 }
