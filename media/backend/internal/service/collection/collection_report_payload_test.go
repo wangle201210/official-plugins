@@ -36,10 +36,10 @@ func newReportPayloadFixture(prefix string) reportPayloadFixture {
 		machine: &gen.MachineMetric{
 			MachineId: prefix + "-machine", InstanceId: prefix + "-instance", InstanceName: " Raw instance ",
 			NodeId: prefix + "-node", NodeName: " Raw node ", Region: " Region ", NodeStatus: " warning ", Status: " running ",
-			CpuUsage: 12.3456789, CpuCount: 8, MemUsed: 1_048_577, MemTotal: 8_388_609,
-			DiskUsed: 1234567, DiskTotal: 9876543, DiskReadBytes: 1025, DiskWriteBytes: 2049,
-			DiskReadTime: 17, DiskWriteTime: 19, DiskReadCount: 9_007_199_254_740_993, DiskWriteCount: 29,
-			Timestamp: sampledAt, NetworkIn: 8193, NetworkOut: 16385, StartTime: sampledAt - 60000, Version: " v1.2.3 ",
+			CpuUsage: 12.3456789, CpuCount: 8, MemUsed: 1024.25, MemTotal: 8192.5,
+			DiskUsed: 1234567, DiskTotal: 9876543, DiskReadBytes: 1025.125, DiskWriteBytes: 2049.0625,
+			DiskReadTime: 0.017, DiskWriteTime: 0.019, DiskReadCount: 9_007_199_254_740_993, DiskWriteCount: 29,
+			Timestamp: sampledAt, NetworkIn: 8193.125, NetworkOut: 16385.0625, StartTime: sampledAt - 60000, Version: " v1.2.3 ",
 			Extra: map[string]string{"vendor": "原始内容", "nul": "before\x00after", "node_id": "unused-node", "node_name": "unused-name", "empty": "", "quoted": "\"value\"\nline"},
 		},
 		network: &gen.NetworkMetric{

@@ -42,9 +42,6 @@ const (
 	defaultReportParentNodeID = "0"
 	defaultReportJSONMap      = "{}"
 	defaultReportJSONArray    = "[]"
-	bytesPerKilobyte          = 1024
-	bytesPerMegabyte          = 1024 * 1024
-	bitsPerByte               = 8
 
 	sessionClientTypeUnknown sessionClientType = 0
 	sessionClientTypeMobile  sessionClientType = 1
@@ -176,7 +173,8 @@ type linkHopReportItem struct {
 	LatencyMs int32  `json:"latency_ms"`
 }
 
-// normalizeMachineMetric converts one MachineMetric to an instance projection.
+// normalizeMachineMetric converts one MachineMetric to an instance projection,
+// preserving reported memory MB and disk/network KB/s values without unit conversion.
 func normalizeMachineMetric(metric *gen.MachineMetric) (instanceReport, bool) {
 	if metric == nil {
 		return instanceReport{}, false
@@ -205,12 +203,12 @@ func normalizeMachineMetric(metric *gen.MachineMetric) (instanceReport, bool) {
 		status:          normalizeStatusText(metric.GetStatus(), string(reportStatusUnknown)),
 		cpuAllocated:    float64(metric.GetCpuCount()),
 		cpuLoad:         metric.GetCpuUsage() * float64(metric.GetCpuCount()) / 100,
-		memoryAllocated: bytesToMegabytes(metric.GetMemTotal()),
-		memoryUsed:      bytesToMegabytes(metric.GetMemUsed()),
-		diskIoRead:      bytesToKilobytesPerSecond(metric.GetDiskReadBytes()),
-		diskIoWrite:     bytesToKilobytesPerSecond(metric.GetDiskWriteBytes()),
-		networkIn:       bitsToKilobytesPerSecond(metric.GetNetworkIn()),
-		networkOut:      bitsToKilobytesPerSecond(metric.GetNetworkOut()),
+		memoryAllocated: metric.GetMemTotal(),
+		memoryUsed:      metric.GetMemUsed(),
+		diskIoRead:      metric.GetDiskReadBytes(),
+		diskIoWrite:     metric.GetDiskWriteBytes(),
+		networkIn:       metric.GetNetworkIn(),
+		networkOut:      metric.GetNetworkOut(),
 		startTime:       metricTimeOrReportTime(metric.GetStartTime(), reportTime),
 		version:         strings.TrimSpace(metric.GetVersion()),
 		reportTime:      reportTime,
@@ -496,31 +494,7 @@ func durationSecondsBetween(startTime int64, reportTime int64) int32 {
 	return int32(elapsedSeconds)
 }
 
-// bytesToMegabytes converts byte values into MB memory report values.
-func bytesToMegabytes(value int64) float64 {
-	if value <= 0 {
-		return 0
-	}
-	return float64(value) / bytesPerMegabyte
-}
-
-// bytesToKilobytesPerSecond converts byte-per-second values into KB/S report values.
-func bytesToKilobytesPerSecond(value int64) float64 {
-	if value <= 0 {
-		return 0
-	}
-	return float64(value) / bytesPerKilobyte
-}
-
-// bitsToKilobytesPerSecond converts bps values into KB/S report values.
-func bitsToKilobytesPerSecond(value int32) float64 {
-	if value <= 0 {
-		return 0
-	}
-	return float64(value) / bitsPerByte / bytesPerKilobyte
-}
-
-// normalizeNetworkThroughput converts optional network throughput metadata into KB/S.
+// normalizeNetworkThroughput converts optional bps metadata to the machine report's KiB/s unit.
 func normalizeNetworkThroughput(extra map[string]string) float64 {
 	if len(extra) == 0 {
 		return 0
@@ -533,7 +507,7 @@ func normalizeNetworkThroughput(extra map[string]string) float64 {
 	if err != nil || bps <= 0 {
 		return 0
 	}
-	return bps / bitsPerByte / bytesPerKilobyte
+	return bps / 8 / 1024
 }
 
 // normalizeStreamStatus maps net-flux stream statuses into stable report values.

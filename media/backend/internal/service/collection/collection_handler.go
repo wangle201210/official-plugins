@@ -116,7 +116,7 @@ func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt prot
 	case *gen.MachineMetric:
 		logger.Infof(
 			ctx,
-			"media collection instance metric instanceId=%s machineId=%s status=%s cpuUsage=%f memUsed=%d memTotal=%d timestamp=%d",
+			"media collection instance metric instanceId=%s machineId=%s status=%s cpuUsage=%f memUsed=%f memTotal=%f timestamp=%d",
 			pkt.GetInstanceId(),
 			pkt.GetMachineId(),
 			pkt.GetStatus(),

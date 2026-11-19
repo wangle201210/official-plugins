@@ -120,12 +120,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		Status:         "running",
 		CpuCount:       8,
 		CpuUsage:       31.5,
-		MemUsed:        3 * bytesPerMegabyte,
-		MemTotal:       12 * bytesPerMegabyte,
-		DiskReadBytes:  2 * bytesPerKilobyte,
-		DiskWriteBytes: 4 * bytesPerKilobyte,
-		NetworkIn:      2 * bitsPerByte * bytesPerKilobyte,
-		NetworkOut:     6 * bitsPerByte * bytesPerKilobyte,
+		MemUsed:        3.25,
+		MemTotal:       12.5,
+		DiskReadBytes:  2.75,
+		DiskWriteBytes: 4.25,
+		NetworkIn:      16.25,
+		NetworkOut:     49.75,
 		StartTime:      reportTime,
 		Version:        "v1.2.3",
 		Timestamp:      reportTime,
@@ -143,12 +143,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		Status:         "running",
 		CpuCount:       8,
 		CpuUsage:       32.5,
-		MemUsed:        3 * bytesPerMegabyte,
-		MemTotal:       12 * bytesPerMegabyte,
-		DiskReadBytes:  2 * bytesPerKilobyte,
-		DiskWriteBytes: 4 * bytesPerKilobyte,
-		NetworkIn:      2 * bitsPerByte * bytesPerKilobyte,
-		NetworkOut:     6 * bitsPerByte * bytesPerKilobyte,
+		MemUsed:        3.25,
+		MemTotal:       12.5,
+		DiskReadBytes:  2.75,
+		DiskWriteBytes: 4.25,
+		NetworkIn:      16.25,
+		NetworkOut:     49.75,
 		StartTime:      reportTime,
 		Version:        "v1.2.3",
 		Timestamp:      reportTime,
@@ -243,7 +243,12 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if instance.NodeId != nodeID || instance.CpuLoad != 2.6 || instance.CpuAllocated != 8 {
 		t.Fatalf("unexpected replayed instance resource projection: %#v", instance)
 	}
-	if instance.Status != "running" || instance.NetworkOut != 6 || instance.LiveStreams != 1 || instance.Sessions != 1 {
+	if instance.MemoryAllocated != 12.5 || instance.MemoryUsed != 3.25 ||
+		instance.DiskIoRead != 2.75 || instance.DiskIoWrite != 4.25 ||
+		instance.NetworkIn != 16.25 || instance.NetworkOut != 49.75 {
+		t.Fatalf("expected all six reported resource values stored without conversion: %#v", instance)
+	}
+	if instance.Status != "running" || instance.LiveStreams != 1 || instance.Sessions != 1 {
 		t.Fatalf("unexpected instance projection: %#v", instance)
 	}
 

@@ -8,7 +8,7 @@ import (
 )
 
 // dashboardNetworkKbps converts the stored KiB/s projection to decimal Kbps
-// at the API boundary. Raw report payloads retain their original bps values.
+// at the API boundary. Raw machine report payloads retain their reported KB/s values.
 func dashboardNetworkKbps(kibibytesPerSecond float64) float64 {
 	return kibibytesPerSecond * 1024 * 8 / 1000
 }

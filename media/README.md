@@ -60,7 +60,9 @@ For upstream machine reports whose `node_id` is empty or equals `instance_id`, r
 
 Before deploying this feature, apply the current iteration's `manifest/sql/003-add-media-data-collection-server.sql`, which creates the idempotent latest-probe table `plugin_media_report_network_link`. The new link details become available after subsequent network reports; old latency-only records cannot reconstruct packet loss or jitter.
 
-Node overview fields (including all child nodes and `instance_resources`) and `GET /api/v1/media/dashboard/instances` expose `network_in/network_out` in Kbps, where `1000 bps = 1 Kbps`. The API multiplies existing KiB/s projections by `8.192` at the response boundary. For example, a projection of `1000 KiB/s` produces `8192 Kbps`. Existing projection storage rounding remains unchanged. Raw `report_payload` values remain in bps, disk units stay unchanged, and no database migration is required.
+Node overview fields (including all child nodes and `instance_resources`) and `GET /api/v1/media/dashboard/instances` expose `network_in/network_out` in Kbps, where `1000 bps = 1 Kbps`. Collection stores the original KB/s numbers reported by v0.0.25, using the upstream 1024-byte convention (KiB/s). The API multiplies them by `1024 × 8 ÷ 1000` at the response boundary. For example, a reported and stored value of `976.5625 KB/s` produces `8000 Kbps` before existing storage rounding. Memory in MB and disk rates in KB/s are stored and returned without further unit conversion. Existing numeric column rounding remains unchanged; old projections refresh on the next report rather than being rewritten.
+
+The collector uses `net-flux v0.0.25`. Imports keep the declared `github.com/dellinger2023/net-flux` module path, with a `replace` directive fetching `github.com/dellinger2026/net-flux v0.0.25` after the repository move. Client and server must use the new protocol together: the memory, disk rate, disk duration and network rate fields changed from integer to double wire types compared with v0.0.21. The six resource projections `memory_allocated`, `memory_used`, `disk_io_read`, `disk_io_write`, `network_in` and `network_out` directly use the reported numbers, without another division by `1024`, `1000` or `8` during ingestion. The separate optional node-level throughput metadata still uses bps and is converted to KiB/s so fallback node values and instance totals share one unit. This metadata conversion does not change raw storage of the six machine resource fields.
 
 ## Complete latest reports
 
@@ -79,7 +81,7 @@ This stores one latest accepted report per existing business key, not an event h
 
 Apply the appended `ALTER TABLE` statements in `manifest/sql/003-add-media-data-collection-server.sql` before starting this version. They also convert any preliminary `report_payload JSONB` columns to `JSON`. Existing rows remain `NULL` until the next report; previously discarded data cannot be backfilled. The four display queries below return the complete raw payload; unrelated summaries and topology projections continue to exclude it. Existing business-key lengths, IP formats and numeric projection constraints still apply; violations return errors and are not reported as successful persistence.
 
-The raw payload also preserves disk I/O counters. The current upstream collector reports cumulative disk bytes, while the existing dashboard projection labels the converted values as rates; that separate display-unit issue is not corrected by raw payload storage.
+In `v0.0.25`, the upstream collector computes disk rates in KB/s from the byte difference between consecutive samples and the elapsed seconds. Disk durations are converted from millisecond differences to seconds on the client. The first sample and invalid or reset intervals produce zero. The server preserves these reported values, including fractional memory and disk values, in the raw payload.
 
 ## Third-party report queries
 

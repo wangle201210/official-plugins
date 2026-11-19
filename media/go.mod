@@ -3,7 +3,7 @@ module lina-plugin-media
 go 1.25.0
 
 require (
-	github.com/dellinger2023/net-flux v0.0.21
+	github.com/dellinger2023/net-flux v0.0.25
 	github.com/gogf/gf/contrib/drivers/sqlite/v2 v2.10.0
 	github.com/gogf/gf/v2 v2.10.1
 	google.golang.org/protobuf v1.36.11
@@ -109,3 +109,6 @@ require (
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20260610212136-7ab31c22f7ad
 
 replace lina-core => ../../lina-core
+
+// 仓库已迁到 dellinger2026，go.mod 仍声明 dellinger2023。
+replace github.com/dellinger2023/net-flux => github.com/dellinger2026/net-flux v0.0.25

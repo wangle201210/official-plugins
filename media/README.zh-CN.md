@@ -60,7 +60,9 @@
 
 部署本功能前需执行当前迭代的`manifest/sql/003-add-media-data-collection-server.sql`，幂等创建最新探测表`plugin_media_report_network_link`。新链路明细在后续网络上报后产生，旧的纯延迟记录无法恢复丢包率和抖动。
 
-节点总览（含所有子节点和`instance_resources`）及实例列表`GET /api/v1/media/dashboard/instances`的`network_in/network_out`均以`Kbps`返回，`1000 bps = 1 Kbps`。接口在输出时将已有`KiB/s`投影乘以`8.192`；例如投影值`1000 KiB/s`，展示字段返回`8192 Kbps`；现有投影的存储舍入精度保持不变。原始`report_payload`仍保留客户端的`bps`值，磁盘速率单位不变，无需更新数据库。
+节点总览（含所有子节点和`instance_resources`）及实例列表`GET /api/v1/media/dashboard/instances`的`network_in/network_out`均以`Kbps`返回，`1000 bps = 1 Kbps`。采集端按`v0.0.25`上报的`KB/s`数值原值入库，上游使用`1024`字节进制，实际为`KiB/s`；接口仅在输出时乘以`1024 × 8 ÷ 1000`。例如上报并保存`976.5625 KB/s`，不计既有存储舍入时展示字段返回`8000 Kbps`。内存`MB`和磁盘速率`KB/s`不再转换单位，直接保存和返回。既有数值列的存储舍入精度保持不变，旧投影在下次上报时刷新，不批量改写历史记录。
+
+采集服务使用`net-flux v0.0.25`。导入路径仍保留其声明的`github.com/dellinger2023/net-flux`模块名，通过`replace`从迁移后的`github.com/dellinger2026/net-flux v0.0.25`获取源码。相较`v0.0.21`，内存、磁盘速率、磁盘耗时和网络速率字段的协议类型从整数改为浮点数，客户端和服务端必须配套升级。`memory_allocated`、`memory_used`、`disk_io_read`、`disk_io_write`、`network_in`和`network_out`六个资源投影按上报数字直接入库，写入时不再次除以`1024`、`1000`或`8`。独立的节点级可选吞吐量扩展字段仍按其`bps`约定换算为`KiB/s`，保证节点兜底值和实例聚合单位一致；此元数据换算不改变六项机器资源字段原值入库。
 
 ## 完整最新上报
 
@@ -79,7 +81,7 @@
 
 启动新版前需执行`manifest/sql/003-add-media-data-collection-server.sql`末尾新增的`ALTER TABLE`语句，已提前创建为`JSONB`的原始内容列也会转为`JSON`。旧行在下次上报前保持`NULL`，此前丢弃的数据无法回填。下述四类展示查询返回完整原始内容，其他摘要和拓扑投影仍排除不需要的原始字段。既有业务键长度、IP格式和数值投影约束仍执行，违反约束会返回错误，不会被报告为写入成功。
 
-原始内容也保留磁盘 I/O 累计计数。当前上游采集的是累计字节，而既有看板投影把换算值标为速率；该独立的展示单位问题不会因增加原始存储而自动修正。
+`v0.0.25`上游采集端使用相邻两次采样的字节差和间隔秒数计算磁盘`KB/s`速率，磁盘耗时则在客户端将毫秒差值换算为秒。首次采样、无效间隔或计数重置时上报零。服务端保留这些已计算的上报值，原始内容包含内存和磁盘字段的小数。
 
 ## 第三方上报查询
 

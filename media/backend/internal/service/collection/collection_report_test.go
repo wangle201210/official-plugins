@@ -52,12 +52,12 @@ func TestNormalizeMachineMetricBuildsInstanceReport(t *testing.T) {
 		Status:         "running",
 		CpuUsage:       42.5,
 		CpuCount:       8,
-		MemUsed:        2 * bytesPerMegabyte,
-		MemTotal:       4 * bytesPerMegabyte,
-		DiskReadBytes:  3 * bytesPerKilobyte,
-		DiskWriteBytes: 5 * bytesPerKilobyte,
-		NetworkIn:      2 * bitsPerByte * bytesPerKilobyte,
-		NetworkOut:     5 * bitsPerByte * bytesPerKilobyte,
+		MemUsed:        2.25,
+		MemTotal:       4.5,
+		DiskReadBytes:  3.75,
+		DiskWriteBytes: 5.5,
+		NetworkIn:      16.25,
+		NetworkOut:     40.75,
 		StartTime:      1_780_000_001,
 		Version:        "v1.2.3",
 		Timestamp:      1_780_000_000,
@@ -77,14 +77,14 @@ func TestNormalizeMachineMetricBuildsInstanceReport(t *testing.T) {
 	if report.cpuAllocated != 8 || report.cpuLoad != 3.4 {
 		t.Fatalf("unexpected cpu values: %#v", report)
 	}
-	if report.memoryAllocated != 4 || report.memoryUsed != 2 {
-		t.Fatalf("unexpected memory values: %#v", report)
+	if report.memoryAllocated != 4.5 || report.memoryUsed != 2.25 {
+		t.Fatalf("reported MB values must be preserved without conversion: %#v", report)
 	}
-	if report.diskIoRead != 3 || report.diskIoWrite != 5 {
-		t.Fatalf("unexpected disk values: %#v", report)
+	if report.diskIoRead != 3.75 || report.diskIoWrite != 5.5 {
+		t.Fatalf("reported KB/s values must be preserved without conversion: %#v", report)
 	}
-	if report.networkIn != 2 || report.networkOut != 5 {
-		t.Fatalf("unexpected instance runtime values: %#v", report)
+	if report.networkIn != 16.25 || report.networkOut != 40.75 {
+		t.Fatalf("reported KB/s values must be preserved without conversion: %#v", report)
 	}
 	if report.startTime == nil || report.startTime.Timestamp() != 1_780_000_001 {
 		t.Fatalf("expected explicit start time, got %#v", report.startTime)
@@ -182,7 +182,7 @@ func TestNormalizeNetworkMetricBuildsLatencyUpdate(t *testing.T) {
 		t.Fatalf("unexpected network keys: %#v", report)
 	}
 	if report.networkOut != 5 {
-		t.Fatalf("expected throughput converted to 5 KB/S, got %f", report.networkOut)
+		t.Fatalf("expected throughput 40960 bps converted to 5 KiB/s, got %f", report.networkOut)
 	}
 	if report.lastHeartbeat == nil {
 		t.Fatal("expected heartbeat time")

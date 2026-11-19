@@ -673,6 +673,8 @@ github.com/dellinger2023/net-flux v0.0.19 h1:SUHhJfWKhfQZ150G05A4OkWHCM/m+dZEaFQ
 github.com/dellinger2023/net-flux v0.0.19/go.mod h1:/M0h701r6HDYdP5KRGeE0lKOOfn3MlDUiG5jcNqAvuU=
 github.com/dellinger2023/net-flux v0.0.21 h1:iGgyAVlw4q3PHJQJsfb69q6sFrij3semz5UlvYiEy80=
 github.com/dellinger2023/net-flux v0.0.21/go.mod h1:/M0h701r6HDYdP5KRGeE0lKOOfn3MlDUiG5jcNqAvuU=
+github.com/dellinger2026/net-flux v0.0.25 h1:LzIXod2UE/PwjbQKaofvx3/15/1dmIPJhf3XDKeaJ9A=
+github.com/dellinger2026/net-flux v0.0.25/go.mod h1:/M0h701r6HDYdP5KRGeE0lKOOfn3MlDUiG5jcNqAvuU=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=

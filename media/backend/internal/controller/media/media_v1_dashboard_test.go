@@ -15,7 +15,7 @@ import (
 )
 
 // TestDashboardNetworkRatesUseDecimalKilobits exercises every public resource
-// projection while preserving stored values, disk units and raw bps reports.
+// projection while preserving stored values, disk units and raw KB/s reports.
 func TestDashboardNetworkRatesUseDecimalKilobits(t *testing.T) {
 	for _, test := range []struct {
 		name                    string
@@ -30,7 +30,7 @@ func TestDashboardNetworkRatesUseDecimalKilobits(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			const diskRead, diskWrite = 7.25, 11.5
 			var (
-				rawReport = map[string]any{"network_in": json.Number("8000000"), "network_out": json.Number("4000000")}
+				rawReport = map[string]any{"network_in": json.Number("976.5625"), "network_out": json.Number("488.28125")}
 				child     = &mediasvc.DashboardNodeOverviewItem{
 					NodeId: "child", NetworkIn: test.storedOut, NetworkOut: test.storedIn,
 					DiskIoRead: diskRead, DiskIoWrite: diskWrite,
@@ -72,8 +72,8 @@ func TestDashboardNetworkRatesUseDecimalKilobits(t *testing.T) {
 				}
 			}
 			for _, payload := range []map[string]any{nodeDTO.NetworkLinks[0].ReportPayload, instanceDTO.ReportPayload} {
-				if payload["network_in"] != json.Number("8000000") || payload["network_out"] != json.Number("4000000") {
-					t.Fatalf("raw report must retain its original bps values: %#v", payload)
+				if payload["network_in"] != json.Number("976.5625") || payload["network_out"] != json.Number("488.28125") {
+					t.Fatalf("raw report must retain its original KB/s values: %#v", payload)
 				}
 			}
 			if root.NetworkIn != test.storedIn || root.NetworkOut != test.storedOut || child.NetworkIn != test.storedOut ||
