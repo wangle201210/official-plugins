@@ -1021,7 +1021,7 @@ func buildDashboardSessionProtocols(
 	return protocols, nil
 }
 
-// buildDashboardSessionItem converts one session entity and rejects malformed stored payloads.
+// buildDashboardSessionItem calculates playback duration at the response time and rejects malformed stored payloads.
 func buildDashboardSessionItem(item *dashboardSessionEntity) (*DashboardSessionItem, error) {
 	if item == nil {
 		return &DashboardSessionItem{LinkHops: []*DashboardLinkHopItem{}}, nil
@@ -1043,7 +1043,7 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) (*DashboardSessionI
 		UserName:          item.UserName,
 		ProtocolType:      item.ProtocolType,
 		StartTime:         formatTime(item.StartTime),
-		PlayDuration:      item.PlayDuration,
+		PlayDuration:      dashboardPlaybackDuration(item.StartTime, time.Now()),
 		CurrentFps:        item.CurrentFps,
 		CurrentBitrate:    item.CurrentBitrate,
 		CurrentResolution: item.CurrentResolution,
@@ -1052,6 +1052,19 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) (*DashboardSessionI
 		LinkHops:          linkHops,
 		TotalLinkLatency:  item.TotalLinkLatency,
 	}, nil
+}
+
+// dashboardPlaybackDuration returns whole seconds since start at the supplied current time.
+// Missing, non-positive and future start times return zero; stored measurements remain unchanged.
+func dashboardPlaybackDuration(startTime *gtime.Time, now time.Time) int {
+	if startTime == nil || startTime.TimestampMilli() <= 0 {
+		return 0
+	}
+	elapsed := now.Sub(startTime.Time)
+	if elapsed <= 0 {
+		return 0
+	}
+	return int(elapsed / time.Second)
 }
 
 // dashboardNodeRuntimeAggregates reads node runtime values derivable from instance and stream projections.

@@ -500,7 +500,7 @@ func dashboardTopologyUsersByKey(sessions []*dashboardSessionEntity) map[string]
 	return result
 }
 
-// buildDashboardTopologyUser converts one active session to a user node.
+// buildDashboardTopologyUser converts one active session and calculates its current playback duration.
 func buildDashboardTopologyUser(session *dashboardSessionEntity) *DashboardTopologyUser {
 	return &DashboardTopologyUser{
 		SessionId:    session.SessionId,
@@ -513,7 +513,7 @@ func buildDashboardTopologyUser(session *dashboardSessionEntity) *DashboardTopol
 		NodeId:       session.NodeId,
 		InstanceId:   session.InstanceId,
 		StartTime:    formatTime(session.StartTime),
-		PlayDuration: session.PlayDuration,
+		PlayDuration: dashboardPlaybackDuration(session.StartTime, time.Now()),
 	}
 }
 

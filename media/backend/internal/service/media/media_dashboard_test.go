@@ -5,6 +5,7 @@ package media
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -193,7 +194,7 @@ func TestDashboardSummaryQueryFailure(t *testing.T) {
 
 // TestDashboardQueriesReadReportProjections verifies dashboard queries use report tables and decode nested JSON.
 func TestDashboardQueriesReadReportProjections(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	setupMediaStrategySQLite(t, ctx)
 	setupMediaDashboardReportTables(t, ctx)
 	insertDashboardReportFixtures(t, ctx)
@@ -314,10 +315,16 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("expected reported closed stream duration rather than close_time difference, got %#v", pausedStreams.List[0])
 	}
 
+	var storedSessionBefore *dashboardSessionEntity
+	if err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, "session-a").Scan(&storedSessionBefore); err != nil || storedSessionBefore == nil {
+		t.Fatalf("read session before dashboard query: row=%#v err=%v", storedSessionBefore, err)
+	}
+	sessionsBefore := time.Now()
 	sessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{
 		StreamId: "stream-a",
 		TenantId: "tenant-a",
 	})
+	sessionsAfter := time.Now()
 	if err != nil {
 		t.Fatalf("list sessions: %v", err)
 	}
@@ -387,9 +394,34 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if sessions.Protocols[0].Sessions[0].DeviceId != "device-a" {
 		t.Fatalf("expected session device id, got %#v", sessions.Protocols[0].Sessions[0])
 	}
-	if sessions.Protocols[0].Sessions[0].PlayDuration != 0 ||
-		sessions.Protocols[0].Sessions[0].TotalLinkLatency != 999 {
-		t.Fatalf("expected reported zero session duration and total latency rather than timestamp or hop calculations, got %#v", sessions.Protocols[0].Sessions[0])
+	firstSession := sessions.Protocols[0].Sessions[0]
+	if firstSession.StartTime == nil {
+		t.Fatal("expected session start time")
+	}
+	start := time.UnixMilli(*firstSession.StartTime)
+	if firstSession.PlayDuration < int(sessionsBefore.Sub(start)/time.Second) ||
+		firstSession.PlayDuration > int(sessionsAfter.Sub(start)/time.Second) ||
+		firstSession.TotalLinkLatency != 999 {
+		t.Fatalf("expected current elapsed playback duration and reported total latency, got %#v", firstSession)
+	}
+	for _, protocol := range sessions.Protocols {
+		for _, activeSession := range protocol.Sessions {
+			if activeSession.StartTime == nil {
+				t.Fatal("expected active session start time")
+			}
+			activeStart := time.UnixMilli(*activeSession.StartTime)
+			if activeSession.PlayDuration < int(sessionsBefore.Sub(activeStart)/time.Second) ||
+				activeSession.PlayDuration > int(sessionsAfter.Sub(activeStart)/time.Second) {
+				t.Fatalf("expected elapsed duration at session projection time, got %#v", activeSession)
+			}
+		}
+	}
+	var storedSessionAfter *dashboardSessionEntity
+	if err := dao.MediaReportSession.Ctx(ctx).Where(dao.MediaReportSession.Columns().SessionId, "session-a").Scan(&storedSessionAfter); err != nil || storedSessionAfter == nil {
+		t.Fatalf("read session after dashboard query: row=%#v err=%v", storedSessionAfter, err)
+	}
+	if !reflect.DeepEqual(storedSessionBefore, storedSessionAfter) || storedSessionAfter.PlayDuration != 0 {
+		t.Fatalf("dashboard reads changed the stored client report: before=%#v after=%#v", storedSessionBefore, storedSessionAfter)
 	}
 }
 
@@ -419,15 +451,17 @@ func TestDashboardListQueriesUseFixedUpperBound(t *testing.T) {
 
 // TestDashboardTopologyAggregatesGatewayPage verifies topology data is assembled by bounded batch queries.
 func TestDashboardTopologyAggregatesGatewayPage(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	setupMediaStrategySQLite(t, ctx)
 	setupMediaDashboardReportTables(t, ctx)
 	insertDashboardReportFixtures(t, ctx)
 
 	svc := newTestMediaService(t)
+	topologyBefore := time.Now()
 	topology, err := svc.GetDashboardTopology(ctx, DashboardTopologyInput{
 		DeviceId: " device-a ",
 	})
+	topologyAfter := time.Now()
 	if err != nil {
 		t.Fatalf("get dashboard topology: %v", err)
 	}
@@ -440,7 +474,7 @@ func TestDashboardTopologyAggregatesGatewayPage(t *testing.T) {
 	if topology.StreamCount != 1 || topology.SessionCount != 3 || topology.SessionDetailLimited {
 		t.Fatalf("expected one active stream and three active sessions, got %#v", topology)
 	}
-	if topology.GeneratedAt <= 0 {
+	if topology.GeneratedAt < topologyBefore.UnixMilli() || topology.GeneratedAt > topologyAfter.UnixMilli() {
 		t.Fatalf("expected response generation time, got %#v", topology)
 	}
 	if len(topology.Devices) != 1 || topology.Devices[0].DeviceId != "device-a" {
@@ -477,8 +511,22 @@ func TestDashboardTopologyAggregatesGatewayPage(t *testing.T) {
 	if user.SessionId != "session-a" || user.UserName != "viewer-a" || user.ClientId != "client-a" ||
 		user.ClientIp != "192.0.2.11" || user.ClientType != int(SessionClientTypePC) ||
 		user.ProtocolType != "HLS" || user.TenantId != "tenant-a" || user.NodeId != "node-a" ||
-		user.InstanceId != "inst-a" || user.StartTime == nil || user.PlayDuration != 0 {
+		user.InstanceId != "inst-a" || user.StartTime == nil {
 		t.Fatalf("expected user fields from the session projection, got %#v", user)
+	}
+	for _, protocol := range stream.Protocols {
+		for _, tenant := range protocol.Tenants {
+			for _, activeUser := range tenant.Users {
+				if activeUser.StartTime == nil {
+					t.Fatal("expected topology user start time")
+				}
+				activeStart := time.UnixMilli(*activeUser.StartTime)
+				if activeUser.PlayDuration < int(topologyBefore.Sub(activeStart)/time.Second) ||
+					activeUser.PlayDuration > int(topologyAfter.Sub(activeStart)/time.Second) {
+					t.Fatalf("expected elapsed duration at topology projection time, got %#v", activeUser)
+				}
+			}
+		}
 	}
 
 	empty, err := svc.GetDashboardTopology(ctx, DashboardTopologyInput{DeviceId: "missing-device"})
@@ -579,7 +627,7 @@ func TestBuildDashboardStreamItemClearsStaleActiveCounts(t *testing.T) {
 	}
 }
 
-// TestDashboardPreservesClientMeasurements verifies reported durations and total latency survive unrelated timestamps and hop details.
+// TestDashboardPreservesClientMeasurements verifies stream duration and total latency remain reported values while playback duration advances.
 func TestDashboardPreservesClientMeasurements(t *testing.T) {
 	for _, test := range []struct {
 		name     string
@@ -591,8 +639,8 @@ func TestDashboardPreservesClientMeasurements(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var (
-				startTime = gtime.NewFromTime(time.Unix(1_780_000_000, 0))
-				closeTime = gtime.NewFromTime(time.Unix(1_780_000_185, 0))
+				startTime = gtime.NewFromTime(time.Now().Add(-185*time.Second - 900*time.Millisecond))
+				closeTime = gtime.NewFromTime(startTime.Time.Add(42 * time.Second))
 				session   = &dashboardSessionEntity{
 					SessionId:        "session-a",
 					StartTime:        startTime,
@@ -611,17 +659,60 @@ func TestDashboardPreservesClientMeasurements(t *testing.T) {
 			if err != nil || stream.Duration != test.duration {
 				t.Fatalf("expected reported stream duration %d rather than elapsed 185, got %#v err=%v", test.duration, stream, err)
 			}
+			before := time.Now()
 			item, err := buildDashboardSessionItem(session)
-			if err != nil || item.PlayDuration != test.duration || item.TotalLinkLatency != test.latency {
-				t.Fatalf("expected reported session duration %d and latency %d rather than elapsed 185 or hop sum 28, got %#v err=%v", test.duration, test.latency, item, err)
+			after := time.Now()
+			if err != nil || item.PlayDuration < int(before.Sub(startTime.Time)/time.Second) ||
+				item.PlayDuration > int(after.Sub(startTime.Time)/time.Second) || item.TotalLinkLatency != test.latency {
+				t.Fatalf("expected current elapsed playback duration and reported latency %d, got %#v err=%v", test.latency, item, err)
 			}
 			if len(item.LinkHops) != 2 || item.LinkHops[0].LatencyMs != 10 || item.LinkHops[1].LatencyMs != 18 {
 				t.Fatalf("expected original hop details, got %#v", item.LinkHops)
 			}
-			if user := buildDashboardTopologyUser(session); user.PlayDuration != test.duration {
-				t.Fatalf("expected topology reported duration %d rather than elapsed 185, got %#v", test.duration, user)
+			before = time.Now()
+			user := buildDashboardTopologyUser(session)
+			after = time.Now()
+			if user.PlayDuration < int(before.Sub(startTime.Time)/time.Second) ||
+				user.PlayDuration > int(after.Sub(startTime.Time)/time.Second) {
+				t.Fatalf("expected current topology elapsed duration rather than reported %d or close-time difference 42, got %#v", test.duration, user)
+			}
+			if session.PlayDuration != test.duration || session.TotalLinkLatency != test.latency {
+				t.Fatalf("projection mutated reported measurements: %#v", session)
 			}
 		})
+	}
+}
+
+// TestDashboardPlaybackDuration validates elapsed second boundaries and progression with a fixed clock.
+func TestDashboardPlaybackDuration(t *testing.T) {
+	var (
+		now   = time.Unix(1_780_000_185, 900_000_000)
+		start = time.Unix(1_780_000_000, 0)
+	)
+	for _, test := range []struct {
+		name  string
+		start *gtime.Time
+		want  int
+	}{
+		{name: "fractional_seconds", start: gtime.NewFromTime(start), want: 185},
+		{name: "same_instant_other_timezone", start: gtime.NewFromTime(start.In(time.FixedZone("UTC+08", 8*60*60))), want: 185},
+		{name: "missing"},
+		{name: "zero_time", start: gtime.NewFromTime(time.Time{})},
+		{name: "zero_timestamp", start: gtime.NewFromTime(time.Unix(0, 0))},
+		{name: "same_time", start: gtime.NewFromTime(now)},
+		{name: "future", start: gtime.NewFromTime(now.Add(time.Second))},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := dashboardPlaybackDuration(test.start, now); got != test.want {
+				t.Fatalf("playback duration=%d, want %d", got, test.want)
+			}
+		})
+	}
+	for _, elapsed := range []int{185, 187} {
+		readTime := now.Add(time.Duration(elapsed-185) * time.Second)
+		if got := dashboardPlaybackDuration(gtime.NewFromTime(start), readTime); got != elapsed {
+			t.Fatalf("successive read at %s returned %d, want duration %d", readTime, got, elapsed)
+		}
 	}
 }
 
