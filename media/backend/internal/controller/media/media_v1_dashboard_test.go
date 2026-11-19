@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"math"
 	"reflect"
 	"testing"
 
@@ -14,18 +13,17 @@ import (
 	mediasvc "lina-plugin-media/backend/internal/service/media"
 )
 
-// TestDashboardNetworkRatesUseDecimalKilobits exercises every public resource
-// projection while preserving stored values, disk units and raw KB/s reports.
-func TestDashboardNetworkRatesUseDecimalKilobits(t *testing.T) {
+// TestDashboardNetworkRatesPreserveReportedValues exercises every public resource
+// projection without rescaling stored network, disk or raw report values.
+func TestDashboardNetworkRatesPreserveReportedValues(t *testing.T) {
 	for _, test := range []struct {
-		name                    string
-		storedIn, storedOut     float64
-		wantInKbps, wantOutKbps float64
+		name                string
+		storedIn, storedOut float64
 	}{
 		{name: "zero"},
-		{name: "fractional", storedIn: 0.125, storedOut: 0.25, wantInKbps: 1.024, wantOutKbps: 2.048},
-		{name: "eight_megabits", storedIn: 976.5625, storedOut: 488.28125, wantInKbps: 8000, wantOutKbps: 4000},
-		{name: "stored_two_decimals", storedIn: 976.56, storedOut: 488.28, wantInKbps: 7999.97952, wantOutKbps: 3999.98976},
+		{name: "fractional", storedIn: 0.125, storedOut: 0.25},
+		{name: "sampled_rate", storedIn: 976.5625, storedOut: 488.28125},
+		{name: "stored_two_decimals", storedIn: 976.56, storedOut: 488.28},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			const diskRead, diskWrite = 7.25, 11.5
@@ -58,17 +56,17 @@ func TestDashboardNetworkRatesUseDecimalKilobits(t *testing.T) {
 				name                                  string
 				in, out, read, write, wantIn, wantOut float64
 			}{
-				{"root", nodeDTO.NetworkIn, nodeDTO.NetworkOut, nodeDTO.DiskIoRead, nodeDTO.DiskIoWrite, test.wantInKbps, test.wantOutKbps},
-				{"child", nodeDTO.ChildNodes[0].NetworkIn, nodeDTO.ChildNodes[0].NetworkOut, nodeDTO.ChildNodes[0].DiskIoRead, nodeDTO.ChildNodes[0].DiskIoWrite, test.wantOutKbps, test.wantInKbps},
-				{"root_resources", nodeDTO.InstanceResources.NetworkIn, nodeDTO.InstanceResources.NetworkOut, nodeDTO.InstanceResources.DiskIoRead, nodeDTO.InstanceResources.DiskIoWrite, test.wantInKbps / 2, test.wantOutKbps / 2},
-				{"child_resources", nodeDTO.ChildNodes[0].InstanceResources.NetworkIn, nodeDTO.ChildNodes[0].InstanceResources.NetworkOut, nodeDTO.ChildNodes[0].InstanceResources.DiskIoRead, nodeDTO.ChildNodes[0].InstanceResources.DiskIoWrite, test.wantOutKbps * 2, test.wantInKbps * 2},
-				{"instance_list", instanceDTO.NetworkIn, instanceDTO.NetworkOut, instanceDTO.DiskIoRead, instanceDTO.DiskIoWrite, test.wantInKbps, test.wantOutKbps},
+				{"root", nodeDTO.NetworkIn, nodeDTO.NetworkOut, nodeDTO.DiskIoRead, nodeDTO.DiskIoWrite, test.storedIn, test.storedOut},
+				{"child", nodeDTO.ChildNodes[0].NetworkIn, nodeDTO.ChildNodes[0].NetworkOut, nodeDTO.ChildNodes[0].DiskIoRead, nodeDTO.ChildNodes[0].DiskIoWrite, test.storedOut, test.storedIn},
+				{"root_resources", nodeDTO.InstanceResources.NetworkIn, nodeDTO.InstanceResources.NetworkOut, nodeDTO.InstanceResources.DiskIoRead, nodeDTO.InstanceResources.DiskIoWrite, test.storedIn / 2, test.storedOut / 2},
+				{"child_resources", nodeDTO.ChildNodes[0].InstanceResources.NetworkIn, nodeDTO.ChildNodes[0].InstanceResources.NetworkOut, nodeDTO.ChildNodes[0].InstanceResources.DiskIoRead, nodeDTO.ChildNodes[0].InstanceResources.DiskIoWrite, test.storedOut * 2, test.storedIn * 2},
+				{"instance_list", instanceDTO.NetworkIn, instanceDTO.NetworkOut, instanceDTO.DiskIoRead, instanceDTO.DiskIoWrite, test.storedIn, test.storedOut},
 			} {
-				if math.Abs(projection.in-projection.wantIn) > 1e-9 || math.Abs(projection.out-projection.wantOut) > 1e-9 {
-					t.Fatalf("%s network rate must use decimal Kbps: got=(%v,%v) want=(%v,%v)", projection.name, projection.in, projection.out, projection.wantIn, projection.wantOut)
+				if projection.in != projection.wantIn || projection.out != projection.wantOut {
+					t.Fatalf("%s network rate must preserve reported values: got=(%v,%v) want=(%v,%v)", projection.name, projection.in, projection.out, projection.wantIn, projection.wantOut)
 				}
 				if projection.read != diskRead || projection.write != diskWrite {
-					t.Fatalf("%s disk IO units changed during network conversion", projection.name)
+					t.Fatalf("%s disk IO values changed during DTO mapping", projection.name)
 				}
 			}
 			for _, payload := range []map[string]any{nodeDTO.NetworkLinks[0].ReportPayload, instanceDTO.ReportPayload} {

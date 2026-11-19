@@ -170,9 +170,9 @@ func TestBuildDashboardInstanceTimestampSchemas(t *testing.T) {
 	}
 }
 
-// TestBuildDashboardNetworkRateUnits checks actual generated schema documentation
-// for all network resource projections, including the nested direct resources.
-func TestBuildDashboardNetworkRateUnits(t *testing.T) {
+// TestBuildDashboardReportedMetricUnits checks generated CPU and network units
+// for all resource projections, including the nested direct resources.
+func TestBuildDashboardReportedMetricUnits(t *testing.T) {
 	document, err := Build(t.Context(), &documentationOnlyService{})
 	if err != nil {
 		t.Fatalf("build network throughput documentation: %v", err)
@@ -193,12 +193,17 @@ func TestBuildDashboardNetworkRateUnits(t *testing.T) {
 					t.Fatalf("missing %s.%s network field", name, field)
 				}
 				description := property.Value.Description
-				if !strings.Contains(description, "Kbps") || !strings.Contains(description, "1000") || strings.Contains(strings.ToUpper(description), "KB/S") {
-					t.Fatalf("%s.%s must describe decimal Kbps without the old byte-rate unit: %q", name, field, description)
+				if !strings.Contains(description, "KB/s") || strings.Contains(description, "Kbps") {
+					t.Fatalf("%s.%s must describe byte-rate units: %q", name, field, description)
 				}
 				if property.Value.Type != "number" {
 					t.Fatalf("%s.%s must retain fractional numeric values: %#v", name, field, property.Value)
 				}
+			}
+			cpuLoad := schema.Value.Properties.Get("cpu_load")
+			if cpuLoad == nil || cpuLoad.Value == nil || cpuLoad.Value.Type != "number" ||
+				!strings.Contains(cpuLoad.Value.Description, "%") {
+				t.Fatalf("%s.cpu_load must describe percentage units: %#v", name, cpuLoad)
 			}
 		}
 		if matches != 1 {

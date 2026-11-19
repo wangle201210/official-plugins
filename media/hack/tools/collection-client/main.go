@@ -453,7 +453,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		Jitter:        3,
 		PacketLoss:    0.001,
 		StatusCode:    200,
-		Extra:         map[string]string{"throughput_bps": "65536"},
+		Extra:         map[string]string{"network_out": "8"},
 		Timestamp:     now,
 	}); err != nil {
 		return err
@@ -477,6 +477,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		Fps:                   25,
 		PacketLoss:            0.01,
 		StartTime:             startedAt,
+		Duration:              60,
 		AvgDelay:              35,
 		TotalSessionsLifetime: 1,
 		CurrentActiveSessions: 1,
@@ -497,6 +498,7 @@ func sendActiveReports(client *network.TcpClient, cfg clientConfig) error {
 		UserName:         cfg.userName,
 		Protocol:         protocol,
 		StartTime:        startedAt,
+		PlayDuration:     60,
 		CurrentFps:       25,
 		CurrentBitrate:   2048,
 		CurrentWidth:     1280,

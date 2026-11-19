@@ -88,5 +88,5 @@ type DashboardTopologyUser struct {
 	NodeId       string `json:"node_id" dc:"Hosting node ID." eg:"node-01"`
 	InstanceId   string `json:"instance_id" dc:"Hosting instance ID." eg:"inst-001"`
 	StartTime    *int64 `json:"start_time" dc:"Session start time, Unix timestamp in milliseconds." eg:"1716191400000"`
-	PlayDuration int    `json:"play_duration" dc:"Elapsed playback duration in seconds." eg:"1860"`
+	PlayDuration int    `json:"play_duration" dc:"Playback duration in seconds." eg:"1860"`
 }

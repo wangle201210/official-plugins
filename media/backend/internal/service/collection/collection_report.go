@@ -174,7 +174,7 @@ type linkHopReportItem struct {
 }
 
 // normalizeMachineMetric converts one MachineMetric to an instance projection,
-// preserving reported memory MB and disk/network KB/s values without unit conversion.
+// preserving reported CPU percentage, memory MB and disk/network KB/s values.
 func normalizeMachineMetric(metric *gen.MachineMetric) (instanceReport, bool) {
 	if metric == nil {
 		return instanceReport{}, false
@@ -202,7 +202,7 @@ func normalizeMachineMetric(metric *gen.MachineMetric) (instanceReport, bool) {
 		nodeStatus:      normalizeStatusText(metric.GetNodeStatus(), string(reportNodeStatusHealthy)),
 		status:          normalizeStatusText(metric.GetStatus(), string(reportStatusUnknown)),
 		cpuAllocated:    float64(metric.GetCpuCount()),
-		cpuLoad:         metric.GetCpuUsage() * float64(metric.GetCpuCount()) / 100,
+		cpuLoad:         metric.GetCpuUsage(),
 		memoryAllocated: metric.GetMemTotal(),
 		memoryUsed:      metric.GetMemUsed(),
 		diskIoRead:      metric.GetDiskReadBytes(),
@@ -261,18 +261,6 @@ func normalizeLinkHops(hops []*gen.LinkHop) string {
 	return mustEncodeJSON(items, defaultReportJSONArray)
 }
 
-// sumLinkHopLatency returns the dashboard total latency derived from hop details.
-func sumLinkHopLatency(hops []*gen.LinkHop) int32 {
-	var total int32
-	for _, hop := range hops {
-		if hop == nil || hop.GetLatency() <= 0 {
-			continue
-		}
-		total += hop.GetLatency()
-	}
-	return total
-}
-
 // normalizeNetworkMetric converts one NetworkMetric to a node network projection.
 func normalizeNetworkMetric(metric *gen.NetworkMetric) (networkReport, bool) {
 	if metric == nil {
@@ -300,7 +288,7 @@ func normalizeNetworkMetric(metric *gen.NetworkMetric) (networkReport, bool) {
 		packetLoss:      metric.GetPacketLoss(),
 		statusCode:      metric.GetStatusCode(),
 		reachable:       networkReachable(metric.GetExtra()),
-		networkOut:      normalizeNetworkThroughput(metric.GetExtra()),
+		networkOut:      reportNetworkThroughput(metric.GetExtra()),
 		lastHeartbeat:   reportTimeToGTime(reportTime),
 		nodeLatencyMap:  latencyMap,
 		reportTime:      reportTime,
@@ -356,10 +344,6 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 	if metric.GetStartTime() > 0 {
 		startTime = reportTimeToGTime(metric.GetStartTime())
 	}
-	duration := metric.GetDuration()
-	if duration <= 0 && metric.GetStartTime() > 0 {
-		duration = durationSecondsBetween(metric.GetStartTime(), reportTime)
-	}
 	return streamReport{
 		streamID:              streamID,
 		sourceType:            sourceType,
@@ -378,7 +362,7 @@ func normalizeStreamMetric(metric *gen.StreamMetric) (streamReport, bool) {
 		packetLoss:            metric.GetPacketLoss(),
 		status:                normalizeStreamStatus(metric.GetStatus()),
 		startTime:             startTime,
-		duration:              duration,
+		duration:              metric.GetDuration(),
 		avgDelay:              metric.GetAvgDelay(),
 		protocolCount:         protocolCount,
 		protocolSummary:       protocolSummary,
@@ -404,14 +388,6 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 	if streamName == "" {
 		streamName = strings.TrimSpace(metric.GetStreamId())
 	}
-	playDuration := metric.GetPlayDuration()
-	if playDuration <= 0 && metric.GetStartTime() > 0 {
-		playDuration = durationSecondsBetween(metric.GetStartTime(), reportTime)
-	}
-	totalLinkLatency := metric.GetTotalLinkLatency()
-	if totalLinkLatency <= 0 {
-		totalLinkLatency = sumLinkHopLatency(metric.GetLinkHops())
-	}
 	return sessionReport{
 		sessionID:         sessionID,
 		streamID:          strings.TrimSpace(metric.GetStreamId()),
@@ -424,7 +400,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		userName:          strings.TrimSpace(metric.GetUserName()),
 		protocolType:      string(normalizeStreamProtocol(metric.GetProtocol())),
 		startTime:         metricTimeOrReportTime(metric.GetStartTime(), reportTime),
-		playDuration:      playDuration,
+		playDuration:      metric.GetPlayDuration(),
 		currentFPS:        metric.GetCurrentFps(),
 		currentBitrate:    metric.GetCurrentBitrate(),
 		currentResolution: normalizeResolution(metric.GetCurrentWidth(), metric.GetCurrentHeight()),
@@ -433,7 +409,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		instanceID:        firstNonBlank(metric.GetInstanceId(), metric.GetMachineId()),
 		instanceName:      strings.TrimSpace(metric.GetInstanceName()),
 		linkHops:          normalizeLinkHops(metric.GetLinkHops()),
-		totalLinkLatency:  totalLinkLatency,
+		totalLinkLatency:  metric.GetTotalLinkLatency(),
 		reportTime:        reportTime,
 	}, true
 }
@@ -480,22 +456,8 @@ func reportTimestampToMillis(timestamp int64) int64 {
 	return timestamp * 1000
 }
 
-// durationSecondsBetween calculates a non-negative elapsed duration from two report timestamps.
-func durationSecondsBetween(startTime int64, reportTime int64) int32 {
-	startMillis := reportTimestampToMillis(startTime)
-	reportMillis := reportTimestampToMillis(reportTime)
-	if startMillis <= 0 || reportMillis <= startMillis {
-		return 0
-	}
-	elapsedSeconds := (reportMillis - startMillis) / 1000
-	if elapsedSeconds > int64(^uint32(0)>>1) {
-		return int32(^uint32(0) >> 1)
-	}
-	return int32(elapsedSeconds)
-}
-
-// normalizeNetworkThroughput converts optional bps metadata to the machine report's KiB/s unit.
-func normalizeNetworkThroughput(extra map[string]string) float64 {
+// reportNetworkThroughput parses the reported throughput without inferring or converting units.
+func reportNetworkThroughput(extra map[string]string) float64 {
 	if len(extra) == 0 {
 		return 0
 	}
@@ -503,11 +465,11 @@ func normalizeNetworkThroughput(extra map[string]string) float64 {
 	if value == "" {
 		return 0
 	}
-	bps, err := strconv.ParseFloat(value, 64)
-	if err != nil || bps <= 0 {
+	throughput, err := strconv.ParseFloat(value, 64)
+	if err != nil {
 		return 0
 	}
-	return bps / 8 / 1024
+	return throughput
 }
 
 // normalizeStreamStatus maps net-flux stream statuses into stable report values.

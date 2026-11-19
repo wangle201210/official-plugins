@@ -809,7 +809,7 @@ func buildDashboardStreamItemWithCounts(
 		PacketLoss:            item.PacketLoss,
 		Status:                item.Status,
 		StartTime:             formatTime(item.StartTime),
-		Duration:              dashboardElapsedSeconds(item.StartTime, item.CloseTime, item.Duration),
+		Duration:              item.Duration,
 		AvgDelay:              item.AvgDelay,
 		ProtocolCount:         protocolCount,
 		TotalSessionsLifetime: totalSessionsLifetime,
@@ -1043,14 +1043,14 @@ func buildDashboardSessionItem(item *dashboardSessionEntity) (*DashboardSessionI
 		UserName:          item.UserName,
 		ProtocolType:      item.ProtocolType,
 		StartTime:         formatTime(item.StartTime),
-		PlayDuration:      dashboardElapsedSeconds(item.StartTime, item.CloseTime, item.PlayDuration),
+		PlayDuration:      item.PlayDuration,
 		CurrentFps:        item.CurrentFps,
 		CurrentBitrate:    item.CurrentBitrate,
 		CurrentResolution: item.CurrentResolution,
 		NodeId:            item.NodeId,
 		InstanceId:        item.InstanceId,
 		LinkHops:          linkHops,
-		TotalLinkLatency:  dashboardTotalLinkLatency(linkHops, item.TotalLinkLatency),
+		TotalLinkLatency:  item.TotalLinkLatency,
 	}, nil
 }
 
@@ -1290,47 +1290,6 @@ func summarizeDashboardProtocols(
 		return fallbackCount, totalSessions, currentSessions
 	}
 	return len(seen), totalSessions, currentSessions
-}
-
-// dashboardElapsedSeconds derives elapsed seconds from start time and close time or current time.
-func dashboardElapsedSeconds(startTime *gtime.Time, closeTime *gtime.Time, explicitDuration int) int {
-	if startTime == nil {
-		if explicitDuration > 0 {
-			return explicitDuration
-		}
-		return 0
-	}
-	endMillis := time.Now().UnixMilli()
-	if closeTime != nil {
-		endMillis = closeTime.TimestampMilli()
-	}
-	startMillis := startTime.TimestampMilli()
-	if endMillis <= startMillis {
-		if explicitDuration > 0 {
-			return explicitDuration
-		}
-		return 0
-	}
-	elapsedSeconds := (endMillis - startMillis) / 1000
-	if elapsedSeconds > int64(^uint(0)>>1) {
-		return int(^uint(0) >> 1)
-	}
-	return int(elapsedSeconds)
-}
-
-// dashboardTotalLinkLatency derives total latency from link hops when hop details are available.
-func dashboardTotalLinkLatency(linkHops []*DashboardLinkHopItem, fallback int) int {
-	if len(linkHops) == 0 {
-		return fallback
-	}
-	total := 0
-	for _, item := range linkHops {
-		if item == nil || item.LatencyMs <= 0 {
-			continue
-		}
-		total += item.LatencyMs
-	}
-	return total
 }
 
 // dashboardStreamProtocolSummary returns parsed protocol summary for one stream row.

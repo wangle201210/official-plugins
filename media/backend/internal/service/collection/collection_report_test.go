@@ -74,7 +74,7 @@ func TestNormalizeMachineMetricBuildsInstanceReport(t *testing.T) {
 	if report.region != "华东" || report.nodeStatus != "healthy" || report.status != "running" {
 		t.Fatalf("unexpected status fields: %#v", report)
 	}
-	if report.cpuAllocated != 8 || report.cpuLoad != 3.4 {
+	if report.cpuAllocated != 8 || report.cpuLoad != 42.5 {
 		t.Fatalf("unexpected cpu values: %#v", report)
 	}
 	if report.memoryAllocated != 4.5 || report.memoryUsed != 2.25 {
@@ -181,8 +181,8 @@ func TestNormalizeNetworkMetricBuildsLatencyUpdate(t *testing.T) {
 	if report.nodeID != "node-a" || report.destinationID != "10.0.0.2" {
 		t.Fatalf("unexpected network keys: %#v", report)
 	}
-	if report.networkOut != 5 {
-		t.Fatalf("expected throughput 40960 bps converted to 5 KiB/s, got %f", report.networkOut)
+	if report.networkOut != 40960 {
+		t.Fatalf("expected reported throughput 40960 without conversion, got %f", report.networkOut)
 	}
 	if report.lastHeartbeat == nil {
 		t.Fatal("expected heartbeat time")
@@ -300,18 +300,21 @@ func TestNormalizeStreamMetricBuildsStreamReport(t *testing.T) {
 	}
 }
 
-// TestNormalizeStreamMetricDerivesDuration verifies stream runtime can be derived server-side.
-func TestNormalizeStreamMetricDerivesDuration(t *testing.T) {
-	report, ok := normalizeStreamMetric(&gen.StreamMetric{
-		StreamId:  "stream-a",
-		StartTime: 1_780_000_000,
-		Timestamp: 1_780_000_185,
-	})
-	if !ok {
-		t.Fatal("expected stream metric to normalize")
-	}
-	if report.duration != 185 {
-		t.Fatalf("expected derived stream duration 185, got %#v", report)
+// TestNormalizeStreamMetricPreservesReportedDuration verifies client durations, including zero, are not inferred from timestamps.
+func TestNormalizeStreamMetricPreservesReportedDuration(t *testing.T) {
+	for _, duration := range []int32{0, 17} {
+		report, ok := normalizeStreamMetric(&gen.StreamMetric{
+			StreamId:  "stream-a",
+			StartTime: 1_780_000_000,
+			Timestamp: 1_780_000_185,
+			Duration:  duration,
+		})
+		if !ok {
+			t.Fatal("expected stream metric to normalize")
+		}
+		if report.duration != duration {
+			t.Fatalf("expected reported stream duration %d rather than elapsed 185, got %#v", duration, report)
+		}
 	}
 }
 
@@ -398,30 +401,43 @@ func TestNormalizeMetricsIgnoreExtraDeviceID(t *testing.T) {
 	}
 }
 
-// TestNormalizeSessionMetricDerivesDurationAndLatency verifies missing computed fields are derived.
-func TestNormalizeSessionMetricDerivesDurationAndLatency(t *testing.T) {
-	report, ok := normalizeSessionMetric(&gen.SessionMetric{
-		SessionId: "session-a",
-		StartTime: 1_780_000_000,
-		Timestamp: 1_780_000_042,
-		LinkHops: []*gen.LinkHop{
-			{NodeId: "origin-node", Latency: 10},
-			{NodeId: "edge-node", Latency: 18},
-		},
-	})
-	if !ok {
-		t.Fatal("expected session metric to normalize")
-	}
-	if report.playDuration != 42 || report.totalLinkLatency != 28 {
-		t.Fatalf("expected derived session fields, got %#v", report)
-	}
-	var hops []linkHopReportItem
-	if err := json.Unmarshal([]byte(report.linkHops), &hops); err != nil {
-		t.Fatalf("decode link hops: %v", err)
-	}
-	if len(hops) != 2 || hops[0].HopIndex != 1 || hops[1].HopIndex != 2 ||
-		hops[0].LatencyMs != 10 || hops[1].LatencyMs != 18 {
-		t.Fatalf("unexpected dashboard hop shape: %#v", hops)
+// TestNormalizeSessionMetricPreservesReportedDurationAndLatency verifies client values, including zero, survive unrelated time and hop data.
+func TestNormalizeSessionMetricPreservesReportedDurationAndLatency(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		duration int32
+		latency  int32
+	}{
+		{name: "zero"},
+		{name: "client_calculated", duration: 17, latency: 99},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			report, ok := normalizeSessionMetric(&gen.SessionMetric{
+				SessionId:        "session-a",
+				StartTime:        1_780_000_000,
+				Timestamp:        1_780_000_042,
+				PlayDuration:     test.duration,
+				TotalLinkLatency: test.latency,
+				LinkHops: []*gen.LinkHop{
+					{NodeId: "origin-node", Latency: 10},
+					{NodeId: "edge-node", Latency: 18},
+				},
+			})
+			if !ok {
+				t.Fatal("expected session metric to normalize")
+			}
+			if report.playDuration != test.duration || report.totalLinkLatency != test.latency {
+				t.Fatalf("expected reported duration %d and latency %d rather than elapsed 42 or hop sum 28, got %#v", test.duration, test.latency, report)
+			}
+			var hops []linkHopReportItem
+			if err := json.Unmarshal([]byte(report.linkHops), &hops); err != nil {
+				t.Fatalf("decode link hops: %v", err)
+			}
+			if len(hops) != 2 || hops[0].HopIndex != 1 || hops[1].HopIndex != 2 ||
+				hops[0].LatencyMs != 10 || hops[1].LatencyMs != 18 {
+				t.Fatalf("unexpected dashboard hop shape: %#v", hops)
+			}
+		})
 	}
 }
 

@@ -132,6 +132,13 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("handle machine metric: %v", err)
 	}
+	var firstInstance *entity.MediaReportInstance
+	if err := dao.MediaReportInstance.Ctx(ctx).Where(dao.MediaReportInstance.Columns().InstanceId, instanceID).Scan(&firstInstance); err != nil {
+		t.Fatalf("query first machine report: %v", err)
+	}
+	if firstInstance == nil || firstInstance.CpuLoad != 31.5 {
+		t.Fatalf("expected reported CPU usage 31.5 without core conversion, got %#v", firstInstance)
+	}
 	if err := writer.HandleMachineMetric(ctx, &gen.MachineMetric{
 		InstanceId:     instanceID,
 		InstanceName:   "media-server-a",
@@ -180,7 +187,8 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		Height:                720,
 		Fps:                   25,
 		PacketLoss:            0.01,
-		Duration:              180,
+		StartTime:             reportTime - 180,
+		Duration:              17,
 		AvgDelay:              41,
 		CurrentActiveSessions: 5,
 		TotalSessionsLifetime: 10,
@@ -201,8 +209,8 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		ClientType:       "web",
 		UserName:         "alice",
 		Protocol:         gen.StreamProtocol_SP_HLS,
-		StartTime:        reportTime,
-		PlayDuration:     60,
+		StartTime:        reportTime - 60,
+		PlayDuration:     0,
 		CurrentFps:       25,
 		CurrentBitrate:   2048,
 		CurrentWidth:     1280,
@@ -213,7 +221,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		InstanceId:       instanceID,
 		InstanceName:     "media-server-a",
 		LinkHops:         []*gen.LinkHop{{HopId: "hop-a", NodeId: nodeID, NodeName: "edge-a", Latency: 12}},
-		TotalLinkLatency: 12,
+		TotalLinkLatency: 0,
 		Timestamp:        reportTime,
 	}); err != nil {
 		t.Fatalf("handle session metric: %v", err)
@@ -226,7 +234,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if node == nil {
 		t.Fatal("expected node report row")
 	}
-	if node.NetworkOut != 3 || node.AvgDelay != 33 {
+	if node.NetworkOut != 24576 || node.AvgDelay != 33 {
 		t.Fatalf("expected network projection update, got networkOut=%f avgDelay=%d", node.NetworkOut, node.AvgDelay)
 	}
 	if node.NodeLatencyMap == "" {
@@ -240,7 +248,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if instance == nil {
 		t.Fatal("expected instance report row")
 	}
-	if instance.NodeId != nodeID || instance.CpuLoad != 2.6 || instance.CpuAllocated != 8 {
+	if instance.NodeId != nodeID || instance.CpuLoad != 32.5 || instance.CpuAllocated != 8 {
 		t.Fatalf("unexpected replayed instance resource projection: %#v", instance)
 	}
 	if instance.MemoryAllocated != 12.5 || instance.MemoryUsed != 3.25 ||
@@ -263,6 +271,9 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		stream.ProtocolType != "HLS" || stream.Resolution != "1280x720" || stream.Status != string(reportStreamStatusRunning) {
 		t.Fatalf("unexpected stream projection: %#v", stream)
 	}
+	if stream.Duration != 17 {
+		t.Fatalf("expected reported duration 17 rather than elapsed 180, got %#v", stream)
+	}
 	if stream.ProtocolCount != 1 || stream.CurrentActiveSessions != 5 || stream.TotalSessionsLifetime != 10 ||
 		!stream.WatermarkEnabled || stream.ProtocolSummary == "" {
 		t.Fatalf("unexpected stream protocol projection: %#v", stream)
@@ -276,8 +287,11 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		t.Fatal("expected session report row")
 	}
 	if session.StreamId != streamID || session.TenantId != tenantID || session.DeviceId != deviceID || session.InstanceId != instanceID ||
-		session.ProtocolType != "HLS" || session.ClientType != int(sessionClientTypePC) || session.TotalLinkLatency != 12 {
+		session.ProtocolType != "HLS" || session.ClientType != int(sessionClientTypePC) {
 		t.Fatalf("unexpected session projection: %#v", session)
+	}
+	if session.PlayDuration != 0 || session.TotalLinkLatency != 0 {
+		t.Fatalf("expected reported zero duration and latency rather than elapsed 60 or hop sum 12, got %#v", session)
 	}
 	if session.LinkHops == "" {
 		t.Fatal("expected session link hops")
@@ -357,7 +371,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 	if err := dao.MediaReportInstance.Ctx(ctx).Where(dao.MediaReportInstance.Columns().InstanceId, instanceID).Scan(&counted); err != nil {
 		t.Fatalf("query counted instance after machine metric: %v", err)
 	}
-	if counted.CpuLoad != 2.68 || counted.LiveStreams != 0 || counted.Sessions != 0 {
+	if counted.CpuLoad != 33.5 || counted.LiveStreams != 0 || counted.Sessions != 0 {
 		t.Fatalf("expected machine metric not to overwrite counters, got %#v", counted)
 	}
 }

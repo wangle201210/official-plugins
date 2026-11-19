@@ -51,7 +51,7 @@
 `GET /api/v1/media/dashboard/nodes/overview?rootNodeId=<nodeId>`返回指定节点子树，沿用既有管理端认证和`media:management:query`权限。每个节点包含：
 
 - `network_links`：按来源`machine_id`、`source_ip`和`destination_ip`区分的最新原始探测数据。每项包含毫秒单位的`rtt`和`jitter`、`0～1`比例的`packet_loss`、`status_code`、可空的`reachable`及`Unix`毫秒时间戳`report_time`。当前`net-flux`探测器的`packet_loss`实际表示`HTTP`探测失败比例。`extra.reachable`缺省或非法时保留为`null`，失败固定值按原值返回。
-- `instance_resources`：当前节点直属实例的资源汇总，包括实例数量、分配和已用`CPU`核数、`MB`单位的内存及`KB/s`单位的磁盘速率及`Kbps`单位的网络速率，不包含子节点。既有顶层资源字段继续表示子树汇总。新的机器上报将`CPU`使用率百分比转换为已用核数，既有样本在下一次上报时刷新。
+- `instance_resources`：当前节点直属实例的资源汇总，包括实例数量、分配`CPU`核数、上报`CPU`百分比数值合计、`MB`单位的内存及`KB/s`单位的磁盘和网络速率，不包含子节点。既有顶层资源字段继续表示子树汇总。`CPU`百分比原值保存，汇总只累加上报数值，不换算已用核数或计算加权总体利用率；既有样本在下一次上报时刷新。
 - `network_links_limited`：仅响应根节点表示子树的原始链路明细是否超过共享的`10000`条上限，子节点为`false`。链路按所选子树通过一次数据库查询加载，资源复用已有实例分组聚合查询。
 
 `node_latency_map`继续提供目的地址到延迟的摘要，键是上报的`destination_ip`，不是节点`ID`。接口不计算质量评分、质量分级、候选路径排名或综合负载百分比。没有链路时返回空数组，没有直属实例时返回各字段为零的资源对象。
@@ -60,9 +60,11 @@
 
 部署本功能前需执行当前迭代的`manifest/sql/003-add-media-data-collection-server.sql`，幂等创建最新探测表`plugin_media_report_network_link`。新链路明细在后续网络上报后产生，旧的纯延迟记录无法恢复丢包率和抖动。
 
-节点总览（含所有子节点和`instance_resources`）及实例列表`GET /api/v1/media/dashboard/instances`的`network_in/network_out`均以`Kbps`返回，`1000 bps = 1 Kbps`。采集端按`v0.0.25`上报的`KB/s`数值原值入库，上游使用`1024`字节进制，实际为`KiB/s`；接口仅在输出时乘以`1024 × 8 ÷ 1000`。例如上报并保存`976.5625 KB/s`，不计既有存储舍入时展示字段返回`8000 Kbps`。内存`MB`和磁盘速率`KB/s`不再转换单位，直接保存和返回。既有数值列的存储舍入精度保持不变，旧投影在下次上报时刷新，不批量改写历史记录。
+节点总览（含所有子节点和`instance_resources`）及实例列表`GET /api/v1/media/dashboard/instances`直接返回已保存的资源数值，不换算单位。标准`v0.0.25`机器上报的内存为`MB`，磁盘和网络速率为`KB/s`；例如网络上报并保存`976.56`，接口返回仍为`976.56`，不转换为千比特。`CPU`使用率保留上报百分比。既有数值列的存储舍入精度保持不变，旧投影在下次上报时刷新，不批量改写历史记录。
 
-采集服务使用`net-flux v0.0.25`。导入路径仍保留其声明的`github.com/dellinger2023/net-flux`模块名，通过`replace`从迁移后的`github.com/dellinger2026/net-flux v0.0.25`获取源码。相较`v0.0.21`，内存、磁盘速率、磁盘耗时和网络速率字段的协议类型从整数改为浮点数，客户端和服务端必须配套升级。`memory_allocated`、`memory_used`、`disk_io_read`、`disk_io_write`、`network_in`和`network_out`六个资源投影按上报数字直接入库，写入时不再次除以`1024`、`1000`或`8`。独立的节点级可选吞吐量扩展字段仍按其`bps`约定换算为`KiB/s`，保证节点兜底值和实例聚合单位一致；此元数据换算不改变六项机器资源字段原值入库。
+采集服务使用`net-flux v0.0.25`。导入路径仍保留其声明的`github.com/dellinger2023/net-flux`模块名，通过`replace`从迁移后的`github.com/dellinger2026/net-flux v0.0.25`获取源码。相较`v0.0.21`，内存、磁盘速率、磁盘耗时和网络速率字段的协议类型从整数改为浮点数，客户端和服务端必须配套升级。`memory_allocated`、`memory_used`、`disk_io_read`、`disk_io_write`、`network_in`和`network_out`六个资源投影按上报数字直接入库，写入时不再次除以`1024`、`1000`或`8`。节点级可选吞吐量扩展字段也只解析数字后原值保存，即使已有键名包含单位后缀也不据此转换；上报端负责与标准机器资源指标保持一致单位。
+
+流时长、会话播放时长和链路总延迟同样原值存取，包括零值。列表和拓扑查询不再用当前时间计算时长或用跳点延迟之和覆盖客户端数值。时间戳序列化、生命周期计数以及既有节点和协议汇总保持各自职责。
 
 ## 完整最新上报
 

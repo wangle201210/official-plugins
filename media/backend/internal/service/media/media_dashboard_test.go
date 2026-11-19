@@ -275,10 +275,10 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if len(streams.List[0].ProtocolSummary) != 2 || streams.List[0].ProtocolSummary[0].ProtocolType != "HLS" {
 		t.Fatalf("expected decoded protocol summary, got %#v", streams.List[0].ProtocolSummary)
 	}
-	if streams.List[0].Duration < 1200 || streams.List[0].Duration > 1230 ||
+	if streams.List[0].Duration != 0 ||
 		streams.List[0].ProtocolCount != 2 ||
 		streams.List[0].CurrentActiveSessions != 3 || streams.List[0].TotalSessionsLifetime != 30 {
-		t.Fatalf("expected stream computed fields from start time, sessions and protocol summary, got %#v", streams.List[0])
+		t.Fatalf("expected reported zero duration and aggregated session/protocol counts, got %#v", streams.List[0])
 	}
 	if streams.List[0].ProtocolSummary[0].CurrentSessions != 2 || streams.List[0].ProtocolSummary[1].CurrentSessions != 1 {
 		t.Fatalf("expected protocol current sessions from active session rows, got %#v", streams.List[0].ProtocolSummary)
@@ -310,8 +310,8 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("list paused streams: %v", err)
 	}
 	assertDashboardStreamIDs(t, pausedStreams.List, "stream-b")
-	if pausedStreams.List[0].Duration != 600 {
-		t.Fatalf("expected closed stream duration from close_time, got %#v", pausedStreams.List[0])
+	if pausedStreams.List[0].Duration != 120 {
+		t.Fatalf("expected reported closed stream duration rather than close_time difference, got %#v", pausedStreams.List[0])
 	}
 
 	sessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{
@@ -387,10 +387,9 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	if sessions.Protocols[0].Sessions[0].DeviceId != "device-a" {
 		t.Fatalf("expected session device id, got %#v", sessions.Protocols[0].Sessions[0])
 	}
-	if sessions.Protocols[0].Sessions[0].PlayDuration < 1200 ||
-		sessions.Protocols[0].Sessions[0].PlayDuration > 1230 ||
-		sessions.Protocols[0].Sessions[0].TotalLinkLatency != 12 {
-		t.Fatalf("expected session computed duration and link latency, got %#v", sessions.Protocols[0].Sessions[0])
+	if sessions.Protocols[0].Sessions[0].PlayDuration != 0 ||
+		sessions.Protocols[0].Sessions[0].TotalLinkLatency != 999 {
+		t.Fatalf("expected reported zero session duration and total latency rather than timestamp or hop calculations, got %#v", sessions.Protocols[0].Sessions[0])
 	}
 }
 
@@ -478,7 +477,7 @@ func TestDashboardTopologyAggregatesGatewayPage(t *testing.T) {
 	if user.SessionId != "session-a" || user.UserName != "viewer-a" || user.ClientId != "client-a" ||
 		user.ClientIp != "192.0.2.11" || user.ClientType != int(SessionClientTypePC) ||
 		user.ProtocolType != "HLS" || user.TenantId != "tenant-a" || user.NodeId != "node-a" ||
-		user.InstanceId != "inst-a" || user.StartTime == nil || user.PlayDuration < 1200 {
+		user.InstanceId != "inst-a" || user.StartTime == nil || user.PlayDuration != 0 {
 		t.Fatalf("expected user fields from the session projection, got %#v", user)
 	}
 
@@ -580,26 +579,49 @@ func TestBuildDashboardStreamItemClearsStaleActiveCounts(t *testing.T) {
 	}
 }
 
-// TestDashboardElapsedSecondsFallsBackToReportedDuration verifies dashboard durations survive timestamp timezone skew.
-func TestDashboardElapsedSecondsFallsBackToReportedDuration(t *testing.T) {
-	futureStartTime := gtime.NewFromTime(time.Now().Add(time.Hour))
-
-	stream, err := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
-		StreamId:  "stream-a",
-		StartTime: futureStartTime,
-		Duration:  60,
-	}, dashboardStreamActiveSessionCounts{})
-	if err != nil || stream.Duration != 60 {
-		t.Fatalf("expected stream explicit duration fallback, got %#v err=%v", stream, err)
-	}
-
-	session, err := buildDashboardSessionItem(&dashboardSessionEntity{
-		SessionId:    "session-a",
-		StartTime:    futureStartTime,
-		PlayDuration: 60,
-	})
-	if err != nil || session.PlayDuration != 60 {
-		t.Fatalf("expected session explicit duration fallback, got %#v err=%v", session, err)
+// TestDashboardPreservesClientMeasurements verifies reported durations and total latency survive unrelated timestamps and hop details.
+func TestDashboardPreservesClientMeasurements(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		duration int
+		latency  int
+	}{
+		{name: "zero"},
+		{name: "client_calculated", duration: 17, latency: 99},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var (
+				startTime = gtime.NewFromTime(time.Unix(1_780_000_000, 0))
+				closeTime = gtime.NewFromTime(time.Unix(1_780_000_185, 0))
+				session   = &dashboardSessionEntity{
+					SessionId:        "session-a",
+					StartTime:        startTime,
+					CloseTime:        closeTime,
+					PlayDuration:     test.duration,
+					TotalLinkLatency: test.latency,
+					LinkHops:         `[{"hop_index":1,"node_id":"node-a","latency_ms":10},{"hop_index":2,"node_id":"node-b","latency_ms":18}]`,
+				}
+			)
+			stream, err := buildDashboardStreamItemWithCounts(&dashboardStreamEntity{
+				StreamId:  "stream-a",
+				StartTime: startTime,
+				CloseTime: closeTime,
+				Duration:  test.duration,
+			}, dashboardStreamActiveSessionCounts{})
+			if err != nil || stream.Duration != test.duration {
+				t.Fatalf("expected reported stream duration %d rather than elapsed 185, got %#v err=%v", test.duration, stream, err)
+			}
+			item, err := buildDashboardSessionItem(session)
+			if err != nil || item.PlayDuration != test.duration || item.TotalLinkLatency != test.latency {
+				t.Fatalf("expected reported session duration %d and latency %d rather than elapsed 185 or hop sum 28, got %#v err=%v", test.duration, test.latency, item, err)
+			}
+			if len(item.LinkHops) != 2 || item.LinkHops[0].LatencyMs != 10 || item.LinkHops[1].LatencyMs != 18 {
+				t.Fatalf("expected original hop details, got %#v", item.LinkHops)
+			}
+			if user := buildDashboardTopologyUser(session); user.PlayDuration != test.duration {
+				t.Fatalf("expected topology reported duration %d rather than elapsed 185, got %#v", test.duration, user)
+			}
+		})
 	}
 }
 

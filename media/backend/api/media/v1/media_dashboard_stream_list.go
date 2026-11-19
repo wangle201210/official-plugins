@@ -36,7 +36,7 @@ type DashboardStreamItem struct {
 	PacketLoss            float64                  `json:"packet_loss" dc:"源流丢包率" eg:"0.12"`
 	Status                string                   `json:"status" dc:"最新存储状态；采集标准值：universal未知或未指定、running运行中、inactive非活动、error异常、closed已关闭、timeout超时、cancelled已取消、failed失败。summary要求此字段为running且流未关闭" eg:"running"`
 	StartTime             *int64                   `json:"start_time" dc:"流开始时间，Unix timestamp in milliseconds" eg:"1716187200000"`
-	Duration              int                      `json:"duration" dc:"流持续时长，单位秒；优先按启动至关闭时间计算，未关闭时计算至当前时间，无法计算时回退为上报时长" eg:"7200"`
+	Duration              int                      `json:"duration" dc:"流持续时长，单位秒" eg:"7200"`
 	AvgDelay              int                      `json:"avg_delay" dc:"源流延迟，单位毫秒" eg:"220"`
 	ProtocolCount         int                      `json:"protocol_count" dc:"合并上报摘要与当前未关闭会话后的非空协议种类数；无可用摘要时回退流上报值" eg:"2"`
 	TotalSessionsLifetime int64                    `json:"total_sessions_lifetime" dc:"累计会话数，来自上报摘要或流投影；不是当前活跃会话数，不受列表上限影响" eg:"1250"`

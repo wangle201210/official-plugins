@@ -24,13 +24,13 @@ type DashboardNodeOverviewItem struct {
 	TotalNodes          int                          `json:"total_nodes" dc:"总节点数" eg:"8"`
 	AliveNodes          int                          `json:"alive_nodes" dc:"存活节点数" eg:"7"`
 	CpuAllocated        float64                      `json:"cpu_allocated" dc:"当前节点CPU分配核数，单位核" eg:"64"`
-	CpuLoad             float64                      `json:"cpu_load" dc:"当前节点CPU负载，单位核" eg:"42.5"`
+	CpuLoad             float64                      `json:"cpu_load" dc:"当前节点CPU使用率合计，单位%" eg:"42.5"`
 	MemoryAllocated     float64                      `json:"memory_allocated" dc:"当前节点内存分配量，单位MB" eg:"262144"`
 	MemoryUsed          float64                      `json:"memory_used" dc:"当前节点内存使用量，单位MB" eg:"186675.2"`
 	DiskIoRead          float64                      `json:"disk_io_read" dc:"当前节点磁盘读速率，单位KB/S" eg:"120"`
 	DiskIoWrite         float64                      `json:"disk_io_write" dc:"当前节点磁盘写速率，单位KB/S" eg:"80"`
-	NetworkIn           float64                      `json:"network_in" dc:"当前节点网络入站速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"8000"`
-	NetworkOut          float64                      `json:"network_out" dc:"当前节点网络出站速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"16000"`
+	NetworkIn           float64                      `json:"network_in" dc:"当前节点网络入站速率，单位KB/s" eg:"8000"`
+	NetworkOut          float64                      `json:"network_out" dc:"当前节点网络出站速率，单位KB/s" eg:"16000"`
 	LiveStreams         int                          `json:"live_streams" dc:"当前节点全局存活直播流数" eg:"156"`
 	Sessions            int                          `json:"sessions" dc:"当前节点全局会话数" eg:"2340"`
 	AvgDelay            int                          `json:"avg_delay" dc:"当前节点全局平均流延迟，单位毫秒" eg:"280"`
@@ -47,13 +47,13 @@ type DashboardNodeOverviewItem struct {
 type DashboardNodeResources struct {
 	InstanceCount   int     `json:"instance_count" dc:"当前节点直属实例数量" eg:"2"`
 	CpuAllocated    float64 `json:"cpu_allocated" dc:"直属实例CPU分配总核数" eg:"8"`
-	CpuLoad         float64 `json:"cpu_load" dc:"直属实例CPU已用总核数" eg:"2.5"`
+	CpuLoad         float64 `json:"cpu_load" dc:"直属实例CPU使用率合计，单位%" eg:"2.5"`
 	MemoryAllocated float64 `json:"memory_allocated" dc:"直属实例已分配内存总量，单位MB" eg:"8192"`
 	MemoryUsed      float64 `json:"memory_used" dc:"直属实例已用内存总量，单位MB" eg:"4096"`
 	DiskIoRead      float64 `json:"disk_io_read" dc:"直属实例磁盘读取总速率，单位KB/S" eg:"120"`
 	DiskIoWrite     float64 `json:"disk_io_write" dc:"直属实例磁盘写入总速率，单位KB/S" eg:"80"`
-	NetworkIn       float64 `json:"network_in" dc:"直属实例网络入站总速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"8000"`
-	NetworkOut      float64 `json:"network_out" dc:"直属实例网络出站总速率，单位Kbps（千比特/秒），1000 bps = 1 Kbps" eg:"16000"`
+	NetworkIn       float64 `json:"network_in" dc:"直属实例网络入站总速率，单位KB/s" eg:"8000"`
+	NetworkOut      float64 `json:"network_out" dc:"直属实例网络出站总速率，单位KB/s" eg:"16000"`
 }
 
 // DashboardNetworkLink exposes one latest source-instance-to-destination probe without scoring.

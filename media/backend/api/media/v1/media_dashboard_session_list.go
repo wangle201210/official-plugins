@@ -48,7 +48,7 @@ type DashboardSessionItem struct {
 	UserName          string                  `json:"user_name" dc:"拉流用户" eg:"张三"`
 	ProtocolType      string                  `json:"protocol_type" dc:"播放协议存储字符串；采集标准值：UNIVERSAL未知、RTMP、RTSP、HLS、HTTP_FLV、WS_FLV、HTTPS_FLV、WSS_FLV、GB28181" eg:"RTMP"`
 	StartTime         *int64                  `json:"start_time" dc:"会话开始时间，Unix timestamp in milliseconds" eg:"1716191400000"`
-	PlayDuration      int                     `json:"play_duration" dc:"会话持续时长，单位秒；优先根据开始时间计算至当前时间，无法计算时回退为上报时长；不等同于连续有画面的时长" eg:"1860"`
+	PlayDuration      int                     `json:"play_duration" dc:"会话播放时长，单位秒" eg:"1860"`
 	CurrentFps        float64                 `json:"current_fps" dc:"当前fps" eg:"25"`
 	CurrentBitrate    int                     `json:"current_bitrate" dc:"当前码率，单位kbps" eg:"2500"`
 	CurrentResolution string                  `json:"current_resolution" dc:"当前分辨率" eg:"854x480"`

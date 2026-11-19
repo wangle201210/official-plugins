@@ -513,7 +513,7 @@ func buildDashboardTopologyUser(session *dashboardSessionEntity) *DashboardTopol
 		NodeId:       session.NodeId,
 		InstanceId:   session.InstanceId,
 		StartTime:    formatTime(session.StartTime),
-		PlayDuration: dashboardElapsedSeconds(session.StartTime, session.CloseTime, session.PlayDuration),
+		PlayDuration: session.PlayDuration,
 	}
 }
 
