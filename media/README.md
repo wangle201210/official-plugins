@@ -68,6 +68,8 @@ Stream duration and total link latency are stored and returned as reported, incl
 
 ## Complete latest reports
 
+With `DEBUG` logging enabled, the collector logs every incoming machine, network, stream and session report before validation or processing, including add, status and delete events. Search for `media collection data report`: each entry includes `subcmd`, the packet type and the complete protobuf JSON payload, with default values (including zero `start_time`), numeric enums, full `extra` maps and nested hops. Existing `INFO` summaries remain unchanged. When `DEBUG` is disabled, logging skips payload serialization; encoding failures produce a diagnostic without blocking report handling.
+
 The collector preserves each valid object's complete latest known protobuf report in the nullable `report_payload` JSON column. PostgreSQL `JSON` is used because it preserves escaped `U+0000` in original extension strings, which `JSONB` rejects:
 
 | Report | Table |

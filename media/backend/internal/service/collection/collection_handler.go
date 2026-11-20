@@ -8,6 +8,7 @@ import (
 
 	"github.com/dellinger2023/net-flux/gen"
 	"github.com/dellinger2023/net-flux/pkg/network"
+	"github.com/gogf/gf/v2/os/glog"
 	"google.golang.org/protobuf/proto"
 
 	"lina-core/pkg/logger"
@@ -112,6 +113,7 @@ func (h *eventHandler) OnCmdDiscovery(conn network.TCPConn, pkt proto.Message) e
 // OnCmdDataReport accepts metric reports from net-flux clients.
 func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt proto.Message) error {
 	ctx := h.context()
+	debugCollectionReport(ctx, subcmd, pkt)
 	switch pkt := pkt.(type) {
 	case *gen.MachineMetric:
 		logger.Infof(
@@ -180,6 +182,20 @@ func (h *eventHandler) OnCmdDataReport(_ network.TCPConn, subcmd uint8, pkt prot
 		logger.Infof(ctx, "media collection data report ignored packet=%T", pkt)
 	}
 	return nil
+}
+
+// debugCollectionReport logs complete reports before validation or normalization.
+// Disabled DEBUG logging skips serialization; encoding failures never block reports.
+func debugCollectionReport(ctx context.Context, subcmd uint8, pkt proto.Message) {
+	if logger.Logger().GetLevel()&glog.LEVEL_DEBU == 0 {
+		return
+	}
+	payload, err := encodeReportPayload(pkt)
+	if err != nil {
+		logger.Debugf(ctx, "media collection data report subcmd=%d packet=%T payload=%+v encodeError=%v", subcmd, pkt, pkt, err)
+		return
+	}
+	logger.Debugf(ctx, "media collection data report subcmd=%d packet=%T payload=%s", subcmd, pkt, payload)
 }
 
 // OnCmdConfig accepts config notifications without applying local state changes.

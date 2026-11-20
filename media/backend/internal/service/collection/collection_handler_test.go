@@ -3,17 +3,23 @@
 package collection
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/dellinger2023/net-flux/gen"
 	"github.com/dellinger2023/net-flux/pkg/naming"
 	"github.com/dellinger2023/net-flux/pkg/network"
+	"github.com/gogf/gf/v2/os/glog"
 	"google.golang.org/protobuf/proto"
+
+	"lina-core/pkg/logger"
 )
 
 // TestEventHandlerRespondsToPing verifies system ping packets receive pong responses.
@@ -67,6 +73,161 @@ func TestEventHandlerAcceptsMetrics(t *testing.T) {
 	if reports.sessionCount != 1 {
 		t.Fatalf("expected one session metric write, got %d", reports.sessionCount)
 	}
+}
+
+// TestEventHandlerDebugLogsCompleteReportsBeforeHandling verifies full reports and existing INFO summaries precede business handling.
+func TestEventHandlerDebugLogsCompleteReportsBeforeHandling(t *testing.T) {
+	var (
+		fixture       = newReportPayloadFixture("debug-report")
+		longExtra     = strings.Repeat("原始扩展", 2048)
+		sessionStatus = proto.Clone(fixture.session).(*gen.SessionMetric)
+	)
+	fixture.session.Extra["long"] = longExtra
+	sessionStatus.StartTime = 0
+	for _, test := range []struct {
+		name   string
+		cmd    gen.SCMDDataReport
+		packet proto.Message
+		info   string
+	}{
+		{name: "machine", cmd: gen.SCMDDataReport_MACHINE_METRIC, packet: fixture.machine, info: "media collection instance metric"},
+		{name: "network", cmd: gen.SCMDDataReport_NETWORK_METRIC, packet: fixture.network, info: "media collection network metric"},
+		{name: "stream_add", cmd: gen.SCMDDataReport_STREAM_ADD, packet: fixture.stream, info: "media collection stream metric"},
+		{name: "stream_status", cmd: gen.SCMDDataReport_STREAM_STATUS, packet: fixture.stream, info: "media collection stream metric"},
+		{name: "stream_delete", cmd: gen.SCMDDataReport_STREAM_DELETE, packet: &gen.StreamMetric{StreamId: "deleted-stream"}, info: "media collection stream metric"},
+		{name: "session_add", cmd: gen.SCMDDataReport_SESSION_ADD, packet: fixture.session, info: "media collection session metric"},
+		{name: "session_status_zero_start", cmd: gen.SCMDDataReport_SESSION_STATUS, packet: sessionStatus, info: "media collection session metric"},
+		{name: "session_delete", cmd: gen.SCMDDataReport_SESSION_DELETE, packet: &gen.SessionMetric{SessionId: "deleted-session"}, info: "media collection session metric"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var (
+				output   = captureCollectionHandlerLogs(t, glog.LEVEL_ALL)
+				ctx      = t.Context()
+				original = proto.Clone(test.packet)
+				calls    int
+			)
+			reports := &fakeReportWriter{onMetric: func(gotCtx context.Context, subcmd uint8, packet proto.Message) error {
+				calls++
+				if gotCtx != ctx || subcmd != uint8(test.cmd) || packet != test.packet {
+					t.Fatalf("report context, command or packet changed before dispatch: cmd=%d packet=%T", subcmd, packet)
+				}
+				assertCollectionHandlerDebugPayload(t, output.String(), subcmd, packet, test.info)
+				return nil
+			}}
+			handler := newEventHandler(ctx, nil, reports)
+			if err := handler.OnCmdDataReport(&recordingConn{}, uint8(test.cmd), test.packet); err != nil {
+				t.Fatalf("handle report: %v", err)
+			}
+			if calls != 1 || !proto.Equal(test.packet, original) {
+				t.Fatalf("expected one unchanged business report, calls=%d packet=%v", calls, test.packet)
+			}
+		})
+	}
+}
+
+// TestEventHandlerDebugLogsUnknownReports verifies logging also runs before the unsupported-packet branch.
+func TestEventHandlerDebugLogsUnknownReports(t *testing.T) {
+	var (
+		output = captureCollectionHandlerLogs(t, glog.LEVEL_ALL)
+		packet = &gen.Ping{Timestamp: 9_007_199_254_740_993}
+	)
+	if err := newEventHandler(t.Context(), nil, nil).OnCmdDataReport(&recordingConn{}, 255, packet); err != nil {
+		t.Fatalf("handle unknown report: %v", err)
+	}
+	assertCollectionHandlerDebugPayload(t, output.String(), 255, packet, "media collection data report ignored packet=")
+}
+
+// TestEventHandlerDebugDisabledKeepsInfoAndDispatch verifies DEBUG gating preserves existing INFO and business handling.
+func TestEventHandlerDebugDisabledKeepsInfoAndDispatch(t *testing.T) {
+	var (
+		output = captureCollectionHandlerLogs(t, glog.LEVEL_INFO)
+		packet = &gen.SessionMetric{SessionId: "debug-disabled-session", Extra: map[string]string{"invalid": "\xff"}}
+		calls  int
+	)
+	reports := &fakeReportWriter{onMetric: func(_ context.Context, _ uint8, got proto.Message) error {
+		calls++
+		if got != packet || !strings.Contains(output.String(), "[INFO]") ||
+			!strings.Contains(output.String(), "media collection session metric") {
+			t.Fatalf("INFO summary or unchanged business report missing: %s", output.String())
+		}
+		if strings.Contains(output.String(), "media collection data report subcmd=") || strings.Contains(output.String(), "encodeError=") {
+			t.Fatalf("DEBUG data leaked while disabled: %s", output.String())
+		}
+		return nil
+	}}
+	if err := newEventHandler(t.Context(), nil, reports).OnCmdDataReport(&recordingConn{}, uint8(gen.SCMDDataReport_SESSION_STATUS), packet); err != nil || calls != 1 {
+		t.Fatalf("expected unchanged successful dispatch, calls=%d err=%v", calls, err)
+	}
+}
+
+// TestEventHandlerDebugEncodingFailureStillDispatches verifies serialization diagnostics never replace a business result.
+func TestEventHandlerDebugEncodingFailureStillDispatches(t *testing.T) {
+	var (
+		output      = captureCollectionHandlerLogs(t, glog.LEVEL_ALL)
+		packet      = &gen.SessionMetric{SessionId: "encoding-failed-session", Extra: map[string]string{"invalid": "\xff"}}
+		businessErr = errors.New("report writer failed")
+		calls       int
+	)
+	reports := &fakeReportWriter{onMetric: func(_ context.Context, subcmd uint8, got proto.Message) error {
+		calls++
+		text := output.String()
+		if got != packet || subcmd != uint8(gen.SCMDDataReport_SESSION_STATUS) ||
+			!strings.Contains(text, "[DEBU]") || !strings.Contains(text, "payload=") ||
+			!strings.Contains(text, "encoding-failed-session") || !strings.Contains(text, "encodeError=") ||
+			!strings.Contains(text, "media collection session metric") {
+			t.Fatalf("expected diagnostic and INFO before unchanged dispatch: %s", text)
+		}
+		return businessErr
+	}}
+	err := newEventHandler(t.Context(), nil, reports).OnCmdDataReport(&recordingConn{}, uint8(gen.SCMDDataReport_SESSION_STATUS), packet)
+	if !errors.Is(err, businessErr) || calls != 1 {
+		t.Fatalf("expected business error after DEBUG serialization failure, calls=%d err=%v", calls, err)
+	}
+}
+
+// captureCollectionHandlerLogs captures synchronous shared logs and restores the complete original logger configuration.
+func captureCollectionHandlerLogs(t *testing.T, level int) *bytes.Buffer {
+	t.Helper()
+	var (
+		sharedLogger = logger.Logger()
+		original     = sharedLogger.GetConfig()
+		config       = original
+		output       bytes.Buffer
+	)
+	t.Cleanup(func() {
+		if err := sharedLogger.SetConfig(original); err != nil {
+			t.Errorf("restore logger configuration: %v", err)
+		}
+	})
+	config.Writer = &output
+	config.Path = ""
+	config.Level = level
+	config.Flags &^= glog.F_ASYNC
+	config.StdoutPrint = false
+	config.HeaderPrint = true
+	config.LevelPrint = true
+	config.WriterColorEnable = false
+	config.LevelPrefixes = glog.DefaultConfig().LevelPrefixes
+	config.Handlers = nil
+	if err := sharedLogger.SetConfig(config); err != nil {
+		t.Fatalf("capture logger output: %v", err)
+	}
+	return &output
+}
+
+// assertCollectionHandlerDebugPayload checks complete typed JSON, defaults and precision before the original INFO summary.
+func assertCollectionHandlerDebugPayload(t *testing.T, output string, subcmd uint8, packet proto.Message, info string) {
+	t.Helper()
+	prefix := fmt.Sprintf("media collection data report subcmd=%d packet=%T payload=", subcmd, packet)
+	var (
+		debugAt = strings.Index(output, prefix)
+		infoAt  = strings.Index(output, info)
+	)
+	if debugAt < 0 || infoAt <= debugAt || !strings.Contains(output, "[DEBU]") || !strings.Contains(output, "[INFO]") {
+		t.Fatalf("expected DEBUG report before unchanged INFO summary: %s", output)
+	}
+	payload, _, _ := strings.Cut(output[debugAt+len(prefix):], "\n")
+	assertReportPayloadRoundTrip(t, payload, packet)
 }
 
 // TestEventHandlerRejectsDiscoveryWhenDisabled verifies discovery commands need explicit config.
@@ -336,29 +497,42 @@ type fakeReportWriter struct {
 	networkCount int
 	streamCount  int
 	sessionCount int
+	onMetric     func(context.Context, uint8, proto.Message) error // onMetric observes the packet at the business handling boundary.
 }
 
 // HandleMachineMetric records one instance metric carried by MachineMetric.
-func (w *fakeReportWriter) HandleMachineMetric(context.Context, *gen.MachineMetric) error {
+func (w *fakeReportWriter) HandleMachineMetric(ctx context.Context, packet *gen.MachineMetric) error {
 	w.machineCount++
+	if w.onMetric != nil {
+		return w.onMetric(ctx, uint8(gen.SCMDDataReport_MACHINE_METRIC), packet)
+	}
 	return nil
 }
 
 // HandleNetworkMetric records one network metric.
-func (w *fakeReportWriter) HandleNetworkMetric(context.Context, *gen.NetworkMetric) error {
+func (w *fakeReportWriter) HandleNetworkMetric(ctx context.Context, packet *gen.NetworkMetric) error {
 	w.networkCount++
+	if w.onMetric != nil {
+		return w.onMetric(ctx, uint8(gen.SCMDDataReport_NETWORK_METRIC), packet)
+	}
 	return nil
 }
 
 // HandleStreamMetric records one stream metric.
-func (w *fakeReportWriter) HandleStreamMetric(context.Context, uint8, *gen.StreamMetric) error {
+func (w *fakeReportWriter) HandleStreamMetric(ctx context.Context, subcmd uint8, packet *gen.StreamMetric) error {
 	w.streamCount++
+	if w.onMetric != nil {
+		return w.onMetric(ctx, subcmd, packet)
+	}
 	return nil
 }
 
 // HandleSessionMetric records one session metric.
-func (w *fakeReportWriter) HandleSessionMetric(context.Context, uint8, *gen.SessionMetric) error {
+func (w *fakeReportWriter) HandleSessionMetric(ctx context.Context, subcmd uint8, packet *gen.SessionMetric) error {
 	w.sessionCount++
+	if w.onMetric != nil {
+		return w.onMetric(ctx, subcmd, packet)
+	}
 	return nil
 }
 
