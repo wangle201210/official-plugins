@@ -391,6 +391,11 @@ func TestBuildDashboardReportPayloadSchemas(t *testing.T) {
 					continue
 				}
 				matches++
+				if typeName == "DashboardStreamItem" {
+					if nodeID, exists := schema.Properties["node_id"]; !exists || nodeID.Type != "string" {
+						t.Fatalf("%s node_id must document a string: exists=%v schema=%+v", name, exists, nodeID)
+					}
+				}
 				payload, exists := schema.Properties["report_payload"]
 				if !exists || payload.Type != "object" || !payload.Nullable || payload.Format == "byte" || payload.Format == "binary" {
 					t.Fatalf("%s report_payload must document a JSON object: exists=%v schema=%+v", name, exists, payload)

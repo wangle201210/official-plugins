@@ -270,6 +270,11 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("list streams: %v", err)
 	}
 	assertDashboardStreamIDs(t, streams.List, "stream-a", "stream-b")
+	for _, stream := range streams.List {
+		if stream.NodeId != "node-a" {
+			t.Fatalf("expected stream node id from report row, got %#v", stream)
+		}
+	}
 	if streams.List[0].DeviceId != "device-a" {
 		t.Fatalf("expected stream device id, got %#v", streams.List[0])
 	}
@@ -293,6 +298,9 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 		t.Fatalf("list instance streams: %v", err)
 	}
 	assertDashboardStreamIDs(t, instanceStreams.List, "stream-c")
+	if instanceStreams.SourceId != "inst-c" || instanceStreams.List[0].NodeId != "node-b" {
+		t.Fatalf("instance source id must remain distinct from stream node id: %#v", instanceStreams)
+	}
 
 	deviceStreams, err := svc.ListDashboardStreams(ctx, ListDashboardStreamsInput{
 		TenantId: "tenant-a",
@@ -422,6 +430,32 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	}
 	if !reflect.DeepEqual(storedSessionBefore, storedSessionAfter) || storedSessionAfter.PlayDuration != 0 {
 		t.Fatalf("dashboard reads changed the stored client report: before=%#v after=%#v", storedSessionBefore, storedSessionAfter)
+	}
+}
+
+// TestDashboardStreamsPreserveStoredNodeIDs keeps node identity independent of instance filters and raw payloads.
+func TestDashboardStreamsPreserveStoredNodeIDs(t *testing.T) {
+	ctx := t.Context()
+	setupMediaStrategySQLite(t, ctx)
+	setupMediaDashboardReportTables(t, ctx)
+	for index, nodeID := range []string{"node-a", "", "0"} {
+		insertDashboardReports(t, ctx, []any{do.MediaReportStream{
+			StreamId: fmt.Sprintf("stream-%d", index), NodeId: nodeID,
+			SourceType: "instance", InstanceId: "inst-a",
+			ReportPayload: `{"node_id":"payload-node"}`, ReportTime: 1,
+		}})
+	}
+	streams, err := newTestMediaService(t).ListDashboardStreams(ctx, ListDashboardStreamsInput{
+		SourceType: "instance", SourceId: "inst-a",
+	})
+	if err != nil {
+		t.Fatalf("list instance streams: %v", err)
+	}
+	assertDashboardStreamIDs(t, streams.List, "stream-0", "stream-1", "stream-2")
+	for index, want := range []string{"node-a", "", "0"} {
+		if item := streams.List[index]; item.NodeId != want || item.ReportPayload["node_id"] != "payload-node" {
+			t.Fatalf("stream node id must preserve stored string %q independently of payload and source: %#v", want, item)
+		}
 	}
 }
 

@@ -143,11 +143,18 @@ func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 	streamPayload := mustMarshalDashboardControllerShape(t, streams)
 	assertDashboardControllerExactKeys(t, streamPayload, "source_type", "source_id", "stream_list")
 	assertDashboardControllerMissingKey(t, streamPayload, "total")
-	if len(streams.StreamList) != 2 || len(streams.StreamList[0].ProtocolSummary) != 2 {
+	if len(streams.StreamList) != 3 || len(streams.StreamList[0].ProtocolSummary) != 2 {
 		t.Fatalf("unexpected stream response %#v", streams)
 	}
 	if streams.StreamList[0].DeviceId != "device-a" {
 		t.Fatalf("expected stream device id, got %#v", streams.StreamList[0])
+	}
+	for index, want := range []string{"node-a", "", "0"} {
+		item := mustMarshalDashboardControllerShape(t, streams.StreamList[index])
+		if got, exists := item["node_id"]; !exists || got != want {
+			t.Fatalf("stream %d must serialize node_id as string %q: %#v", index, want, item)
+		}
+		assertDashboardControllerMissingKey(t, item, "nodeId")
 	}
 
 	sessions, err := controller.ListDashboardSessions(ctx, &v1.ListDashboardSessionsReq{StreamId: "stream-a"})
@@ -293,6 +300,7 @@ func (s *dashboardControllerService) ListDashboardStreams(context.Context, media
 		List: []*mediasvc.DashboardStreamItem{
 			{
 				StreamId:              "stream-a",
+				NodeId:                "node-a",
 				StreamName:            "Camera A",
 				DeviceId:              "device-a",
 				SourceUrl:             "https://example.test/a.flv",
@@ -309,6 +317,7 @@ func (s *dashboardControllerService) ListDashboardStreams(context.Context, media
 				},
 			},
 			{StreamId: "stream-b", StreamName: "Camera B", DeviceId: "device-b", Status: "paused", ProtocolSummary: []*mediasvc.DashboardProtocolItem{}},
+			{StreamId: "stream-c", NodeId: "0"},
 		},
 	}, nil
 }

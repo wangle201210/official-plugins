@@ -345,6 +345,7 @@ func dashboardStreamToDTO(item *mediasvc.DashboardStreamItem) *v1.DashboardStrea
 		StreamId:              item.StreamId,
 		StreamName:            item.StreamName,
 		DeviceId:              item.DeviceId,
+		NodeId:                item.NodeId,
 		Resolution:            item.Resolution,
 		Fps:                   item.Fps,
 		Bitrate:               item.Bitrate,

@@ -153,6 +153,7 @@ type DashboardStreamItem struct {
 	StreamId              string
 	StreamName            string
 	DeviceId              string
+	NodeId                string
 	Resolution            string
 	Fps                   float64
 	Bitrate               int
@@ -803,6 +804,7 @@ func buildDashboardStreamItemWithCounts(
 		StreamId:              item.StreamId,
 		StreamName:            item.StreamName,
 		DeviceId:              item.DeviceId,
+		NodeId:                item.NodeId,
 		Resolution:            item.Resolution,
 		Fps:                   item.Fps,
 		Bitrate:               item.Bitrate,

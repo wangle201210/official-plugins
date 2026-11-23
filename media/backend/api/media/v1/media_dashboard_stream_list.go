@@ -30,6 +30,7 @@ type DashboardStreamItem struct {
 	StreamId              string                   `json:"stream_id" dc:"流唯一标识" eg:"stream12345"`
 	StreamName            string                   `json:"stream_name" dc:"流展示名称，优先使用上报stream_alias，缺省使用stream_id" eg:"XX摄像头流"`
 	DeviceId              string                   `json:"device_id" dc:"设备国标ID" eg:"34020000001320000001"`
+	NodeId                string                   `json:"node_id" dc:"流所属节点ID；未记录时为空字符串" eg:"node-01"`
 	Resolution            string                   `json:"resolution" dc:"原始分辨率" eg:"1920x1080"`
 	Fps                   float64                  `json:"fps" dc:"原始帧率" eg:"25"`
 	Bitrate               int                      `json:"bitrate" dc:"原始码率，单位kbps" eg:"4000"`
