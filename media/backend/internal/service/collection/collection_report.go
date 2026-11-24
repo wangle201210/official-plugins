@@ -42,10 +42,6 @@ const (
 	defaultReportParentNodeID = "0"
 	defaultReportJSONMap      = "{}"
 	defaultReportJSONArray    = "[]"
-
-	sessionClientTypeUnknown sessionClientType = 0
-	sessionClientTypeMobile  sessionClientType = 1
-	sessionClientTypePC      sessionClientType = 2
 )
 
 type (
@@ -54,7 +50,6 @@ type (
 	reportSourceType     string
 	reportStreamStatus   string
 	reportStreamProtocol string
-	sessionClientType    int
 )
 
 // networkReport carries one normalized node network projection update.
@@ -142,7 +137,7 @@ type sessionReport struct {
 	deviceID          string
 	clientID          string
 	clientIP          string
-	clientType        sessionClientType
+	clientType        string
 	userName          string
 	protocolType      string
 	startTime         *gtime.Time
@@ -396,7 +391,7 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		deviceID:          strings.TrimSpace(metric.GetDeviceId()),
 		clientID:          strings.TrimSpace(metric.GetClientId()),
 		clientIP:          strings.TrimSpace(metric.GetClientIp()),
-		clientType:        normalizeSessionClientType(metric.GetClientType()),
+		clientType:        metric.GetClientType(),
 		userName:          strings.TrimSpace(metric.GetUserName()),
 		protocolType:      string(normalizeStreamProtocol(metric.GetProtocol())),
 		startTime:         metricTimeOrReportTime(metric.GetStartTime(), reportTime),
@@ -412,18 +407,6 @@ func normalizeSessionMetric(metric *gen.SessionMetric) (sessionReport, bool) {
 		totalLinkLatency:  metric.GetTotalLinkLatency(),
 		reportTime:        reportTime,
 	}, true
-}
-
-// normalizeSessionClientType maps the protocol text field to the stored numeric enum.
-func normalizeSessionClientType(value string) sessionClientType {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "1", "mobile":
-		return sessionClientTypeMobile
-	case "2", "pc", "web":
-		return sessionClientTypePC
-	default:
-		return sessionClientTypeUnknown
-	}
 }
 
 // normalizeReportTime returns a non-zero report timestamp for storage.

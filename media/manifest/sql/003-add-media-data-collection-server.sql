@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS media_report_session (
     "device_id" VARCHAR(128) NOT NULL DEFAULT '',
     "client_id" VARCHAR(128) NOT NULL DEFAULT '',
     "client_ip" INET,
-    "client_type" INTEGER NOT NULL DEFAULT 0,
+    "client_type" TEXT NOT NULL DEFAULT '',
     "user_name" VARCHAR(128) NOT NULL DEFAULT '',
     "protocol_type" VARCHAR(32) NOT NULL DEFAULT '',
     "start_time" TIMESTAMP,
@@ -312,14 +312,10 @@ ALTER TABLE media_report_session
     ALTER COLUMN "client_type" DROP DEFAULT;
 
 ALTER TABLE media_report_session
-    ALTER COLUMN "client_type" TYPE INTEGER USING CASE
-        WHEN "client_type"::TEXT IN ('1', 'mobile') THEN 1
-        WHEN "client_type"::TEXT IN ('2', 'pc', 'web') THEN 2
-        ELSE 0
-    END;
+    ALTER COLUMN "client_type" TYPE TEXT USING "client_type"::TEXT;
 
 ALTER TABLE media_report_session
-    ALTER COLUMN "client_type" SET DEFAULT 0;
+    ALTER COLUMN "client_type" SET DEFAULT '';
 
 ALTER TABLE media_report_session
     ALTER COLUMN "client_type" SET NOT NULL;
@@ -362,7 +358,7 @@ COMMENT ON COLUMN media_report_session."tenant_id" IS '租户标识，用于数�
 COMMENT ON COLUMN media_report_session."device_id" IS '会话所属设备业务标识，用于设备维度统计';
 COMMENT ON COLUMN media_report_session."client_id" IS '客户端标识';
 COMMENT ON COLUMN media_report_session."client_ip" IS '客户端IP地址';
-COMMENT ON COLUMN media_report_session."client_type" IS '客户端类型枚举：1-mobile，2-pc，0-未知';
+COMMENT ON COLUMN media_report_session."client_type" IS '客户端类型字符串';
 COMMENT ON COLUMN media_report_session."user_name" IS '播放用户展示名称';
 COMMENT ON COLUMN media_report_session."protocol_type" IS '播放协议类型';
 COMMENT ON COLUMN media_report_session."start_time" IS '会话开始时间';

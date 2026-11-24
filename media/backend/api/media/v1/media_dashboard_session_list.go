@@ -43,7 +43,7 @@ type DashboardSessionItem struct {
 	DeviceId          string                  `json:"device_id" dc:"设备国标ID" eg:"34020000001320000001"`
 	ClientId          string                  `json:"client_id" dc:"客户端身份" eg:"user-88721"`
 	ClientIp          string                  `json:"client_ip" dc:"客户端IP" eg:"1.202.33.41"`
-	ClientType        int                     `json:"client_type" dc:"客户端类型枚举：1-mobile，2-pc，0-未知" eg:"1"`
+	ClientType        string                  `json:"client_type" dc:"客户端类型；未提供时为空字符串" eg:"mobile"`
 	TenantId          string                  `json:"tenant_id" dc:"拉流租户ID" eg:"12145"`
 	UserName          string                  `json:"user_name" dc:"拉流用户" eg:"张三"`
 	ProtocolType      string                  `json:"protocol_type" dc:"播放协议存储字符串；采集标准值：UNIVERSAL未知、RTMP、RTSP、HLS、HTTP_FLV、WS_FLV、HTTPS_FLV、WSS_FLV、GB28181" eg:"RTMP"`

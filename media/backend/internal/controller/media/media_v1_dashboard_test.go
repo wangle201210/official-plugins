@@ -82,6 +82,24 @@ func TestDashboardNetworkRatesPreserveReportedValues(t *testing.T) {
 	}
 }
 
+// TestDashboardClientTypesSerializeAsStrings verifies list and topology DTOs preserve reported client types.
+func TestDashboardClientTypesSerializeAsStrings(t *testing.T) {
+	for _, clientType := range []string{"", "0", "2", "mobile", "pc", "web", " Custom-CLIENT "} {
+		t.Run(clientType, func(t *testing.T) {
+			for _, item := range []any{
+				dashboardSessionToDTO(&mediasvc.DashboardSessionItem{ClientType: clientType}),
+				dashboardTopologyUsersToDTO([]*mediasvc.DashboardTopologyUser{{ClientType: clientType}})[0],
+			} {
+				payload := mustMarshalDashboardControllerShape(t, item)
+				if got, exists := payload["client_type"]; !exists || got != clientType {
+					t.Fatalf("%T must serialize client_type string %q unchanged: %#v", item, clientType, payload)
+				}
+				assertDashboardControllerMissingKey(t, payload, "clientType")
+			}
+		})
+	}
+}
+
 // TestDashboardControllerReturnsFrontendDataShape verifies dashboard controller projection with multi-row mocks.
 func TestDashboardControllerReturnsFrontendDataShape(t *testing.T) {
 	ctx := t.Context()
@@ -279,7 +297,7 @@ func (s *dashboardControllerService) GetDashboardTopology(context.Context, media
 										TenantId:           "tenant-a",
 										ConcurrentSessions: 2,
 										Users: []*mediasvc.DashboardTopologyUser{
-											{SessionId: "session-a", UserName: "viewer-a", ClientId: "client-a", ClientIp: "192.0.2.11", ClientType: 2, ProtocolType: "HLS", TenantId: "tenant-a", NodeId: "node-a", InstanceId: "inst-a", StartTime: &startTime, PlayDuration: 60},
+											{SessionId: "session-a", UserName: "viewer-a", ClientId: "client-a", ClientIp: "192.0.2.11", ClientType: "pc", ProtocolType: "HLS", TenantId: "tenant-a", NodeId: "node-a", InstanceId: "inst-a", StartTime: &startTime, PlayDuration: 60},
 										},
 									},
 								},

@@ -347,6 +347,9 @@ func TestDashboardQueriesReadReportProjections(t *testing.T) {
 	}
 	assertDashboardProtocolGroup(t, sessions.Protocols[0], "HLS", 2, "session-a", "session-b")
 	assertDashboardProtocolGroup(t, sessions.Protocols[1], "RTMP", 1, "session-c")
+	if sessions.Protocols[0].Sessions[0].ClientType != "pc" {
+		t.Fatalf("expected stored client type string, got %#v", sessions.Protocols[0].Sessions[0])
+	}
 
 	rtmpSessions, err := svc.ListDashboardSessions(ctx, ListDashboardSessionsInput{
 		StreamId:     "stream-a",
@@ -543,7 +546,7 @@ func TestDashboardTopologyAggregatesGatewayPage(t *testing.T) {
 	assertDashboardTopologyProtocol(t, stream.Protocols[1], "RTMP", 1, "tenant-a", 1, "session-c")
 	user := stream.Protocols[0].Tenants[0].Users[0]
 	if user.SessionId != "session-a" || user.UserName != "viewer-a" || user.ClientId != "client-a" ||
-		user.ClientIp != "192.0.2.11" || user.ClientType != int(SessionClientTypePC) ||
+		user.ClientIp != "192.0.2.11" || user.ClientType != "pc" ||
 		user.ProtocolType != "HLS" || user.TenantId != "tenant-a" || user.NodeId != "node-a" ||
 		user.InstanceId != "inst-a" || user.StartTime == nil {
 		t.Fatalf("expected user fields from the session projection, got %#v", user)
@@ -717,6 +720,22 @@ func TestDashboardPreservesClientMeasurements(t *testing.T) {
 	}
 }
 
+// TestDashboardClientTypesPreserveReportedValues verifies both session projections keep arbitrary strings.
+func TestDashboardClientTypesPreserveReportedValues(t *testing.T) {
+	for _, clientType := range []string{"", "2", "mobile", "pc", "web", " Custom-CLIENT "} {
+		t.Run(clientType, func(t *testing.T) {
+			stored := &dashboardSessionEntity{SessionId: "session-a", ClientType: clientType}
+			item, err := buildDashboardSessionItem(stored)
+			if err != nil || item.ClientType != clientType {
+				t.Fatalf("session client type changed: got=%#v want=%q err=%v", item, clientType, err)
+			}
+			if user := buildDashboardTopologyUser(stored); user.ClientType != clientType {
+				t.Fatalf("topology client type changed: got=%#v want=%q", user, clientType)
+			}
+		})
+	}
+}
+
 // TestDashboardPlaybackDuration validates elapsed second boundaries and progression with a fixed clock.
 func TestDashboardPlaybackDuration(t *testing.T) {
 	var (
@@ -785,7 +804,7 @@ func TestCleanupClosedReportsRemovesExpiredClosedRows(t *testing.T) {
 			SessionId:    "session-expired",
 			StreamId:     "stream-expired",
 			TenantId:     "tenant-a",
-			ClientType:   int(SessionClientTypePC),
+			ClientType:   "pc",
 			ProtocolType: "HLS",
 			NodeId:       "node-a",
 			StartTime:    startTime,
@@ -796,7 +815,7 @@ func TestCleanupClosedReportsRemovesExpiredClosedRows(t *testing.T) {
 			SessionId:    "session-active",
 			StreamId:     "stream-recent",
 			TenantId:     "tenant-a",
-			ClientType:   int(SessionClientTypePC),
+			ClientType:   "pc",
 			ProtocolType: "HLS",
 			NodeId:       "node-a",
 			StartTime:    startTime,
@@ -922,7 +941,7 @@ func setupMediaDashboardReportTables(t *testing.T, ctx context.Context) {
 			device_id TEXT NOT NULL DEFAULT '',
 			client_id TEXT NOT NULL DEFAULT '',
 			client_ip TEXT,
-			client_type INTEGER NOT NULL DEFAULT 0,
+			client_type TEXT NOT NULL DEFAULT '',
 			user_name TEXT NOT NULL DEFAULT '',
 			protocol_type TEXT NOT NULL DEFAULT '',
 			start_time TEXT,
@@ -1294,7 +1313,7 @@ func dashboardSessionDO(
 		DeviceId:          dashboardTestDeviceID(streamID),
 		ClientId:          clientID,
 		ClientIp:          dashboardTestSessionIP(sessionID),
-		ClientType:        int(SessionClientTypePC),
+		ClientType:        "pc",
 		UserName:          userName,
 		ProtocolType:      protocolType,
 		StartTime:         startTime,

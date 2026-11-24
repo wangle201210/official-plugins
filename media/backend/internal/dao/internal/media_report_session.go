@@ -28,7 +28,7 @@ type MediaReportSessionColumns struct {
 	DeviceId          string // 会话所属设备业务标识，用于设备维度统计
 	ClientId          string // 客户端标识
 	ClientIp          string // 客户端IP地址
-	ClientType        string // 客户端类型枚举：1-mobile，2-pc，0-未知
+	ClientType        string // 客户端类型字符串
 	UserName          string // 播放用户展示名称
 	ProtocolType      string // 播放协议类型
 	StartTime         string // 会话开始时间

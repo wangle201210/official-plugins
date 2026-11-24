@@ -91,7 +91,7 @@ type DashboardTopologyUser struct {
 	UserName     string
 	ClientId     string
 	ClientIp     string
-	ClientType   int
+	ClientType   string
 	ProtocolType string
 	TenantId     string
 	NodeId       string

@@ -19,7 +19,7 @@ type MediaReportSession struct {
 	DeviceId          any         // 会话所属设备业务标识，用于设备维度统计
 	ClientId          any         // 客户端标识
 	ClientIp          any         // 客户端IP地址
-	ClientType        any         // 客户端类型枚举：1-mobile，2-pc，0-未知
+	ClientType        any         // 客户端类型字符串
 	UserName          any         // 播放用户展示名称
 	ProtocolType      any         // 播放协议类型
 	StartTime         *gtime.Time // 会话开始时间

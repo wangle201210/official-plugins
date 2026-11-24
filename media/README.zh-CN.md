@@ -68,6 +68,8 @@
 
 `GET /api/v1/media/dashboard/streams`在每条流的`stream_list[].node_id`返回字符串节点ID，取自已有`media_report_stream.node_id`。未记录节点时返回`""`，已保存的`"0"`仍为字符串。按实例查询或跨多个节点查询时，也返回各条记录自身的节点，不增加查询或数据库迁移。
 
+会话`client_type`使用`TEXT NOT NULL DEFAULT ''`存储，会话列表和设备拓扑均返回`JSON`字符串。采集服务保留协议原值，包括大小写、空白、数字字符串和自定义类型；未提供时为`""`。启动新版前执行当前`manifest/sql/003-add-media-data-collection-server.sql`中的`client_type`列变更，不恢复或回填历史值。
+
 ## 完整最新上报
 
 启用`DEBUG`日志后，采集服务在校验和处理前打印每条机器、网络、流和会话上报，覆盖新增、状态和删除事件。检索`media collection data report`即可查看`subcmd`、报文类型和完整`protobuf JSON`内容，包含默认值（包括为零的`start_time`）、枚举数值、完整`extra`及嵌套跳点。既有`INFO`摘要日志保持不变。关闭`DEBUG`时跳过日志报文序列化；序列化失败仅输出诊断，不阻断上报处理。

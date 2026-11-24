@@ -170,6 +170,33 @@ func TestBuildDashboardInstanceTimestampSchemas(t *testing.T) {
 	}
 }
 
+// TestBuildDashboardClientTypeSchemas verifies both session response schemas publish string client types.
+func TestBuildDashboardClientTypeSchemas(t *testing.T) {
+	document, err := Build(t.Context(), &documentationOnlyService{})
+	if err != nil {
+		t.Fatalf("build client type documentation: %v", err)
+	}
+	for _, typeName := range []string{"DashboardSessionItem", "DashboardTopologyUser"} {
+		matches := 0
+		for name, schema := range document.Components.Schemas.Map() {
+			if name != typeName && !strings.HasSuffix(name, "."+typeName) {
+				continue
+			}
+			matches++
+			if schema.Value == nil || schema.Value.Properties == nil {
+				t.Fatalf("missing properties for %s", name)
+			}
+			clientType := schema.Value.Properties.Get("client_type")
+			if clientType == nil || clientType.Value == nil || clientType.Value.Type != "string" {
+				t.Fatalf("%s.client_type must document a string: %#v", name, clientType)
+			}
+		}
+		if matches != 1 {
+			t.Fatalf("expected one %s schema, got %d", typeName, matches)
+		}
+	}
+}
+
 // TestBuildDashboardReportedMetricUnits checks generated CPU and network units
 // for all resource projections, including the nested direct resources.
 func TestBuildDashboardReportedMetricUnits(t *testing.T) {

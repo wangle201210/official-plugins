@@ -361,8 +361,8 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 		report.protocolType != "HLS" {
 		t.Fatalf("unexpected session fields: %#v", report)
 	}
-	if report.clientType != sessionClientTypeMobile {
-		t.Fatalf("expected mobile client type enum, got %#v", report.clientType)
+	if report.clientType != "mobile" {
+		t.Fatalf("expected reported mobile client type string, got %#v", report.clientType)
 	}
 	if report.currentResolution != "1280x720" || report.totalLinkLatency != 12 {
 		t.Fatalf("unexpected session quality fields: %#v", report)
@@ -373,6 +373,18 @@ func TestNormalizeSessionMetricBuildsSessionReport(t *testing.T) {
 	}
 	if len(hops) != 1 || hops[0].HopIndex != 1 || hops[0].NodeID != "node-a" || hops[0].LatencyMs != 12 {
 		t.Fatalf("unexpected link hops: %#v", hops)
+	}
+}
+
+// TestNormalizeSessionMetricPreservesClientType keeps the protocol string, including empty and custom values.
+func TestNormalizeSessionMetricPreservesClientType(t *testing.T) {
+	for _, clientType := range []string{"", "0", "2", "mobile", "pc", "web", " MoBiLe ", " custom-client "} {
+		t.Run(clientType, func(t *testing.T) {
+			report, ok := normalizeSessionMetric(&gen.SessionMetric{SessionId: "session-a", ClientType: clientType})
+			if !ok || report.clientType != clientType {
+				t.Fatalf("expected client type %q unchanged, got %#v valid=%v", clientType, report, ok)
+			}
+		})
 	}
 }
 

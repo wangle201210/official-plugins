@@ -17,7 +17,7 @@ type MediaReportSession struct {
 	DeviceId          string      `json:"deviceId"          orm:"device_id"          description:"会话所属设备业务标识，用于设备维度统计"`
 	ClientId          string      `json:"clientId"          orm:"client_id"          description:"客户端标识"`
 	ClientIp          string      `json:"clientIp"          orm:"client_ip"          description:"客户端IP地址"`
-	ClientType        int         `json:"clientType"        orm:"client_type"        description:"客户端类型枚举：1-mobile，2-pc，0-未知"`
+	ClientType        string      `json:"clientType"        orm:"client_type"        description:"客户端类型字符串"`
 	UserName          string      `json:"userName"          orm:"user_name"          description:"播放用户展示名称"`
 	ProtocolType      string      `json:"protocolType"      orm:"protocol_type"      description:"播放协议类型"`
 	StartTime         *gtime.Time `json:"startTime"         orm:"start_time"         description:"会话开始时间"`

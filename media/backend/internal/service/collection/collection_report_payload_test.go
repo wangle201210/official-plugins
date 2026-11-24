@@ -255,6 +255,9 @@ func TestReportPayloadPersistencePostgres(t *testing.T) {
 	}
 	sessionBeforeDelete := readSession(fixture.session.SessionId)
 	assertReportPayloadRoundTrip(t, sessionBeforeDelete.ReportPayload, fixture.session)
+	if sessionBeforeDelete.ClientType != fixture.session.ClientType {
+		t.Fatalf("session projection changed custom client type: got=%q want=%q", sessionBeforeDelete.ClientType, fixture.session.ClientType)
+	}
 	if sessionBeforeDelete.ReportSubcommand != int(gen.SCMDDataReport_SESSION_STATUS) {
 		t.Fatalf("session subcommand was not updated: %d", sessionBeforeDelete.ReportSubcommand)
 	}
@@ -279,7 +282,8 @@ func TestReportPayloadPersistencePostgres(t *testing.T) {
 	assertReportPayloadRoundTrip(t, sessionAfterDelete.ReportPayload, sessionDelete)
 	if sessionAfterDelete.ReportSubcommand != int(gen.SCMDDataReport_SESSION_DELETE) || sessionAfterDelete.CloseTime == nil ||
 		sessionAfterDelete.StreamId != sessionBeforeDelete.StreamId || sessionAfterDelete.ClientIp != sessionBeforeDelete.ClientIp ||
-		sessionAfterDelete.UserName != sessionBeforeDelete.UserName || sessionAfterDelete.InstanceId != sessionBeforeDelete.InstanceId || sessionAfterDelete.LinkHops != sessionBeforeDelete.LinkHops {
+		sessionAfterDelete.UserName != sessionBeforeDelete.UserName || sessionAfterDelete.ClientType != sessionBeforeDelete.ClientType ||
+		sessionAfterDelete.InstanceId != sessionBeforeDelete.InstanceId || sessionAfterDelete.LinkHops != sessionBeforeDelete.LinkHops {
 		t.Fatalf("session delete erased display data or failed to close: %#v", sessionAfterDelete)
 	}
 	assertReportInstanceCounters(t, ctx, fixture.machine.InstanceId, 0, 0)
@@ -299,7 +303,7 @@ func TestReportPayloadPersistencePostgres(t *testing.T) {
 	}
 	firstSession := readSession(firstSessionID)
 	assertReportPayloadRoundTrip(t, firstSession.ReportPayload, sessionDelete)
-	if firstSession.CloseTime == nil || firstSession.ReportSubcommand != int(gen.SCMDDataReport_SESSION_DELETE) {
+	if firstSession.CloseTime == nil || firstSession.ReportSubcommand != int(gen.SCMDDataReport_SESSION_DELETE) || firstSession.ClientType != "" {
 		t.Fatalf("first-seen session delete must create a closed payload row: %#v", firstSession)
 	}
 	// Payload storage precedes lifecycle counters. Even if counters are unavailable,

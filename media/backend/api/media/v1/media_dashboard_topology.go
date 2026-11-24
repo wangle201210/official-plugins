@@ -82,7 +82,7 @@ type DashboardTopologyUser struct {
 	UserName     string `json:"user_name" dc:"User display name." eg:"viewer-a"`
 	ClientId     string `json:"client_id" dc:"Client ID." eg:"client-a"`
 	ClientIp     string `json:"client_ip" dc:"Client IP address." eg:"192.0.2.10"`
-	ClientType   int    `json:"client_type" dc:"Client type enum: 1-mobile, 2-pc, 0-unknown." eg:"2"`
+	ClientType   string `json:"client_type" dc:"Client type. Empty when unspecified." eg:"pc"`
 	ProtocolType string `json:"protocol_type" dc:"Playback protocol type." eg:"HLS"`
 	TenantId     string `json:"tenant_id" dc:"Tenant ID." eg:"tenant-a"`
 	NodeId       string `json:"node_id" dc:"Hosting node ID." eg:"node-01"`

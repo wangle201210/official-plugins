@@ -68,6 +68,8 @@ Stream duration and total link latency are stored and returned as reported, incl
 
 `GET /api/v1/media/dashboard/streams` returns each stream's node ID as the string `stream_list[].node_id`, using the existing `media_report_stream.node_id` value. Missing node IDs return `""`, and a stored `"0"` remains a string. The response uses each row's node, including queries by instance or across multiple nodes. No additional query or database migration is required.
 
+Session `client_type` is stored as `TEXT NOT NULL DEFAULT ''` and returned as a JSON string by session-list and device-topology responses. The collector preserves the protocol value, including case, whitespace, numeric strings and custom client types; an unspecified value is `""`. Apply the `client_type` column changes in the current `manifest/sql/003-add-media-data-collection-server.sql` before starting this version. Historical values are not recovered or backfilled.
+
 ## Complete latest reports
 
 With `DEBUG` logging enabled, the collector logs every incoming machine, network, stream and session report before validation or processing, including add, status and delete events. Search for `media collection data report`: each entry includes `subcmd`, the packet type and the complete protobuf JSON payload, with default values (including zero `start_time`), numeric enums, full `extra` maps and nested hops. Existing `INFO` summaries remain unchanged. When `DEBUG` is disabled, logging skips payload serialization; encoding failures produce a diagnostic without blocking report handling.

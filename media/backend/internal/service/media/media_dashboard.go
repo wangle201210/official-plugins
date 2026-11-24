@@ -221,7 +221,7 @@ type DashboardSessionItem struct {
 	DeviceId          string
 	ClientId          string
 	ClientIp          string
-	ClientType        int
+	ClientType        string
 	TenantId          string
 	UserName          string
 	ProtocolType      string

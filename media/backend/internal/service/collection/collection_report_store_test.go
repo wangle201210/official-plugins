@@ -287,7 +287,7 @@ func TestReportRuntimePersistsMetrics(t *testing.T) {
 		t.Fatal("expected session report row")
 	}
 	if session.StreamId != streamID || session.TenantId != tenantID || session.DeviceId != deviceID || session.InstanceId != instanceID ||
-		session.ProtocolType != "HLS" || session.ClientType != int(sessionClientTypePC) {
+		session.ProtocolType != "HLS" || session.ClientType != "web" {
 		t.Fatalf("unexpected session projection: %#v", session)
 	}
 	if session.PlayDuration != 0 || session.TotalLinkLatency != 0 {
